@@ -1,0 +1,95 @@
+
+
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-md shadow">
+  <h1 class="text-2xl font-semibold mb-2 flex items-center space-x-2">
+    <i data-lucide="utensils" class="w-6 h-6 text-gray-700"></i>
+    <span>食材編集</span>
+  </h1>
+  <p class="text-sm text-gray-500 mb-6">食材の情報を編集してください</p>
+
+  <form action="/admin/ingredient-edit/<%= ingredient._id %>" method="POST" class="space-y-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <label class="block mb-1 text-sm font-medium">分類 *</label>
+        <input list="classification-list" name="classification" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.classification %>" required>
+        <datalist id="classification-list">
+          <% classificationList.forEach(cat => { %>
+            <option value="<%= cat %>">
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">食材名 *</label>
+        <input type="text" name="ingredient" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.ingredient %>" required>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">エネルギー (kcal)</label>
+        <input type="number" step="any" name="energy" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.energy || '' %>">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">水分 (%)</label>
+        <input type="number" step="any" name="water" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.water || '' %>">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">たんぱく質 (%)</label>
+        <input type="number" step="any" name="protein" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.protein || '' %>">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">脂質 (%)</label>
+        <input type="number" step="any" name="lipid" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.lipid || '' %>">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">炭水化物 (%)</label>
+        <input type="number" step="any" name="carbohydrate" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.carbohydrate || '' %>">
+      </div>
+    </div>
+
+    <div>
+      <label class="block mb-1 text-sm font-medium">単位（複数可）</label>
+      <div id="unit-list" class="space-y-2 text-sm text-gray-500">
+        <% (ingredient.unit || []).filter(u => u.trim() !== '').forEach(u => { %>
+          <div class="flex items-center space-x-2">
+            <input type="text" name="unit[]" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= u %>">
+            <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100" onclick="this.parentElement.remove()">×</button>
+          </div>
+        <% }) %>
+      </div>
+      <button type="button" class="mt-2 px-3 py-1 border text-sm rounded bg-white text-gray-700 hover:bg-gray-100" onclick="addUnit()">＋ 追加</button>
+    </div>
+
+    <div class="text-right mt-8">
+      <button type="submit" class="inline-flex items-center space-x-2 px-5 py-2 rounded bg-gray-900 text-white hover:bg-gray-800">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        <span>保存する</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function addUnit() {
+    const container = document.getElementById('unit-list');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex items-center space-x-2';
+
+    const input = document.createElement('input');
+    input.name = 'unit[]';
+    input.type = 'text';
+    input.placeholder = '例: g';
+    input.className = 'w-full border rounded-md px-3 py-2 bg-gray-50';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
+    button.textContent = '×';
+    button.onclick = function () {
+      wrapper.remove();
+    };
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(button);
+    container.appendChild(wrapper);
+  }
+
+  lucide.createIcons();
+</script>

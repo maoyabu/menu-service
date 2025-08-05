@@ -1,0 +1,78 @@
+<div class="container mx-auto px-6 py-10">
+  <h1 class="text-2xl font-semibold text-gray-900 mb-1">管理者ダッシュボード</h1>
+  <p class="text-sm text-gray-500 mb-8">レシピ管理システムの各種機能にアクセスできます</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+    <div class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
+          <i data-lucide="chart-column" class="w-6 h-6 text-gray-700"></i>
+        </div>
+        <h2 class="text-lg font-medium text-gray-900">ダッシュボード</h2>
+      </div>
+      <p class="text-sm text-gray-500">概要とクイックアクセス</p>
+    </div>
+    <a href="/admin/menu-list" class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
+            <i data-lucide="book-open" class="w-6 h-6 text-gray-700"></i>
+        </div>
+        <h2 class="text-lg font-medium text-gray-900">メニュー管理</h2>
+      </div>
+      <p class="text-sm text-gray-500">メニューの登録・編集・削除</p>
+    </a>
+    <a href="/admin/ingredient-list" class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
+          <i data-lucide="utensils" class="w-6 h-6 text-gray-700"></i>
+        </div>
+        <h2 class="text-lg font-medium text-gray-900">食材管理</h2>
+      </div>
+      <p class="text-sm text-gray-500">食材マスターの管理</p>
+    </a>
+    <a href="/admin/seasoning-list" class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
+          <i data-lucide="beaker" class="w-6 h-6 text-gray-700"></i>
+        </div>
+        <h2 class="text-lg font-medium text-gray-900">調味料管理</h2>
+      </div>
+      <p class="text-sm text-gray-500">調味料マスターの管理</p>
+    </a>
+    <div class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
+        <i data-lucide="cog" class="w-6 h-6 text-gray-700"></i>
+        </div>
+        <h2 class="text-lg font-medium text-gray-900">システム設定</h2>
+      </div>
+      <p class="text-sm text-gray-500">システムの各種設定</p>
+    </div>
+  </div>
+
+  <div>
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">システム概要</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="book-open" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p class="font-semibold text-gray-900 text-xl"><%= menuCount %></p>
+        <p class="text-sm text-gray-500 mt-1">登録メニュー数</p>
+      </div>
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="utensils" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p class="font-semibold text-gray-900 text-xl"><%= ingredientCount %></p>
+        <p class="text-sm text-gray-500 mt-1">登録食材数</p>
+      </div>
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="beaker" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p class="font-semibold text-gray-900 text-xl"><%= seasoningCount %></p>
+        <p class="text-sm text-gray-500 mt-1">登録調味料数</p>
+      </div>
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="activity" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p class="font-semibold text-gray-900 text-xl">稼働中</p>
+        <p class="text-sm text-gray-500 mt-1">システム状態</p>
+      </div>
+    </div>
+  </div>
+</div>

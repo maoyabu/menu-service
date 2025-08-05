@@ -1,0 +1,69 @@
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+      <i data-lucide="chef-hat" class="w-6 h-6 text-gray-700"></i>
+      調味料一覧
+    </h1>
+    <a href="/admin/seasoning-new" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-gray-900 text-white text-sm hover:bg-gray-800">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      新規登録
+    </a>
+  </div>
+
+  <form method="GET" action="/admin/seasoning-list" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">キーワード</label>
+      <input type="text" name="keyword" value="<%= keyword || '' %>" class="w-full py-2 px-3 border border-gray-300 rounded-md text-sm bg-gray-50" placeholder="調味料名など">
+    </div>
+    <div>
+      <label for="classification" class="block text-sm font-medium text-gray-700 mb-1">分類</label>
+      <select name="classification" class="w-full py-2 px-3 border border-gray-300 rounded-md text-sm bg-gray-50">
+        <option value="">すべて</option>
+        <% categoryList.forEach(cat => { %>
+          <option value="<%= cat %>" <%= (classification || '') === cat ? 'selected' : '' %>><%= cat %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="flex items-end">
+      <button type="submit" class="px-4 py-2 bg-gray-900 text-white rounded-md text-sm hover:bg-gray-800 w-full">絞り込む</button>
+    </div>
+  </form>
+
+  <div class="grid gap-4">
+    <% if (seasonings.length === 0) { %>
+      <p class="text-gray-500 text-sm">一致する調味料がありません</p>
+    <% } else { %>
+      <% seasonings.forEach(item => { %>
+        <div class="bg-white border border-gray-200 shadow-sm rounded-xl p-4 hover:shadow transition">
+          <div class="flex justify-between items-center">
+            <div>
+              <h2 class="text-lg font-medium text-gray-900"><%= item.seasoning %></h2>
+              <div class="mt-1 flex gap-2 flex-wrap text-sm text-gray-600">
+                <% if (item.classification) { %>
+                  <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-md text-xs font-medium">分類: <%= item.classification %></span>
+                <% } %>
+                <% if (item.unit && item.unit.length > 0) { %>
+                  <span class="px-2 py-1 bg-gray-100 rounded-md">単位: <%= item.unit.filter(u => u && u.trim() !== '').join(', ') %></span>
+                <% } %>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <a href="/admin/seasoning-edit/<%= item._id %>" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+                <i data-lucide="edit" class="w-4 h-4"></i>
+              </a>
+              <form action="/admin/seasoning-delete/<%= item._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');">
+                <button type="submit" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+                  <i data-lucide="trash" class="w-4 h-4"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    <% } %>
+  </div>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</div>

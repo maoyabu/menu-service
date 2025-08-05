@@ -1,0 +1,99 @@
+
+
+<div class="max-w-3xl mx-auto bg-white p-8 rounded-md shadow">
+  <h1 class="text-2xl font-semibold mb-4 flex items-center space-x-2">
+    <i data-lucide="carrot" class="w-6 h-6 text-gray-700"></i>
+    <span>調味料編集</span>
+  </h1>
+  <p class="text-sm text-gray-500 mb-6">調味料の情報を編集してください</p>
+
+  <form action="/admin/seasoning-edit/<%= seasoning._id %>" method="POST" class="space-y-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <label class="block mb-1 text-sm font-medium">分類 *</label>
+        <input list="classification-list" name="classification" value="<%= seasoning.classification %>" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+        <datalist id="classification-list">
+          <% if (classificationList && classificationList.length > 0) { %>
+            <% classificationList.forEach(cat => { %>
+              <option value="<%= cat %>">
+            <% }) %>
+          <% } %>
+        </datalist>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">調味料名 *</label>
+        <input type="text" name="seasoning" value="<%= seasoning.seasoning %>" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">エネルギー (kcal)</label>
+        <input type="number" name="energy" value="<%= seasoning.energy %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">水分 (g)</label>
+        <input type="number" step="0.1" name="water" value="<%= seasoning.water %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">たんぱく質 (g)</label>
+        <input type="number" step="0.1" name="protein" value="<%= seasoning.protein %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">脂質 (g)</label>
+        <input type="number" step="0.1" name="lipid" value="<%= seasoning.lipid %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">炭水化物 (g)</label>
+        <input type="number" step="0.1" name="carbohydrate" value="<%= seasoning.carbohydrate %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+      </div>
+    </div>
+
+    <div>
+      <label class="block mb-1 text-sm font-medium">単位（複数可）</label>
+      <div id="units-list" class="space-y-2 text-sm text-gray-500">
+        <% if (seasoning.unit && seasoning.unit.length > 0) { %>
+          <% seasoning.unit.forEach(u => { if (u && u.trim()) { %>
+            <div class="flex items-center space-x-2">
+              <input type="text" name="unit[]" value="<%= u %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+              <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100" onclick="this.parentElement.remove()">×</button>
+            </div>
+          <% } }) %>
+        <% } %>
+      </div>
+      <button type="button" class="mt-2 px-3 py-1 border text-sm rounded bg-white text-gray-700 hover:bg-gray-100" onclick="addUnit()">＋ 追加</button>
+    </div>
+
+    <div class="text-right mt-8">
+      <button type="submit" class="inline-flex items-center space-x-2 px-5 py-2 rounded bg-gray-900 text-white hover:bg-gray-800">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        <span>調味料を保存</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function addUnit() {
+    const container = document.getElementById('units-list');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex items-center space-x-2';
+
+    const input = document.createElement('input');
+    input.name = 'unit[]';
+    input.type = 'text';
+    input.placeholder = '例: g, 大さじ, 小さじ';
+    input.className = 'w-full border rounded-md px-3 py-2 bg-gray-50';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = function () {
+      wrapper.remove();
+    };
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(removeBtn);
+    container.appendChild(wrapper);
+  }
+
+  lucide.createIcons();
+</script>

@@ -1,0 +1,21 @@
+<header class="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+  <div class="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+    <i data-lucide="chef-hat" class="w-6 h-6"></i>
+    <a href="/admin/admin-top" class="hover:underline">
+      <span>レシピ管理システム</span>
+    </a>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="flex items-center gap-1 text-gray-600">
+      <i data-lucide="users" class="w-5 h-5"></i>
+      <span>管理者</span>
+      <span class="bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded">管理者</span>
+    </div>
+    <form action="/logout" method="POST">
+      <button type="submit" class="flex items-center gap-1 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span>ログアウト</span>
+      </button>
+    </form>
+  </div>
+</header>

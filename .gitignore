@@ -1,0 +1,16 @@
+# Node modules
+node_modules/
+
+# VSCode
+.vscode/
+
+# OSファイル
+.DS_Store
+
+# 環境ファイル
+.env
+
+# ビルドファイル
+dist/
+
+.cache/

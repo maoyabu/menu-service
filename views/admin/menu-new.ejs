@@ -1,0 +1,606 @@
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-md shadow">
+  <h1 class="text-2xl font-semibold mb-2 flex items-center space-x-2">
+    <i data-lucide="chef-hat" class="w-6 h-6 text-gray-700"></i>
+    <span>レシピ登録</span>
+  </h1>
+  <p class="text-sm text-gray-500 mb-6">新しいレシピの情報を入力してください</p>
+
+  <form action="/admin/menu-new" method="POST" class="space-y-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <label class="block mb-1 text-sm font-medium">レシピ名 *</label>
+        <input type="text" name="name" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">種類 *</label>
+        <select name="kind" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+          <option value="">種類を選択</option>
+          <% kindList.forEach(kind => { %>
+            <option value="<%= kind %>"><%= kind %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">メニュー *</label>
+        <input type="text" name="menu" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">ジャンル *</label>
+        <select name="junle" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+          <option value="">ジャンルを選択</option>
+          <% junleList.forEach(junle => { %>
+            <option value="<%= junle %>"><%= junle %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">調理方法 *</label>
+        <select name="cook" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+          <option value="">調理方法を選択</option>
+          <% cookList.forEach(cook => { %>
+            <option value="<%= cook %>"><%= cook %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">URL *</label>
+        <input type="url" name="url" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="https://example.com" required>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">調理時間 (分) *</label>
+        <input type="number" name="time" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium">人数 *</label>
+        <input type="number" name="people" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+      </div>
+    </div>
+
+    <hr class="my-6">
+
+    <div>
+      <div class="flex justify-between items-center">
+        <label class="block mb-1 text-sm font-medium">食材</label>
+        <button type="button" class="inline-flex items-center border border-gray-300 rounded px-3 py-1 text-sm text-gray-700 hover:bg-gray-50" onclick="addIngredient()">
+          <span class="text-xl leading-none">＋</span><span class="ml-1">食材を追加</span>
+        </button>
+      </div>
+      <div class="border rounded-lg p-4 bg-white shadow-sm space-y-2">
+        <div id="ingredients-list" class="space-y-2 text-sm text-gray-500">食材を追加してください</div>
+      </div>
+    </div>
+
+    <hr class="my-6">
+
+    <div>
+      <div class="flex justify-between items-center">
+        <label class="block mb-1 text-sm font-medium">調味料</label>
+        <button type="button" class="inline-flex items-center border border-gray-300 rounded px-3 py-1 text-sm text-gray-700 hover:bg-gray-50" onclick="addSeasoning()">
+          <span class="text-xl leading-none">＋</span><span class="ml-1">調味料を追加</span>
+        </button>
+      </div>
+      <div class="border rounded-lg p-4 bg-white shadow-sm space-y-2">
+        <div id="seasonings-list" class="space-y-2 text-sm text-gray-500">調味料を追加してください</div>
+      </div>
+    </div>
+
+    <div class="text-right mt-8">
+      <button type="submit" class="inline-flex items-center space-x-2 px-5 py-2 rounded bg-gray-900 text-white hover:bg-gray-800">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        <span>レシピを保存</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  // --- 新しい食材追加モーダル用JS ---
+  let currentIngredientTab = 'search';
+
+  function setIngredientTab(tab) {
+    currentIngredientTab = tab;
+    document.querySelectorAll('.ingredient-tab-btn').forEach(btn => {
+      btn.classList.remove('bg-gray-200', 'text-black');
+      btn.classList.add('text-gray-700');
+    });
+    const activeBtn = document.getElementById(`tab-btn-${tab}`);
+    activeBtn.classList.remove('text-gray-700');
+    activeBtn.classList.add('bg-gray-200', 'text-black');
+
+    if (tab === 'favorite') {
+      document.getElementById('ingredient-search').value = '';
+      document.getElementById('ingredient-genre-filter').selectedIndex = 0;
+    }
+
+    fetchIngredients();
+  }
+
+  async function fetchIngredients() {
+    const keyword = document.getElementById('ingredient-search')?.value || '';
+    const genreFilter = document.getElementById('ingredient-genre-filter')?.value || '';
+    const params = new URLSearchParams();
+    params.append('keyword', keyword);
+    params.append('tab', currentIngredientTab);
+    if (genreFilter) {
+      params.append('genre', genreFilter);
+    }
+    if (currentIngredientTab === 'favorite') {
+      params.append('favorite', true);
+    }
+    if (currentIngredientTab === 'recent') {
+      params.append('recent', true);
+    }
+
+    const res = await fetch('/admin/api/ingredients?' + params.toString());
+    const ingredients = await res.json();
+    renderIngredientList(ingredients);
+  }
+
+  // 新しい食材リスト描画（お気に入り・詳細・カード全体クリックで追加）
+  function renderIngredientList(ingredients) {
+    const resultsContainer = document.getElementById('ingredient-results');
+    resultsContainer.innerHTML = '';
+    if (!ingredients || ingredients.length === 0) {
+      resultsContainer.innerHTML = '<p class="text-sm text-gray-500">該当する食材が見つかりません</p>';
+      return;
+    }
+
+    ingredients.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'border p-2 rounded-md hover:bg-gray-50 cursor-pointer text-sm space-y-1 ingredient-card';
+
+      const basicInfo = `
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="font-medium">
+              <span class="ingredient-name">${item.ingredient}</span>
+              <span class="text-xs text-gray-500 ml-1">${item.classification}</span>
+            </div>
+            <div class="text-xs text-gray-600">単位: ${item.unit.join(', ')}</div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="event.stopPropagation(); toggleIngredientDetail(this)" class="text-blue-500 hover:text-blue-700" title="栄養を見る">
+              <span class="inline-block">Info </span> 
+            </button>
+            <button onclick="event.stopPropagation(); toggleFavorite(this, '${item._id}', 'ingredient')" class="${item.favorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-500">${item.favorite ? '★' : '☆'}</button>
+          </div>
+        </div>`;
+
+      const detailInfo = `
+        <div class="mt-2 hidden text-xs text-gray-600 detail-section">
+          <div>水分: ${item.water || '-'}g　タンパク質: ${item.protein || '-'}g</div>
+          <div>脂質: ${item.lipid || '-'}g　炭水化物: ${item.carbohydrate || '-'}g</div>
+        </div>`;
+
+      div.innerHTML = basicInfo + detailInfo;
+      div.addEventListener('click', () => {
+        addIngredientFromSearch(item._id, item.ingredient, item.unit, item.classification, item.short_nutrition || '');
+      });
+      resultsContainer.appendChild(div);
+    });
+  }
+
+  function openIngredientModal() {
+    document.getElementById('ingredient-modal').classList.remove('hidden');
+    fetchIngredients();
+
+    const searchInput = document.getElementById('ingredient-search');
+    if (searchInput && !searchInput.dataset.bound) {
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(ingredientSearchTimer);
+        ingredientSearchTimer = setTimeout(() => {
+          fetchIngredients();
+        }, 300);
+      });
+      searchInput.dataset.bound = 'true';
+    }
+  }
+
+  function closeIngredientModal() {
+    document.getElementById('ingredient-modal').classList.add('hidden');
+  }
+
+  let ingredientSearchTimer;
+
+  async function addIngredientFromSearch(id, name, units, classification = '', nutrition = '') {
+    const container = document.getElementById('ingredients-list');
+    // Remove "食材を追加してください" if present
+    if (container.textContent.trim() === '食材を追加してください') container.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between border p-4 rounded-lg bg-gray-50';
+
+    // hidden input
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'ingredient_ids[]';
+    hidden.value = id;
+
+    // 上部: 名前＋分類
+    const topDiv = document.createElement('div');
+    topDiv.className = 'text-base font-medium text-gray-900';
+    topDiv.innerHTML = `${name} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${classification || '分類'}</span>`;
+
+    // 下部: 分量・単位・栄養・削除
+    const bottomDiv = document.createElement('div');
+    bottomDiv.className = 'flex flex-wrap items-center gap-2 mt-2 sm:mt-0';
+
+    // 分量
+    const amount = document.createElement('input');
+    amount.type = 'number';
+    amount.step = 'any';
+    amount.name = 'ingredient_amounts[]';
+    amount.placeholder = '量';
+    amount.className = 'w-20 border rounded-md px-2 py-1 text-sm';
+
+    // 単位
+    const unitSelect = document.createElement('select');
+    unitSelect.name = 'ingredient_units[]';
+    unitSelect.className = 'border rounded-md px-2 py-1 text-sm';
+    units.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u;
+      opt.textContent = u;
+      unitSelect.appendChild(opt);
+    });
+
+    // 栄養情報（ダミー/空でも表示）
+    const nutritionSpan = document.createElement('span');
+    nutritionSpan.className = 'text-gray-500 text-sm';
+    nutritionSpan.textContent = nutrition || '-';
+
+    // 削除ボタン
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = function () {
+      wrapper.remove();
+      // If no children, show placeholder
+      if (container.children.length === 0) {
+        container.innerHTML = '食材を追加してください';
+      }
+    };
+
+    bottomDiv.appendChild(amount);
+    bottomDiv.appendChild(unitSelect);
+    bottomDiv.appendChild(nutritionSpan);
+    bottomDiv.appendChild(removeBtn);
+
+    wrapper.appendChild(hidden);
+    wrapper.appendChild(topDiv);
+    wrapper.appendChild(bottomDiv);
+    container.appendChild(wrapper);
+    // 記録API呼び出し
+    await fetch(`/admin/api/ingredient-used/${id}`, { method: 'POST' });
+    closeIngredientModal();
+  }
+
+  // 元のボタンをモーダル起動に変更
+  function addIngredient() {
+    openIngredientModal();
+  }
+
+  // --- 調味料追加モーダル用JS ---
+  let currentSeasoningTab = 'search';
+
+  function setSeasoningTab(tab) {
+    currentSeasoningTab = tab;
+    document.querySelectorAll('.seasoning-tab-btn').forEach(btn => {
+      btn.classList.remove('bg-gray-200', 'text-black');
+      btn.classList.add('text-gray-700');
+    });
+    const activeBtn = document.getElementById(`seasoning-tab-btn-${tab}`);
+    activeBtn.classList.remove('text-gray-700');
+    activeBtn.classList.add('bg-gray-200', 'text-black');
+
+    if (tab === 'favorite' || tab === 'recent') {
+      document.getElementById('seasoning-search').value = '';
+      document.getElementById('seasoning-genre-filter').selectedIndex = 0;
+    }
+
+    fetchSeasonings();
+  }
+
+  async function fetchSeasonings() {
+    const keyword = document.getElementById('seasoning-search')?.value || '';
+    const genreFilter = document.getElementById('seasoning-genre-filter')?.value || '';
+    const params = new URLSearchParams();
+    params.append('keyword', keyword);
+    params.append('tab', currentSeasoningTab);
+    if (genreFilter) {
+      params.append('genre', genreFilter);
+    }
+    if (currentSeasoningTab === 'favorite') {
+      params.append('favorite', true);
+    }
+    if (currentSeasoningTab === 'recent') {
+      params.append('recent', true);
+    }
+
+    const res = await fetch('/admin/api/seasonings?' + params.toString());
+    const seasonings = await res.json();
+    renderSeasoningList(seasonings);
+  }
+
+  // 新しい調味料リスト描画（お気に入り・詳細・カード全体クリックで追加）
+  function renderSeasoningList(seasonings) {
+    const resultsContainer = document.getElementById('seasoning-results');
+    resultsContainer.innerHTML = '';
+    if (!seasonings || seasonings.length === 0) {
+      resultsContainer.innerHTML = '<p class="text-sm text-gray-500">該当する調味料が見つかりません</p>';
+      return;
+    }
+
+    seasonings.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'border p-2 rounded-md hover:bg-gray-50 cursor-pointer text-sm space-y-1 seasoning-card';
+
+      const basicInfo = `
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="font-medium">
+              <span class="seasoning-name">${item.seasoning}</span>
+              <span class="text-xs text-gray-500 ml-1">${item.classification}</span>
+            </div>
+            <div class="text-xs text-gray-600">単位: ${item.unit.join(', ')}</div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="event.stopPropagation(); toggleIngredientDetail(this)" class="text-blue-500 hover:text-blue-700" title="栄養を見る">
+              <span class="inline-block">Info </span> 
+            </button>
+            <button onclick="event.stopPropagation(); toggleFavorite(this, '${item._id}', 'seasoning')" class="${item.favorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-500">${item.favorite ? '★' : '☆'}</button>
+          </div>
+        </div>`;
+
+      const detailInfo = `
+        <div class="mt-2 hidden text-xs text-gray-600 detail-section">
+          <div>水分: ${item.water || '-'}g　タンパク質: ${item.protein || '-'}g</div>
+          <div>脂質: ${item.lipid || '-'}g　炭水化物: ${item.carbohydrate || '-'}g</div>
+        </div>`;
+
+      div.innerHTML = basicInfo + detailInfo;
+      div.addEventListener('click', () => {
+        addSeasoningFromSearch(item._id, item.seasoning, item.unit, item.classification, item.short_nutrition || '');
+      });
+      resultsContainer.appendChild(div);
+    });
+  }
+
+  function openSeasoningModal() {
+    document.getElementById('seasoning-modal').classList.remove('hidden');
+    fetchSeasonings();
+
+    const searchInput = document.getElementById('seasoning-search');
+    if (searchInput && !searchInput.dataset.bound) {
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(seasoningSearchTimer);
+        seasoningSearchTimer = setTimeout(() => {
+          fetchSeasonings();
+        }, 300);
+      });
+      searchInput.dataset.bound = 'true';
+    }
+  }
+
+  function closeSeasoningModal() {
+    document.getElementById('seasoning-modal').classList.add('hidden');
+  }
+
+  let seasoningSearchTimer;
+
+  async function addSeasoningFromSearch(id, name, units, classification = '', nutrition = '') {
+    const container = document.getElementById('seasonings-list');
+    // Remove "調味料を追加してください" if present
+    if (container.textContent.trim() === '調味料を追加してください') container.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between border p-4 rounded-lg bg-gray-50';
+
+    // hidden input
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'seasoning_ids[]';
+    hidden.value = id;
+
+    // 上部: 名前＋分類
+    const topDiv = document.createElement('div');
+    topDiv.className = 'text-base font-medium text-gray-900';
+    topDiv.innerHTML = `${name} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${classification || '分類'}</span>`;
+
+    // 下部: 分量・単位・栄養・削除
+    const bottomDiv = document.createElement('div');
+    bottomDiv.className = 'flex flex-wrap items-center gap-2 mt-2 sm:mt-0';
+
+    // 分量
+    const amount = document.createElement('input');
+    amount.type = 'number';
+    amount.step = 'any';
+    amount.name = 'seasoning_amounts[]';
+    amount.placeholder = '量';
+    amount.className = 'w-20 border rounded-md px-2 py-1 text-sm';
+
+    // 単位
+    const unitSelect = document.createElement('select');
+    unitSelect.name = 'seasoning_units[]';
+    unitSelect.className = 'border rounded-md px-2 py-1 text-sm';
+    units.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u;
+      opt.textContent = u;
+      unitSelect.appendChild(opt);
+    });
+
+    // 栄養情報（ダミー/空でも表示）
+    const nutritionSpan = document.createElement('span');
+    nutritionSpan.className = 'text-gray-500 text-sm';
+    nutritionSpan.textContent = nutrition || '-';
+
+    // 削除ボタン
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = function () {
+      wrapper.remove();
+      // If no children, show placeholder
+      if (container.children.length === 0) {
+        container.innerHTML = '調味料を追加してください';
+      }
+    };
+
+    bottomDiv.appendChild(amount);
+    bottomDiv.appendChild(unitSelect);
+    bottomDiv.appendChild(nutritionSpan);
+    bottomDiv.appendChild(removeBtn);
+
+    wrapper.appendChild(hidden);
+    wrapper.appendChild(topDiv);
+    wrapper.appendChild(bottomDiv);
+    container.appendChild(wrapper);
+    // 記録API呼び出し
+    await fetch(`/admin/api/seasoning-used/${id}`, { method: 'POST' });
+    closeSeasoningModal();
+  }
+
+  // 元のボタンをモーダル起動に変更
+  function addSeasoning() {
+    openSeasoningModal();
+  }
+
+</script>
+
+<script>
+// 共通: 詳細表示・お気に入りトグル
+function toggleIngredientDetail(button) {
+  const parent = button.closest('.ingredient-card, .seasoning-card');
+  const detail = parent.querySelector('.detail-section');
+  if (detail) detail.classList.toggle('hidden');
+}
+
+async function toggleFavorite(button, id, type) {
+  const isFav = button.textContent === '★';
+  const method = isFav ? 'DELETE' : 'POST';
+  await fetch(`/admin/api/favorite/${type}/${id}`, { method });
+  button.textContent = isFav ? '☆' : '★';
+  button.classList.toggle('text-yellow-400', !isFav);
+  button.classList.toggle('text-gray-400', isFav);
+}
+</script>
+
+<script>
+  // カテゴリリスト取得処理を削除（カテゴリのセレクトボックスも削除したため）
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // 初期描画用食材をEJSから受け取り
+    const initialIngredients = <%- JSON.stringify(initialIngredients || []) %>;
+    const resultsEl = document.getElementById('ingredient-results');
+    if (resultsEl) {
+      renderIngredientList(initialIngredients);
+    }
+    // 初期描画用調味料
+    const initialSeasonings = <%- JSON.stringify(initialSeasonings || []) %>;
+    const seasoningResultsEl = document.getElementById('seasoning-results');
+    if (seasoningResultsEl) {
+      renderSeasoningList(initialSeasonings);
+    }
+
+    // 栄養情報の短縮バージョン表示（ingredients）
+    document.querySelectorAll('#ingredients-list .flex').forEach(wrapper => {
+      const hiddenInput = wrapper.querySelector('input[type="hidden"][name="ingredient_ids[]"]');
+      if (!hiddenInput) return;
+      const ingredientId = hiddenInput.value;
+      // nutritionSpanは3番目の子（amount, unit, nutrition, removeBtn）
+      const nutritionSpan = wrapper.querySelector('span.text-gray-500.text-sm');
+      if (!nutritionSpan) return;
+      // initialIngredientsから該当IDを探す
+      const matchedIngredient = initialIngredients.find(item => item._id === ingredientId);
+      // Use short_nutrition instead of nutrition
+      const nutrition = matchedIngredient?.short_nutrition;
+      nutritionSpan.textContent = nutrition || '-';
+    });
+
+    // 栄養情報の短縮バージョン表示（seasonings）
+    document.querySelectorAll('#seasonings-list .flex').forEach(wrapper => {
+      const hiddenInput = wrapper.querySelector('input[type="hidden"][name="seasoning_ids[]"]');
+      if (!hiddenInput) return;
+      const seasoningId = hiddenInput.value;
+      const nutritionSpan = wrapper.querySelector('span.text-gray-500.text-sm');
+      if (!nutritionSpan) return;
+      // initialSeasoningsから該当IDを探す
+      const matchedSeasoning = initialSeasonings.find(item => item._id === seasoningId);
+      // Use short_nutrition instead of nutrition
+      const nutrition = matchedSeasoning?.short_nutrition;
+      nutritionSpan.textContent = nutrition || '-';
+    });
+  });
+</script>
+
+<!-- モーダルUI -->
+<div id="ingredient-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <div class="bg-white w-full max-w-2xl p-6 rounded-md shadow-md relative">
+    <button onclick="closeIngredientModal()" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl">×</button>
+    <h2 class="text-lg font-semibold mb-4">食材を追加</h2>
+
+    <div class="mb-4">
+      <input type="text" id="ingredient-search" placeholder="食材名で検索..." class="w-full px-3 py-2 border rounded-md">
+    </div>
+
+    <!-- タブボタン -->
+    <div class="flex gap-1 mb-4 rounded-full p-1">
+      <button type="button" id="tab-btn-search" class="ingredient-tab-btn px-4 py-1.5 text-sm rounded-full bg-gray-200 text-black" onclick="setIngredientTab('search')">検索</button>
+      <button type="button" id="tab-btn-favorite" class="ingredient-tab-btn px-4 py-1.5 text-sm rounded-full text-gray-700 hover:bg-gray-100" onclick="setIngredientTab('favorite')">お気に入り</button>
+      <button type="button" id="tab-btn-recent" class="ingredient-tab-btn px-4 py-1.5 text-sm rounded-full text-gray-700 hover:bg-gray-100" onclick="setIngredientTab('recent')">最近使用</button>
+    </div>
+
+    <div class="mb-4">
+      <select id="ingredient-genre-filter" class="w-full px-3 py-2 border rounded-md text-sm" onchange="fetchIngredients()">
+        <option value="">ジャンルを選択</option>
+        <% if (genreList && genreList.length > 0) { %>
+          <% genreList.forEach(genre => { %>
+            <option value="<%= genre %>"><%= genre %></option>
+          <% }) %>
+        <% } %>
+      </select>
+    </div>
+
+    <div id="ingredient-results" class="max-h-60 overflow-y-auto space-y-2">
+      <!-- 食材候補をここに描画 -->
+    </div>
+    <div class="text-right mt-4">
+      <a href="/admin/ingredient-list" target="_blank" class="text-sm text-blue-600 hover:underline">見つからない場合はこちらから食材を編集</a>
+    </div>
+  </div>
+</div>
+
+<!-- 調味料モーダル -->
+<div id="seasoning-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <div class="bg-white w-full max-w-2xl p-6 rounded-md shadow-md relative">
+    <button onclick="closeSeasoningModal()" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl">×</button>
+    <h2 class="text-lg font-semibold mb-4">調味料を追加</h2>
+
+    <div class="mb-4">
+      <input type="text" id="seasoning-search" placeholder="調味料名で検索..." class="w-full px-3 py-2 border rounded-md">
+    </div>
+
+    <div class="flex gap-1 mb-4 rounded-full p-1">
+      <button type="button" id="seasoning-tab-btn-search" class="seasoning-tab-btn px-4 py-1.5 text-sm rounded-full text-black" onclick="setSeasoningTab('search')">検索</button>
+      <button type="button" id="seasoning-tab-btn-favorite" class="seasoning-tab-btn px-4 py-1.5 text-sm rounded-full text-gray-700 hover:bg-gray-100" onclick="setSeasoningTab('favorite')">お気に入り</button>
+      <button type="button" id="seasoning-tab-btn-recent" class="seasoning-tab-btn px-4 py-1.5 text-sm rounded-full text-gray-700 hover:bg-gray-100" onclick="setSeasoningTab('recent')">最近使用</button>
+    </div>
+
+    <div class="mb-4">
+      <select id="seasoning-genre-filter" class="w-full px-3 py-2 border rounded-md text-sm" onchange="fetchSeasonings()">
+        <option value="">ジャンルを選択</option>
+        <% if (seasoningGenreList && seasoningGenreList.length > 0) { %>
+          <% seasoningGenreList.forEach(genre => { %>
+            <option value="<%= genre %>"><%= genre %></option>
+          <% }) %>
+        <% } %>
+      </select>
+    </div>
+
+    <div id="seasoning-results" class="max-h-60 overflow-y-auto space-y-2"></div>
+    <div class="text-right mt-4">
+      <a href="/admin/seasoning-list" target="_blank" class="text-sm text-blue-600 hover:underline">見つからない場合はこちらから調味料を編集</a>
+    </div>
+  </div>
+</div>

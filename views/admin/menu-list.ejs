@@ -1,0 +1,218 @@
+<div class="container mx-auto px-4 py-8">
+  <!-- 詳細モーダル -->
+  <div id="detailModal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg relative">
+      <button id="closeModalBtn" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 border border-gray-500 rounded px-2 py-1">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+      <h2 class="text-xl font-bold mb-4" id="modalTitle">レシピ詳細</h2>
+      <div id="modalContent" class="text-sm text-gray-700 space-y-2">
+        <!-- JSで埋め込み -->
+      </div>
+    </div>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+      <i data-lucide="filter" class="w-4 h-4 text-gray-700"></i>
+      検索・フィルター
+    </h2>
+    <form method="GET" action="/admin/menu-list" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <!-- キーワード -->
+      <div class="col-span-1 md:col-span-1">
+        <label for="keyword" class="block text-sm font-medium text-gray-700 mb-1">キーワード検索</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+          </span>
+          <input type="text" name="keyword" id="keyword"
+            class="pl-9 pr-3 py-2 border border-gray-300 rounded-md w-full text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+            placeholder="レシピ名、食材、調味料、種別など"
+            value="<%= typeof keyword !== 'undefined' ? keyword : '' %>">
+        </div>
+      </div>
+
+      <!-- 種類 -->
+      <div>
+        <label for="kind" class="block text-sm font-medium text-gray-700 mb-1">種類</label>
+        <select name="kind" id="kind" class="w-full py-2 px-3 border border-gray-300 rounded-md text-sm bg-gray-50">
+          <option value="" <%= !selectedType ? 'selected' : '' %>>すべて</option>
+          <% kindList.forEach(type => { %>
+            <option value="<%= type %>" <%= selectedType === type ? 'selected' : '' %>><%= type %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- ジャンル -->
+      <div>
+        <label for="junle" class="block text-sm font-medium text-gray-700 mb-1">ジャンル</label>
+        <select name="junle" id="junle" class="w-full py-2 px-3 border border-gray-300 rounded-md text-sm bg-gray-50">
+          <option value="" <%= !selectedJunle ? 'selected' : '' %>>すべて</option>
+          <% junleList.forEach(genre => { %>
+            <option value="<%= genre %>" <%= selectedJunle === genre ? 'selected' : '' %>><%= genre %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- 調理法 -->
+      <div>
+        <label for="cook" class="block text-sm font-medium text-gray-700 mb-1">調理法</label>
+        <select name="cook" id="cook" class="w-full py-2 px-3 border border-gray-300 rounded-md text-sm bg-gray-50">
+          <option value="" <%= !selectedCook ? 'selected' : '' %>>すべて</option>
+          <% cookList.forEach(cook => { %>
+            <option value="<%= cook %>" <%= selectedCook === cook ? 'selected' : '' %>><%= cook %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="md:col-span-4 flex justify-end">
+        <button type="submit" class="mt-2 px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition">
+          絞り込み
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+      <i data-lucide="book-open" class="w-6 h-6 text-gray-700"></i>
+      レシピ一覧
+    </h1>
+    <a href="/admin/menu-new" class="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition">
+      新規登録
+    </a>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <% menus.forEach(menu => { %>
+      <div class="border rounded-lg p-5 shadow hover:shadow-md transition bg-white">
+        <div class="flex justify-between items-start mb-2">
+          <h2 class="text-xl font-semibold text-gray-800"><%= menu.name %></h2>
+          <div class="flex gap-2">
+            <button class="text-gray-500 hover:text-gray-800 open-detail-modal border border-gray-400 rounded p-1" data-menu-id="<%= menu._id %>">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+            <a href="/admin/menu-edit/<%= menu._id %>" class="text-gray-500 hover:text-gray-800 border border-gray-400 rounded p-1">
+              <i data-lucide="pencil" class="w-4 h-4"></i>
+            </a>
+            <form action="/admin/menu-delete/<%= menu._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');" class="inline">
+              <button type="submit" class="text-gray-500 hover:text-red-600 border border-gray-400 rounded p-1">
+                <i data-lucide="trash" class="w-4 h-4"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1 text-sm text-gray-600 mb-2">
+          <% if (menu.kind) { %>
+            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+              種類: <%= menu.kind %>
+            </span>
+          <% } %>
+          <% if (menu.junle) { %>
+            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+              ジャンル: <%= menu.junle %>
+            </span>
+          <% } %>
+          <% if (menu.menu) { %>
+            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+              メニュー: <%= menu.menu %>
+            </span>
+          <% } %>
+          <% if (menu.cook) { %>
+            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+              調理法: <%= menu.cook %>
+            </span>
+          <% } %>
+        </div>
+        <div class="text-sm text-gray-500 mb-2">
+          <i data-lucide="clock" class="inline w-4 h-4 mr-1 align-text-bottom"></i>
+          <%= menu.time %>分　<%= menu.people %>人分
+        </div>
+        <div class="text-sm text-gray-500">
+          主な食材:
+          <%= (menu.ingredients || []).map(i => {
+            if (i && i._id && Array.isArray(ingredientList)) {
+              const found = ingredientList.find(item => item._id === i._id || item._id.toString() === i._id.toString());
+              return found ? found.ingredient : '';
+            }
+            return '';
+          }).filter(Boolean).join('、') %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <p class="mt-6 text-sm text-gray-500 text-center"><%= menus.length %>件のレシピが見つかりました</p>
+</div>
+
+<script>
+  const menus = <%- JSON.stringify(menus) %>;
+  const ingredientList = <%- JSON.stringify(ingredientList || []) %>;
+  const seasoningList = <%- JSON.stringify(seasoningList || []) %>;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+
+    document.querySelectorAll('.open-detail-modal').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const menuId = this.dataset.menuId;
+        const menu = menus.find(m => m._id === menuId);
+        if (!menu) return;
+
+        document.getElementById('modalTitle').innerText = menu.name;
+
+        const modalContent = document.getElementById('modalContent');
+        modalContent.innerHTML = `
+          <p class="text-sm text-gray-500">レシピの詳細情報</p>
+          <div class="grid grid-cols-2 gap-4 text-sm text-gray-800">
+            <div>
+              <p class="font-medium">種類</p>
+              <p>${menu.kind || ''}</p>
+            </div>
+            <div>
+              <p class="font-medium">メニュー</p>
+              <p>${menu.menu || ''}</p>
+            </div>
+            <div>
+              <p class="font-medium">ジャンル</p>
+              <p>${menu.junle || ''}</p>
+            </div>
+            <div>
+              <p class="font-medium">調理方法</p>
+              <p>${menu.cook || ''}</p>
+            </div>
+            <div>
+              <p class="font-medium">調理時間</p>
+              <p>${menu.time || ''}分</p>
+            </div>
+            <div>
+              <p class="font-medium">人数</p>
+              <p>${menu.people || ''}人</p>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <p class="font-medium">食材</p>
+            ${(menu.ingredients || []).map(i => {
+              const found = ingredientList.find(item => item._id === i._id);
+              return `<div class="bg-gray-100 rounded px-3 py-1 my-1">${found ? found.ingredient : ''}　${i.amount || ''} ${i.unit || ''}</div>`;
+            }).join('')}
+          </div>
+
+          <div class="mt-4">
+            <p class="font-medium">調味料</p>
+            ${(menu.seasoning || []).map(i => {
+              const found = seasoningList.find(item => item._id === i._id);
+              return `<div class="bg-gray-100 rounded px-3 py-1 my-1">${found ? found.seasoning : ''}　${i.amount || ''} ${i.unit || ''}</div>`;
+            }).join('')}
+          </div>
+        `;
+
+        document.getElementById('detailModal').classList.remove('hidden');
+      });
+    });
+
+    document.getElementById('closeModalBtn').addEventListener('click', function () {
+      document.getElementById('detailModal').classList.add('hidden');
+    });
+  });
+</script>
