@@ -525,7 +525,7 @@ router.post('/ingredient-new', async (req, res) => {
     const {
       classification,
       ingredient,
-      reading,
+      yomi,
       energy,
       water,
       protein,
@@ -537,7 +537,7 @@ router.post('/ingredient-new', async (req, res) => {
     const newIngredient = new Ingredient({
       classification,
       ingredient,
-      reading,
+      yomi,
       energy,
       water,
       protein,
@@ -560,7 +560,7 @@ router.post('/ingredient-edit/:id', async (req, res) => {
     const {
       classification,
       ingredient,
-      reading,
+      yomi,
       energy,
       water,
       protein,
@@ -572,7 +572,7 @@ router.post('/ingredient-edit/:id', async (req, res) => {
     await Ingredient.findByIdAndUpdate(req.params.id, {
       classification,
       ingredient,
-      reading,
+      yomi,
       energy,
       water,
       protein,
@@ -687,7 +687,7 @@ router.post('/seasoning-new', async (req, res) => {
     const {
       classification,
       seasoning,
-      reading,
+      yomi,
       energy,
       water,
       protein,
@@ -699,7 +699,7 @@ router.post('/seasoning-new', async (req, res) => {
     const newSeasoning = new Seasoning({
       classification,
       seasoning,
-      reading,
+      yomi,
       energy,
       water,
       protein,
@@ -722,7 +722,7 @@ router.post('/seasoning-edit/:id', async (req, res) => {
     const {
       classification,
       seasoning,
-      reading,
+      yomi,
       energy,
       water,
       protein,
@@ -734,7 +734,7 @@ router.post('/seasoning-edit/:id', async (req, res) => {
     await Seasoning.findByIdAndUpdate(req.params.id, {
       classification,
       seasoning,
-      reading,
+      yomi,
       energy,
       water,
       protein,
