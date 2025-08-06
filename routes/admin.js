@@ -442,10 +442,12 @@ router.get('/ingredient-list', async (req, res) => {
     const filter = {};
     if (classification) filter.classification = classification;
     if (keyword) {
+      const keywordRegex = new RegExp(keyword, 'i');
       filter.$or = [
-        { ingredient: new RegExp(keyword, 'i') },
-        { classification: new RegExp(keyword, 'i') },
-        { unit: { $elemMatch: { $regex: new RegExp(keyword, 'i') } } }
+        { ingredient: keywordRegex },
+        { yomi: keywordRegex },
+        { classification: keywordRegex },
+        { unit: { $in: [keywordRegex] } }
       ];
     }
 
@@ -523,6 +525,7 @@ router.post('/ingredient-new', async (req, res) => {
     const {
       classification,
       ingredient,
+      reading,
       energy,
       water,
       protein,
@@ -534,6 +537,7 @@ router.post('/ingredient-new', async (req, res) => {
     const newIngredient = new Ingredient({
       classification,
       ingredient,
+      reading,
       energy,
       water,
       protein,
@@ -556,6 +560,7 @@ router.post('/ingredient-edit/:id', async (req, res) => {
     const {
       classification,
       ingredient,
+      reading,
       energy,
       water,
       protein,
@@ -567,6 +572,7 @@ router.post('/ingredient-edit/:id', async (req, res) => {
     await Ingredient.findByIdAndUpdate(req.params.id, {
       classification,
       ingredient,
+      reading,
       energy,
       water,
       protein,
@@ -604,6 +610,7 @@ router.get('/seasoning-list', async (req, res) => {
     if (keyword) {
       filter.$or = [
         { seasoning: new RegExp(keyword, 'i') },
+        { yomi: new RegExp(keyword, 'i') },
         { classification: new RegExp(keyword, 'i') },
         { unit: { $elemMatch: { $regex: new RegExp(keyword, 'i') } } }
       ];
@@ -680,6 +687,7 @@ router.post('/seasoning-new', async (req, res) => {
     const {
       classification,
       seasoning,
+      reading,
       energy,
       water,
       protein,
@@ -691,6 +699,7 @@ router.post('/seasoning-new', async (req, res) => {
     const newSeasoning = new Seasoning({
       classification,
       seasoning,
+      reading,
       energy,
       water,
       protein,
@@ -713,6 +722,7 @@ router.post('/seasoning-edit/:id', async (req, res) => {
     const {
       classification,
       seasoning,
+      reading,
       energy,
       water,
       protein,
@@ -724,6 +734,7 @@ router.post('/seasoning-edit/:id', async (req, res) => {
     await Seasoning.findByIdAndUpdate(req.params.id, {
       classification,
       seasoning,
+      reading,
       energy,
       water,
       protein,

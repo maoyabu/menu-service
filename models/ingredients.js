@@ -8,6 +8,9 @@ const ingredientsSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    yomi: {
+        type: String
+    },
     energy: {
         type: Number
     },

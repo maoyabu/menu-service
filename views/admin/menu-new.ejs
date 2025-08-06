@@ -132,7 +132,16 @@
     }
 
     const res = await fetch('/admin/api/ingredients?' + params.toString());
-    const ingredients = await res.json();
+    let ingredients = await res.json();
+    // フロント側で再度絞り込み（yomi対応, サーバー側で未対応の場合）
+    if (keyword && Array.isArray(ingredients)) {
+      ingredients = ingredients.filter(item =>
+        (item.ingredient && item.ingredient.includes(keyword)) ||
+        (item.yomi && item.yomi.includes(keyword)) ||
+        (item.classification && item.classification.includes(keyword)) ||
+        (item.unit && Array.isArray(item.unit) && item.unit.some(u => u.includes(keyword)))
+      );
+    }
     renderIngredientList(ingredients);
   }
 
@@ -318,7 +327,16 @@
     }
 
     const res = await fetch('/admin/api/seasonings?' + params.toString());
-    const seasonings = await res.json();
+    let seasonings = await res.json();
+    // フロント側で再度絞り込み（yomi対応, サーバー側で未対応の場合）
+    if (keyword && Array.isArray(seasonings)) {
+      seasonings = seasonings.filter(item =>
+        (item.seasoning && item.seasoning.includes(keyword)) ||
+        (item.yomi && item.yomi.includes(keyword)) ||
+        (item.classification && item.classification.includes(keyword)) ||
+        (item.unit && Array.isArray(item.unit) && item.unit.some(u => u.includes(keyword)))
+      );
+    }
     renderSeasoningList(seasonings);
   }
 

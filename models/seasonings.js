@@ -8,6 +8,9 @@ const seasoningSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    yomi: {
+        type: String
+    },
     energy: {
         type: String
     },
