@@ -153,7 +153,13 @@ router.get('/api/ingredients', async (req, res) => {
 
   const filter = {};
   if (keyword) {
-    filter.ingredient = { $regex: keyword, $options: 'i' };
+    const keywordRegex = new RegExp(keyword, 'i');
+    filter.$or = [
+      { ingredient: keywordRegex },
+      { yomi: keywordRegex },
+      { classification: keywordRegex },
+      { unit: { $in: [keywordRegex] } }
+    ];
   }
   if (genre) {
     filter.classification = genre;
@@ -190,7 +196,13 @@ router.get('/api/seasonings', async (req, res) => {
 
   const filter = {};
   if (keyword) {
-    filter.seasoning = { $regex: keyword, $options: 'i' };
+    const keywordRegex = new RegExp(keyword, 'i');
+    filter.$or = [
+      { seasoning: keywordRegex },
+      { yomi: keywordRegex },
+      { classification: keywordRegex },
+      { unit: { $in: [keywordRegex] } }
+    ];
   }
   if (genre) {
     filter.classification = genre;
