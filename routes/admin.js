@@ -336,7 +336,6 @@ router.get('/menu-edit/:id', async (req, res) => {
     if (!menu) {
       return res.status(404).send('該当レシピが見つかりません');
     }
-    console.log('編集対象のメニュー:', menu);
 
     const allMenus = await Menu.find(); // セレクトボックスの候補用
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
