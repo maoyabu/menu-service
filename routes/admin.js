@@ -2,7 +2,16 @@ import express from 'express';
 import Menu from '../models/menu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+import ExcelJS from 'exceljs';
+
 const router = express.Router();
+
+// システム設定画面の表示
+router.get('/admin-setting', (req, res) => {
+  res.render('admin/admin-setting');
+});
 
 // 管理者ダッシュボード表示
 router.get('/admin-top', async (req, res) => {
@@ -283,14 +292,14 @@ router.post('/menu-new', async (req, res) => {
 
     // 食材の構造を整える
     const ingredients = ingredient_ids.map((id, index) => ({
-      _id: id,
+      name: id,
       amount: ingredient_amounts[index],
       unit: ingredient_units[index]
     }));
 
     // 調味料の構造を整える
     const seasonings = seasoning_ids.map((id, index) => ({
-      _id: id,
+      name: id,
       amount: seasoning_amounts[index],
       unit: seasoning_units[index]
     }));
@@ -321,10 +330,13 @@ router.post('/menu-new', async (req, res) => {
 // レシピ編集画面の表示
 router.get('/menu-edit/:id', async (req, res) => {
   try {
-    const menu = await Menu.findById(req.params.id);
+    const menu = await Menu.findById(req.params.id)
+      .populate({ path: 'ingredients.name', model: 'Ingredient' })
+      .populate({ path: 'seasoning.name', model: 'Seasoning' });
     if (!menu) {
       return res.status(404).send('該当レシピが見つかりません');
     }
+    console.log('編集対象のメニュー:', menu);
 
     const allMenus = await Menu.find(); // セレクトボックスの候補用
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
@@ -402,14 +414,14 @@ router.post('/menu-edit/:id', async (req, res) => {
 
     // 食材の構造を整える
     const ingredients = ingredient_ids.map((id, index) => ({
-      _id: id,
+      name: id,
       amount: ingredient_amounts[index],
       unit: ingredient_units[index]
     }));
 
     // 調味料の構造を整える
     const seasonings = seasoning_ids.map((id, index) => ({
-      _id: id,
+      name: id,
       amount: seasoning_amounts[index],
       unit: seasoning_units[index]
     }));
@@ -803,5 +815,160 @@ router.post('/api/seasoning-used/:id', async (req, res) => {
     res.status(500).json({ error: 'サーバーエラー' });
   }
 });
+
+// メニューデータのExcel書き出し
+router.get('/export/menus', async (req, res) => {
+  try {
+    const menus = await Menu.find()
+      .populate({ path: 'ingredients.name', model: 'Ingredient' })
+      .populate({ path: 'seasoning.name', model: 'Seasoning' });
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Menus');
+
+    worksheet.columns = [
+      { header: 'メニュー名', key: 'name' },
+      { header: '種類', key: 'kind' },
+      { header: 'メニュー内容', key: 'menu' },
+      { header: 'ジャンル', key: 'junle' },
+      { header: '調理法', key: 'cook' },
+      { header: 'URL', key: 'url' },
+      { header: '時間', key: 'time' },
+      { header: '人数', key: 'people' },
+      { header: '食材', key: 'ingredientsText' },
+      { header: '調味料', key: 'seasoningText' },
+      { header: '共有', key: 'share' },
+      { header: '登録日', key: 'entry_date' },
+      { header: '更新日', key: 'update_date' },
+    ];
+
+    menus.forEach(menu => {
+      const ingredientsText = JSON.stringify((menu.ingredients || []).map(i => ({
+        id: i.name?._id?.toString() || '',
+        name: i.name?.ingredient || '',
+        amount: i.amount,
+        unit: i.unit
+      })));
+
+      const seasoningText = JSON.stringify((menu.seasoning || []).map(s => ({
+        id: s.name?._id?.toString() || '',
+        name: s.name?.seasoning || '',
+        amount: s.amount,
+        unit: s.unit
+      })));
+
+      worksheet.addRow({
+        name: menu.name,
+        kind: menu.kind,
+        menu: menu.menu,
+        junle: menu.junle,
+        cook: menu.cook,
+        url: menu.url,
+        time: menu.time,
+        people: menu.people,
+        ingredientsText,
+        seasoningText,
+        share: menu.share,
+        entry_date: menu.entry_date,
+        update_date: menu.update_date,
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=menus.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('メニュー書き出しエラー:', err);
+    res.status(500).send('書き出しに失敗しました');
+  }
+});
+
+// 食材データのExcel書き出し
+router.get('/export/ingredients', async (req, res) => {
+  try {
+    const ingredients = await Ingredient.find();
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Ingredients');
+
+    worksheet.columns = [
+      { header: '分類', key: 'classification' },
+      { header: '食材名', key: 'ingredient' },
+      { header: 'よみ', key: 'yomi' },
+      { header: 'エネルギー', key: 'energy' },
+      { header: '水分', key: 'water' },
+      { header: 'たんぱく質', key: 'protein' },
+      { header: '脂質', key: 'lipid' },
+      { header: '炭水化物', key: 'carbohydrate' },
+      { header: '単位', key: 'unit' }
+    ];
+
+    ingredients.forEach(item => {
+      worksheet.addRow({
+        classification: item.classification,
+        ingredient: item.ingredient,
+        yomi: item.yomi,
+        energy: item.energy,
+        water: item.water,
+        protein: item.protein,
+        lipid: item.lipid,
+        carbohydrate: item.carbohydrate,
+        unit: item.unit?.join(', ')
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=ingredients.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('食材書き出しエラー:', err);
+    res.status(500).send('書き出しに失敗しました');
+  }
+});
+
+// 調味料データのExcel書き出し
+router.get('/export/seasonings', async (req, res) => {
+  try {
+    const seasonings = await Seasoning.find();
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Seasonings');
+
+    worksheet.columns = [
+      { header: '分類', key: 'classification' },
+      { header: '調味料名', key: 'seasoning' },
+      { header: 'よみ', key: 'yomi' },
+      { header: 'エネルギー', key: 'energy' },
+      { header: '水分', key: 'water' },
+      { header: 'たんぱく質', key: 'protein' },
+      { header: '脂質', key: 'lipid' },
+      { header: '炭水化物', key: 'carbohydrate' },
+      { header: '単位', key: 'unit' }
+    ];
+
+    seasonings.forEach(item => {
+      worksheet.addRow({
+        classification: item.classification,
+        seasoning: item.seasoning,
+        yomi: item.yomi,
+        energy: item.energy,
+        water: item.water,
+        protein: item.protein,
+        lipid: item.lipid,
+        carbohydrate: item.carbohydrate,
+        unit: item.unit?.join(', ')
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=seasonings.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('調味料書き出しエラー:', err);
+    res.status(500).send('書き出しに失敗しました');
+  }
+});
+
+
 
 export default router;

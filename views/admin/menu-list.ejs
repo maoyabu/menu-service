@@ -129,13 +129,7 @@
         </div>
         <div class="text-sm text-gray-500">
           主な食材:
-          <%= (menu.ingredients || []).map(i => {
-            if (i && i._id && Array.isArray(ingredientList)) {
-              const found = ingredientList.find(item => item._id === i._id || item._id.toString() === i._id.toString());
-              return found ? found.ingredient : '';
-            }
-            return '';
-          }).filter(Boolean).join('、') %>
+          <%= (menu.ingredients || []).map(i => i.name?.ingredient).filter(Boolean).join('、') %>
         </div>
       </div>
     <% }) %>
@@ -193,16 +187,14 @@
           <div class="mt-4">
             <p class="font-medium">食材</p>
             ${(menu.ingredients || []).map(i => {
-              const found = ingredientList.find(item => item._id === i._id);
-              return `<div class="bg-gray-100 rounded px-3 py-1 my-1">${found ? found.ingredient : ''}　${i.amount || ''} ${i.unit || ''}</div>`;
+              return `<div class="bg-gray-100 rounded px-3 py-1 my-1">${i.name?.ingredient || '未設定'}　${i.amount || ''} ${i.unit || ''}</div>`;
             }).join('')}
           </div>
 
           <div class="mt-4">
             <p class="font-medium">調味料</p>
             ${(menu.seasoning || []).map(i => {
-              const found = seasoningList.find(item => item._id === i._id);
-              return `<div class="bg-gray-100 rounded px-3 py-1 my-1">${found ? found.seasoning : ''}　${i.amount || ''} ${i.unit || ''}</div>`;
+              return `<div class="bg-gray-100 rounded px-3 py-1 my-1">${i.name?.seasoning || '未設定'}　${i.amount || ''} ${i.unit || ''}</div>`;
             }).join('')}
           </div>
         `;

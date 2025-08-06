@@ -68,32 +68,31 @@
       <div class="border rounded-lg p-4 bg-white shadow-sm space-y-2">
         <div id="ingredients-list" class="space-y-2 text-sm text-gray-500">
           <% if (menu.ingredients && menu.ingredients.length) { %>
-            <% menu.ingredients.forEach(item => { %>
-              <% const matchedIngredient = ingredientList.find(ing => ing._id.toString() === item._id?.toString()); %>
+            <% menu.ingredients.forEach(ingredient => { %>
               <div class="ingredient-card flex flex-wrap items-center gap-2 border border-gray-200 rounded p-2 bg-gray-50">
-                <input type="hidden" name="ingredient_ids[]" value="<%= item._id %>">
-                <span class="font-medium text-gray-800"><%= matchedIngredient ? matchedIngredient.ingredient : '未設定' %></span>
-                <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= matchedIngredient ? matchedIngredient.classification : '' %></span>
-                <input type="number" name="ingredient_amounts[]" step="any" placeholder="量" class="w-20 border rounded-md px-2 py-1 text-sm" value="<%= item.amount %>">
+                <input type="hidden" name="ingredient_ids[]" value="<%= ingredient._id %>">
+                <span class="font-medium text-gray-800"><%= ingredient.name?.ingredient || '未設定' %></span>
+                <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= ingredient.name?.classification || '' %></span>
+                <input type="number" name="ingredient_amounts[]" step="any" placeholder="量" class="w-20 border rounded-md px-2 py-1 text-sm" value="<%= ingredient.amount %>">
                 <select name="ingredient_units[]" class="border rounded-md px-2 py-1 text-sm">
-                  <% const units = (matchedIngredient && matchedIngredient.unit) ? [...matchedIngredient.unit] : []; %>
-                  <% if (item.unit && !units.includes(item.unit)) { units.unshift(item.unit); } %>
+                  <% let units = (ingredient.name && ingredient.name.unit) ? [...ingredient.name.unit] : []; %>
+                  <% if (ingredient.unit && !units.includes(ingredient.unit)) { units.unshift(ingredient.unit); } %>
                   <% units.forEach(u => { %>
-                    <option value="<%= u %>" <%= u === item.unit ? 'selected' : '' %>><%= u %></option>
+                    <option value="<%= u %>" <%= u === ingredient.unit ? 'selected' : '' %>><%= u %></option>
                   <% }) %>
                 </select>
                 <button onclick="event.stopPropagation(); toggleIngredientDetail(this)" class="text-blue-500 hover:text-blue-700" title="栄養を見る">
                   <i data-lucide="info" class="w-4 h-4"></i>
                 </button>
-                <% if (matchedIngredient && matchedIngredient.nutrition) { %>
+                <% if (ingredient.name && ingredient.name.nutrition) { %>
                   <span class="text-xs text-gray-400 ml-2">
-                    <%= matchedIngredient.nutrition %>
+                    <%= ingredient.name.nutrition %>
                   </span>
                 <% } %>
                 <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100 ml-auto" onclick="this.parentElement.remove()">×</button>
                 <div class="mt-2 hidden text-xs text-gray-600 detail-section">
-                  <div>水分: <%= matchedIngredient?.moisture || '-' %>g　タンパク質: <%= matchedIngredient?.protein || '-' %>g</div>
-                  <div>脂質: <%= matchedIngredient?.fat || '-' %>g　炭水化物: <%= matchedIngredient?.carbohydrate || '-' %>g</div>
+                  <div>水分: <%= ingredient.name?.water || '-' %>g　タンパク質: <%= ingredient.name?.protein || '-' %>g</div>
+                  <div>脂質: <%= ingredient.name?.lipid || '-' %>g　炭水化物: <%= ingredient.name?.carbohydrate || '-' %>g</div>
                 </div>
               </div>
             <% }) %>
@@ -116,32 +115,31 @@
       <div class="border rounded-lg p-4 bg-white shadow-sm space-y-2">
         <div id="seasonings-list" class="space-y-2 text-sm text-gray-500">
           <% if (menu.seasoning && menu.seasoning.length) { %>
-            <% menu.seasoning.forEach(item => { %>
-              <% const matchedSeasoning = seasoningList.find(s => s._id.toString() === item._id?.toString()); %>
+            <% menu.seasoning.forEach(seasoning => { %>
               <div class="seasoning-card flex flex-wrap items-center gap-2 border border-gray-200 rounded p-2 bg-gray-50">
-                <input type="hidden" name="seasoning_ids[]" value="<%= item._id %>">
-                <span class="font-medium text-gray-800"><%= matchedSeasoning ? matchedSeasoning.seasoning : '未設定' %></span>
-                <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= matchedSeasoning ? matchedSeasoning.classification : '' %></span>
-                <input type="number" name="seasoning_amounts[]" step="any" placeholder="量" class="w-20 border rounded-md px-2 py-1 text-sm" value="<%= item.amount %>">
+                <input type="hidden" name="seasoning_ids[]" value="<%= seasoning._id %>">
+                <span class="font-medium text-gray-800"><%= seasoning.name?.seasoning || '未設定' %></span>
+                <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= seasoning.name?.classification || '' %></span>
+                <input type="number" name="seasoning_amounts[]" step="any" placeholder="量" class="w-20 border rounded-md px-2 py-1 text-sm" value="<%= seasoning.amount %>">
                 <select name="seasoning_units[]" class="border rounded-md px-2 py-1 text-sm">
-                  <% const units = (matchedSeasoning && matchedSeasoning.unit) ? [...matchedSeasoning.unit] : []; %>
-                  <% if (item.unit && !units.includes(item.unit)) { units.unshift(item.unit); } %>
+                  <% let units = (seasoning.name && seasoning.name.unit) ? [...seasoning.name.unit] : []; %>
+                  <% if (seasoning.unit && !units.includes(seasoning.unit)) { units.unshift(seasoning.unit); } %>
                   <% units.forEach(u => { %>
-                    <option value="<%= u %>" <%= u === item.unit ? 'selected' : '' %>><%= u %></option>
+                    <option value="<%= u %>" <%= u === seasoning.unit ? 'selected' : '' %>><%= u %></option>
                   <% }) %>
                 </select>
                 <button onclick="event.stopPropagation(); toggleIngredientDetail(this)" class="text-blue-500 hover:text-blue-700" title="栄養を見る">
                   <i data-lucide="info" class="w-4 h-4"></i>
                 </button>
-                <% if (matchedSeasoning && matchedSeasoning.nutrition) { %>
+                <% if (seasoning.name && seasoning.name.nutrition) { %>
                   <span class="text-xs text-gray-400 ml-2">
-                    <%= matchedSeasoning.nutrition %>
+                    <%= seasoning.name.nutrition %>
                   </span>
                 <% } %>
                 <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100 ml-auto" onclick="this.parentElement.remove()">×</button>
                 <div class="mt-2 hidden text-xs text-gray-600 detail-section">
-                  <div>水分: <%= matchedSeasoning?.moisture || '-' %>g　タンパク質: <%= matchedSeasoning?.protein || '-' %>g</div>
-                  <div>脂質: <%= matchedSeasoning?.fat || '-' %>g　炭水化物: <%= matchedSeasoning?.carbohydrate || '-' %>g</div>
+                  <div>水分: <%= seasoning.name?.water || '-' %>g　タンパク質: <%= seasoning.name?.protein || '-' %>g</div>
+                  <div>脂質: <%= seasoning.name?.lipid || '-' %>g　炭水化物: <%= seasoning.name?.carbohydrate || '-' %>g</div>
                 </div>
               </div>
             <% }) %>
@@ -618,14 +616,14 @@ function toggleNutritionInfo(btn) {
     if (ingredientsListEl && initialIngredients.length > 0) {
       ingredientsListEl.innerHTML = '';
       initialIngredients.forEach(item => {
-        const matchedIngredient = ingredientListData.find(ing => ing._id.toString() === item._id?.toString());
+        const matchedIngredient = ingredientListData.find(ing => ing._id.toString() === item.name?._id.toString());
         const wrapper = document.createElement('div');
         wrapper.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between border p-4 rounded-lg bg-gray-50';
 
         const hidden = document.createElement('input');
         hidden.type = 'hidden';
         hidden.name = 'ingredient_ids[]';
-        hidden.value = item._id;
+        hidden.value = item.name?._id;
 
         const topDiv = document.createElement('div');
         topDiv.className = 'text-base font-medium text-gray-900';
@@ -688,7 +686,7 @@ function toggleNutritionInfo(btn) {
     if (seasoningsListEl && initialSeasonings.length > 0) {
       seasoningsListEl.innerHTML = '';
       initialSeasonings.forEach(item => {
-        const matchedSeasoning = seasoningListData.find(s => s._id.toString() === item._id?.toString());
+        const matchedSeasoning = seasoningListData.find(s => s._id.toString() === item.name?._id.toString());
         const container = seasoningsListEl;
 
         const wrapper = document.createElement('div');
@@ -697,7 +695,7 @@ function toggleNutritionInfo(btn) {
         const hidden = document.createElement('input');
         hidden.type = 'hidden';
         hidden.name = 'seasoning_ids[]';
-        hidden.value = item._id;
+        hidden.value = item.name?._id;
 
         const topDiv = document.createElement('div');
         topDiv.className = 'text-base font-medium text-gray-900';

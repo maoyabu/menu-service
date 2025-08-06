@@ -32,24 +32,24 @@ const menuSchema = new mongoose.Schema({
         required: true
     },
     ingredients: [
-        {
-            name: {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'ingredients' // ← 修正ポイント！
-            },
-            amount: Number,
-            unit: String
-        }
+    {
+        name: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Ingredient' // 正しいモデル名
+        },
+        amount: Number,
+        unit: String
+    }
     ],
     seasoning: [
-        {
-            name: {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'seasonings' // ← 修正ポイント！
-            },
-            amount: Number,
-            unit: String
-        }
+    {
+        name: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Seasoning' // 正しいモデル名
+        },
+        amount: Number,
+        unit: String
+    }
     ],
     share: {
         type: Boolean,
