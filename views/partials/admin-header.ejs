@@ -9,7 +9,7 @@
     <div class="flex items-center gap-1 text-gray-600">
       <i data-lucide="users" class="w-5 h-5"></i>
       <span>管理者</span>
-      <span class="bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded">管理者</span>
+      <span class="bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded"><%= user.displayname %></span>
     </div>
     <form action="/logout" method="POST">
       <button type="submit" class="flex items-center gap-1 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">

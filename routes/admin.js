@@ -3,8 +3,8 @@ import Menu from '../models/menu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import { isAdmin } from '../middleware.js';
-import { writeFileSync } from 'fs';
-import { join } from 'path';
+// import { writeFileSync } from 'fs';
+// import { join } from 'path';
 import ExcelJS from 'exceljs';
 
 
@@ -832,7 +832,6 @@ router.post('/api/seasoning-used/:id', async (req, res) => {
   }
 });
 
-// メニューデータのExcel書き出し
 // メニューデータのExcel書き出し
 router.get('/export/menus', async (req, res) => {
   try {

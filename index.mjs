@@ -14,7 +14,7 @@ import expressLayouts from 'express-ejs-layouts';
 
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
-import { isAdmin } from './middleware.js';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -55,6 +55,12 @@ passport.deserializeUser(User.deserializeUser());
 app.use((req, res, next) => {
   res.locals.success = req.flash('success');
   res.locals.error = req.flash('error');
+  next();
+});
+
+// Expose the logged-in user to templates
+app.use((req, res, next) => {
+  res.locals.user = req.user;
   next();
 });
 
