@@ -8,15 +8,15 @@
   <form action="/admin/menu-new" method="POST" class="space-y-8">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <label class="block mb-1 text-sm font-medium">レシピ名 *</label>
+        <label class="block mb-1 text-sm font-bold">レシピ名 *</label>
         <input type="text" name="name" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">よみ</label>
+        <label class="block mb-1 text-sm font-bold">よみ</label>
         <input type="text" name="yomi" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="よみがな">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">メニュー *</label>
+        <label class="block mb-1 text-sm font-bold">メニュー *</label>
         <input type="text" name="menu" list="menu-list" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
         <datalist id="menu-list">
           <% (menuList || []).forEach(name => { %>
@@ -25,7 +25,7 @@
         </datalist>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">種類 *</label>
+        <label class="block mb-1 text-sm font-bold">種類 *</label>
         <select name="kind" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
           <option value="">種類を選択</option>
           <% kindList.forEach(kind => { %>
@@ -34,7 +34,7 @@
         </select>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">ジャンル *</label>
+        <label class="block mb-1 text-sm font-bold">ジャンル *</label>
         <select name="junle" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
           <option value="">ジャンルを選択</option>
           <% junleList.forEach(junle => { %>
@@ -43,7 +43,7 @@
         </select>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">調理方法 *</label>
+        <label class="block mb-1 text-sm font-bold">調理方法 *</label>
         <select name="cook" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
           <option value="">調理方法を選択</option>
           <% cookList.forEach(cook => { %>
@@ -53,18 +53,18 @@
       </div>
       <div class="flex items-center space-x-2">
         <input type="checkbox" id="material" name="material" value="true" class="h-4 w-4 text-blue-600 border-gray-300 rounded">
-        <label for="material" class="text-sm font-medium text-gray-700">素材フラグ (ON/OFF)</label>
+        <label for="material" class="text-sm font-bold text-gray-700">素材フラグ (ON/OFF)</label>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">URL *</label>
+        <label class="block mb-1 text-sm font-bold">URL *</label>
         <input type="url" name="url" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="https://example.com" required>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">調理時間 (分) *</label>
+        <label class="block mb-1 text-sm font-bold">調理時間 (分) *</label>
         <input type="number" name="time" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">人数 *</label>
+        <label class="block mb-1 text-sm font-bold">人数 *</label>
         <input type="number" name="people" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
       </div>
     </div>
@@ -73,7 +73,7 @@
 
     <div>
       <div class="flex justify-between items-center">
-        <label class="block mb-1 text-sm font-medium">食材</label>
+        <label class="block mb-1 text-sm font-bold">食材</label>
         <button type="button" class="inline-flex items-center border border-gray-300 rounded px-3 py-1 text-sm text-gray-700 hover:bg-gray-50" onclick="addIngredient()">
           <span class="text-xl leading-none">＋</span><span class="ml-1">食材を追加</span>
         </button>
@@ -87,7 +87,7 @@
 
     <div>
       <div class="flex justify-between items-center">
-        <label class="block mb-1 text-sm font-medium">調味料</label>
+        <label class="block mb-1 text-sm font-bold">調味料</label>
         <button type="button" class="inline-flex items-center border border-gray-300 rounded px-3 py-1 text-sm text-gray-700 hover:bg-gray-50" onclick="addSeasoning()">
           <span class="text-xl leading-none">＋</span><span class="ml-1">調味料を追加</span>
         </button>

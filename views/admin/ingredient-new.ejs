@@ -8,7 +8,7 @@
   <form action="/admin/ingredient-new" method="POST" class="space-y-8">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <label class="block mb-1 text-sm font-medium">分類 *</label>
+        <label class="block mb-1 text-sm font-bold">分類 *</label>
         <input list="classification-list" name="classification" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
         <datalist id="classification-list">
           <% if (classificationList && classificationList.length > 0) { %>
@@ -19,37 +19,86 @@
         </datalist>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">食材名 *</label>
+        <label class="block mb-1 text-sm font-bold">食材名 *</label>
         <input type="text" name="ingredient" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">食材名（よみ）</label>
+        <label class="block mb-1 text-sm font-bold">食材名（よみ）</label>
         <input type="text" name="yomi" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">エネルギー (kcal)</label>
+        <label class="block mb-1 text-sm font-bold">エネルギー (kcal)</label>
         <input type="number" name="energy" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">水分 (g)</label>
+        <label class="block mb-1 text-sm font-bold">水分 (g)</label>
         <input type="number" step="0.1" name="water" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">たんぱく質 (g)</label>
+        <label class="block mb-1 text-sm font-bold">たんぱく質 (g)</label>
         <input type="number" step="0.1" name="protein" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">脂質 (g)</label>
+        <label class="block mb-1 text-sm font-bold">脂質 (g)</label>
         <input type="number" step="0.1" name="lipid" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">炭水化物 (g)</label>
+        <label class="block mb-1 text-sm font-bold">炭水化物 (g)</label>
         <input type="number" step="0.1" name="carbohydrate" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
     </div>
 
+    <!-- 季節チェックボックス -->
     <div>
-      <label class="block mb-1 text-sm font-medium">単位（複数可）</label>
+      <label class="block mb-1 text-sm font-bold">旬な季節</label>
+      <div class="flex flex-wrap items-center gap-4 text-sm text-gray-700">
+        <!-- ALL 選択 -->
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="all" class="mr-1">
+          All
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="春" class="mr-1">
+          春
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="夏" class="mr-1">
+          夏
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="秋" class="mr-1">
+          秋
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="冬" class="mr-1">
+          冬
+        </label>
+      </div>
+    </div>
+
+    <!-- 月チェックボックス -->
+    <div>
+      <label class="block mb-1 text-sm font-bold">旬な月</label>
+      <!-- ALL 選択 -->
+      <div class="mb-2 text-sm text-gray-700">
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="month[]" value="all" class="mr-1">
+          All
+        </label>
+      </div>
+      <!-- 月 6×2 グリッド -->
+      <div class="grid grid-cols-6 gap-2 text-sm text-gray-700">
+        <% ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'].forEach(m => { %>
+          <label class="inline-flex items-center">
+            <input type="checkbox" name="month[]" value="<%= m %>" class="mr-1">
+            <%= m %>
+          </label>
+        <% }) %>
+      </div>
+    </div>
+
+    <div>
+      <label class="block mb-1 text-sm font-bold">単位（複数可）</label>
       <div id="units-list" class="space-y-2 text-sm text-gray-500">単位を追加してください</div>
       <button type="button" class="mt-2 px-3 py-1 border text-sm rounded bg-white text-gray-700 hover:bg-gray-100" onclick="addUnit()">＋ 追加</button>
     </div>

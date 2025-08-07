@@ -571,7 +571,9 @@ router.post('/ingredient-new', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit
+      unit,
+      season,
+      month
     } = req.body;
 
     const newIngredient = new Ingredient({
@@ -583,7 +585,9 @@ router.post('/ingredient-new', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit]
+      unit: Array.isArray(unit) ? unit : [unit],
+      season: Array.isArray(season) ? season : season ? [season] : [],
+      month:  Array.isArray(month)  ? month  : month  ? [month]  : []
     });
 
     await newIngredient.save();
@@ -606,7 +610,9 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit
+      unit,
+      season,
+      month
     } = req.body;
 
     await Ingredient.findByIdAndUpdate(req.params.id, {
@@ -618,7 +624,9 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit]
+      unit: Array.isArray(unit) ? unit : [unit],
+      season: Array.isArray(season) ? season : season ? [season] : [],
+      month:  Array.isArray(month)  ? month  : month  ? [month]  : []
     });
 
     res.redirect('/admin/ingredient-list');

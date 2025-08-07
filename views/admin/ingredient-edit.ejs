@@ -1,5 +1,3 @@
-
-
 <div class="max-w-4xl mx-auto bg-white p-8 rounded-md shadow">
   <h1 class="text-2xl font-semibold mb-2 flex items-center space-x-2">
     <i data-lucide="utensils" class="w-6 h-6 text-gray-700"></i>
@@ -10,7 +8,7 @@
   <form action="/admin/ingredient-edit/<%= ingredient._id %>" method="POST" class="space-y-8">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <label class="block mb-1 text-sm font-medium">分類 *</label>
+        <label class="block mb-1 text-sm font-bold">分類 *</label>
         <input list="classification-list" name="classification" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.classification %>" required>
         <datalist id="classification-list">
           <% classificationList.forEach(cat => { %>
@@ -19,37 +17,86 @@
         </datalist>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">食材名 *</label>
+        <label class="block mb-1 text-sm font-bold">食材名 *</label>
         <input type="text" name="ingredient" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.ingredient %>" required>
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">食材名（よみ）</label>
+        <label class="block mb-1 text-sm font-bold">食材名（よみ）</label>
         <input type="text" name="yomi" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.yomi || '' %>">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">エネルギー (kcal)</label>
+        <label class="block mb-1 text-sm font-bold">エネルギー (kcal)</label>
         <input type="number" step="any" name="energy" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.energy || '' %>">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">水分 (%)</label>
+        <label class="block mb-1 text-sm font-bold">水分 (%)</label>
         <input type="number" step="any" name="water" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.water || '' %>">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">たんぱく質 (%)</label>
+        <label class="block mb-1 text-sm font-bold">たんぱく質 (%)</label>
         <input type="number" step="any" name="protein" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.protein || '' %>">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">脂質 (%)</label>
+        <label class="block mb-1 text-sm font-bold">脂質 (%)</label>
         <input type="number" step="any" name="lipid" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.lipid || '' %>">
       </div>
       <div>
-        <label class="block mb-1 text-sm font-medium">炭水化物 (%)</label>
+        <label class="block mb-1 text-sm font-bold">炭水化物 (%)</label>
         <input type="number" step="any" name="carbohydrate" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.carbohydrate || '' %>">
       </div>
     </div>
 
+    <!-- 季節チェックボックス -->
     <div>
-      <label class="block mb-1 text-sm font-medium">単位（複数可）</label>
+      <label class="block mb-1 text-sm font-bold">旬な季節</label>
+      <div class="flex flex-wrap items-center gap-4 text-sm text-gray-700">
+        <!-- ALL 選択 -->
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="all" <%= ingredient.season?.includes('all') ? 'checked' : '' %> class="mr-1">
+          All
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="春" <%= ingredient.season?.includes('春') ? 'checked' : '' %> class="mr-1">
+          春
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="夏" <%= ingredient.season?.includes('夏') ? 'checked' : '' %> class="mr-1">
+          夏
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="秋" <%= ingredient.season?.includes('秋') ? 'checked' : '' %> class="mr-1">
+          秋
+        </label>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="season[]" value="冬" <%= ingredient.season?.includes('冬') ? 'checked' : '' %> class="mr-1">
+          冬
+        </label>
+      </div>
+    </div>
+
+    <!-- 月チェックボックス -->
+    <div>
+      <label class="block mb-1 text-sm font-bold">旬な月</label>
+      <!-- ALL 選択 -->
+      <div class="mb-2 text-sm text-gray-700">
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="month[]" value="all" <%= ingredient.month?.includes('all') ? 'checked' : '' %> class="mr-1">
+          All
+        </label>
+      </div>
+      <!-- 月 6×2 グリッド -->
+      <div class="grid grid-cols-6 gap-2 text-sm text-gray-700">
+        <% ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'].forEach(m => { %>
+          <label class="inline-flex items-center">
+            <input type="checkbox" name="month[]" value="<%= m %>" <%= ingredient.month?.includes(m) ? 'checked' : '' %> class="mr-1">
+            <%= m %>
+          </label>
+        <% }) %>
+      </div>
+    </div>
+
+    <div>
+      <label class="block mb-1 text-sm font-bold">単位（複数可）</label>
       <div id="unit-list" class="space-y-2 text-sm text-gray-500">
         <% (ingredient.unit || []).filter(u => u.trim() !== '').forEach(u => { %>
           <div class="flex items-center space-x-2">
