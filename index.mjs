@@ -24,6 +24,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(expressLayouts);
 app.set('layout', 'layouts/boilerplate');
 
+// Trust first proxy (needed for secure cookies on Heroku)
+app.set('trust proxy', 1);
+
 await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/finance', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -33,7 +36,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'secret',
   resave: false, saveUninitialized: false,
   store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/finance', collectionName: 'sessions' }),
-  cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production' },
+  cookie: { 
+    httpOnly: true, 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 1000 * 60 * 60 * 24 // 1 day
+  },
 }));
 
 app.use(flash());
