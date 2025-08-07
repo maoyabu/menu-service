@@ -829,9 +829,11 @@ router.post('/api/seasoning-used/:id', async (req, res) => {
 });
 
 // メニューデータのExcel書き出し
+// メニューデータのExcel書き出し
 router.get('/export/menus', async (req, res) => {
   try {
     const menus = await Menu.find()
+      .sort({ update_date: 1 })
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
       .populate({ path: 'seasoning.name', model: 'Seasoning' });
     const workbook = new ExcelJS.Workbook();
@@ -839,6 +841,7 @@ router.get('/export/menus', async (req, res) => {
 
     worksheet.columns = [
       { header: 'メニュー名', key: 'name' },
+      { header: 'よみ', key: 'yomi' },
       { header: '種類', key: 'kind' },
       { header: 'メニュー内容', key: 'menu' },
       { header: 'ジャンル', key: 'junle' },
@@ -846,12 +849,17 @@ router.get('/export/menus', async (req, res) => {
       { header: 'URL', key: 'url' },
       { header: '時間', key: 'time' },
       { header: '人数', key: 'people' },
+      { header: '素材フラグ', key: 'material' },
       { header: '食材', key: 'ingredientsText' },
       { header: '調味料', key: 'seasoningText' },
       { header: '共有', key: 'share' },
       { header: '登録日', key: 'entry_date' },
       { header: '更新日', key: 'update_date' },
     ];
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: worksheet.columns.length }
+    };
 
     menus.forEach(menu => {
       const ingredientsText = JSON.stringify((menu.ingredients || []).map(i => ({
@@ -870,6 +878,7 @@ router.get('/export/menus', async (req, res) => {
 
       worksheet.addRow({
         name: menu.name,
+        yomi: menu.yomi,
         kind: menu.kind,
         menu: menu.menu,
         junle: menu.junle,
@@ -877,6 +886,7 @@ router.get('/export/menus', async (req, res) => {
         url: menu.url,
         time: menu.time,
         people: menu.people,
+        material: menu.material,
         ingredientsText,
         seasoningText,
         share: menu.share,
