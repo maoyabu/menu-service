@@ -2,11 +2,14 @@ import express from 'express';
 import passport from 'passport';
 import User from '../models/users.js';
 
+
 const router = express.Router();
 
 // ログイン画面の表示
 router.get('/login', (req, res) => {
-  res.render('auth/login', { error: req.flash('error') });
+  // flash メッセージは既に res.locals.error にセットされているため、
+  // 明示的に取得せず、テンプレートでは locals.error を利用します。
+  res.render('auth/login');
 });
 
 // ログイン処理（メールアドレスまたはユーザー名で認証・手動検証）
@@ -19,6 +22,7 @@ router.post('/login', async (req, res, next) => {
     });
     if (!user) {
       req.flash('error', 'ユーザー名またはメールアドレスが無効です');
+      console.error('ユーザーが見つかりません:', identifier);
       return res.redirect('/login');
     }
     // パスワード検証 (passport-local-mongoose の authenticate を使用)
@@ -38,6 +42,8 @@ router.post('/login', async (req, res, next) => {
           return next(err);
         }
         console.log('ログイン成功:', thisUser.username);
+        // ログイン成功時のウェルカムメッセージ
+        req.flash('success', `ようこそ、${thisUser.username}さん！`);
         return res.redirect('/admin/admin-top');
       });
     });

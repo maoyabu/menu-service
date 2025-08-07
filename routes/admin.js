@@ -2,11 +2,15 @@ import express from 'express';
 import Menu from '../models/menu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
+import { isAdmin } from '../middleware.js';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import ExcelJS from 'exceljs';
 
+
 const router = express.Router();
+// 管理画面は管理者のみアクセス可能
+router.use(isAdmin);
 
 // システム設定画面の表示
 router.get('/admin-setting', (req, res) => {
