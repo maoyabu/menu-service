@@ -41,7 +41,6 @@ router.post('/login', async (req, res, next) => {
           console.error('ログインセッションエラー:', err);
           return next(err);
         }
-        console.log('ログイン成功:', thisUser.username);
         // ログイン成功時のウェルカムメッセージ
         req.flash('success', `ようこそ、${thisUser.username}さん！`);
         return res.redirect('/admin/admin-top');
