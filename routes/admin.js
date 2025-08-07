@@ -833,11 +833,14 @@ router.post('/api/seasoning-used/:id', async (req, res) => {
 router.get('/export/menus', async (req, res) => {
   try {
     const menus = await Menu.find()
-      .sort({ update_date: 1 })
+      .sort({ update_date: -1 })
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
       .populate({ path: 'seasoning.name', model: 'Seasoning' });
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Menus');
+
+    // Freeze the first row
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
     worksheet.columns = [
       { header: 'メニュー名', key: 'name' },
@@ -856,6 +859,15 @@ router.get('/export/menus', async (req, res) => {
       { header: '登録日', key: 'entry_date' },
       { header: '更新日', key: 'update_date' },
     ];
+    // Style header row
+    worksheet.getRow(1).eachCell(cell => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'becffdb' } 
+      };
+    });
+
     worksheet.autoFilter = {
       from: { row: 1, column: 1 },
       to: { row: 1, column: worksheet.columns.length }
