@@ -7,10 +7,27 @@
 
   <form action="/admin/menu-edit/<%= menu._id %>?_method=PUT" method="POST" class="space-y-8">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- 1. レシピ名* -->
       <div>
         <label class="block mb-1 text-sm font-medium">レシピ名 *</label>
         <input type="text" name="name" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.name %>" required>
       </div>
+      <!-- 2. よみ -->
+      <div>
+        <label class="block mb-1 text-sm font-medium">よみ</label>
+        <input type="text" name="yomi" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.yomi %>" placeholder="よみがな">
+      </div>
+      <!-- 3. メニュー* -->
+      <div>
+        <label class="block mb-1 text-sm font-medium">メニュー *</label>
+        <input type="text" name="menu" list="menu-list" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.menu %>" required>
+        <datalist id="menu-list">
+          <% (menuList || []).forEach(name => { %>
+            <option value="<%= name %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <!-- 4. 種類* -->
       <div>
         <label class="block mb-1 text-sm font-medium">種類 *</label>
         <select name="kind" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
@@ -20,10 +37,7 @@
           <% }) %>
         </select>
       </div>
-      <div>
-        <label class="block mb-1 text-sm font-medium">メニュー *</label>
-        <input type="text" name="menu" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.menu %>" required>
-      </div>
+      <!-- 5. ジャンル* -->
       <div>
         <label class="block mb-1 text-sm font-medium">ジャンル *</label>
         <select name="junle" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
@@ -33,6 +47,7 @@
           <% }) %>
         </select>
       </div>
+      <!-- 6. 調理方法* -->
       <div>
         <label class="block mb-1 text-sm font-medium">調理方法 *</label>
         <select name="cook" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
@@ -42,14 +57,22 @@
           <% }) %>
         </select>
       </div>
+      <!-- 7. 素材フラグ -->
+      <div class="flex items-center space-x-2">
+        <input type="checkbox" id="material" name="material" value="true" class="h-4 w-4 text-blue-600 border-gray-300 rounded" <%= menu.material ? 'checked' : '' %>>
+        <label for="material" class="text-sm font-medium text-gray-700">素材フラグ (ON/OFF)</label>
+      </div>
+      <!-- 8. URL* -->
       <div>
         <label class="block mb-1 text-sm font-medium">URL *</label>
         <input type="url" name="url" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.url %>" required>
       </div>
+      <!-- 9. 調理時間 (分)* -->
       <div>
         <label class="block mb-1 text-sm font-medium">調理時間 (分) *</label>
         <input type="number" name="time" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.time %>" required>
       </div>
+      <!-- 10. 人数* -->
       <div>
         <label class="block mb-1 text-sm font-medium">人数 *</label>
         <input type="number" name="people" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.people %>" required>

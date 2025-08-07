@@ -12,6 +12,9 @@ const menuSchema = new mongoose.Schema({
     menu: {
         type: String
     },
+    yomi:{
+        type: String
+    },
     junle: {
         type: String,
         required: true
@@ -51,6 +54,10 @@ const menuSchema = new mongoose.Schema({
         unit: String
     }
     ],
+    material:{
+        type: Boolean,
+        default: false
+    },
     share: {
         type: Boolean,
         default: false

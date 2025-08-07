@@ -44,6 +44,7 @@ router.get('/menu-list', async (req, res) => {
     if (keyword) {
       filter.$or = [
         { name: new RegExp(keyword, 'i') },
+        { yomi: new RegExp(keyword, 'i') },
         { kind: new RegExp(keyword, 'i') },
         { cook: new RegExp(keyword, 'i') },
         { content: new RegExp(keyword, 'i') },
@@ -101,8 +102,10 @@ router.get('/menu-new', async (req, res) => {
     const allMenus = await Menu.find(); // 既存データからセレクトボックスの候補を取得
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
     const junleList = [...new Set(allMenus.map(menu => menu.junle).filter(Boolean))];
-    const menuList = [...new Set(allMenus.map(menu => menu.menu).filter(Boolean))];
     const cookList = [...new Set(allMenus.map(menu => menu.cook).filter(Boolean))];
+
+    // Fetch all existing menu names from DB (distinct)
+    const menuList = await Menu.find().distinct('menu');
 
     // 🔽 食材と調味料の取得を short_nutrition 含めて取得
     const ingredientsRaw = await Ingredient.find().select('ingredient classification unit energy protein lipid carbohydrate');
@@ -282,6 +285,8 @@ router.post('/menu-new', async (req, res) => {
       url,
       time,
       people,
+      yomi,
+      material,
       ingredient_ids = [],
       ingredient_amounts = [],
       ingredient_units = [],
@@ -313,6 +318,8 @@ router.post('/menu-new', async (req, res) => {
       url,
       time,
       people,
+      yomi,
+      material: material === 'true',
       ingredients,
       seasoning: seasonings,
       share: false,
@@ -340,8 +347,10 @@ router.get('/menu-edit/:id', async (req, res) => {
     const allMenus = await Menu.find(); // セレクトボックスの候補用
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
     const junleList = [...new Set(allMenus.map(menu => menu.junle).filter(Boolean))];
-    const menuList = [...new Set(allMenus.map(menu => menu.menu).filter(Boolean))];
     const cookList = [...new Set(allMenus.map(menu => menu.cook).filter(Boolean))];
+
+    // Fetch all existing menu names from DB (distinct)
+    const menuList = await Menu.find().distinct('menu');
 
     // 追加: 食材と調味料を取得（栄養情報含む）＋ short_nutrition を動的生成
     const ingredientsRaw = await Ingredient.find().select('ingredient classification unit energy protein lipid carbohydrate');
@@ -403,6 +412,8 @@ router.post('/menu-edit/:id', async (req, res) => {
       url,
       time,
       people,
+      yomi,
+      material,
       ingredient_ids = [],
       ingredient_amounts = [],
       ingredient_units = [],
@@ -434,6 +445,8 @@ router.post('/menu-edit/:id', async (req, res) => {
       url,
       time,
       people,
+      yomi,
+      material: material === 'true',
       ingredients,
       seasoning: seasonings
     });
