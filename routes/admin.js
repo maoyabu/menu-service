@@ -577,7 +577,8 @@ router.post('/ingredient-new', async (req, res) => {
       carbohydrate,
       unit,
       season,
-      month
+      month,
+      comment
     } = req.body;
 
     const newIngredient = new Ingredient({
@@ -591,7 +592,8 @@ router.post('/ingredient-new', async (req, res) => {
       carbohydrate,
       unit: Array.isArray(unit) ? unit : [unit],
       season: Array.isArray(season) ? season : season ? [season] : [],
-      month:  Array.isArray(month)  ? month  : month  ? [month]  : []
+      month:  Array.isArray(month)  ? month  : month  ? [month]  : [],
+      comment
     });
 
     await newIngredient.save();
@@ -616,7 +618,8 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       carbohydrate,
       unit,
       season,
-      month
+      month,
+      comment
     } = req.body;
 
     await Ingredient.findByIdAndUpdate(req.params.id, {
@@ -630,7 +633,8 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       carbohydrate,
       unit: Array.isArray(unit) ? unit : [unit],
       season: Array.isArray(season) ? season : season ? [season] : [],
-      month:  Array.isArray(month)  ? month  : month  ? [month]  : []
+      month:  Array.isArray(month)  ? month  : month  ? [month]  : [],
+      comment
     });
 
     res.redirect('/admin/ingredient-list');
@@ -745,7 +749,8 @@ router.post('/seasoning-new', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit
+      unit,
+      comment
     } = req.body;
 
     const newSeasoning = new Seasoning({
@@ -757,7 +762,8 @@ router.post('/seasoning-new', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit]
+      unit: Array.isArray(unit) ? unit : [unit],
+      comment
     });
 
     await newSeasoning.save();
@@ -780,7 +786,8 @@ router.post('/seasoning-edit/:id', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit
+      unit,
+      comment
     } = req.body;
 
     await Seasoning.findByIdAndUpdate(req.params.id, {
@@ -792,7 +799,8 @@ router.post('/seasoning-edit/:id', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit]
+      unit: Array.isArray(unit) ? unit : [unit],
+      comment
     });
 
     res.redirect('/admin/seasoning-list');

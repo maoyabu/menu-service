@@ -50,12 +50,12 @@
       <!-- 6. 調理方法* -->
       <div>
         <label class="block mb-1 text-sm font-bold">調理方法 *</label>
-        <select name="cook" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
-          <option value="">調理方法を選択</option>
-          <% cookList.forEach(cook => { %>
-            <option value="<%= cook %>" <%= menu.cook === cook ? 'selected' : '' %>><%= cook %></option>
+        <input type="text" name="cook" list="cook-list" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.cook || '' %>" placeholder="例: 炒める / 茹でる" required>
+        <datalist id="cook-list">
+          <% (cookList || []).forEach(cook => { %>
+            <option value="<%= cook %>"></option>
           <% }) %>
-        </select>
+        </datalist>
       </div>
       <!-- 7. 素材フラグ -->
       <div class="flex items-center space-x-2">

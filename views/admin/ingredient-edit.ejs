@@ -44,6 +44,10 @@
         <label class="block mb-1 text-sm font-bold">炭水化物 (%)</label>
         <input type="number" step="any" name="carbohydrate" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= ingredient.carbohydrate || '' %>">
       </div>
+      <div class="md:col-span-2">
+        <label class="block mb-1 text-sm font-bold">コメント</label>
+        <textarea name="comment" rows="4" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="メモや注意点などを自由入力"><%= ingredient.comment || '' %></textarea>
+      </div>
     </div>
 
     <!-- 季節チェックボックス -->
@@ -98,7 +102,10 @@
     <div>
       <label class="block mb-1 text-sm font-bold">単位（複数可）</label>
       <div id="unit-list" class="space-y-2 text-sm text-gray-500">
-        <% (ingredient.unit || []).filter(u => u.trim() !== '').forEach(u => { %>
+        <% const _units = Array.isArray(ingredient.unit)
+              ? ingredient.unit.filter(function(u){ return typeof u === 'string' && u.trim() !== ''; })
+              : []; %>
+        <% _units.forEach(function(u){ %>
           <div class="flex items-center space-x-2">
             <input type="text" name="unit[]" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= u %>">
             <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100" onclick="this.parentElement.remove()">×</button>

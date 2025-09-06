@@ -29,6 +29,9 @@ const seasoningSchema = new mongoose.Schema({
     unit: {
         type: [String]  // 例: ['g', 'ml']
     },
+    comment: {
+        type: String
+    },
     favorite: {
         type: Boolean,
         default: false

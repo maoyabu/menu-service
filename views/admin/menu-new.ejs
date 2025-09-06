@@ -44,12 +44,12 @@
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">調理方法 *</label>
-        <select name="cook" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
-          <option value="">調理方法を選択</option>
-          <% cookList.forEach(cook => { %>
-            <option value="<%= cook %>"><%= cook %></option>
+        <input type="text" name="cook" list="cook-list" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 炒める / 茹でる" required>
+        <datalist id="cook-list">
+          <% (cookList || []).forEach(cook => { %>
+            <option value="<%= cook %>"></option>
           <% }) %>
-        </select>
+        </datalist>
       </div>
       <div class="flex items-center space-x-2">
         <input type="checkbox" id="material" name="material" value="true" class="h-4 w-4 text-blue-600 border-gray-300 rounded">

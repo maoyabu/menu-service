@@ -35,6 +35,9 @@ const ingredientsSchema = new mongoose.Schema({
     month: {
         type: [String]  // 例: ['3月', '4月']
     },
+    comment: {
+        type: String
+    },
     favorite: {
         type: Boolean,
         default: false
