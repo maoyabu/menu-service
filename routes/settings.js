@@ -45,9 +45,16 @@ router.get('/', async (req, res, next) => {
       ? (groups || []).find((group) => group._id.toString() === selectedGroupId)
       : null;
     const requestedView = req.query.view;
-    const activeTab = requestedView === 'groups'
-      ? 'groups'
-      : (selectedGroup ? 'group-detail' : 'profile');
+    let activeTab;
+    if (requestedView === 'profile') {
+      activeTab = 'profile';
+    } else if (requestedView === 'groups') {
+      activeTab = 'groups';
+    } else if (requestedView === 'group-detail' && selectedGroup) {
+      activeTab = 'group-detail';
+    } else {
+      activeTab = selectedGroup ? 'group-detail' : 'profile';
+    }
 
     res.render('users/setting', {
       settingsUser: user,
