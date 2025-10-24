@@ -27,6 +27,10 @@ const menuSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    imageUrl: {
+        type: String,
+        default: ''
+    },
     time: {
         type: String,
     },

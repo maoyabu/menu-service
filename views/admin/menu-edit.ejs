@@ -63,9 +63,31 @@
         <label for="material" class="text-sm font-bold text-gray-700">素材フラグ (ON/OFF)</label>
       </div>
       <!-- 8. URL* -->
-      <div>
+      <div class="md:col-span-2">
         <label class="block mb-1 text-sm font-bold">URL *</label>
-        <input type="url" name="url" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.url %>" required>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <input type="url" name="url" id="menu-url-input" class="flex-1 border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.url %>" placeholder="https://example.com" required>
+          <button type="button" id="menu-url-open" class="inline-flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+            <span>リンクを開く</span>
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">URLを入力するとボタンから別タブで確認できます。</p>
+      </div>
+      <div class="md:col-span-2">
+        <label class="block mb-1 text-sm font-bold">画像URL</label>
+        <div class="flex flex-col md:flex-row md:items-start gap-4">
+          <div class="flex-1 space-y-2">
+            <input type="url" name="imageUrl" id="image-url-input" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.imageUrl || '' %>" placeholder="https://example.com/image.jpg">
+            <p class="text-xs text-gray-500">画像の直リンクを入力すると右側にプレビューが表示されます。</p>
+          </div>
+          <div class="w-full md:w-48">
+            <div class="relative w-full h-32 border border-dashed border-gray-300 rounded bg-gray-50 flex items-center justify-center overflow-hidden">
+              <img id="image-url-preview" src="<%= menu.imageUrl || '' %>" alt="画像プレビュー" class="object-cover w-full h-full <%= menu.imageUrl ? '' : 'hidden' %>">
+              <span id="image-url-placeholder" class="text-xs text-gray-400 <%= menu.imageUrl ? 'hidden' : '' %>">プレビューなし</span>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- 9. 調理時間 (分)* -->
       <div>
@@ -633,9 +655,57 @@ function toggleNutritionInfo(btn) {
 <script>
   // カテゴリリスト取得処理を削除（カテゴリのセレクトボックスも削除したため）
 
+  function initImagePreview(inputId, imgId, placeholderId) {
+    const input = document.getElementById(inputId);
+    const img = document.getElementById(imgId);
+    const placeholder = document.getElementById(placeholderId);
+
+    const updatePreview = () => {
+      const url = (input?.value || '').trim();
+      if (url) {
+        if (img) {
+          img.src = url;
+          img.classList.remove('hidden');
+        }
+        if (placeholder) {
+          placeholder.classList.add('hidden');
+        }
+      } else {
+        if (img) {
+          img.src = '';
+          img.classList.add('hidden');
+        }
+        if (placeholder) {
+          placeholder.classList.remove('hidden');
+        }
+      }
+    };
+
+    input?.addEventListener('input', updatePreview);
+    updatePreview();
+  }
+
+  function initUrlOpener(inputId, buttonId) {
+    const input = document.getElementById(inputId);
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    button.addEventListener('click', () => {
+      const url = (input?.value || '').trim();
+      if (url) {
+        const features = 'noopener=yes,noreferrer=yes,width=1200,height=800,resizable=yes,scrollbars=yes';
+        window.open(url, 'menuLinkWindow', features);
+      }
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       lucide.createIcons();
+    }
+    initUrlOpener('menu-url-input', 'menu-url-open');
+    initImagePreview('image-url-input', 'image-url-preview', 'image-url-placeholder');
+    if (typeof window.refreshLucideIcons === 'function') {
+      window.refreshLucideIcons();
     }
     // 初期描画用食材をEJSから受け取り
     const initialIngredients = <%- JSON.stringify(menu.ingredients || []) %>;

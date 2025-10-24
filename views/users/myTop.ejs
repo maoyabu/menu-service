@@ -2,6 +2,18 @@
   const currentUserName = (typeof user !== 'undefined' && user)
     ? (user.displayname || user.username || user.email || 'ユーザー')
     : 'ユーザー';
+  const hasNextWeekPlan = typeof nextWeekPlan !== 'undefined' && nextWeekPlan && nextWeekPlan._id;
+  const nextPlanId = hasNextWeekPlan ? String(nextWeekPlan._id) : '';
+  const planButtonLabel = hasNextWeekPlan ? '来週の 7 DAYS PLAN を編集' : '来週の 7 DAYS PLAN を作成';
+  const buttonIcon = hasNextWeekPlan ? 'pencil' : 'plus';
+  const queryParts = [];
+  if (typeof currentGroupId !== 'undefined' && currentGroupId) {
+    queryParts.push(`group=${currentGroupId}`);
+  }
+  if (hasNextWeekPlan) {
+    queryParts.push(`plan=${nextPlanId}`);
+  }
+  const weekMenuLink = '/users/week-menu' + (queryParts.length ? `?${queryParts.join('&')}` : '');
 %>
 
 <section class="relative max-w-6xl mx-auto py-10 space-y-10">
@@ -16,18 +28,19 @@
           こんにちは、<span class="text-emerald-200"><%= currentUserName %></span> さん
         </h1>
         <p class="text-sm md:text-base text-white/80 md:max-w-xl">
-          今日の献立や家計状況をまとめてチェックしましょう。おすすめメニューや家族の予定、やることリストもここから確認できます。
+          「今日何食べる」のストレスからの解放！<br>来週1週間のMENUをおすすめします。使えば使うほど自分にぴったりなMENUがおすすめされるようになります。
         </p>
 
-        <div class="flex flex-wrap gap-3 pt-2">
-          <a href="#" class="inline-flex items-center gap-2 rounded-full bg-white/15 hover:bg-white/25 text-white text-sm font-medium px-5 py-2 transition">
-            <span class="lucide" data-lucide="chef-hat"></span>
-            今日のおすすめ
-          </a>
-          <a href="#" class="inline-flex items-center gap-2 rounded-full bg-white text-blue-600 text-sm font-semibold px-5 py-2 transition">
-            <span class="lucide text-blue-500" data-lucide="plus"></span>
-            新しい献立を作成
-          </a>
+        <div class="flex flex-col gap-2 pt-2">
+          <div class="flex flex-wrap gap-3">
+            <a href="<%= weekMenuLink %>" class="inline-flex items-center gap-2 rounded-full bg-white text-blue-600 text-sm font-semibold px-5 py-2 transition">
+              <span class="lucide text-blue-500" data-lucide="<%= buttonIcon %>"></span>
+              <%= planButtonLabel %>
+            </a>
+          </div>
+          <% if (hasNextWeekPlan && typeof nextWeekRangeLabel !== 'undefined') { %>
+            <p class="text-xs text-white/80">保存済み: <%= nextWeekRangeLabel %></p>
+          <% } %>
         </div>
       </div>
 
@@ -76,7 +89,7 @@
 
     <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">家計サマリー</h2>
+        <h2 class="text-lg font-semibold">お気に入りMENU</h2>
         <span class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
           <span class="lucide w-3 h-3" data-lucide="pie-chart"></span>
           weekly
@@ -100,7 +113,7 @@
         </ul>
       </div>
       <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
-        家計簿を見る
+        お気に入りMenuの編集
         <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
       </button>
     </article>

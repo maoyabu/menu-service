@@ -1,0 +1,718 @@
+<%
+  const serialize = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
+  const displayRow = (menuLookup, slot) => {
+    if (!slot) {
+      return {
+        name: '候補がありません',
+        detail: 'メニュー情報が不足しています',
+      hasMenu: false,
+      junle: '',
+      cook: '',
+      time: '',
+      imageUrl: ''
+    };
+  }
+  const menu = menuLookup[slot.menuId] || null;
+  if (!menu) {
+    return {
+      name: 'メニューが見つかりません',
+      detail: '管理者にご確認ください',
+      hasMenu: false,
+      junle: '',
+      cook: '',
+      time: '',
+      imageUrl: ''
+    };
+  }
+
+  const detail = menu.cook || menu.junle || menu.kind || menu.menu || '';
+  return {
+      name: menu.name,
+      detail: detail || '詳細情報は未登録です',
+      hasMenu: true,
+      junle: menu.junle || '',
+      cook: menu.cook || '',
+      time: (menu.time !== undefined && menu.time !== null) ? String(menu.time) : '',
+      imageUrl: menu.imageUrl || ''
+    };
+  };
+%>
+
+<section class="relative max-w-6xl mx-auto py-10 space-y-8">
+  <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
+    <div class="p-8 md:p-12 flex flex-col gap-6">
+      <div class="space-y-3">
+        <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] bg-white/20 px-4 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+          1week meal planning
+        </span>
+        <h1 class="text-3xl md:text-4xl font-bold leading-tight">来週の 7 DAYS PLAN を計画しよう！</h1>
+        <p class="text-sm md:text-base text-white/80 max-w-2xl">
+          AIが提案するメニューをカスタマイズして、来週の食事の予定を立てましょう
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <div class="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden">
+    <div class="px-6 py-6 space-y-5">
+      <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-semibold">
+        <button type="button" class="w-full rounded-full bg-gray-900 text-white px-4 py-2 shadow-sm">🍽 メニュー計画</button>
+        <button type="button" class="w-full rounded-full bg-gray-100 text-gray-600 px-4 py-2">🛒 食材・調味料リスト</button>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+          <span class="text-gray-600 font-medium">来週のメニュー</span>
+          <span class="text-base font-semibold text-gray-900"><%= weekRangeLabel %></span>
+        </div>
+        <button type="button" data-action="regenerate-week" class="inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-black focus:outline-none focus:ring-2 focus:ring-gray-300">
+          <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
+          全メニューを再生成
+        </button>
+      </div>
+      <div class="w-full grid grid-cols-2 gap-2 text-sm font-semibold">
+        <button type="button" data-tab="lunch" class="tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-gray-900 text-white shadow-sm">🍱 ランチ</button>
+        <button type="button" data-tab="dinner" class="tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-gray-100 text-gray-600">🍽 ディナー</button>
+      </div>
+    </div>
+
+    <div class="px-6 pb-6 space-y-10">
+      <section class="space-y-4" data-panel="lunch">
+        <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <% plan.forEach((day) => { const slot = day?.lunch?.main || null; const row = displayRow(menuLookup, slot); const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
+            <div
+              class="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between"
+              data-day="<%= day.index %>"
+              data-meal="lunch"
+              data-slot="main"
+              data-category="lunchMain"
+            >
+              <div class="flex items-start gap-4">
+                <div class="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400" data-element="dish-image">
+                  <% if (row.imageUrl) { %>
+                    <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                  <% } else { %>
+                    <span>no image</span>
+                  <% } %>
+                </div>
+                <div class="w-16 shrink-0 text-left">
+                  <p class="text-sm font-semibold text-gray-900"><%= day.dayLabel %></p>
+                  <% if (dateLabel) { %>
+                    <p class="text-xs text-gray-500"><%= dateLabel %></p>
+                  <% } %>
+                </div>
+                <div class="space-y-2 flex-1">
+                  <p class="text-base font-semibold text-gray-900" data-element="dish-name"><%= row.name %></p>
+                  <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700" data-element="dish-chips">
+                    <% 
+                      const formattedTime = row.time ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分') : '';
+                      const chips = [
+                        row.junle ? { label: 'ジャンル', value: row.junle } : null,
+                        row.cook ? { label: '調理方法', value: row.cook } : null,
+                        formattedTime ? { label: '調理時間', value: formattedTime } : null
+                      ].filter(Boolean); 
+                    %>
+                    <% if (chips.length) { %>
+                      <% chips.forEach((chip) => { %>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1">
+                          <span><%= chip.label %></span>
+                          <span class="font-medium text-amber-800"><%= chip.value %></span>
+                        </span>
+                      <% }) %>
+                    <% } %>
+                  </div>
+                  <p class="text-xs text-gray-500" data-element="dish-detail"><%= row.detail %></p>
+                  <div class="menu-picker hidden mt-3" data-picker></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 self-end md:self-center">
+                <button type="button" class="icon-button favorite-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-favorite" aria-pressed="false" title="お気に入りに追加" <% if (!row.hasMenu) { %>disabled<% } %>>
+                  <span class="sr-only">お気に入りに追加</span>
+                  <span class="lucide w-4 h-4" data-lucide="heart"></span>
+                </button>
+                <button type="button" class="icon-button dine-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-dine" aria-pressed="false" title="家と外食を切り替え" <% if (!row.hasMenu) { %>disabled<% } %>>
+                  <span class="sr-only">家と外食を切り替え</span>
+                  <span data-role="dine-home" class="lucide w-4 h-4" data-lucide="home"></span>
+                  <span data-role="dine-out" class="lucide w-4 h-4 hidden" data-lucide="utensils"></span>
+                </button>
+                <button type="button" class="icon-button shuffle-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="shuffle" title="再提案" <% if (!row.hasMenu) { %>disabled<% } %>>
+                  <span class="sr-only">再提案</span>
+                  <span class="lucide w-4 h-4" data-lucide="refresh-ccw"></span>
+                </button>
+                <button type="button" class="change-button icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="change" title="探す" <% if (!row.hasMenu) { %>disabled<% } %>>
+                  <span class="sr-only">探す</span>
+                  <span class="lucide w-4 h-4" data-lucide="search"></span>
+                </button>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+
+      <section class="space-y-4 hidden" data-panel="dinner">
+        <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <% plan.forEach((day) => { const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
+            <div class="px-4 py-4" data-day="<%= day.index %>" data-meal="dinner">
+              <div class="flex items-start gap-4">
+                <div class="w-16 shrink-0 text-left">
+                  <p class="text-sm font-semibold text-gray-900"><%= day.dayLabel %></p>
+                  <% if (dateLabel) { %>
+                    <p class="text-xs text-gray-500"><%= dateLabel %></p>
+                  <% } %>
+                </div>
+                <div class="flex-1 grid gap-3 md:grid-cols-2 lg:grid-cols-4" data-meal-group>
+                  <% ['staple', 'main', 'side', 'soup'].forEach((slotKey) => {
+                       const slot = day?.dinner?.[slotKey] || null;
+                       const categoryKey = slotKey === 'staple' ? 'dinnerStaple' : (slotKey === 'main' ? 'dinnerMain' : (slotKey === 'side' ? 'dinnerSide' : 'dinnerSoup'));
+                       const label = categoryConfig[categoryKey]?.label || '';
+                       const row = displayRow(menuLookup, slot); %>
+                    <div
+                      class="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-3"
+                      data-slot="<%= slotKey %>"
+                      data-category="<%= categoryKey %>"
+                    >
+                      <div class="w-full h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400" data-element="dish-image">
+                        <% if (row.imageUrl) { %>
+                          <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                        <% } else { %>
+                          <span>no image</span>
+                        <% } %>
+                      </div>
+                      <div class="space-y-2">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400"><%= label %></p>
+                        <p class="text-sm font-semibold text-gray-900" data-element="dish-name"><%= row.name %></p>
+                        <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700" data-element="dish-chips">
+                          <% 
+                            const formattedTimeDinner = row.time ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分') : '';
+                            const chips = [
+                              row.junle ? { label: 'ジャンル', value: row.junle } : null,
+                              row.cook ? { label: '調理方法', value: row.cook } : null,
+                              formattedTimeDinner ? { label: '調理時間', value: formattedTimeDinner } : null
+                            ].filter(Boolean); 
+                          %>
+                          <% if (chips.length) { %>
+                            <% chips.forEach((chip) => { %>
+                              <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1">
+                                <span><%= chip.label %></span>
+                                <span class="font-medium text-amber-800"><%= chip.value %></span>
+                              </span>
+                            <% }) %>
+                          <% } %>
+                        </div>
+                        <p class="text-xs text-gray-500" data-element="dish-detail"><%= row.detail %></p>
+                      </div>
+                      <div class="flex items-center justify-between gap-1">
+                        <div class="flex items-center gap-1">
+                          <button type="button" class="icon-button favorite-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-favorite" aria-pressed="false" title="お気に入りに追加" <% if (!row.hasMenu) { %>disabled<% } %>>
+                            <span class="sr-only">お気に入りに追加</span>
+                            <span class="lucide w-4 h-4" data-lucide="heart"></span>
+                          </button>
+                          <button type="button" class="icon-button dine-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-dine" aria-pressed="false" title="家と外食を切り替え" <% if (!row.hasMenu) { %>disabled<% } %>>
+                            <span class="sr-only">家と外食を切り替え</span>
+                            <span data-role="dine-home" class="lucide w-4 h-4" data-lucide="home"></span>
+                            <span data-role="dine-out" class="lucide w-4 h-4 hidden" data-lucide="utensils"></span>
+                          </button>
+                          <button type="button" class="icon-button shuffle-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="shuffle" title="再提案" <% if (!row.hasMenu) { %>disabled<% } %>>
+                            <span class="sr-only">再提案</span>
+                            <span class="lucide w-4 h-4" data-lucide="refresh-ccw"></span>
+                          </button>
+                        </div>
+                        <button type="button" class="change-button icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="change" title="探す" <% if (!row.hasMenu) { %>disabled<% } %>>
+                          <span class="sr-only">探す</span>
+                          <span class="lucide w-4 h-4" data-lucide="search"></span>
+                        </button>
+                      </div>
+                      <div class="menu-picker hidden" data-picker></div>
+                    </div>
+                  <% }) %>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="mt-10 flex justify-center">
+    <button type="button" data-action="save-week-plan" class="inline-flex w-full md:w-2/5 items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
+      保存
+    </button>
+  </div>
+</section>
+
+<script>
+  window.weekMenuData = {
+    plan: JSON.parse('<%- serialize(plan) %>'),
+    menusByCategory: JSON.parse('<%- serialize(menusByCategory) %>'),
+    menuLookup: JSON.parse('<%- serialize(menuLookup) %>'),
+    categoryConfig: JSON.parse('<%- serialize(categoryConfig) %>'),
+    weekDates: JSON.parse('<%- serialize(weekDates) %>'),
+    weekRangeLabel: <%- serialize(weekRangeLabel) %>,
+    currentGroupId: <%- serialize(currentGroupId || '') %>,
+    planId: <%- serialize(existingPlanId || '') %>
+  };
+</script>
+
+<script>
+  (function () {
+    const data = window.weekMenuData;
+    if (!data) return;
+
+    const clonePlan = (value) => {
+      if (typeof structuredClone === 'function') {
+        try {
+          return structuredClone(value);
+        } catch (err) {
+          // fallback below
+        }
+      }
+      return JSON.parse(JSON.stringify(value));
+    };
+
+    const state = {
+      planId: data.planId || '',
+      tab: 'lunch',
+      plan: clonePlan(data.plan)
+    };
+
+    const menuLookup = data.menuLookup;
+    const menusByCategory = data.menusByCategory;
+    const weekDates = Array.isArray(data.weekDates) ? data.weekDates : [];
+    const currentGroupId = data.currentGroupId || '';
+    const weekRangeLabel = data.weekRangeLabel || '';
+    const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+    const panels = Array.from(document.querySelectorAll('[data-panel]'));
+    const saveButton = document.querySelector('[data-action="save-week-plan"]');
+
+    const getSlotReference = (dayIndex, mealKey, slotKey) => {
+      const day = state.plan[dayIndex];
+      if (!day) return null;
+      if (mealKey === 'lunch') return day?.lunch?.[slotKey] || null;
+      if (mealKey === 'dinner') return day?.dinner?.[slotKey] || null;
+      return null;
+    };
+
+    const updateImage = (container, url, name) => {
+      if (!container) return;
+      container.innerHTML = '';
+      if (url) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = name || 'メニュー画像';
+        img.className = 'object-cover w-full h-full';
+        container.appendChild(img);
+      } else {
+        const span = document.createElement('span');
+        span.className = 'text-[10px] text-gray-400';
+        span.textContent = 'no image';
+        container.appendChild(span);
+      }
+    };
+
+    const toggleFavorite = (slot) => {
+      if (!slot) return;
+      slot.favorite = !slot.favorite;
+    };
+
+    const toggleDineOut = (slot) => {
+      if (!slot) return;
+      slot.dineOut = !slot.dineOut;
+    };
+
+    const pickRandomMenu = (categoryKey, excludeMenuId) => {
+      const options = menusByCategory[categoryKey] || [];
+      if (!options.length) return null;
+      if (options.length === 1) return options[0];
+
+      let candidate = null;
+      let guard = 0;
+      do {
+        const index = Math.floor(Math.random() * options.length);
+        candidate = options[index];
+        guard += 1;
+      } while (candidate?.id === excludeMenuId && guard < 10);
+      return candidate;
+    };
+
+    const openPicker = (container, categoryKey, slot) => {
+      if (!container) return;
+      let picker = container.querySelector('select');
+      if (!picker) {
+        picker = document.createElement('select');
+        picker.className = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200';
+        const options = menusByCategory[categoryKey] || [];
+        options.forEach((menu) => {
+          const option = document.createElement('option');
+          option.value = menu.id;
+          option.textContent = menu.name;
+          picker.appendChild(option);
+        });
+        container.appendChild(picker);
+
+        picker.addEventListener('change', (event) => {
+          const nextMenu = menuLookup[event.target.value];
+          if (!nextMenu) return;
+          slot.menuId = nextMenu.id;
+          slot.dineOut = false;
+          slot.categoryKey = categoryKey;
+          container.classList.add('hidden');
+          render();
+        });
+      }
+
+      picker.value = slot.menuId || '';
+      container.classList.toggle('hidden');
+    };
+
+    const updateChips = (container, menu) => {
+      if (!container) return;
+      container.innerHTML = '';
+      if (!menu) return;
+
+      const formattedTime = menu.time
+        ? (String(menu.time).trim().endsWith('分') ? String(menu.time).trim() : `${String(menu.time).trim()}分`)
+        : '';
+
+      const chipsData = [
+        menu.junle ? { label: 'ジャンル', value: menu.junle } : null,
+        menu.cook ? { label: '調理方法', value: menu.cook } : null,
+        formattedTime ? { label: '調理時間', value: formattedTime } : null
+      ].filter(Boolean);
+
+      if (!chipsData.length) return;
+
+      chipsData.forEach((chip) => {
+        const span = document.createElement('span');
+        span.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1';
+        span.textContent = '';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = chip.label;
+        span.appendChild(labelSpan);
+
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'font-medium text-amber-800';
+        valueSpan.textContent = chip.value;
+        span.appendChild(valueSpan);
+
+        container.appendChild(span);
+      });
+    };
+
+    const updateDineButtonIcons = (button, isDineOut) => {
+      if (!button) return;
+      const homeIcon = button.querySelector('[data-role="dine-home"]');
+      const outIcon = button.querySelector('[data-role="dine-out"]');
+      if (homeIcon) {
+        homeIcon.classList.toggle('hidden', isDineOut);
+      }
+      if (outIcon) {
+        outIcon.classList.toggle('hidden', !isDineOut);
+      }
+    };
+
+    const buildPayload = () => {
+      const dayPlans = [];
+
+      state.plan.forEach((day) => {
+        if (!day) return;
+        const dateISO = weekDates[day.index]?.dateISO || day.dateISO || null;
+
+        const lunchSlot = day?.lunch?.main;
+        if (lunchSlot && lunchSlot.menuId) {
+          dayPlans.push({
+            dayIndex: day.index,
+            dateISO,
+            mealType: 'lunch',
+            slots: [{
+              categoryKey: lunchSlot.categoryKey || 'lunchMain',
+              menuId: lunchSlot.menuId,
+              dineOut: !!lunchSlot.dineOut,
+              favorite: !!lunchSlot.favorite,
+              locked: !!lunchSlot.locked
+            }]
+          });
+        }
+
+        const dinnerSlots = [];
+        if (day?.dinner) {
+          Object.entries(day.dinner).forEach(([key, value]) => {
+            if (!value || !value.menuId) return;
+            const categoryKey = value.categoryKey || (key === 'staple' ? 'dinnerStaple'
+              : key === 'main' ? 'dinnerMain'
+              : key === 'side' ? 'dinnerSide'
+              : key === 'soup' ? 'dinnerSoup'
+              : null);
+            if (!categoryKey) return;
+            dinnerSlots.push({
+              categoryKey,
+              menuId: value.menuId,
+              dineOut: !!value.dineOut,
+              favorite: !!value.favorite,
+              locked: !!value.locked
+            });
+          });
+        }
+
+        if (dinnerSlots.length) {
+          dayPlans.push({
+            dayIndex: day.index,
+            dateISO,
+            mealType: 'dinner',
+            slots: dinnerSlots
+          });
+        }
+      });
+
+      const weekStartISO = weekDates[0]?.dateISO || (state.plan[0]?.dateISO ?? null) || (dayPlans[0]?.dateISO ?? null);
+      const weekEndISO = weekDates[weekDates.length - 1]?.dateISO || (state.plan[state.plan.length - 1]?.dateISO ?? weekStartISO);
+
+      return {
+        groupId: currentGroupId,
+        weekStart: weekStartISO,
+        weekEnd: weekEndISO,
+        dayPlans,
+        title: weekRangeLabel ? `${weekRangeLabel}の献立` : '',
+        planId: state.planId || undefined
+      };
+    };
+
+    const handleSave = async () => {
+      if (!currentGroupId) {
+        alert('保存先グループが設定されていません。');
+        return;
+      }
+
+      const payload = buildPayload();
+
+      if (!payload.weekStart || !payload.dayPlans.length) {
+        alert('保存するメニューがありません。');
+        return;
+      }
+
+      if (!saveButton) return;
+      const originalLabel = saveButton.textContent;
+      saveButton.disabled = true;
+      saveButton.textContent = '保存中...';
+
+      try {
+        const response = await fetch('/users/week-menu', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(result.error || '保存に失敗しました。');
+        }
+
+        if (result.planId) {
+          state.planId = result.planId;
+          window.weekMenuData.planId = result.planId;
+        }
+
+        alert('1週間のメニューを保存しました。');
+      } catch (error) {
+        console.error(error);
+        alert(error.message || '保存に失敗しました。');
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = originalLabel;
+      }
+    };
+
+    const renderSlot = (wrapper, slot) => {
+      const nameEl = wrapper.querySelector('[data-element="dish-name"]');
+      const detailEl = wrapper.querySelector('[data-element="dish-detail"]');
+      const favoriteBtn = wrapper.querySelector('[data-action="toggle-favorite"]');
+      const dineBtn = wrapper.querySelector('[data-action="toggle-dine"]');
+      const shuffleBtn = wrapper.querySelector('[data-action="shuffle"]');
+      const changeBtn = wrapper.querySelector('[data-action="change"]');
+      const chipsEl = wrapper.querySelector('[data-element="dish-chips"]');
+      const imageEl = wrapper.querySelector('[data-element="dish-image"]');
+
+      const menu = slot ? menuLookup[slot.menuId] : null;
+
+      if (!slot || !menu) {
+        if (nameEl) nameEl.textContent = 'メニュー候補がありません';
+        if (detailEl) detailEl.textContent = '管理者にご確認ください';
+        if (chipsEl) chipsEl.innerHTML = '';
+        updateImage(imageEl, '', '');
+
+        [favoriteBtn, dineBtn, shuffleBtn, changeBtn].forEach((btn) => {
+          if (btn) btn.disabled = true;
+        });
+        wrapper.classList.add('opacity-60');
+        updateDineButtonIcons(dineBtn, false);
+        return;
+      }
+
+      if (nameEl) nameEl.textContent = menu.name;
+      if (detailEl) detailEl.textContent = menu.cook || menu.junle || menu.kind || menu.menu || '詳細情報は未登録です';
+      updateChips(chipsEl, menu);
+      updateImage(imageEl, menu.imageUrl, menu.name);
+
+      wrapper.classList.toggle('opacity-60', !!slot.dineOut);
+
+      if (favoriteBtn) {
+        favoriteBtn.disabled = false;
+        favoriteBtn.setAttribute('aria-pressed', slot.favorite ? 'true' : 'false');
+        favoriteBtn.classList.toggle('is-active', !!slot.favorite);
+        favoriteBtn.classList.toggle('text-rose-500', !!slot.favorite);
+        favoriteBtn.classList.toggle('border-rose-300', !!slot.favorite);
+        favoriteBtn.classList.toggle('bg-rose-50', !!slot.favorite);
+      }
+
+      if (dineBtn) {
+        dineBtn.disabled = false;
+        dineBtn.setAttribute('aria-pressed', slot.dineOut ? 'true' : 'false');
+        updateDineButtonIcons(dineBtn, !!slot.dineOut);
+      }
+
+      if (shuffleBtn) shuffleBtn.disabled = false;
+      if (changeBtn) changeBtn.disabled = false;
+    };
+
+    const render = () => {
+      state.plan.forEach((day, dayIndex) => {
+        const lunchWrapper = document.querySelector(
+          `[data-day="${dayIndex}"][data-meal="lunch"][data-slot="main"]`
+        );
+        if (lunchWrapper) {
+          renderSlot(lunchWrapper, day?.lunch?.main || null);
+        }
+
+        const dinnerDayWrapper = document.querySelector(`[data-day="${dayIndex}"][data-meal="dinner"]`);
+        if (dinnerDayWrapper) {
+          ['staple', 'main', 'side', 'soup'].forEach((slotKey) => {
+            const slotWrapper = dinnerDayWrapper.querySelector(`[data-slot="${slotKey}"]`);
+            if (slotWrapper) {
+              renderSlot(slotWrapper, day?.dinner?.[slotKey] || null);
+            }
+          });
+        }
+      });
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    const switchTab = (nextTab) => {
+      state.tab = nextTab;
+      tabButtons.forEach((button) => {
+        const isActive = button.dataset.tab === nextTab;
+        button.classList.toggle('bg-gray-900', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('bg-gray-100', !isActive);
+        button.classList.toggle('text-gray-600', !isActive);
+      });
+      panels.forEach((panel) => {
+        panel.classList.toggle('hidden', panel.dataset.panel !== nextTab);
+      });
+    };
+
+    document.addEventListener('click', (event) => {
+      const actionNode = event.target.closest('[data-action]');
+      if (!actionNode) return;
+
+      const wrapper = actionNode.closest('[data-day]');
+      if (!wrapper) return;
+
+      const dayIndex = Number(wrapper.dataset.day);
+      const mealKey = wrapper.dataset.meal || wrapper.closest('[data-meal]')?.dataset.meal || 'dinner';
+      let slotKey = wrapper.dataset.slot;
+      if (!slotKey && wrapper.matches('[data-meal="dinner"]')) {
+        const slotWrapper = actionNode.closest('[data-slot]');
+        slotKey = slotWrapper?.dataset.slot;
+        if (!slotWrapper) return;
+      }
+
+      const slotWrapper = slotKey ? wrapper.querySelector(`[data-slot="${slotKey}"]`) || wrapper : wrapper;
+      const categoryKey = slotWrapper.dataset.category;
+      if (!categoryKey) return;
+
+      const slot = getSlotReference(dayIndex, mealKey, slotKey || 'main');
+      if (!slot) return;
+
+      const action = actionNode.dataset.action;
+      if (action === 'toggle-favorite') {
+        toggleFavorite(slot);
+      } else if (action === 'toggle-dine') {
+        toggleDineOut(slot);
+      } else if (action === 'shuffle') {
+        const nextMenu = pickRandomMenu(categoryKey, slot.menuId);
+        if (nextMenu) {
+          slot.menuId = nextMenu.id;
+          slot.dineOut = false;
+        }
+      } else if (action === 'change') {
+        const pickerHost = slotWrapper.querySelector('[data-picker]');
+        openPicker(pickerHost, categoryKey, slot);
+      }
+
+      render();
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    });
+
+    tabButtons.forEach((button) => {
+      button.addEventListener('click', () => switchTab(button.dataset.tab));
+    });
+
+    const regenerateButton = document.querySelector('[data-action="regenerate-week"]');
+    if (regenerateButton) {
+      regenerateButton.addEventListener('click', () => {
+        const nextPlan = state.plan.map((day) => {
+          const cloneDay = {
+            ...day,
+            lunch: { ...day.lunch },
+            dinner: { ...day.dinner }
+          };
+
+          const rebuildSlot = (categoryKey) => {
+            const nextMenu = pickRandomMenu(categoryKey);
+            if (!nextMenu) return null;
+            return {
+              menuId: nextMenu.id,
+              categoryKey,
+              favorite: false,
+              dineOut: false
+            };
+          };
+
+          cloneDay.lunch.main = rebuildSlot('lunchMain');
+          cloneDay.dinner.staple = rebuildSlot('dinnerStaple');
+          cloneDay.dinner.main = rebuildSlot('dinnerMain');
+          cloneDay.dinner.side = rebuildSlot('dinnerSide');
+          cloneDay.dinner.soup = rebuildSlot('dinnerSoup');
+
+          return cloneDay;
+        });
+
+        state.plan = nextPlan;
+        render();
+        if (typeof window.refreshLucideIcons === 'function') {
+          window.refreshLucideIcons();
+        }
+      });
+    }
+
+    if (saveButton) {
+      saveButton.addEventListener('click', handleSave);
+    }
+
+    switchTab('lunch');
+    render();
+    if (typeof window.refreshLucideIcons === 'function') {
+      window.refreshLucideIcons();
+    }
+  })();
+</script>

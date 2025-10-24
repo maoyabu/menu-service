@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1week meal planning</title>
+  <title>7 DAYS PLAN</title>
   <link rel="icon" href="/favicon.png" type="image/png">
 
   <!-- Google Fonts: Inter -->
@@ -22,8 +22,16 @@
       }
     }
   </script>
-  <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    [data-sticky-header].is-transparent {
+      background-color: rgba(255, 255, 255, 0.65);
+      border-color: transparent;
+      box-shadow: none;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+  </style>
+  <!-- Lucide Icons (dynamic fetch) -->
 </head>
 <body class="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans">
     <%- include('../partials/admin-header') %>
@@ -49,7 +57,120 @@
         <%- body -%>
     </main>
     <script>
-        lucide.createIcons();
+      (function () {
+        const header = document.querySelector('[data-sticky-header]');
+        if (!header) return;
+
+        const toggleTransparent = () => {
+          const isScrolled = window.scrollY > 0;
+          header.classList.toggle('is-transparent', isScrolled);
+        };
+
+        toggleTransparent();
+        window.addEventListener('scroll', toggleTransparent, { passive: true });
+      })();
+    </script>
+    <script>
+      (function () {
+        const ICON_ENDPOINT = 'https://unpkg.com/lucide-static@latest/icons';
+        const iconCache = new Map();
+        const parser = new DOMParser();
+
+        const sanitizeIconName = (name) => {
+          if (!name) return '';
+          return String(name).toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+        };
+
+        const loadIcon = async (name) => {
+          const safeName = sanitizeIconName(name);
+          if (!safeName) throw new Error('invalid icon name');
+
+          if (iconCache.has(safeName)) {
+            return iconCache.get(safeName);
+          }
+
+          const promise = fetch(`${ICON_ENDPOINT}/${safeName}.svg`, { cache: 'force-cache' })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return response.text();
+            })
+            .then((svgText) => {
+              const doc = parser.parseFromString(svgText, 'image/svg+xml');
+              const svg = doc.querySelector('svg');
+              if (!svg) {
+                throw new Error('invalid svg content');
+              }
+              return svg;
+            });
+
+          iconCache.set(safeName, promise);
+          return promise;
+        };
+
+        const applyIcon = (target, svg, iconName) => {
+          const clone = svg.cloneNode(true);
+          const width = clone.getAttribute('width') || '24';
+          const height = clone.getAttribute('height') || '24';
+          clone.setAttribute('width', width);
+          clone.setAttribute('height', height);
+          clone.setAttribute('stroke', clone.getAttribute('stroke') || 'currentColor');
+          clone.setAttribute('fill', clone.getAttribute('fill') || 'none');
+          clone.setAttribute('stroke-width', clone.getAttribute('stroke-width') || '2');
+          clone.setAttribute('aria-hidden', 'true');
+
+          const targetClasses = target.getAttribute('class');
+          const originalSvgClasses = clone.getAttribute('class');
+          const mergedClasses = [
+            'lucide',
+            `lucide-${iconName}`,
+            originalSvgClasses,
+            targetClasses
+          ]
+            .filter(Boolean)
+            .join(' ');
+          clone.setAttribute('class', mergedClasses);
+
+          const attrNames = target.getAttributeNames();
+          attrNames.forEach((attr) => {
+            if (attr === 'data-lucide' || attr === 'class') return;
+            clone.setAttribute(attr, target.getAttribute(attr));
+          });
+
+          clone.setAttribute('data-lucide', iconName);
+          clone.setAttribute('data-lucide-rendered', 'true');
+          target.replaceWith(clone);
+        };
+
+        const renderIcons = () => {
+          const nodes = Array.from(document.querySelectorAll('[data-lucide]'));
+          nodes.forEach((node) => {
+            if (node.dataset.lucideRendered === 'true') return;
+            const iconName = sanitizeIconName(node.dataset.lucide);
+            if (!iconName) return;
+
+            loadIcon(iconName)
+              .then((svg) => applyIcon(node, svg, iconName))
+              .catch((err) => {
+                console.error('lucide icon render failed:', iconName, err);
+                node.setAttribute('data-lucide-rendered', 'error');
+              });
+          });
+        };
+
+        const scheduleRender = () => {
+          renderIcons();
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', scheduleRender, { once: true });
+        } else {
+          scheduleRender();
+        }
+
+        window.refreshLucideIcons = scheduleRender;
+      })();
     </script>
 </body>
 </html>
