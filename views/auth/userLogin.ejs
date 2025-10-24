@@ -1,0 +1,243 @@
+<section class="max-w-4xl mx-auto my-12">
+  <div class="text-center mb-10">
+    <p class="text-sm uppercase tracking-wide text-blue-500 font-semibold">1week meal planning</p>
+    <h1 class="text-3xl md:text-4xl font-bold mt-2">ユーザーログイン / 新規会員登録</h1>
+    <p class="mt-4 text-gray-600">
+      ログインして日々の献立や家計管理を始めましょう。タブを切り替えて登録済み/未登録に応じた操作を選択できます。
+    </p>
+  </div>
+
+  <div data-tabs="auth" class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+    <div class="flex border-b border-gray-200 bg-gray-50">
+      <button
+        type="button"
+        data-tab-button="login"
+        class="w-1/2 py-4 text-center text-sm font-semibold tracking-wide uppercase transition border-b-2 border-blue-500 text-blue-600 bg-white"
+        aria-selected="true"
+      >
+        ログイン
+      </button>
+      <button
+        type="button"
+        data-tab-button="register"
+        class="w-1/2 py-4 text-center text-sm font-semibold tracking-wide uppercase transition border-b-2 border-transparent text-gray-500 hover:text-blue-600"
+        aria-selected="false"
+      >
+        新規会員登録
+      </button>
+    </div>
+
+    <div class="p-8 space-y-6" data-tab-panel="login">
+      <div>
+        <h2 class="text-2xl font-semibold">ようこそ<span class="text-blue-500">。</span></h2>
+        <p class="mt-2 text-sm text-gray-500">登録済みのメールアドレスまたはユーザー名でログインしてください。</p>
+      </div>
+
+      <form action="/user/login" method="POST" class="space-y-5">
+        <div>
+          <label for="login-identifier" class="block text-sm font-medium text-gray-700">メールアドレス または ユーザー名</label>
+          <input
+            type="text"
+            id="login-identifier"
+            name="identifier"
+            autocomplete="username"
+            required
+            class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div>
+          <label for="login-password" class="block text-sm font-medium text-gray-700">パスワード</label>
+          <input
+            type="password"
+            id="login-password"
+            name="password"
+            autocomplete="current-password"
+            required
+            class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div class="flex items-center justify-between text-sm text-gray-600">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="remember" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            ログイン情報を保持する
+          </label>
+          <a href="/password/reset" class="text-blue-500 hover:text-blue-600 font-medium">パスワードをお忘れですか？</a>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition"
+        >
+          ログイン
+        </button>
+      </form>
+    </div>
+
+    <div class="hidden p-8 space-y-6" data-tab-panel="register">
+      <div>
+        <h2 class="text-2xl font-semibold">初めまして<span class="text-blue-500">。</span></h2>
+        <p class="mt-2 text-sm text-gray-500">アカウント情報を入力して、サービスのご利用を開始しましょう。</p>
+      </div>
+
+      <form action="/user/register" method="POST" class="space-y-5">
+        <div>
+          <label for="register-username" class="block text-sm font-medium text-gray-700">ログインネーム（ユーザー名）</label>
+          <p class="mt-1 text-xs text-gray-500">3文字以上の英数字、アンダースコア、ハイフンのみ（変更不可）</p>
+          <input
+            type="text"
+            id="register-username"
+            name="username"
+            required
+            placeholder="例: family_kitchen"
+            autocomplete="username"
+            class="mt-3 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div>
+          <label for="register-displayname" class="block text-sm font-medium text-gray-700">表示名</label>
+          <p class="mt-1 text-xs text-gray-500">変更可能です</p>
+          <input
+            type="text"
+            id="register-displayname"
+            name="displayname"
+            placeholder="ご家族で表示する名前"
+            class="mt-3 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div>
+          <label for="register-email" class="block text-sm font-medium text-gray-700">メールアドレス</label>
+          <input
+            type="email"
+            id="register-email"
+            name="email"
+            required
+            autocomplete="email"
+            class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div>
+          <label for="register-password" class="block text-sm font-medium text-gray-700">パスワード</label>
+          <input
+            type="password"
+            id="register-password"
+            name="password"
+            required
+            autocomplete="new-password"
+            class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div>
+          <label for="register-password-confirm" class="block text-sm font-medium text-gray-700">パスワード（確認）</label>
+          <input
+            type="password"
+            id="register-password-confirm"
+            name="confirmPassword"
+            required
+            autocomplete="new-password"
+            class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700">利用するサービス</label>
+          <p class="mt-1 text-xs text-gray-500">利用開始時に有効化するサービスを選択できます。</p>
+          <div class="mt-3 grid sm:grid-cols-2 gap-3 text-sm">
+            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+              <input type="checkbox" name="services[allaboutme]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked />
+              All About Me
+            </label>
+            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+              <input type="checkbox" name="services[finance]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked />
+              Finance
+            </label>
+            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+              <input type="checkbox" name="services[assets]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked />
+              Assets
+            </label>
+            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+              <input type="checkbox" name="services[menu]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked />
+              Menu
+            </label>
+          </div>
+        </div>
+
+        <label class="flex items-start gap-3 text-sm text-gray-600">
+          <input type="checkbox" name="termsAgree" required class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+          <span>
+            <a href="/terms" class="text-blue-500 font-medium hover:text-blue-600">利用規約</a> と
+            <a href="/privacy-policy" class="text-blue-500 font-medium hover:text-blue-600">プライバシーポリシー</a>
+            に同意します。
+          </span>
+        </label>
+
+        <button
+          type="submit"
+          class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-lg transition"
+        >
+          会員登録する
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<%
+  const context = typeof locals !== 'undefined' ? locals : {};
+  const errorMessages = Array.isArray(context.error)
+    ? context.error
+    : (context.error ? [context.error] : []);
+  const duplicateAlerts = [];
+  if (context.registrationAlert) {
+    duplicateAlerts.push(context.registrationAlert);
+  }
+  errorMessages.forEach(function (msg) {
+    if (/すでに|既に|登録済み|存在/i.test(msg)) {
+      duplicateAlerts.push(msg);
+    }
+  });
+%>
+<script>
+  (function () {
+    const defaultTab = <%- JSON.stringify(context.registrationAlert ? 'register' : 'login') %>;
+    const container = document.querySelector('[data-tabs="auth"]');
+    if (!container) return;
+    const buttons = Array.from(container.querySelectorAll('[data-tab-button]'));
+    const panels = Array.from(container.querySelectorAll('[data-tab-panel]'));
+
+    const activate = (tab) => {
+      buttons.forEach((button) => {
+        const isActive = button.dataset.tabButton === tab;
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('border-blue-500', isActive);
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-gray-500', !isActive);
+        button.classList.toggle('border-transparent', !isActive);
+        button.setAttribute('aria-selected', String(isActive));
+      });
+
+      panels.forEach((panel) => {
+        const isActive = panel.dataset.tabPanel === tab;
+        panel.classList.toggle('hidden', !isActive);
+      });
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => activate(button.dataset.tabButton));
+    });
+
+    activate(defaultTab);
+  }());
+</script>
+<% if (duplicateAlerts.length) { %>
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      alert(<%- JSON.stringify(duplicateAlerts.join('\n') + '\n再度新規登録をお試しください。') %>);
+    });
+  </script>
+<% } %>

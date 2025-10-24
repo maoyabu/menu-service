@@ -1,0 +1,263 @@
+<%
+  const currentUserName = (typeof user !== 'undefined' && user)
+    ? (user.displayname || user.username || user.email || 'ユーザー')
+    : 'ユーザー';
+%>
+
+<section class="relative max-w-6xl mx-auto py-10 space-y-10">
+  <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
+    <div class="p-8 md:p-12 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+      <div class="space-y-4">
+        <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] bg-white/20 px-4 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+          my top
+        </span>
+        <h1 class="text-3xl md:text-4xl font-bold leading-tight">
+          こんにちは、<span class="text-emerald-200"><%= currentUserName %></span> さん
+        </h1>
+        <p class="text-sm md:text-base text-white/80 md:max-w-xl">
+          今日の献立や家計状況をまとめてチェックしましょう。おすすめメニューや家族の予定、やることリストもここから確認できます。
+        </p>
+
+        <div class="flex flex-wrap gap-3 pt-2">
+          <a href="#" class="inline-flex items-center gap-2 rounded-full bg-white/15 hover:bg-white/25 text-white text-sm font-medium px-5 py-2 transition">
+            <span class="lucide" data-lucide="chef-hat"></span>
+            今日のおすすめ
+          </a>
+          <a href="#" class="inline-flex items-center gap-2 rounded-full bg-white text-blue-600 text-sm font-semibold px-5 py-2 transition">
+            <span class="lucide text-blue-500" data-lucide="plus"></span>
+            新しい献立を作成
+          </a>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div class="w-48 h-48 md:w-56 md:h-56 rounded-3xl bg-white/10 border border-white/30 backdrop-blur-sm flex items-center justify-center">
+          <div class="text-center">
+            <span class="text-6xl md:text-7xl font-black text-white/90">7</span>
+            <p class="uppercase text-xs tracking-[0.35em] text-white/60 mt-2">days plan</p>
+          </div>
+        </div>
+        <div class="absolute -bottom-6 -left-6 bg-emerald-400 text-blue-950 px-4 py-2 rounded-2xl shadow-md text-xs font-semibold tracking-wider">
+          next action: 家族会議
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="grid md:grid-cols-3 gap-6">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">今日の献立</h2>
+        <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+          <span class="lucide w-3 h-3" data-lucide="sprout"></span>
+          ready
+        </span>
+      </div>
+      <ul class="space-y-3 text-sm text-gray-700">
+        <li class="flex justify-between items-center">
+          <span class="font-medium text-gray-500 uppercase tracking-wide text-xs">朝食</span>
+          <span>ヨーグルトボウルとフルーツ</span>
+        </li>
+        <li class="flex justify-between items-center">
+          <span class="font-medium text-gray-500 uppercase tracking-wide text-xs">昼食</span>
+          <span>サラダランチ &amp; スープ</span>
+        </li>
+        <li class="flex justify-between items-center">
+          <span class="font-medium text-gray-500 uppercase tracking-wide text-xs">夕食</span>
+          <span>ハーブチキンとロースト野菜</span>
+        </li>
+      </ul>
+      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        詳しくみる
+        <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
+      </button>
+    </article>
+
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">家計サマリー</h2>
+        <span class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+          <span class="lucide w-3 h-3" data-lucide="pie-chart"></span>
+          weekly
+        </span>
+      </div>
+      <div class="space-y-4">
+        <div class="flex items-baseline justify-between">
+          <p class="text-sm text-gray-500">今月の支出</p>
+          <p class="text-xl font-bold text-gray-900">¥52,400</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+            <div class="h-full bg-blue-500 rounded-full" style="width: 62%"></div>
+          </div>
+          <span class="text-xs font-semibold text-blue-500">62%</span>
+        </div>
+        <ul class="space-y-2 text-sm text-gray-600">
+          <li class="flex justify-between"><span>食費</span><span>¥24,600</span></li>
+          <li class="flex justify-between"><span>日用品</span><span>¥12,800</span></li>
+          <li class="flex justify-between"><span>その他</span><span>¥15,000</span></li>
+        </ul>
+      </div>
+      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        家計簿を見る
+        <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
+      </button>
+    </article>
+
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">ファミリーメモ</h2>
+        <span class="inline-flex items-center gap-1 text-xs font-medium text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+          <span class="lucide w-3 h-3" data-lucide="users"></span>
+          shared
+        </span>
+      </div>
+      <ul class="space-y-3 text-sm text-gray-700">
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 py-1 px-3 bg-purple-100 text-purple-600 rounded-full text-xs font-semibold">予定</span>
+          <div>
+            <p class="font-medium">土曜：買い出しリストを更新</p>
+            <p class="text-xs text-gray-500">担当：パパ</p>
+          </div>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 py-1 px-3 bg-emerald-100 text-emerald-600 rounded-full text-xs font-semibold">ToDo</span>
+          <div>
+            <p class="font-medium">冷凍庫のストック整理</p>
+            <p class="text-xs text-gray-500">優先度：高</p>
+          </div>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 py-1 px-3 bg-amber-100 text-amber-600 rounded-full text-xs font-semibold">メモ</span>
+          <div>
+            <p class="font-medium">今週は旬の食材「菜の花」を使用</p>
+            <p class="text-xs text-gray-500">ひとこと：春の味を楽しもう！</p>
+          </div>
+        </li>
+      </ul>
+      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        メモを追加
+        <span class="lucide w-4 h-4" data-lucide="plus"></span>
+      </button>
+    </article>
+  </section>
+
+  <section class="grid lg:grid-cols-[2fr,1fr] gap-6">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-6">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">今週の献立プラン</h2>
+          <p class="text-xs text-gray-500 mt-1 uppercase tracking-wide">7 days preview</p>
+        </div>
+        <button class="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+          全て表示
+          <span class="lucide w-4 h-4" data-lucide="calendar-range"></span>
+        </button>
+      </header>
+
+      <div class="grid md:grid-cols-7 gap-2 text-xs font-medium uppercase text-gray-500">
+        <span class="bg-gray-50 rounded-lg py-2 text-center">Mon</span>
+        <span class="bg-gray-50 rounded-lg py-2 text-center">Tue</span>
+        <span class="bg-gray-50 rounded-lg py-2 text-center">Wed</span>
+        <span class="bg-blue-500 text-white rounded-lg py-2 text-center shadow">Thu</span>
+        <span class="bg-gray-50 rounded-lg py-2 text-center">Fri</span>
+        <span class="bg-gray-50 rounded-lg py-2 text-center">Sat</span>
+        <span class="bg-gray-50 rounded-lg py-2 text-center">Sun</span>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="border rounded-xl p-4 space-y-2">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">おすすめレシピ</p>
+          <h3 class="text-lg font-semibold">サーモンのレモンバターソテー</h3>
+          <p class="text-sm text-gray-600">15分で作れるさっぱりメイン。付け合わせにアスパラをどうぞ。</p>
+          <button class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 hover:text-blue-700">
+            レシピを見る
+            <span class="lucide w-3 h-3" data-lucide="arrow-up-right"></span>
+          </button>
+        </div>
+        <div class="border rounded-xl p-4 space-y-2">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">買い出しリスト</p>
+          <ul class="text-sm text-gray-600 space-y-1">
+            <li>レモン 2個</li>
+            <li>サーモン切り身 4枚</li>
+            <li>アスパラガス 1束</li>
+          </ul>
+          <button class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 hover:text-blue-700">
+            リストを編集
+            <span class="lucide w-3 h-3" data-lucide="pencil-line"></span>
+          </button>
+        </div>
+        <div class="border rounded-xl p-4 space-y-2">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">ストック状況</p>
+          <div class="flex items-center gap-3">
+            <div class="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
+              <span class="text-blue-500 font-bold text-lg">72%</span>
+            </div>
+            <div class="space-y-1 text-sm text-gray-600">
+              <p>冷凍庫は十分に余裕があります。</p>
+              <p>消費期限が近い食材：<span class="font-semibold">豆腐、ひじき</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <aside class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-6">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">家族のトピックス</h2>
+          <p class="text-xs text-gray-500 mt-1">シェアされたメモ・予定をチェック</p>
+        </div>
+        <button class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 hover:text-blue-700">
+          すべて
+        </button>
+      </header>
+
+      <div class="space-y-4 text-sm text-gray-700">
+        <div class="p-4 rounded-xl bg-blue-50 border border-blue-100 flex gap-3">
+          <span class="lucide w-5 h-5 text-blue-500" data-lucide="bell-ring"></span>
+          <div>
+            <p class="font-semibold">日曜 11:00 - 家族ランチ</p>
+            <p class="text-xs text-blue-600 mt-1">リマインダーをセットしました</p>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 flex gap-3">
+          <span class="lucide w-5 h-5 text-emerald-500" data-lucide="leaf"></span>
+          <div>
+            <p class="font-semibold">ベジタブルチャレンジ Week 3</p>
+            <p class="text-xs text-emerald-600 mt-1">家族の達成率 85%</p>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-100 flex gap-3">
+          <span class="lucide w-5 h-5 text-amber-500" data-lucide="star"></span>
+          <div>
+            <p class="font-semibold">みんなのお気に入りレシピ</p>
+            <p class="text-xs text-amber-600 mt-1">「焼き野菜のバルサミコグレーズ」</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <footer class="rounded-2xl border border-dashed border-gray-200 p-6 bg-gray-50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900">次のステップを計画しましょう</h2>
+      <p class="text-sm text-gray-600 mt-2">
+        家族みんなで共有する年間プランを作成。献立、家計、暮らしのメモをまとめて管理できます。
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="#" class="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-blue-500 text-blue-600 font-semibold hover:bg-blue-50 transition">
+        <span class="lucide w-4 h-4" data-lucide="notebook-pen"></span>
+        プランを作成
+      </a>
+      <a href="#" class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-blue-500 text-white font-semibold hover:bg-blue-600 transition">
+        <span class="lucide w-4 h-4" data-lucide="message-circle"></span>
+        家族に共有
+      </a>
+    </div>
+  </footer>
+</section>

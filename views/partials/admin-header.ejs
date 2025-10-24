@@ -1,25 +1,72 @@
 <header class="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
   <div class="flex items-center gap-2 text-gray-800 text-lg font-semibold">
     <i data-lucide="chef-hat" class="w-6 h-6"></i>
-    <a href="/admin/admin-top" class="hover:underline">
-      <span>レシピ管理システム</span>
+    <% const onAdminRoute = typeof isAdminRoute !== 'undefined' ? isAdminRoute : false; %>
+    <% const homeHref = onAdminRoute ? '/admin/admin-top' : '/users/my-top'; %>
+    <% const brandLabel = onAdminRoute ? 'レシピ管理システム' : '7 DAYS PLAN'; %>
+    <a href="<%= homeHref %>" class="hover:underline">
+      <span><%= brandLabel %></span>
     </a>
   </div>
   <div class="flex items-center gap-4">
     <% if (typeof user !== 'undefined' && user) { %>
-      <div class="flex items-center gap-1 text-gray-600">
+      <% const groups = Array.isArray(userGroups) ? userGroups : []; %>
+      <% const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; %>
+      <% const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
+      <% const effectiveGroupId = currentGroupId || defaultGroupId; %>
+      <% if (user.isAdmin) { %>
+        <a href="/admin/admin-top" class="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+          <span class="hidden sm:inline text-sm font-semibold text-gray-700">管理者</span>
+        </a>
+      <% } %>
+
+      <div class="flex items-center gap-2 text-gray-600">
         <i data-lucide="users" class="w-5 h-5"></i>
-        <span>管理者</span>
-        <span class="bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded"><%= (user.displayname || user.username || user.email || '') %></span>
+        <% if (groups.length > 1) { %>
+          <label class="text-sm">
+            <span class="sr-only">グループを選択</span>
+            <select class="border border-gray-300 rounded px-2 py-1 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              onchange="if (this.value) { window.location.href = '/settings?group=' + this.value; }">
+              <option value="" <%= effectiveGroupId === '' ? 'selected' : '' %>>グループ一覧</option>
+              <% groups.forEach((group) => { %>
+                <%
+                  const optionLabel = (defaultGroupId === String(group._id) ? '★ ' : '') + group.group_name;
+                  const isSelected = effectiveGroupId === String(group._id);
+                %>
+                <option value="<%= group._id %>" <%= isSelected ? 'selected' : '' %>><%= optionLabel %></option>
+              <% }) %>
+            </select>
+          </label>
+        <% } else if (groups.length === 1) { %>
+          <span class="text-sm px-2 py-1 bg-gray-100 rounded">
+            <%= (defaultGroupId === String(groups[0]._id || '') ? '★ ' : '') + groups[0].group_name %>
+          </span>
+        <% } else { %>
+          <span class="text-sm text-gray-400">グループ未所属</span>
+        <% } %>
       </div>
-      <form action="/logout" method="POST">
-        <button type="submit" class="flex items-center gap-1 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">
-          <i class="fa-solid fa-right-from-bracket"></i>
-          <span>ログアウト</span>
-        </button>
-      </form>
+
+      <div class="flex items-center gap-2 text-gray-700">
+        <i data-lucide="user" class="w-5 h-5"></i>
+        <span class="hidden sm:inline bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded"><%= (user.displayname || user.username || user.email || '') %></span>
+      </div>
+
+      <div class="flex items-center gap-2 border border-gray-300 rounded px-3 py-1">
+        <a href="/settings" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span class="hidden sm:inline text-sm font-medium">設定</span>
+        </a>
+        <span class="text-gray-300 mx-1 hidden sm:inline">|</span>
+        <form action="/logout" method="POST">
+          <button type="submit" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">ログアウト</span>
+          </button>
+        </form>
+      </div>
     <% } else { %>
-      <a href="/login" class="flex items-center gap-1 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">
+      <a href="/user/login" class="flex items-center gap-1 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">
         <i data-lucide="log-in" class="w-4 h-4"></i>
         <span>ログイン</span>
       </a>

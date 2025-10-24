@@ -48,6 +48,11 @@ const userSchema = new mongoose.Schema({
     ref: 'Group',
     default: []
   }],
+  defaultGroup: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    default: null
+  },
   unsubscribe_date: {
     type: Date
   },
@@ -66,7 +71,8 @@ const userSchema = new mongoose.Schema({
   services: {
     allaboutme: { type: Boolean, default: true },
     finance: { type: Boolean, default: true },
-    assets: { type: Boolean, default: true }
+    assets: { type: Boolean, default: true },
+    menu: { type: Boolean, default: true }
   }
 });
 

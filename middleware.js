@@ -10,5 +10,5 @@ export const isAdmin = (req, res, next) => {
 export const isLoggedIn = (req, res, next) => {
   if (req.isAuthenticated()) return next();
   req.flash('error', 'ログインしてください');
-  res.redirect('/login');
+  res.redirect('/user/login');
 };

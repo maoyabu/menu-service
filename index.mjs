@@ -4,6 +4,7 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import Menu from './models/menu.js';
 import User from './models/users.js';
+import Group from './models/groups.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bodyParser from 'body-parser';
@@ -14,6 +15,7 @@ import expressLayouts from 'express-ejs-layouts';
 
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
+import settingsRoutes from './routes/settings.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +25,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(expressLayouts);
 app.set('layout', 'layouts/boilerplate');
+
+app.use((req, res, next) => {
+  res.locals.isAdminRoute = req.path.startsWith('/admin');
+  next();
+});
 
 // Trust first proxy (needed for secure cookies on Heroku)
 app.set('trust proxy', 1);
@@ -64,9 +71,38 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(async (req, res, next) => {
+  res.locals.userGroups = [];
+  res.locals.userDefaultGroupId = '';
+  if (!req.user) {
+    return next();
+  }
+
+  try {
+    const groups = await Group.find({
+      $or: [
+        { createdBy: req.user._id },
+        { members: req.user._id }
+      ]
+    })
+      .sort({ createdAt: 1 })
+      .select('group_name createdBy members')
+      .lean();
+
+    res.locals.userGroups = groups || [];
+    res.locals.userDefaultGroupId = req.user.defaultGroup ? req.user.defaultGroup.toString() : '';
+    return next();
+  } catch (err) {
+    res.locals.userGroups = [];
+    res.locals.userDefaultGroupId = req.user.defaultGroup ? req.user.defaultGroup.toString() : '';
+    return next(err);
+  }
+});
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(authRoutes);
+app.use('/settings', settingsRoutes);
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');

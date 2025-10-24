@@ -1,0 +1,612 @@
+<%
+  const profile = settingsUser || {};
+  const services = profile.services || {};
+  const defaultTab = (typeof activeTab !== 'undefined' && activeTab)
+    ? activeTab
+    : (selectedGroup ? 'group-detail' : 'profile');
+  const defaultGroupRef = (typeof defaultGroupId !== 'undefined' && defaultGroupId) ? String(defaultGroupId) : '';
+%>
+
+<section class="max-w-6xl mx-auto py-10 space-y-10">
+  <header class="flex flex-col gap-2">
+    <h1 class="text-3xl font-bold text-gray-900">アプリ設定</h1>
+    <p class="text-sm text-gray-600">プロフィールや参加グループ、連携サービスを管理します。</p>
+  </header>
+
+  <div class="bg-white rounded-3xl shadow border border-gray-100 overflow-hidden" data-settings-tabs>
+    <div class="flex flex-col lg:flex-row">
+      <aside class="w-full lg:w-64 bg-gray-50 border-r border-gray-100">
+        <nav class="flex lg:flex-col">
+          <button
+            type="button"
+            data-settings-tab-button="profile"
+            class="flex-1 px-6 py-4 text-left text-sm font-semibold border-b-2 <%= defaultTab === 'profile' ? 'text-blue-600 border-blue-500 bg-white' : 'text-gray-500 border-transparent hover:text-blue-600' %>"
+            aria-selected="<%= defaultTab === 'profile' %>"
+          >
+            <span class="inline-flex items-center gap-3">
+              <span class="lucide w-4 h-4" data-lucide="user-pen"></span>
+              プロフィール
+            </span>
+          </button>
+          <button
+            type="button"
+            data-settings-tab-button="groups"
+            class="flex-1 px-6 py-4 text-left text-sm font-semibold border-b-2 <%= defaultTab === 'groups' ? 'text-blue-600 border-blue-500 bg-white' : 'text-gray-500 border-transparent hover:text-blue-600' %>"
+            aria-selected="<%= defaultTab === 'groups' %>"
+          >
+            <span class="inline-flex items-center gap-3">
+              <span class="lucide w-4 h-4" data-lucide="users"></span>
+              グループ作成・一覧
+            </span>
+          </button>
+          <button
+            type="button"
+            data-settings-tab-button="group-detail"
+            class="flex-1 px-6 py-4 text-left text-sm font-semibold border-b-2 <%= selectedGroup ? (defaultTab === 'group-detail' ? 'text-blue-600 border-blue-500 bg-white' : 'text-gray-500 border-transparent hover:text-blue-600') : 'text-gray-400 border-transparent cursor-not-allowed' %>"
+            aria-selected="<%= defaultTab === 'group-detail' %>"
+            <%= selectedGroup ? '' : 'disabled' %>
+          >
+            <span class="inline-flex items-center gap-3">
+              <span class="lucide w-4 h-4" data-lucide="users-round"></span>
+              グループ管理
+            </span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="flex-1 p-8 space-y-8">
+        <section data-settings-tab-panel="profile" class="<%= defaultTab === 'profile' ? '' : 'hidden' %> space-y-8">
+          <div class="space-y-6">
+            <header>
+              <h2 class="text-xl font-semibold text-gray-900">プロフィール設定</h2>
+              <p class="text-sm text-gray-500">ログインネームは変更できません。その他のプロフィール情報を更新できます。</p>
+            </header>
+
+            <form action="/settings/profile" method="POST" class="space-y-6">
+              <div class="flex items-center gap-4">
+                <div class="w-24 h-24 rounded-full border border-gray-200 bg-gray-100 flex items-center justify-center overflow-hidden">
+                  <% if (profile.avatar) { %>
+                    <img
+                      src="<%= profile.avatar %>"
+                      alt="プロフィール画像"
+                      class="w-full h-full object-cover"
+                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                    />
+                    <div class="hidden w-full h-full items-center justify-center text-xs text-gray-500">
+                      画像無し
+                    </div>
+                  <% } else { %>
+                    <span class="text-xs text-gray-500">画像無し</span>
+                  <% } %>
+                </div>
+                <div class="flex-1">
+                  <label for="avatar" class="block text-sm font-medium text-gray-700">プロフィール画像 URL</label>
+                  <p class="text-xs text-gray-500 mt-1">画像URLを設定できます（将来的にアップロードに対応予定）</p>
+                  <input
+                    type="text"
+                    id="avatar"
+                    name="avatar"
+                    value="<%= profile.avatar || '' %>"
+                    placeholder="https://example.com/avatar.png"
+                    class="mt-3 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700">ログインネーム（変更不可）</label>
+                  <p class="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm">
+                    <span class="lucide w-4 h-4" data-lucide="lock"></span>
+                    <%= profile.username || '未設定' %>
+                  </p>
+                </div>
+
+                <div>
+                  <label for="displayname" class="block text-sm font-medium text-gray-700">表示名 <span class="text-xs text-gray-500 font-normal">(変更可能です)</span></label>
+                  <input
+                    type="text"
+                    id="displayname"
+                    name="displayname"
+                    value="<%= profile.displayname || '' %>"
+                    class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                <div>
+                  <label for="email" class="block text-sm font-medium text-gray-700">メールアドレス</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value="<%= profile.email || '' %>"
+                    required
+                    class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                <div>
+                  <label for="birth_date" class="block text-sm font-medium text-gray-700">誕生日</label>
+                  <input
+                    type="date"
+                    id="birth_date"
+                    name="birth_date"
+                    value="<%= profile.birth_date ? new Date(profile.birth_date).toISOString().substring(0, 10) : '' %>"
+                    class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                <div>
+                  <label for="sex" class="block text-sm font-medium text-gray-700">性別</label>
+                  <select
+                    id="sex"
+                    name="sex"
+                    class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="" <%= !profile.sex ? 'selected' : '' %>>選択してください</option>
+                    <option value="male" <%= profile.sex === 'male' ? 'selected' : '' %>>男性</option>
+                    <option value="female" <%= profile.sex === 'female' ? 'selected' : '' %>>女性</option>
+                    <option value="other" <%= profile.sex === 'other' ? 'selected' : '' %>>その他</option>
+                    <option value="no_answer" <%= profile.sex === 'no_answer' ? 'selected' : '' %>>回答しない</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700" for="blood">血液型</label>
+                  <div class="mt-2 flex gap-3">
+                    <select
+                      id="blood"
+                      name="blood"
+                      class="w-full border border-gray-300 px-4 py-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="" <%= !profile.blood ? 'selected' : '' %>>--</option>
+                      <option value="A" <%= profile.blood === 'A' ? 'selected' : '' %>>A</option>
+                      <option value="B" <%= profile.blood === 'B' ? 'selected' : '' %>>B</option>
+                      <option value="O" <%= profile.blood === 'O' ? 'selected' : '' %>>O</option>
+                      <option value="AB" <%= profile.blood === 'AB' ? 'selected' : '' %>>AB</option>
+                    </select>
+                    <select
+                      id="rh"
+                      name="rh"
+                      class="w-full border border-gray-300 px-4 py-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="" <%= !profile.rh ? 'selected' : '' %>>Rh</option>
+                      <option value="+" <%= profile.rh === '+' ? 'selected' : '' %>>Rh+</option>
+                      <option value="-" <%= profile.rh === '-' ? 'selected' : '' %>>Rh-</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700">メール通知</label>
+                <label class="mt-3 inline-flex items-center gap-3">
+                  <input type="checkbox" name="isMail" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" <%= profile.isMail ? 'checked' : '' %> />
+                  メールでのお知らせを受け取る
+                </label>
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700">利用するサービス</label>
+                <div class="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+                    <input type="checkbox" name="services[allaboutme]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" <%= services.allaboutme !== false ? 'checked' : '' %> />
+                    All About Me
+                  </label>
+                  <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+                    <input type="checkbox" name="services[finance]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" <%= services.finance !== false ? 'checked' : '' %> />
+                    Finance
+                  </label>
+                  <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+                    <input type="checkbox" name="services[assets]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" <%= services.assets !== false ? 'checked' : '' %> />
+                    Assets
+                  </label>
+                  <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
+                    <input type="checkbox" name="services[menu]" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" <%= services.menu !== false ? 'checked' : '' %> />
+                    Menu
+                  </label>
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button type="submit" class="inline-flex items-center gap-2 bg-blue-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-blue-600 transition">
+                  <span class="lucide w-4 h-4" data-lucide="save"></span>
+                  プロフィールを保存
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="border-t border-gray-200 pt-8 space-y-6">
+            <header>
+              <h3 class="text-lg font-semibold text-gray-900">セキュリティ</h3>
+              <p class="text-sm text-gray-500">パスワードを変更し、アカウント情報を安全に保ちます。</p>
+            </header>
+            <form action="/settings/password" method="POST" class="grid gap-6 lg:grid-cols-3">
+              <div>
+                <label for="currentPassword" class="block text-sm font-medium text-gray-700">現在のパスワード</label>
+                <input
+                  type="password"
+                  id="currentPassword"
+                  name="currentPassword"
+                  required
+                  class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label for="newPassword" class="block text-sm font-medium text-gray-700">新しいパスワード</label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  name="newPassword"
+                  required
+                  class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label for="confirmNewPassword" class="block text-sm font-medium text-gray-700">新しいパスワード（確認）</label>
+                <input
+                  type="password"
+                  id="confirmNewPassword"
+                  name="confirmNewPassword"
+                  required
+                  class="mt-2 w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div class="lg:col-span-3 flex justify-end">
+                <button type="submit" class="inline-flex items-center gap-2 bg-gray-800 text-white font-semibold px-6 py-3 rounded-lg hover:bg-gray-900 transition">
+                  <span class="lucide w-4 h-4" data-lucide="shield-check"></span>
+                  パスワードを変更
+                </button>
+              </div>
+            </form>
+
+            <form action="/settings/deactivate" method="POST" class="border border-red-200 bg-red-50 rounded-2xl p-6 space-y-4">
+              <div class="flex items-center gap-3 text-red-700">
+                <span class="lucide w-5 h-5" data-lucide="alert-triangle"></span>
+                <div>
+                  <h4 class="font-semibold">退会手続き</h4>
+                  <p class="text-sm text-red-600">退会すると一部データは閲覧できなくなります。必要な情報は事前にダウンロードしてください。</p>
+                </div>
+              </div>
+              <button type="submit" class="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                <span class="lucide w-4 h-4" data-lucide="log-out"></span>
+                退会する
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <section data-settings-tab-panel="groups" class="<%= defaultTab === 'groups' ? '' : 'hidden' %> space-y-8">
+          <div class="space-y-6">
+            <header class="flex flex-col gap-1">
+              <h2 class="text-xl font-semibold text-gray-900">グループ作成・一覧</h2>
+              <p class="text-sm text-gray-500">家族やチームで共有するグループを管理します。</p>
+            </header>
+
+            <form action="/settings/groups" method="POST" class="p-5 border border-gray-200 rounded-2xl bg-gray-50 space-y-2">
+              <label for="group-name" class="block text-sm font-medium text-gray-700">新規グループの作成</label>
+              <p class="text-xs text-gray-500">既存のグループ名と重複しないように設定してください。</p>
+              <div class="mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
+                <input
+                  type="text"
+                  id="group-name"
+                  name="group_name"
+                  placeholder="例: 佐藤家の献立"
+                  required
+                  class="flex-1 border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button type="submit" class="inline-flex items-center justify-center bg-blue-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-blue-600 transition min-w-[110px] text-center">
+                  作成
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="grid gap-4">
+            <% if ((groups || []).length === 0) { %>
+              <div class="border border-dashed border-gray-300 rounded-2xl p-8 text-center text-gray-500">
+                参加中のグループはまだありません。上のフォームから作成できます。
+              </div>
+            <% } %>
+
+            <% (groups || []).forEach((group) => { %>
+              <%
+                const isDefaultGroup = defaultGroupRef === String(group._id);
+                const memberIdSet = new Set();
+                if (Array.isArray(group.members)) {
+                  group.members.forEach((member) => {
+                    const id = (member && (member._id || member)) ? String(member._id || member) : null;
+                    if (id) memberIdSet.add(id);
+                  });
+                }
+                const ownerId = group.createdBy && (group.createdBy._id || group.createdBy) ? String(group.createdBy._id || group.createdBy) : null;
+                if (ownerId) memberIdSet.add(ownerId);
+                const groupMemberCount = typeof group.memberCount === 'number' ? group.memberCount : memberIdSet.size;
+                const defaultRadioId = `default-group-${group._id}`;
+              %>
+              <article class="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        id="<%= defaultRadioId %>"
+                        name="defaultGroupSelector"
+                        class="h-4 w-4 text-emerald-500 border-gray-300 focus:ring-emerald-500 cursor-pointer"
+                        <%= isDefaultGroup ? 'checked' : '' %>
+                        data-default-radio
+                        onchange="handleDefaultGroupChange('<%= group._id %>')"
+                      />
+                      <label for="<%= defaultRadioId %>" class="sr-only">デフォルトに設定</label>
+                      <a href="/settings?group=<%= group._id %>" class="text-lg font-semibold text-blue-600 hover:underline flex items-center gap-2">
+                        <span class="lucide w-4 h-4 text-blue-500" data-lucide="folder-team"></span>
+                        <span><%= group.group_name %></span>
+                      </a>
+                      <% if (isDefaultGroup) { %>
+                        <span class="text-xs text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">デフォルト</span>
+                      <% } %>
+                    </div>
+                    <p class="text-xs text-gray-400">メンバー数: <%= groupMemberCount %>人</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 md:justify-end">
+                    <% if (String(group.createdBy?._id || group.createdBy) !== String(settingsUser._id)) { %>
+                      <form action="/settings/groups/<%= group._id %>/remove-member" method="POST" class="inline" onsubmit="return confirm('このグループから退会しますか？');">
+                        <input type="hidden" name="memberId" value="<%= settingsUser._id %>" />
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500 text-red-500 hover:bg-red-50 transition">
+                          <span class="lucide w-4 h-4" data-lucide="log-out"></span>
+                          退会
+                        </button>
+                      </form>
+                    <% } %>
+                  </div>
+                </div>
+              </article>
+            <% }) %>
+          </div>
+        </section>
+
+        <section data-settings-tab-panel="group-detail" class="<%= defaultTab === 'group-detail' ? '' : 'hidden' %> space-y-8">
+          <% if (!selectedGroup) { %>
+            <div class="border border-dashed border-gray-300 rounded-2xl p-8 text-center text-gray-500">
+              詳細を表示したいグループを「グループ一覧」から選択してください。
+            </div>
+          <% } else { %>
+            <header class="flex flex-col gap-1">
+              <h2 class="text-xl font-semibold text-gray-900">グループ管理</h2>
+              <p class="text-sm text-gray-500">参加メンバーや招待、グループ情報を管理します。</p>
+            </header>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 border border-gray-200 rounded-2xl px-4 py-3 bg-white shadow-sm">
+              <% const isSelectedDefault = defaultGroupRef === String(selectedGroup._id); %>
+              <div class="flex items-center gap-2 text-sm text-gray-700">
+                <span>現在のデフォルトグループ:</span>
+                <% if (isSelectedDefault) { %>
+                  <span class="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+                    <span class="lucide w-4 h-4" data-lucide="bookmark"></span>
+                    <span>このグループ</span>
+                  </span>
+                <% } else if (defaultGroupRef) { %>
+                  <% const defaultGroupObj = (groups || []).find((g) => String(g._id) === defaultGroupRef); %>
+                  <span class="inline-flex items-center gap-1 text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+                    <span class="lucide w-4 h-4" data-lucide="bookmark"></span>
+                    <span><%= defaultGroupObj ? defaultGroupObj.group_name : '未設定' %></span>
+                  </span>
+                <% } else { %>
+                  <span class="text-gray-400">未設定</span>
+                <% } %>
+              </div>
+              <% if (!isSelectedDefault) { %>
+                <form action="/settings/groups/<%= selectedGroup._id %>/default" method="POST">
+                  <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-500 text-emerald-600 hover:bg-emerald-50 transition">
+                    <span class="lucide w-4 h-4" data-lucide="bookmark"></span>
+                    このグループをデフォルトにする
+                  </button>
+                </form>
+              <% } else { %>
+                <span class="text-xs text-emerald-600">デフォルトに設定済みです</span>
+              <% } %>
+            </div>
+
+            <form action="/settings/groups/<%= selectedGroup._id %>/update" method="POST" class="grid gap-4 border border-gray-200 rounded-2xl p-6 bg-gray-50">
+              <label for="selected-group-name" class="block text-sm font-medium text-gray-700">グループ名（グループ名の変更が可能です）</label>
+              <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                <input
+                  type="text"
+                  id="selected-group-name"
+                  name="group_name"
+                  value="<%= selectedGroup.group_name %>"
+                  required
+                  class="flex-1 border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button type="submit" class="inline-flex items-center justify-center gap-2 bg-blue-500 text-white font-semibold px-5 py-3 rounded-lg hover:bg-blue-600 transition min-w-[96px]">
+                  更新
+                </button>
+              </div>
+            </form>
+
+            <div class="grid lg:grid-cols-2 gap-6">
+              <section class="border border-gray-200 rounded-2xl p-6 space-y-4">
+                <header class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-lg font-semibold text-gray-900">参加メンバー</h3>
+                    <p class="text-xs text-gray-500">グループに参加しているメンバーの一覧です。</p>
+                  </div>
+                  <% 
+                    const selectedMemberIdSet = new Set();
+                    if (Array.isArray(selectedGroup.members)) {
+                      selectedGroup.members.forEach((member) => {
+                        const id = (member && (member._id || member)) ? String(member._id || member) : null;
+                        if (id) selectedMemberIdSet.add(id);
+                      });
+                    }
+                    const selectedOwnerId = selectedGroup.createdBy && (selectedGroup.createdBy._id || selectedGroup.createdBy) ? String(selectedGroup.createdBy._id || selectedGroup.createdBy) : null;
+                    if (selectedOwnerId) selectedMemberIdSet.add(selectedOwnerId);
+                    const selectedGroupMemberCount = typeof selectedGroup.memberCount === 'number' ? selectedGroup.memberCount : selectedMemberIdSet.size;
+                  %>
+                  <span class="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                    <span class="lucide w-4 h-4" data-lucide="users"></span>
+                    <%= selectedGroupMemberCount %>人
+                  </span>
+                </header>
+
+                <ul class="space-y-4 text-sm text-gray-700">
+                  <li class="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                    <div class="flex items-center gap-3">
+                      <span class="lucide w-4 h-4 text-emerald-500" data-lucide="crown"></span>
+                      <div>
+                        <p class="font-semibold"><%= (selectedGroup.createdBy?.displayname || selectedGroup.createdBy?.username || selectedGroup.createdBy?.email || selectedGroup.createdBy || 'オーナー') %></p>
+                        <p class="text-xs text-gray-500">オーナー</p>
+                      </div>
+                    </div>
+                  </li>
+
+                  <% (selectedGroup.members || []).filter((member) => String(member._id || member) !== String(selectedGroup.createdBy?._id || selectedGroup.createdBy)).forEach((member) => { %>
+                    <% const memberLabel = member.displayname || member.username || member.email || member; %>
+                    <% const memberEmail = member.email || (typeof member === 'string' ? member : '') || 'メール未設定'; %>
+                    <li class="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3">
+                      <div>
+                        <p class="font-semibold"><%= memberLabel %></p>
+                        <p class="text-xs text-gray-500"><%= memberEmail %></p>
+                      </div>
+                      <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
+                        <form action="/settings/groups/<%= selectedGroup._id %>/remove-member" method="POST">
+                          <input type="hidden" name="memberId" value="<%= member._id || member %>" />
+                          <button type="submit" class="inline-flex items-center gap-2 text-sm text-red-500 hover:text-red-600">
+                            <span class="lucide w-4 h-4" data-lucide="user-minus"></span>
+                            退会させる
+                          </button>
+                        </form>
+                      <% } %>
+                    </li>
+                  <% }) %>
+                </ul>
+              </section>
+
+              <section class="border border-gray-200 rounded-2xl p-6 space-y-4">
+                <header>
+                  <h3 class="text-lg font-semibold text-gray-900">新しいメンバーを招待</h3>
+                  <p class="text-xs text-gray-500">メールアドレスで招待を送信します。</p>
+                </header>
+
+                <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
+                  <form action="/settings/groups/<%= selectedGroup._id %>/invite" method="POST" class="flex flex-col gap-3">
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="招待したいメールアドレス"
+                      required
+                      class="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <button type="submit" class="inline-flex items-center gap-2 bg-blue-500 text-white font-semibold px-5 py-2 rounded-lg hover:bg-blue-600 transition">
+                      <span class="lucide w-4 h-4" data-lucide="send"></span>
+                      招待メールを送信
+                    </button>
+                  </form>
+                <% } else { %>
+                  <p class="text-sm text-gray-500">招待を送信できるのはグループのオーナーのみです。</p>
+                <% } %>
+
+                <div class="space-y-3">
+                  <h4 class="text-sm font-semibold text-gray-700">招待中</h4>
+                  <% const pendingInvites = selectedGroup.invitedUsers || []; %>
+                  <% if (pendingInvites.length === 0) { %>
+                    <p class="text-sm text-gray-500">現在、招待中のユーザーはいません。</p>
+                  <% } else { %>
+                    <ul class="space-y-3 text-sm text-gray-700">
+                      <% pendingInvites.forEach((inviteEmail) => { %>
+                        <li class="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3">
+                          <div>
+                            <p class="font-semibold"><%= inviteEmail %></p>
+                          </div>
+                          <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
+                            <form action="/settings/groups/<%= selectedGroup._id %>/cancel-invite" method="POST">
+                              <input type="hidden" name="email" value="<%= inviteEmail %>" />
+                              <button type="submit" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-red-500">
+                                <span class="lucide w-4 h-4" data-lucide="x-circle"></span>
+                                取消
+                              </button>
+                            </form>
+                          <% } %>
+                        </li>
+                      <% }) %>
+                    </ul>
+                  <% } %>
+                </div>
+              </section>
+            </div>
+            <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
+              <form action="/settings/groups/<%= selectedGroup._id %>/delete" method="POST" class="flex justify-end" onsubmit="return confirm('グループを削除しますか？')">
+                <button type="submit" class="inline-flex items-center gap-2 bg-red-500 text-white font-semibold px-5 py-2 rounded-lg hover:bg-red-600 transition">
+                  <span class="lucide w-4 h-4" data-lucide="trash-2"></span>
+                  グループを削除
+                </button>
+              </form>
+            <% } %>
+          <% } %>
+        </section>
+      </main>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    const container = document.querySelector('[data-settings-tabs]');
+    if (!container) return;
+
+    const defaultTab = <%- JSON.stringify(defaultTab) %>;
+    const buttons = Array.from(container.querySelectorAll('[data-settings-tab-button]'));
+    const panels = Array.from(container.querySelectorAll('[data-settings-tab-panel]'));
+
+    const activate = (tab) => {
+      buttons.forEach((button) => {
+        const isActive = button.dataset.settingsTabButton === tab;
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('border-blue-500', isActive);
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-gray-500', !isActive);
+        button.classList.toggle('border-transparent', !isActive);
+        button.setAttribute('aria-selected', String(isActive));
+      });
+
+      panels.forEach((panel) => {
+        const isActive = panel.dataset.settingsTabPanel === tab;
+        panel.classList.toggle('hidden', !isActive);
+      });
+    };
+
+    buttons.forEach((button) => {
+      if (button.hasAttribute('disabled')) return;
+      button.addEventListener('click', () => activate(button.dataset.settingsTabButton));
+    });
+
+    activate(defaultTab);
+  }());
+</script>
+<script>
+  async function handleDefaultGroupChange(groupId) {
+    if (!groupId) return;
+    const headers = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+    const csrfTokenInput = document.querySelector('input[name="_csrf"]');
+    if (csrfTokenInput) {
+      headers['X-CSRF-Token'] = csrfTokenInput.value;
+    }
+
+    try {
+      const response = await fetch(`/settings/groups/${groupId}/default`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ setDefault: true })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update default group');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      window.location.href = '/settings?view=groups';
+    }
+  }
+</script>
