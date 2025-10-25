@@ -491,12 +491,29 @@
       return;
     }
 
+    const formatQuantity = (value) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) return '';
+      const rounded = Math.round(value * 100) / 100;
+      const text = rounded.toFixed(2).replace(/\.?0+$/, '');
+      return text;
+    };
+
     const formatAmount = (entry) => {
-      if (!entry) return '';
-      if (entry.amount === null || typeof entry.amount === 'undefined') {
-        return entry.unit || '数量未設定';
+      if (!entry || !Array.isArray(entry.units) || !entry.units.length) {
+        return '数量未設定';
       }
-      return `${entry.amount}${entry.unit || ''}`;
+      const parts = entry.units.map((unitEntry) => {
+        if (!unitEntry) return '';
+        const { amount, unit } = unitEntry;
+        if (amount === null || typeof amount === 'undefined') {
+          return unit || '数量未設定';
+        }
+        const quantityText = formatQuantity(amount);
+        if (!unit) return quantityText;
+        const hasNonAscii = /[^\x00-\x7F]/.test(unit);
+        return hasNonAscii ? `${unit}${quantityText}` : `${quantityText}${unit}`;
+      }).filter(Boolean);
+      return parts.length ? parts.join(' + ') : '数量未設定';
     };
 
     const renderDayDetails = (day) => {
