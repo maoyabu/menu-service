@@ -1,4 +1,5 @@
 <%
+  const serialize = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
   const currentUserName = (typeof user !== 'undefined' && user)
     ? (user.displayname || user.username || user.email || 'ユーザー')
     : 'ユーザー';
@@ -16,22 +17,142 @@
   const weekMenuLink = '/users/week-menu' + (queryParts.length ? `?${queryParts.join('&')}` : '');
 %>
 
+<style>
+  .plan-calendar-header-btn {
+    border-radius: 9999px;
+    border: 1px solid #e2e8f0;
+    padding: 0.35rem;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .plan-calendar-header-btn:hover {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
+  .plan-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+  .plan-calendar-cell {
+    border-radius: 0.75rem;
+    padding: 0.75rem 0;
+    text-align: center;
+    font-size: 0.875rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .plan-calendar-cell:hover {
+    border-color: rgba(59, 130, 246, 0.35);
+  }
+  .plan-calendar-cell--outside {
+    opacity: 0.45;
+  }
+  .plan-calendar-cell--planned {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    border-color: rgba(59, 130, 246, 0.6);
+    font-weight: 600;
+  }
+  .plan-calendar-cell--future {
+    background-color: #f8fafc;
+    color: #475569;
+    border-color: rgba(148, 163, 184, 0.2);
+  }
+  .plan-calendar-cell--past {
+    background-color: #e5e7eb;
+    color: #6b7280;
+    border-color: rgba(148, 163, 184, 0.35);
+  }
+  .plan-calendar-cell--selected {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+  }
+  .plan-calendar-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    color: #475569;
+  }
+  .plan-calendar-legend::before {
+    content: '';
+    display: inline-block;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 0.4rem;
+  }
+  .plan-calendar-legend--planned::before {
+    background-color: #bfdbfe;
+    border: 1px solid rgba(59,130,246,0.65);
+  }
+  .plan-calendar-legend--future::before {
+    background-color: #f1f5f9;
+    border: 1px solid rgba(148,163,184,0.35);
+  }
+  .plan-calendar-legend--past::before {
+    background-color: #e5e7eb;
+    border: 1px solid rgba(148,163,184,0.55);
+  }
+  .weekly-day-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+  }
+  .weekly-day-button .day-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+  }
+  .weekly-day-button .day-date {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .weekly-day-button[data-has-plan="true"] {
+    background-color: #e0f2fe;
+    color: #1d4ed8;
+    border-color: rgba(59,130,246,0.35);
+  }
+  .weekly-day-button[data-is-today="true"] {
+    border-color: rgba(59,130,246,0.45);
+  }
+  .weekly-day-button:hover {
+    border-color: rgba(59,130,246,0.6);
+  }
+  .weekly-day-button.is-selected {
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.45);
+    background-color: #dbeafe;
+  }
+</style>
+
 <section class="relative max-w-6xl mx-auto py-10 space-y-10">
   <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
-    <div class="p-8 md:p-12 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-      <div class="space-y-4">
-        <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] bg-white/20 px-4 py-1 rounded-full">
+    <div class="p-8 md:p-12 flex flex-col md:flex-row md:items-center md:justify-between gap-12">
+      <div class="flex flex-col gap-6 max-w-2xl">
+        <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] bg-white/20 px-4 py-1 rounded-full w-max">
           <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
           my top
-        </span>
-        <h1 class="text-3xl md:text-4xl font-bold leading-tight">
-          こんにちは、<span class="text-emerald-200"><%= currentUserName %></span> さん
-        </h1>
-        <p class="text-sm md:text-base text-white/80 md:max-w-xl">
-          「今日何食べる」のストレスからの解放！<br>来週1週間のMENUをおすすめします。使えば使うほど自分にぴったりなMENUがおすすめされるようになります。
-        </p>
-
-        <div class="flex flex-col gap-2 pt-2">
+        </div>
+        <div class="space-y-3">
+          <h1 class="text-3xl md:text-4xl font-bold leading-tight">
+            こんにちは、<span class="text-emerald-200"><%= currentUserName %></span> さん
+          </h1>
+          <p class="text-sm md:text-base text-white/80 leading-relaxed">
+            「今日何食べる」のストレスからの解放！来週1週間のMENUをおすすめします。使えば使うほど自分にぴったりなMENUがおすすめされるようになります。
+          </p>
+        </div>
+        <div class="flex flex-col gap-2">
           <div class="flex flex-wrap gap-3">
             <a href="<%= weekMenuLink %>" class="inline-flex items-center gap-2 rounded-full bg-white text-blue-600 text-sm font-semibold px-5 py-2 transition">
               <span class="lucide text-blue-500" data-lucide="<%= buttonIcon %>"></span>
@@ -58,105 +179,86 @@
     </div>
   </header>
 
-  <section class="grid md:grid-cols-3 gap-6">
-    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">今日の献立</h2>
-        <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-          <span class="lucide w-3 h-3" data-lucide="sprout"></span>
-          ready
-        </span>
-      </div>
-      <ul class="space-y-3 text-sm text-gray-700">
-        <li class="flex justify-between items-center">
-          <span class="font-medium text-gray-500 uppercase tracking-wide text-xs">朝食</span>
-          <span>ヨーグルトボウルとフルーツ</span>
-        </li>
-        <li class="flex justify-between items-center">
-          <span class="font-medium text-gray-500 uppercase tracking-wide text-xs">昼食</span>
-          <span>サラダランチ &amp; スープ</span>
-        </li>
-        <li class="flex justify-between items-center">
-          <span class="font-medium text-gray-500 uppercase tracking-wide text-xs">夕食</span>
-          <span>ハーブチキンとロースト野菜</span>
-        </li>
-      </ul>
-      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
-        詳しくみる
-        <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
-      </button>
-    </article>
-
-    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">お気に入りMENU</h2>
-        <span class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-          <span class="lucide w-3 h-3" data-lucide="pie-chart"></span>
-          weekly
-        </span>
-      </div>
-      <div class="space-y-4">
-        <div class="flex items-baseline justify-between">
-          <p class="text-sm text-gray-500">今月の支出</p>
-          <p class="text-xl font-bold text-gray-900">¥52,400</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <div class="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-            <div class="h-full bg-blue-500 rounded-full" style="width: 62%"></div>
-          </div>
-          <span class="text-xs font-semibold text-blue-500">62%</span>
-        </div>
-        <ul class="space-y-2 text-sm text-gray-600">
-          <li class="flex justify-between"><span>食費</span><span>¥24,600</span></li>
-          <li class="flex justify-between"><span>日用品</span><span>¥12,800</span></li>
-          <li class="flex justify-between"><span>その他</span><span>¥15,000</span></li>
-        </ul>
-      </div>
-      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
-        お気に入りMenuの編集
-        <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
-      </button>
-    </article>
-
-    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">ファミリーメモ</h2>
-        <span class="inline-flex items-center gap-1 text-xs font-medium text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-          <span class="lucide w-3 h-3" data-lucide="users"></span>
-          shared
-        </span>
-      </div>
-      <ul class="space-y-3 text-sm text-gray-700">
-        <li class="flex gap-3">
-          <span class="flex-shrink-0 py-1 px-3 bg-purple-100 text-purple-600 rounded-full text-xs font-semibold">予定</span>
-          <div>
-            <p class="font-medium">土曜：買い出しリストを更新</p>
-            <p class="text-xs text-gray-500">担当：パパ</p>
-          </div>
-        </li>
-        <li class="flex gap-3">
-          <span class="flex-shrink-0 py-1 px-3 bg-emerald-100 text-emerald-600 rounded-full text-xs font-semibold">ToDo</span>
-          <div>
-            <p class="font-medium">冷凍庫のストック整理</p>
-            <p class="text-xs text-gray-500">優先度：高</p>
-          </div>
-        </li>
-        <li class="flex gap-3">
-          <span class="flex-shrink-0 py-1 px-3 bg-amber-100 text-amber-600 rounded-full text-xs font-semibold">メモ</span>
-          <div>
-            <p class="font-medium">今週は旬の食材「菜の花」を使用</p>
-            <p class="text-xs text-gray-500">ひとこと：春の味を楽しもう！</p>
-          </div>
-        </li>
-      </ul>
-      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
-        メモを追加
-        <span class="lucide w-4 h-4" data-lucide="plus"></span>
-      </button>
-    </article>
-  </section>
-
   <section class="grid lg:grid-cols-[2fr,1fr] gap-6">
+  <div class="flex flex-col gap-6">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">今日の献立</h2>
+          <p class="text-xs text-gray-500 mt-1"><%= todayPlan ? todayPlan.dateLabel : '' %> (<%= todayPlan ? todayPlan.weekdayLabel : '' %>)</p>
+        </div>
+        <% if (todayPlan && todayPlan.hasPlan) { %>
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+            <span class="lucide w-3 h-3" data-lucide="sprout"></span>
+            ready
+          </span>
+        <% } else { %>
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            <span class="lucide w-3 h-3" data-lucide="clock"></span>
+            未設定
+          </span>
+        <% } %>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <% if (todayPlan && todayPlan.hasPlan) { %>
+          <% todayPlan.meals.forEach((meal) => { %>
+            <% meal.slots.forEach((slot) => { const menu = slot.menu || null; %>
+              <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
+                <div class="h-52 md:h-64 bg-gray-100">
+                  <% if (menu && menu.imageUrl) { %>
+                    <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                  <% } else { %>
+                    <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
+                  <% } %>
+                </div>
+                <div class="p-4 space-y-2 flex-1 flex flex-col">
+                  <div class="flex items-center justify-between gap-3">
+                    <% const isLunch = meal.mealKey === 'lunch'; %>
+                    <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold <%= isLunch ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600' %>">
+                      <span class="lucide w-3 h-3 <%= isLunch ? 'text-orange-500' : 'text-blue-500' %>" data-lucide="<%= meal.mealKey === 'lunch' ? 'sun' : 'moon' %>"></span>
+                      <%= meal.label %>
+                    </span>
+                    <% if (menu && menu.time) { %>
+                      <span class="text-xs text-gray-400"><%= String(menu.time).endsWith('分') ? menu.time : menu.time + '分' %></span>
+                    <% } %>
+                  </div>
+                  <h3 class="text-lg font-semibold text-gray-900"><%= menu ? menu.name : 'メニュー候補がありません' %></h3>
+                  <% if (menu && menu.comment) { %>
+                    <p class="text-sm text-gray-500"><%= menu.comment %></p>
+                  <% } %>
+                  <% if (menu && (menu.junle || menu.cook)) { %>
+                    <div class="flex flex-wrap gap-2 text-[11px] text-gray-500">
+                      <% if (menu.junle) { %>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-700">
+                          <span>ジャンル</span>
+                          <span class="font-medium"><%= menu.junle %></span>
+                        </span>
+                      <% } %>
+                      <% if (menu.cook) { %>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-700">
+                          <span>調理方法</span>
+                          <span class="font-medium"><%= menu.cook %></span>
+                        </span>
+                      <% } %>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+            <% }) %>
+          <% }) %>
+        <% } else { %>
+          <div class="col-span-full rounded-2xl bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 border border-dashed border-gray-200">
+            今日の献立はまだ登録されていません。<br>
+            <span class="text-xs text-gray-400">週次プランを開いて、献立を登録しましょう。</span>
+          </div>
+        <% } %>
+      </div>
+      <a href="<%= currentWeekLink %>" class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        今週のプランを編集する
+        <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
+      </a>
+    </article>
+
     <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-6">
       <header class="flex items-center justify-between">
         <div>
@@ -169,54 +271,129 @@
         </button>
       </header>
 
-      <div class="grid md:grid-cols-7 gap-2 text-xs font-medium uppercase text-gray-500">
-        <span class="bg-gray-50 rounded-lg py-2 text-center">Mon</span>
-        <span class="bg-gray-50 rounded-lg py-2 text-center">Tue</span>
-        <span class="bg-gray-50 rounded-lg py-2 text-center">Wed</span>
-        <span class="bg-blue-500 text-white rounded-lg py-2 text-center shadow">Thu</span>
-        <span class="bg-gray-50 rounded-lg py-2 text-center">Fri</span>
-        <span class="bg-gray-50 rounded-lg py-2 text-center">Sat</span>
-        <span class="bg-gray-50 rounded-lg py-2 text-center">Sun</span>
+      <div class="space-y-4">
+        <div id="weekly-plan-day-buttons" class="grid md:grid-cols-7 gap-2">
+          <% weekPlanOverview.forEach((day) => { %>
+            <button
+              type="button"
+              class="weekly-day-button"
+              data-week-day-button
+              data-day-index="<%= day.index %>"
+              data-has-plan="<%= day.hasPlan %>"
+              data-is-today="<%= day.isToday %>"
+            >
+              <span class="day-label"><%= day.weekday %></span>
+              <span class="day-date"><%= day.display %></span>
+            </button>
+          <% }) %>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4" id="weekly-plan-detail">
+          <article id="weekly-plan-recipes" class="rounded-xl border border-blue-100 bg-white p-4 space-y-3" style="min-height: 160px;">
+            <div class="flex items-center justify-between">
+              <h4 id="weekly-plan-recipes-title" class="text-sm font-semibold text-gray-800">レシピ</h4>
+            </div>
+            <div id="weekly-plan-recipes-body" class="text-sm text-gray-600">
+              表示する日を選択してください。
+            </div>
+          </article>
+          <article id="weekly-plan-ingredients" class="rounded-xl border border-amber-100 bg-white p-4 space-y-3" style="min-height: 160px;">
+            <div class="flex items-center justify-between">
+              <h4 id="weekly-plan-ingredients-title" class="text-sm font-semibold text-gray-800">食材 / 調味料</h4>
+            </div>
+            <div id="weekly-plan-ingredients-body" class="text-sm text-gray-600">
+              表示する日を選択してください。
+            </div>
+          </article>
+        </div>
       </div>
 
-      <div class="grid md:grid-cols-3 gap-4">
-        <div class="border rounded-xl p-4 space-y-2">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">おすすめレシピ</p>
-          <h3 class="text-lg font-semibold">サーモンのレモンバターソテー</h3>
-          <p class="text-sm text-gray-600">15分で作れるさっぱりメイン。付け合わせにアスパラをどうぞ。</p>
-          <button class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 hover:text-blue-700">
-            レシピを見る
-            <span class="lucide w-3 h-3" data-lucide="arrow-up-right"></span>
+    </article>
+  </div>
+
+  <div class="flex flex-col gap-6">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">7 DAYS PLAN カレンダー</h2>
+          <p class="text-xs text-gray-500 mt-1">週ごとの設定状況を確認し、編集・登録できます</p>
+        </div>
+        <div class="inline-flex items-center gap-2">
+          <button type="button" class="plan-calendar-header-btn" id="plan-calendar-prev" aria-label="前の月">
+            <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
+          </button>
+          <span class="text-sm font-semibold text-gray-800" id="plan-calendar-month-label">----</span>
+          <button type="button" class="plan-calendar-header-btn" id="plan-calendar-next" aria-label="次の月">
+            <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
           </button>
         </div>
-        <div class="border rounded-xl p-4 space-y-2">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">買い出しリスト</p>
-          <ul class="text-sm text-gray-600 space-y-1">
-            <li>レモン 2個</li>
-            <li>サーモン切り身 4枚</li>
-            <li>アスパラガス 1束</li>
-          </ul>
-          <button class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 hover:text-blue-700">
-            リストを編集
-            <span class="lucide w-3 h-3" data-lucide="pencil-line"></span>
-          </button>
-        </div>
-        <div class="border rounded-xl p-4 space-y-2">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">ストック状況</p>
-          <div class="flex items-center gap-3">
-            <div class="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
-              <span class="text-blue-500 font-bold text-lg">72%</span>
-            </div>
-            <div class="space-y-1 text-sm text-gray-600">
-              <p>冷凍庫は十分に余裕があります。</p>
-              <p>消費期限が近い食材：<span class="font-semibold">豆腐、ひじき</span></p>
-            </div>
-          </div>
-        </div>
+      </header>
+
+      <div class="grid grid-cols-7 gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <span class="text-center">月</span>
+        <span class="text-center">火</span>
+        <span class="text-center">水</span>
+        <span class="text-center">木</span>
+        <span class="text-center">金</span>
+        <span class="text-center">土</span>
+        <span class="text-center">日</span>
+      </div>
+
+      <div id="plan-calendar-grid" class="plan-calendar-grid text-sm text-gray-600">
+        <div class="text-center text-sm text-gray-400 py-6" style="grid-column: span 7 / span 7;">読み込み中...</div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4">
+        <span class="plan-calendar-legend plan-calendar-legend--planned">プラン登録済み</span>
+        <span class="plan-calendar-legend plan-calendar-legend--future">これから設定</span>
+        <span class="plan-calendar-legend plan-calendar-legend--past">過去を記録</span>
       </div>
     </article>
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">お気に入りMENU</h2>
+        <span class="inline-flex items-center gap-1 text-xs font-medium text-pink-600 bg-pink-50 px-3 py-1 rounded-full">
+          <span class="lucide w-3 h-3" data-lucide="heart"></span>
+          family pick
+        </span>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <% const favoriteMenus = [
+             { name: 'ママ特製ラザニア', description: '週末リクエストNo.1。チーズたっぷりで子ども達も大喜び。', tags: ['休日', 'ご馳走'], imageUrl: 'https://images.unsplash.com/photo-1604908176912-9e6209a18753?auto=format&fit=crop&w=900&q=60' },
+             { name: '旬野菜のグリル', description: 'おばあちゃんが持ってきてくれた野菜で作るヘルシーメニュー。', tags: ['季節限定', '野菜たっぷり'], imageUrl: 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=900&q=60' },
+             { name: 'ハーブチキンプレート', description: 'パパの得意料理。焼くだけで香りが広がる定番の一皿。', tags: ['定番', '短時間'], imageUrl: 'https://images.unsplash.com/photo-1612874470907-52db3da03447?auto=format&fit=crop&w=900&q=60' },
+             { name: 'さっぱりレモンパスタ', description: '平日ランチの救世主。爽やかな味で午後も軽やかに。', tags: ['10分', 'ランチ'], imageUrl: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=900&q=60' }
+           ]; %>
+        <% favoriteMenus.forEach((fav) => { %>
+          <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
+            <div class="h-36 bg-gray-100">
+              <% if (fav.imageUrl) { %>
+                <img src="<%= fav.imageUrl %>" alt="<%= fav.name %>" class="w-full h-full object-cover">
+              <% } else { %>
+                <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
+              <% } %>
+            </div>
+            <div class="p-4 space-y-2 flex-1 flex flex-col">
+              <h3 class="text-sm font-semibold text-gray-900"><%= fav.name %></h3>
+              <p class="text-xs text-gray-500 leading-relaxed"><%= fav.description %></p>
+              <div class="flex flex-wrap gap-2 text-[11px] text-pink-600">
+                <% (fav.tags || []).forEach((tag) => { %>
+                  <span class="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5">
+                    <span class="lucide w-3 h-3" data-lucide="sparkle"></span>
+                    <span><%= tag %></span>
+                  </span>
+                <% }) %>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        お気に入りを編集
+        <span class="lucide w-4 h-4" data-lucide="pencil"></span>
+      </button>
+    </article>
 
-    <aside class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-6">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
       <header class="flex items-center justify-between">
         <div>
           <h2 class="text-lg font-semibold">家族のトピックス</h2>
@@ -252,8 +429,10 @@
           </div>
         </div>
       </div>
-    </aside>
-  </section>
+    </article>
+  </div>
+</section>
+
 
   <footer class="rounded-2xl border border-dashed border-gray-200 p-6 bg-gray-50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
     <div>
@@ -274,3 +453,384 @@
     </div>
   </footer>
 </section>
+
+<script>
+  window.myTopData = {
+    currentGroupId: <%- serialize(currentGroupId || '') %>,
+    initialMonth: <%- serialize(initialCalendarMonthISO || '') %>,
+    todayISO: <%- serialize(todayISO || '') %>,
+    apiBase: '/users/api/week-plans',
+    weekMenuBaseUrl: '/users/week-menu',
+    currentWeekLink: <%- serialize(currentWeekLink || '') %>
+  };
+</script>
+
+<script>
+  window.myTopWeekPlanData = {
+    days: <%- serialize(weekPlanOverview || []) %>,
+    defaultDayIndex: <%= typeof defaultWeekDayIndex !== 'undefined' ? defaultWeekDayIndex : 0 %>
+  };
+</script>
+
+<script>
+  (function () {
+    const weekPlanData = window.myTopWeekPlanData;
+    const dayButtons = Array.from(document.querySelectorAll('[data-week-day-button]'));
+    const recipesTitleEl = document.getElementById('weekly-plan-recipes-title');
+    const recipesBodyEl = document.getElementById('weekly-plan-recipes-body');
+    const ingredientsTitleEl = document.getElementById('weekly-plan-ingredients-title');
+    const ingredientsBodyEl = document.getElementById('weekly-plan-ingredients-body');
+
+    if (!weekPlanData || !Array.isArray(weekPlanData.days)) {
+      if (recipesBodyEl) {
+        recipesBodyEl.textContent = '今週の献立プランはまだ登録されていません。';
+      }
+      if (ingredientsBodyEl) {
+        ingredientsBodyEl.textContent = '必要な食材・調味料はまだありません。';
+      }
+      return;
+    }
+
+    const formatAmount = (entry) => {
+      if (!entry) return '';
+      if (entry.amount === null || typeof entry.amount === 'undefined') {
+        return entry.unit || '数量未設定';
+      }
+      return `${entry.amount}${entry.unit || ''}`;
+    };
+
+    const renderDayDetails = (day) => {
+      if (!recipesTitleEl || !recipesBodyEl || !ingredientsTitleEl || !ingredientsBodyEl) {
+        return;
+      }
+
+      recipesTitleEl.textContent = `${day.display} (${day.weekday}) のレシピ`;
+      recipesBodyEl.innerHTML = '';
+
+      if (!day.hasPlan) {
+        const message = document.createElement('div');
+        message.className = 'rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-500';
+        message.textContent = 'この日の献立はまだ登録されていません。';
+        recipesBodyEl.appendChild(message);
+      } else {
+        day.meals.forEach((meal) => {
+          const mealCard = document.createElement('div');
+          mealCard.className = 'space-y-2 rounded-lg border border-blue-100 bg-white p-3';
+
+          const header = document.createElement('div');
+          header.className = 'flex items-center justify-between';
+          const label = document.createElement('p');
+          label.className = 'text-xs font-semibold text-blue-600 uppercase tracking-wide';
+          label.textContent = meal.label;
+          header.appendChild(label);
+          mealCard.appendChild(header);
+
+          const list = document.createElement('div');
+          list.className = 'space-y-2';
+
+          meal.slots.forEach((slot) => {
+            const slotWrap = document.createElement('div');
+            slotWrap.className = 'space-y-1';
+
+            const categoryLabel = document.createElement('p');
+            categoryLabel.className = 'text-xs font-medium text-gray-500';
+            categoryLabel.textContent = slot.categoryLabel;
+            slotWrap.appendChild(categoryLabel);
+
+            const nameRow = document.createElement('div');
+            nameRow.className = 'flex items-center justify-between gap-3';
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'text-sm font-semibold text-gray-900';
+            nameSpan.textContent = slot.menu ? slot.menu.name : 'メニュー候補がありません';
+            nameRow.appendChild(nameSpan);
+
+            if (slot.menu && slot.menu.time) {
+              const timeSpan = document.createElement('span');
+              timeSpan.className = 'text-xs text-gray-400';
+              const timeText = String(slot.menu.time);
+              timeSpan.textContent = timeText.endsWith('分') ? timeText : `${timeText}分`;
+              nameRow.appendChild(timeSpan);
+            }
+
+            slotWrap.appendChild(nameRow);
+
+            if (slot.menu && (slot.menu.junle || slot.menu.cook)) {
+              const chipWrap = document.createElement('div');
+              chipWrap.className = 'flex flex-wrap gap-2 text-[11px] text-gray-500';
+
+              if (slot.menu.junle) {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5';
+                chip.innerHTML = `<span>ジャンル</span><span class="font-medium text-amber-700">${slot.menu.junle}</span>`;
+                chipWrap.appendChild(chip);
+              }
+
+              if (slot.menu.cook) {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5';
+                chip.innerHTML = `<span>調理方法</span><span class="font-medium text-sky-700">${slot.menu.cook}</span>`;
+                chipWrap.appendChild(chip);
+              }
+
+              slotWrap.appendChild(chipWrap);
+            }
+
+            list.appendChild(slotWrap);
+          });
+
+          mealCard.appendChild(list);
+          recipesBodyEl.appendChild(mealCard);
+        });
+      }
+
+      ingredientsTitleEl.textContent = `${day.display} の食材 / 調味料`;
+      ingredientsBodyEl.innerHTML = '';
+
+      const sections = [
+        { title: '食材', items: day.ingredientsSummary },
+        { title: '調味料', items: day.seasoningSummary }
+      ];
+
+      sections.forEach((section) => {
+        const card = document.createElement('div');
+        card.className = 'space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2';
+
+        const heading = document.createElement('p');
+        heading.className = 'text-xs font-semibold text-amber-600 uppercase tracking-wide';
+        heading.textContent = section.title;
+        card.appendChild(heading);
+
+        if (!section.items || !section.items.length) {
+          const empty = document.createElement('p');
+          empty.className = 'text-xs text-gray-400';
+          empty.textContent = '項目はありません。';
+          card.appendChild(empty);
+        } else {
+          const list = document.createElement('ul');
+          list.className = 'space-y-1 text-sm text-gray-700';
+          section.items.forEach((item) => {
+            const li = document.createElement('li');
+            li.className = 'flex items-center justify-between gap-3';
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = item.name;
+            const amountSpan = document.createElement('span');
+            amountSpan.className = 'text-xs text-gray-500';
+            amountSpan.textContent = formatAmount(item);
+            li.append(nameSpan, amountSpan);
+            list.appendChild(li);
+          });
+          card.appendChild(list);
+        }
+
+        ingredientsBodyEl.appendChild(card);
+      });
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    const selectDay = (index) => {
+      const day = weekPlanData.days[index];
+      if (!day) return;
+      dayButtons.forEach((button) => {
+        const isActive = Number(button.dataset.dayIndex) === index;
+        if (isActive) {
+          button.classList.add('is-selected');
+        } else {
+          button.classList.remove('is-selected');
+        }
+      });
+      renderDayDetails(day);
+    };
+
+    if (dayButtons.length && weekPlanData.days.length) {
+      dayButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          selectDay(Number(button.dataset.dayIndex));
+        });
+      });
+      const defaultIndex = Math.min(
+        Math.max(weekPlanData.defaultDayIndex || 0, 0),
+        weekPlanData.days.length - 1
+      );
+      selectDay(defaultIndex);
+    } else {
+      if (recipesBodyEl) {
+        recipesBodyEl.textContent = '今週の献立プランはまだ登録されていません。';
+      }
+      if (ingredientsBodyEl) {
+        ingredientsBodyEl.textContent = '必要な食材・調味料はまだありません。';
+      }
+    }
+  })();
+</script>
+
+<script>
+  (function () {
+    const config = window.myTopData;
+    if (!config) return;
+
+    const monthLabelEl = document.getElementById('plan-calendar-month-label');
+    const gridEl = document.getElementById('plan-calendar-grid');
+    const prevBtn = document.getElementById('plan-calendar-prev');
+    const nextBtn = document.getElementById('plan-calendar-next');
+
+    if (!monthLabelEl || !gridEl || !prevBtn || !nextBtn) return;
+
+    const baseParams = new URLSearchParams();
+    if (config.currentGroupId) {
+      baseParams.set('group', config.currentGroupId);
+    }
+
+    const startOfDay = (value) => {
+      const date = value instanceof Date ? new Date(value) : new Date(value);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
+
+    const startOfWeek = (value) => {
+      const date = startOfDay(value);
+      const day = date.getDay();
+      const diff = (day + 6) % 7;
+      date.setDate(date.getDate() - diff);
+      return date;
+    };
+
+    const addDays = (value, days) => {
+      const date = new Date(value);
+      date.setDate(date.getDate() + days);
+      return date;
+    };
+
+    const formatMonthLabel = (date) => `${date.getFullYear()}年 ${date.getMonth() + 1}月`;
+
+    let currentMonth = config.initialMonth ? new Date(config.initialMonth) : (config.todayISO ? new Date(config.todayISO) : new Date());
+    if (Number.isNaN(currentMonth.getTime())) currentMonth = new Date();
+    currentMonth.setDate(1);
+
+    let selectedButton = null;
+
+    const fetchCalendarData = async (monthDate) => {
+      const monthParam = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+      const params = new URLSearchParams(baseParams);
+      params.set('month', monthParam);
+      const response = await fetch(`${config.apiBase}?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('カレンダーデータを取得できませんでした');
+      }
+      return response.json();
+    };
+
+    const buildCalendar = (calendarData) => {
+      if (!calendarData || !calendarData.calendarStart || !calendarData.calendarEnd) {
+        showStatusMessage('カレンダーを表示できません', 'text-gray-400');
+        return;
+      }
+
+      const planMap = new Map((calendarData.weeks || []).map((week) => [startOfWeek(new Date(week.weekStart)).toISOString(), week]));
+      const todayWeekStartISO = calendarData.todayWeekStart || startOfWeek(new Date()).toISOString();
+      const calendarStart = new Date(calendarData.calendarStart);
+      const calendarEnd = new Date(calendarData.calendarEnd);
+      const totalDays = Math.round((calendarEnd.getTime() - calendarStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const displayMonth = currentMonth.getMonth();
+      const displayYear = currentMonth.getFullYear();
+
+      gridEl.innerHTML = '';
+      selectedButton = null;
+
+      for (let i = 0; i < totalDays; i += 1) {
+        const dayDate = addDays(calendarStart, i);
+        const button = document.createElement('button');
+        button.type = 'button';
+        const isOutsideMonth = dayDate.getMonth() !== displayMonth || dayDate.getFullYear() !== displayYear;
+        const weekStartISO = startOfWeek(dayDate).toISOString();
+        const planInfo = planMap.get(weekStartISO);
+        const hasPlan = !!(planInfo && planInfo.planId);
+        const weekStartTime = new Date(weekStartISO).getTime();
+        const isPastWeek = weekStartTime < new Date(todayWeekStartISO).getTime();
+        const status = hasPlan ? 'planned' : (isPastWeek ? 'past' : 'future');
+
+        button.className = `plan-calendar-cell plan-calendar-cell--${status}${isOutsideMonth ? ' plan-calendar-cell--outside' : ''}`;
+        button.dataset.weekStartIso = weekStartISO;
+        button.dataset.status = status;
+        button.dataset.planId = hasPlan ? planInfo.planId : '';
+        button.textContent = String(dayDate.getDate());
+        button.setAttribute('aria-label', `${dayDate.getMonth() + 1}月${dayDate.getDate()}日を含む週`);
+
+        if (hasPlan) {
+          const indicator = document.createElement('span');
+          indicator.className = 'block mx-auto mt-1 h-1.5 w-1.5 rounded-full bg-blue-500';
+          button.appendChild(indicator);
+        }
+
+        gridEl.appendChild(button);
+      }
+    };
+
+    const navigateToWeek = (button) => {
+      if (!button) return;
+      if (selectedButton) {
+        selectedButton.classList.remove('plan-calendar-cell--selected');
+      }
+      selectedButton = button;
+      button.classList.add('plan-calendar-cell--selected');
+
+      const weekStartISO = button.dataset.weekStartIso;
+      const planId = button.dataset.planId;
+      const params = new URLSearchParams();
+      if (config.currentGroupId) params.set('group', config.currentGroupId);
+      if (planId) {
+        params.set('plan', planId);
+        if (weekStartISO) params.set('weekStart', weekStartISO);
+      } else if (weekStartISO) {
+        params.set('weekStart', weekStartISO);
+      }
+
+      const url = `${config.weekMenuBaseUrl}?${params.toString()}`;
+      window.location.href = url;
+    };
+
+    gridEl.addEventListener('click', (event) => {
+      const button = event.target.closest('.plan-calendar-cell');
+      if (!button) return;
+      navigateToWeek(button);
+    });
+
+    prevBtn.addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() - 1);
+      renderCalendar();
+    });
+
+    nextBtn.addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
+      renderCalendar();
+    });
+
+    const showStatusMessage = (message, className = 'text-gray-400') => {
+      gridEl.innerHTML = '';
+      const placeholder = document.createElement('div');
+      placeholder.className = `text-center text-sm py-6 ${className}`;
+      placeholder.style.gridColumn = 'span 7 / span 7';
+      placeholder.textContent = message;
+      gridEl.appendChild(placeholder);
+    };
+
+    const renderCalendar = async () => {
+      monthLabelEl.textContent = formatMonthLabel(currentMonth);
+      showStatusMessage('読み込み中...', 'text-gray-400');
+      try {
+        const calendarData = await fetchCalendarData(currentMonth);
+        buildCalendar(calendarData);
+      } catch (error) {
+        console.error(error);
+        showStatusMessage('カレンダーを表示できませんでした', 'text-red-500');
+      }
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    renderCalendar();
+  })();
+</script>

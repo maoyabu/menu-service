@@ -122,6 +122,14 @@ const CATEGORY_TO_SLOT_TYPE = {
   dinnerSoup: 'dinner-soup'
 };
 
+const SLOT_TYPE_DETAILS = Object.freeze({
+  'lunch-main': { meal: 'lunch', key: 'main', categoryKey: 'lunchMain' },
+  'dinner-staple': { meal: 'dinner', key: 'staple', categoryKey: 'dinnerStaple' },
+  'dinner-main': { meal: 'dinner', key: 'main', categoryKey: 'dinnerMain' },
+  'dinner-side': { meal: 'dinner', key: 'side', categoryKey: 'dinnerSide' },
+  'dinner-soup': { meal: 'dinner', key: 'soup', categoryKey: 'dinnerSoup' }
+});
+
 const formatMenuDocument = (doc) => ({
   id: doc._id.toString(),
   name: doc.name,
@@ -147,20 +155,42 @@ const formatMenuDocument = (doc) => ({
   }))
 });
 
-const getNextWeekDates = () => {
-  const today = new Date();
-  const day = today.getDay();
-  const offset = ((8 - day) % 7) || 7;
-  const start = new Date(today);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() + offset);
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-    return date;
-  });
+const startOfDay = (value) => {
+  let date;
+  if (value instanceof Date) {
+    date = new Date(value);
+  } else if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split('-').map(Number);
+    date = new Date(y, (m || 1) - 1, d || 1);
+  } else {
+    date = new Date(value);
+  }
+  date.setHours(0, 0, 0, 0);
+  return date;
 };
+
+const startOfWeek = (value) => {
+  const date = startOfDay(value);
+  const day = date.getDay(); // 0 (Sun) ... 6 (Sat)
+  const offset = (day + 6) % 7; // convert Sunday->6, Monday->0
+  date.setDate(date.getDate() - offset);
+  return date;
+};
+
+const addDays = (value, days) => {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
+};
+
+const getWeekDatesFromStart = (weekStart) => {
+  const start = startOfWeek(weekStart);
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+};
+
+const getNextWeekStart = () => addDays(startOfWeek(new Date()), 7);
+
+const getNextWeekDates = () => getWeekDatesFromStart(getNextWeekStart());
 
 const formatDisplayDate = (date) => {
   const month = String(date.getMonth() + 1);
@@ -229,7 +259,8 @@ const aggregateSummary = (plan, menuLookup, field) => {
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
 };
 
-const buildWeekPlanPayload = (menusByCategory) => {
+const buildWeekPlanPayload = (menusByCategory, options = {}) => {
+  const { startDate } = options;
   const menuLookup = {};
   Object.values(menusByCategory).forEach((menus) => {
     menus.forEach((menu) => {
@@ -237,7 +268,8 @@ const buildWeekPlanPayload = (menusByCategory) => {
     });
   });
 
-  const weekDates = getNextWeekDates();
+  const weekStartDate = startDate ? startOfWeek(startDate) : getNextWeekStart();
+  const weekDates = getWeekDatesFromStart(weekStartDate);
 
   const plan = weekDates.map((date, index) => {
     const createSlot = (categoryKey) => {
@@ -282,6 +314,7 @@ const buildWeekPlanPayload = (menusByCategory) => {
       display: formatDisplayDate(date)
     })),
     weekRangeLabel: `${formatDisplayDate(weekDates[0])}〜${formatDisplayDate(weekDates[6])}`,
+    weekStartISO: weekStartDate.toISOString(),
     ingredientSummary,
     seasoningSummary
   };
@@ -483,10 +516,24 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       ? req.query.plan
       : '';
 
-    const baseWeekDates = getNextWeekDates();
-    const baseWeekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(baseWeekDates[6])}`;
+    const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
+    let requestedWeekStart = null;
+    if (weekStartParam) {
+      const parsed = startOfDay(weekStartParam);
+      if (!Number.isNaN(parsed.getTime())) {
+        requestedWeekStart = startOfWeek(parsed);
+      }
+    }
+
+    const today = startOfDay(new Date());
+    const todayWeekStart = startOfWeek(today);
+
+    let targetWeekStart = requestedWeekStart || getNextWeekStart();
+    let baseWeekDates = getWeekDatesFromStart(targetWeekStart);
+    let weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(baseWeekDates[6])}`;
 
     let existingPlan = null;
+    let existingPlanId = '';
 
     if (planIdParam) {
       const plan = await WeeklyMenuPlan.findById(planIdParam).lean();
@@ -495,6 +542,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         const canAccess = userGroups.some((group) => group._id.toString() === planGroupId);
         if (canAccess && (!currentGroupId || planGroupId === currentGroupId)) {
           existingPlan = plan;
+          existingPlanId = plan._id.toString();
+          targetWeekStart = startOfWeek(plan.weekStart);
+          baseWeekDates = getWeekDatesFromStart(targetWeekStart);
+          weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(baseWeekDates[6])}`;
           if (!currentGroupId) {
             currentGroupId = planGroupId;
           }
@@ -503,12 +554,16 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     }
 
     if (!existingPlan && currentGroupId) {
-      const normalizedWeekStart = new Date(baseWeekDates[0]);
-      normalizedWeekStart.setHours(0, 0, 0, 0);
       existingPlan = await WeeklyMenuPlan.findOne({
         group: currentGroupId,
-        weekStart: normalizedWeekStart
+        weekStart: targetWeekStart
       }).lean();
+      if (existingPlan) {
+        existingPlanId = existingPlan._id.toString();
+        targetWeekStart = startOfWeek(existingPlan.weekStart);
+        baseWeekDates = getWeekDatesFromStart(targetWeekStart);
+        weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(baseWeekDates[6])}`;
+      }
     }
 
     let plan = [];
@@ -516,8 +571,6 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     let ingredientSummary = [];
     let seasoningSummary = [];
     let weekDatesForView = [];
-    let weekRangeLabel = baseWeekRangeLabel;
-    let existingPlanId = existingPlan ? existingPlan._id.toString() : '';
 
     if (existingPlan) {
       const basePlan = baseWeekDates.map((date, index) => ({
@@ -557,14 +610,6 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         });
       }
 
-      const slotTypeMap = {
-        'lunch-main': { meal: 'lunch', key: 'main', categoryKey: 'lunchMain' },
-        'dinner-staple': { meal: 'dinner', key: 'staple', categoryKey: 'dinnerStaple' },
-        'dinner-main': { meal: 'dinner', key: 'main', categoryKey: 'dinnerMain' },
-        'dinner-side': { meal: 'dinner', key: 'side', categoryKey: 'dinnerSide' },
-        'dinner-soup': { meal: 'dinner', key: 'soup', categoryKey: 'dinnerSoup' }
-      };
-
       (existingPlan.dayPlans || []).forEach((dayPlan) => {
         const target = basePlan[dayPlan.dayIndex];
         if (!target) return;
@@ -575,7 +620,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         }
 
         (dayPlan.slots || []).forEach((slot) => {
-          const map = slotTypeMap[slot?.slotType];
+          const map = SLOT_TYPE_DETAILS[slot?.slotType];
           if (!map) return;
 
           const slotData = {
@@ -604,15 +649,44 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         display: formatDisplayDate(date)
       }));
     } else {
-      const generated = buildWeekPlanPayload(menusByCategory);
+      const generated = buildWeekPlanPayload(menusByCategory, { startDate: targetWeekStart });
       plan = generated.plan;
       menuLookup = generated.menuLookup;
       ingredientSummary = generated.ingredientSummary;
       seasoningSummary = generated.seasoningSummary;
       weekDatesForView = generated.weekDates;
       weekRangeLabel = generated.weekRangeLabel;
+      targetWeekStart = startOfWeek(new Date(generated.weekStartISO));
+      baseWeekDates = weekDatesForView.map((entry) => new Date(entry.dateISO));
+
+      if (targetWeekStart.getTime() < todayWeekStart.getTime()) {
+        const ensureSlot = (slot, categoryKey) => ({
+          menuId: null,
+          categoryKey,
+          favorite: false,
+          dineOut: false,
+          locked: false,
+          ...(slot && { ...slot, menuId: null, favorite: false, dineOut: false, locked: false })
+        });
+
+        plan = plan.map((day) => ({
+          ...day,
+          lunch: {
+            main: ensureSlot(day?.lunch?.main, 'lunchMain')
+          },
+          dinner: {
+            staple: ensureSlot(day?.dinner?.staple, 'dinnerStaple'),
+            main: ensureSlot(day?.dinner?.main, 'dinnerMain'),
+            side: ensureSlot(day?.dinner?.side, 'dinnerSide'),
+            soup: ensureSlot(day?.dinner?.soup, 'dinnerSoup')
+          }
+        }));
+        ingredientSummary = [];
+        seasoningSummary = [];
+      }
     }
 
+    const weekStartISO = targetWeekStart.toISOString();
     res.render('users/weekMenu', {
       categoryConfig: CATEGORY_CONFIG,
       menusByCategory,
@@ -623,7 +697,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       ingredientSummary,
       seasoningSummary,
       currentGroupId,
-      existingPlanId
+      existingPlanId,
+      weekStartISO,
+      isHistoricalWeek: targetWeekStart.getTime() < todayWeekStart.getTime(),
+      todayISO: today.toISOString()
     });
   } catch (err) {
     console.error('週次メニュー生成エラー:', err);
@@ -796,25 +873,329 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     const baseWeekDates = getNextWeekDates();
     const weekStartDate = baseWeekDates[0];
     const weekEndDate = baseWeekDates[6];
-    const nextWeekRangeLabel = `${formatDisplayDate(weekStartDate)}〜${formatDisplayDate(weekEndDate)}`;
+  const nextWeekRangeLabel = `${formatDisplayDate(weekStartDate)}〜${formatDisplayDate(weekEndDate)}`;
 
-    let nextWeekPlan = null;
-    if (currentGroupId) {
-      const normalizedWeekStart = new Date(weekStartDate);
-      normalizedWeekStart.setHours(0, 0, 0, 0);
-      nextWeekPlan = await WeeklyMenuPlan.findOne({
-        group: currentGroupId,
-        weekStart: normalizedWeekStart
-      }).select('_id weekStart weekEnd title').lean();
+  const today = startOfDay(new Date());
+  const initialCalendarMonthISO = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+
+  let nextWeekPlan = null;
+  if (currentGroupId) {
+    const normalizedWeekStart = new Date(weekStartDate);
+    normalizedWeekStart.setHours(0, 0, 0, 0);
+    nextWeekPlan = await WeeklyMenuPlan.findOne({
+      group: currentGroupId,
+      weekStart: normalizedWeekStart
+    }).select('_id weekStart weekEnd title').lean();
+  }
+
+  const currentWeekStart = startOfWeek(today);
+  const currentWeekDates = getWeekDatesFromStart(currentWeekStart);
+  const categoryLabels = Object.fromEntries(
+    Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => [key, cfg.label])
+  );
+
+  let currentWeekPlanDoc = null;
+  if (currentGroupId) {
+    currentWeekPlanDoc = await WeeklyMenuPlan.findOne({
+      group: currentGroupId,
+      weekStart: currentWeekStart
+    }).lean();
+  }
+
+  const menuIdSet = new Set();
+  if (currentWeekPlanDoc?.dayPlans?.length) {
+    currentWeekPlanDoc.dayPlans.forEach((dayPlan) => {
+      (dayPlan.slots || []).forEach((slot) => {
+        if (slot?.menu) {
+          menuIdSet.add(slot.menu.toString());
+        }
+      });
+    });
+  }
+
+  let currentWeekMenuLookup = {};
+  if (menuIdSet.size) {
+    const menuDocs = await Menu.find({ _id: { $in: Array.from(menuIdSet) } })
+      .populate({ path: 'ingredients.name', select: 'ingredient unit' })
+      .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+      .lean();
+
+    currentWeekMenuLookup = menuDocs.reduce((acc, doc) => {
+      const formatted = formatMenuDocument(doc);
+      acc[formatted.id] = formatted;
+      return acc;
+    }, {});
+  }
+
+  const initializeWeekOverview = () =>
+    currentWeekDates.map((date, index) => ({
+      index,
+      dateISO: date.toISOString(),
+      display: formatDisplayDate(date),
+      weekday: WEEKDAY_JA[index],
+      isToday: startOfDay(date).getTime() === today.getTime(),
+      lunch: { main: null },
+      dinner: { staple: null, main: null, side: null, soup: null },
+      meals: [],
+      ingredientsSummary: [],
+      seasoningSummary: [],
+      hasPlan: false
+    }));
+
+  const weekPlanOverview = initializeWeekOverview();
+
+  const assignSlotToDay = (dayEntry, slotSource) => {
+    if (!dayEntry || !slotSource) return;
+    const slotType = slotSource.slotType || CATEGORY_TO_SLOT_TYPE[slotSource.categoryKey];
+    const map = SLOT_TYPE_DETAILS[slotType];
+    if (!map) return;
+
+    let menuId = null;
+    if (slotSource.menuId) {
+      menuId = String(slotSource.menuId);
+    } else if (slotSource.menu) {
+      if (typeof slotSource.menu === 'string') {
+        menuId = slotSource.menu;
+      } else if (slotSource.menu._id) {
+        menuId = slotSource.menu._id.toString();
+      } else {
+        menuId = String(slotSource.menu);
+      }
     }
 
-    res.render('users/myTop', {
-      nextWeekPlan,
-      nextWeekRangeLabel,
-      currentGroupId
+    const slotPayload = {
+      categoryKey: map.categoryKey,
+      slotType,
+      menuId,
+      dineOut: !!slotSource.dineOut,
+      favorite: !!slotSource.favorite,
+      locked: !!slotSource.locked,
+      menu: menuId && currentWeekMenuLookup[menuId] ? currentWeekMenuLookup[menuId] : null
+    };
+
+    if (map.meal === 'lunch') {
+      dayEntry.lunch[map.key] = slotPayload;
+    } else {
+      dayEntry.dinner[map.key] = slotPayload;
+    }
+  };
+
+  if (currentWeekPlanDoc?.dayPlans?.length) {
+    currentWeekPlanDoc.dayPlans.forEach((dayPlan) => {
+      const dayEntry = weekPlanOverview[dayPlan.dayIndex];
+      if (!dayEntry) return;
+      const planDate = startOfDay(dayPlan.date);
+      dayEntry.dateISO = planDate.toISOString();
+      (dayPlan.slots || []).forEach((slot) => assignSlotToDay(dayEntry, slot));
     });
+  }
+
+  const aggregateItems = (menus, field) => {
+    const itemsMap = new Map();
+    menus.forEach((menu) => {
+      if (!menu) return;
+      (menu[field] || []).forEach((item) => {
+        if (!item?.name) return;
+        const unit = item.unit || '';
+        const key = `${item.name}__${unit}`;
+        const current = itemsMap.get(key) || {
+          name: item.name,
+          unit,
+          amount: 0,
+          missingAmount: false
+        };
+        if (typeof item.amount === 'number' && !Number.isNaN(item.amount)) {
+          current.amount += item.amount;
+        } else {
+          current.missingAmount = true;
+        }
+        itemsMap.set(key, current);
+      });
+    });
+
+    return Array.from(itemsMap.values())
+      .map((entry) => ({
+        name: entry.name,
+        unit: entry.unit,
+        amount: entry.missingAmount ? null : Math.round(entry.amount * 100) / 100,
+        missingAmount: entry.missingAmount
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  };
+
+  weekPlanOverview.forEach((day) => {
+    const meals = [];
+
+    const lunchSlots = Object.values(day.lunch).filter(Boolean);
+    if (lunchSlots.length) {
+      meals.push({
+        mealKey: 'lunch',
+        label: 'ランチ',
+        slots: lunchSlots.map((slot) => ({
+          categoryKey: slot.categoryKey,
+          categoryLabel: categoryLabels[slot.categoryKey] || '',
+          menuId: slot.menuId,
+          menu: slot.menu
+        }))
+      });
+    }
+
+    const dinnerSlots = Object.values(day.dinner).filter(Boolean);
+    if (dinnerSlots.length) {
+      meals.push({
+        mealKey: 'dinner',
+        label: 'ディナー',
+        slots: dinnerSlots.map((slot) => ({
+          categoryKey: slot.categoryKey,
+          categoryLabel: categoryLabels[slot.categoryKey] || '',
+          menuId: slot.menuId,
+          menu: slot.menu
+        }))
+      });
+    }
+
+    day.meals = meals;
+    day.hasPlan = meals.some((meal) => meal.slots.some((slot) => !!slot.menu));
+
+    const menusForDay = meals.flatMap((meal) =>
+      meal.slots.map((slot) => slot.menu).filter(Boolean)
+    );
+    day.ingredientsSummary = aggregateItems(menusForDay, 'ingredients');
+    day.seasoningSummary = aggregateItems(menusForDay, 'seasoning');
+  });
+
+  const todayDay = weekPlanOverview.find((day) => day.isToday) || null;
+  const todayWeekdayIndex = today.getDay();
+  const todayWeekdayLabel = WEEKDAY_JA[(todayWeekdayIndex + 6) % 7];
+
+  const todayPlan = todayDay
+    ? {
+        hasPlan: todayDay.hasPlan,
+        dateLabel: todayDay.display,
+        weekdayLabel: todayDay.weekday,
+        meals: todayDay.meals
+      }
+    : {
+        hasPlan: false,
+        dateLabel: formatDisplayDate(today),
+        weekdayLabel: todayWeekdayLabel,
+        meals: []
+      };
+
+  const defaultWeekDayIndex = todayDay ? todayDay.index : 0;
+
+  const currentWeekQueryParts = [];
+  if (currentGroupId) {
+    currentWeekQueryParts.push(`group=${currentGroupId}`);
+  }
+  currentWeekQueryParts.push(`weekStart=${currentWeekStart.toISOString()}`);
+  const currentWeekLink = '/users/week-menu' + (currentWeekQueryParts.length ? `?${currentWeekQueryParts.join('&')}` : '');
+
+  res.render('users/myTop', {
+    nextWeekPlan,
+    nextWeekRangeLabel,
+    currentGroupId,
+    todayISO: today.toISOString(),
+    initialCalendarMonthISO,
+    todayPlan,
+    weekPlanOverview,
+    defaultWeekDayIndex,
+    currentWeekLink
+  });
   } catch (err) {
     return next(err);
+  }
+});
+
+router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+
+    let groupId = req.query.group ? String(req.query.group) : '';
+    if (groupId && !userGroups.some((group) => group._id.toString() === groupId)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+    if (!groupId) {
+      groupId = defaultGroupId || fallbackGroupId || '';
+    }
+
+    const monthParam = typeof req.query.month === 'string' ? req.query.month : '';
+    if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+      return res.status(400).json({ error: '不正な月が指定されました。' });
+    }
+
+    const [yearStr, monthStr] = monthParam.split('-');
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1;
+
+    if (
+      Number.isNaN(year) ||
+      Number.isNaN(monthIndex) ||
+      monthIndex < 0 ||
+      monthIndex > 11
+    ) {
+      return res.status(400).json({ error: '不正な月が指定されました。' });
+    }
+
+    if (!groupId) {
+      return res.json({
+        success: true,
+        month: monthParam,
+        calendarStart: null,
+        calendarEnd: null,
+        weeks: [],
+        todayWeekStart: startOfWeek(new Date()).toISOString()
+      });
+    }
+
+    const monthStart = new Date(year, monthIndex, 1);
+    const monthEnd = new Date(year, monthIndex + 1, 0);
+    const calendarStart = startOfWeek(monthStart);
+    const lastWeekStart = startOfWeek(monthEnd);
+    const calendarEnd = addDays(lastWeekStart, 6);
+
+    const plans = await WeeklyMenuPlan.find({
+      group: groupId,
+      weekStart: { $gte: calendarStart, $lte: lastWeekStart }
+    })
+      .select('_id weekStart title')
+      .lean();
+
+    const planMap = new Map();
+    plans.forEach((plan) => {
+      const key = startOfWeek(plan.weekStart).toISOString();
+      planMap.set(key, {
+        planId: plan._id.toString(),
+        title: plan.title || ''
+      });
+    });
+
+    const weeks = [];
+    let cursor = new Date(calendarStart);
+    while (cursor.getTime() <= calendarEnd.getTime()) {
+      const weekStartISO = cursor.toISOString();
+      const entry = planMap.get(weekStartISO);
+      weeks.push({
+        weekStart: weekStartISO,
+        planId: entry ? entry.planId : null,
+        title: entry ? entry.title : ''
+      });
+      cursor = addDays(cursor, 7);
+    }
+
+    return res.json({
+      success: true,
+      month: monthParam,
+      calendarStart: calendarStart.toISOString(),
+      calendarEnd: calendarEnd.toISOString(),
+      weeks,
+      todayWeekStart: startOfWeek(new Date()).toISOString()
+    });
+  } catch (err) {
+    console.error('カレンダーデータ取得エラー:', err);
+    return res.status(500).json({ error: 'カレンダーデータを取得できませんでした。' });
   }
 });
 

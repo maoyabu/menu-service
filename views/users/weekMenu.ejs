@@ -79,9 +79,9 @@
           <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
           1week meal planning
         </span>
-        <h1 class="text-3xl md:text-4xl font-bold leading-tight">来週の 7 DAYS PLAN を計画しよう！</h1>
+        <h1 class="text-3xl md:text-4xl font-bold leading-tight"><%= weekRangeLabel %> の 7 DAYS PLAN を計画しよう！</h1>
         <p class="text-sm md:text-base text-white/80 max-w-2xl">
-          AIが提案するメニューをカスタマイズして、来週の食事の予定を立てましょう
+          AIが提案するメニューをカスタマイズして、この週の食事の予定を立てましょう
         </p>
       </div>
     </div>
@@ -95,7 +95,7 @@
       </div>
       <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
-          <span class="text-gray-600 font-medium">来週のメニュー</span>
+          <span class="text-gray-600 font-medium">選択中の週</span>
           <span class="text-base font-semibold text-gray-900"><%= weekRangeLabel %></span>
         </div>
         <button type="button" data-action="regenerate-week" class="inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-black focus:outline-none focus:ring-2 focus:ring-gray-300">
@@ -290,7 +290,10 @@
     weekDates: JSON.parse('<%- serialize(weekDates) %>'),
     weekRangeLabel: <%- serialize(weekRangeLabel) %>,
     currentGroupId: <%- serialize(currentGroupId || '') %>,
-    planId: <%- serialize(existingPlanId || '') %>
+    planId: <%- serialize(existingPlanId || '') %>,
+    weekStartISO: <%- serialize(weekStartISO || '') %>,
+    isHistoricalWeek: <%- serialize(isHistoricalWeek || false) %>,
+    todayISO: <%- serialize(todayISO || '') %>
   };
 </script>
 
