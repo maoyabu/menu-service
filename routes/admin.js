@@ -38,25 +38,43 @@ router.get('/admin-top', async (req, res) => {
 // レシピ一覧画面（DBから取得）
 router.get('/menu-list', async (req, res) => {
   try {
-    const { kind, junle, cook, keyword } = req.query;
+    const { kind, junle, cook, keyword, image: imageFilter } = req.query;
 
-    const filter = {};
+    const filterConditions = [];
 
-    if (kind) filter.kind = kind;
-    if (junle) filter.junle = junle;
-    if (cook) filter.cook = cook;
+    if (kind) filterConditions.push({ kind });
+    if (junle) filterConditions.push({ junle });
+    if (cook) filterConditions.push({ cook });
     if (keyword) {
-      filter.$or = [
-        { name: new RegExp(keyword, 'i') },
-        { yomi: new RegExp(keyword, 'i') },
-        { kind: new RegExp(keyword, 'i') },
-        { cook: new RegExp(keyword, 'i') },
-        { content: new RegExp(keyword, 'i') },
-        { ingredient: new RegExp(keyword, 'i') },
-      ];
+      filterConditions.push({
+        $or: [
+          { name: new RegExp(keyword, 'i') },
+          { yomi: new RegExp(keyword, 'i') },
+          { kind: new RegExp(keyword, 'i') },
+          { cook: new RegExp(keyword, 'i') },
+          { content: new RegExp(keyword, 'i') },
+          { ingredient: new RegExp(keyword, 'i') }
+        ]
+      });
     }
 
-    const menus = await Menu.find(filter)
+    if (imageFilter === 'with') {
+      filterConditions.push({
+        imageUrl: { $exists: true, $nin: [null, ''] }
+      });
+    } else if (imageFilter === 'without') {
+      filterConditions.push({
+        $or: [
+          { imageUrl: { $exists: false } },
+          { imageUrl: null },
+          { imageUrl: '' }
+        ]
+      });
+    }
+
+    const composedFilter = filterConditions.length ? { $and: filterConditions } : {};
+
+    const menus = await Menu.find(composedFilter)
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
       .populate({ path: 'seasoning.name', model: 'Seasoning' });
 
@@ -68,6 +86,15 @@ router.get('/menu-list', async (req, res) => {
     const ingredientList = await Ingredient.find();
     const seasoningList = await Seasoning.find();
 
+    const appliedParams = new URLSearchParams();
+    if (kind) appliedParams.append('kind', kind);
+    if (junle) appliedParams.append('junle', junle);
+    if (cook) appliedParams.append('cook', cook);
+    if (keyword) appliedParams.append('keyword', keyword);
+    if (imageFilter) appliedParams.append('image', imageFilter);
+    const filterQueryString = appliedParams.toString();
+    const filterQueryEncoded = encodeURIComponent(filterQueryString);
+
     res.render('admin/menu-list', {
       menus,
       kindList,
@@ -77,9 +104,12 @@ router.get('/menu-list', async (req, res) => {
       selectedJunle: junle || '',
       selectedCook: cook || '',
       keyword: keyword || '',
+      selectedImageFilter: imageFilter || '',
       menusJSON: JSON.stringify(menus), // 🔸追加
       ingredientList,
-      seasoningList
+      seasoningList,
+      filterQueryString,
+      filterQueryEncoded
     });
   } catch (err) {
     console.error('メニュー取得エラー:', err);
@@ -89,13 +119,14 @@ router.get('/menu-list', async (req, res) => {
 
 // レシピ一覧絞り込み処理（POST → GET へリダイレクト）
 router.post('/menu-list', (req, res) => {
-  const { kind, junle, cook, keyword } = req.body;
+  const { kind, junle, cook, keyword, image } = req.body;
 
   const query = new URLSearchParams();
   if (kind) query.append('kind', kind);
   if (junle) query.append('junle', junle);
   if (cook) query.append('cook', cook);
   if (keyword) query.append('keyword', keyword);
+  if (image) query.append('image', image);
 
   res.redirect(`/admin/menu-list?${query.toString()}`);
 });
@@ -386,6 +417,9 @@ router.get('/menu-edit/:id', async (req, res) => {
     const initialIngredients = ingredients.slice(0, 10);
     const initialSeasonings = seasonings.slice(0, 10);
 
+    const filters = typeof req.query.filters === 'string' ? req.query.filters : '';
+    const backToListUrl = filters ? `/admin/menu-list?${filters}` : '/admin/menu-list';
+
     res.render('admin/menu-edit', {
       menu,
       kindList,
@@ -400,7 +434,9 @@ router.get('/menu-edit/:id', async (req, res) => {
       genreList,
       seasoningGenreList,
       initialIngredients,
-      initialSeasonings
+      initialSeasonings,
+      filters,
+      backToListUrl
     });
   } catch (err) {
     console.error('レシピ編集画面表示エラー:', err);
@@ -429,7 +465,8 @@ router.post('/menu-edit/:id', async (req, res) => {
       ingredient_units = [],
       seasoning_ids = [],
       seasoning_amounts = [],
-      seasoning_units = []
+      seasoning_units = [],
+      filters = ''
     } = req.body;
 
     // 食材の構造を整える
@@ -463,7 +500,8 @@ router.post('/menu-edit/:id', async (req, res) => {
       seasoning: seasonings
     });
 
-    res.redirect('/admin/menu-list');
+    const redirectUrl = filters ? `/admin/menu-list?${filters}` : '/admin/menu-list';
+    res.redirect(redirectUrl);
   } catch (err) {
     console.error('レシピ更新エラー:', err);
     res.status(500).send('レシピを更新できませんでした');

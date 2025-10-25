@@ -3,9 +3,16 @@
     <i data-lucide="chef-hat" class="w-6 h-6 text-gray-700"></i>
     <span>レシピ編集</span>
   </h1>
-  <p class="text-sm text-gray-500 mb-6">レシピの内容を更新してください</p>
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+    <p class="text-sm text-gray-500">レシピの内容を更新してください</p>
+    <a href="<%= backToListUrl %>" class="inline-flex items-center text-sm text-blue-600 hover:underline">
+      <i data-lucide="arrow-left" class="w-4 h-4 mr-1"></i>
+      <span>一覧に戻る</span>
+    </a>
+  </div>
 
   <form action="/admin/menu-edit/<%= menu._id %>?_method=PUT" method="POST" class="space-y-8">
+    <input type="hidden" name="filters" value="<%= filters || '' %>">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- 1. レシピ名* -->
       <div>

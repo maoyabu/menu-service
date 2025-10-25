@@ -16,7 +16,7 @@
       <i data-lucide="filter" class="w-4 h-4 text-gray-700"></i>
       検索・フィルター
     </h2>
-    <form method="GET" action="/admin/menu-list" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <form method="GET" action="/admin/menu-list" class="grid grid-cols-1 md:grid-cols-5 gap-4">
       <!-- キーワード -->
       <div class="col-span-1 md:col-span-1">
         <label for="keyword" class="block text-sm font-medium text-gray-700 mb-1">キーワード検索</label>
@@ -63,8 +63,16 @@
           <% }) %>
         </select>
       </div>
+      <div>
+        <label for="image" class="block text-sm font-medium text-gray-700 mb-1">画像</label>
+        <select name="image" id="image" class="w-full py-2 px-3 border border-gray-300 rounded-md text-sm bg-gray-50">
+          <option value="" <%= !selectedImageFilter ? 'selected' : '' %>>すべて</option>
+          <option value="with" <%= selectedImageFilter === 'with' ? 'selected' : '' %>>画像あり</option>
+          <option value="without" <%= selectedImageFilter === 'without' ? 'selected' : '' %>>画像なし</option>
+        </select>
+      </div>
 
-      <div class="md:col-span-4 flex justify-end">
+      <div class="md:col-span-5 flex justify-end">
         <button type="submit" class="mt-2 px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition">
           絞り込み
         </button>
@@ -82,6 +90,7 @@
     </a>
   </div>
 
+  <% const filterSuffix = filterQueryString ? ('?filters=' + filterQueryEncoded) : ''; %>
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
     <% menus.forEach(menu => { %>
       <div class="border rounded-xl shadow hover:shadow-md transition bg-white flex flex-col overflow-hidden">
@@ -99,7 +108,7 @@
               <button class="text-gray-500 hover:text-gray-800 open-detail-modal border border-gray-400 rounded p-1" data-menu-id="<%= menu._id %>">
                 <i data-lucide="eye" class="w-4 h-4"></i>
               </button>
-              <a href="/admin/menu-edit/<%= menu._id %>" class="text-gray-500 hover:text-gray-800 border border-gray-400 rounded p-1">
+              <a href="/admin/menu-edit/<%= menu._id %><%= filterSuffix %>" class="text-gray-500 hover:text-gray-800 border border-gray-400 rounded p-1">
                 <i data-lucide="pencil" class="w-4 h-4"></i>
               </a>
               <form action="/admin/menu-delete/<%= menu._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');" class="inline">
