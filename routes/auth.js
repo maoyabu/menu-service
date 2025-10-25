@@ -127,6 +127,7 @@ const formatMenuDocument = (doc) => ({
   name: doc.name,
   kind: doc.kind,
   cook: doc.cook,
+  material: !!doc.material,
   url: doc.url,
   imageUrl: doc.imageUrl || '',
   menu: doc.menu,
@@ -454,6 +455,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       const combined = new Map();
       (kinds || []).forEach((kind) => {
         (menusByKind[kind] || []).forEach((menu) => {
+          if (menu.material) return;
           if (!combined.has(menu.id)) {
             combined.set(menu.id, menu);
           }
