@@ -78,7 +78,7 @@
 
     <div class="px-6 pb-6 space-y-10">
       <section class="space-y-4" data-panel="lunch">
-        <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div class="divide-y divide-blue-100 rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
           <% plan.forEach((day) => { const slot = day?.lunch?.main || null; const row = displayRow(menuLookup, slot); const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
             <div
               class="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between"
@@ -87,18 +87,18 @@
               data-slot="main"
               data-category="lunchMain"
             >
-              <div class="flex items-start gap-4">
-                <div class="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400" data-element="dish-image">
+              <div class="flex items-start md:items-center gap-4">
+                <div class="w-16 shrink-0 text-center">
+                  <% if (dateLabel) { %>
+                    <p class="text-sm font-semibold text-blue-700"><%= dateLabel %></p>
+                  <% } %>
+                  <p class="text-xs font-semibold text-gray-700"><%= day.dayLabel %></p>
+                </div>
+                <div class="w-20 h-20 rounded-lg overflow-hidden border border-blue-100 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
                   <% if (row.imageUrl) { %>
                     <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
                   <% } else { %>
                     <span>no image</span>
-                  <% } %>
-                </div>
-                <div class="w-16 shrink-0 text-left">
-                  <p class="text-sm font-semibold text-gray-900"><%= day.dayLabel %></p>
-                  <% if (dateLabel) { %>
-                    <p class="text-xs text-gray-500"><%= dateLabel %></p>
                   <% } %>
                 </div>
                 <div class="space-y-2 flex-1">
@@ -150,7 +150,7 @@
       </section>
 
       <section class="space-y-4 hidden" data-panel="dinner">
-        <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div class="divide-y divide-blue-100 rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
           <% plan.forEach((day) => { const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
             <div class="px-4 py-4" data-day="<%= day.index %>" data-meal="dinner">
               <div class="flex items-start gap-4">
@@ -167,18 +167,18 @@
                        const label = categoryConfig[categoryKey]?.label || '';
                        const row = displayRow(menuLookup, slot); %>
                     <div
-                      class="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-3"
+                      class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden"
                       data-slot="<%= slotKey %>"
                       data-category="<%= categoryKey %>"
                     >
-                      <div class="w-full h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400" data-element="dish-image">
+                      <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
                         <% if (row.imageUrl) { %>
                           <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
                         <% } else { %>
                           <span>no image</span>
                         <% } %>
                       </div>
-                      <div class="space-y-2">
+                      <div class="space-y-2 p-4">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400"><%= label %></p>
                         <p class="text-sm font-semibold text-gray-900" data-element="dish-name"><%= row.name %></p>
                         <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700" data-element="dish-chips">

@@ -82,54 +82,63 @@
     </a>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
     <% menus.forEach(menu => { %>
-      <div class="border rounded-lg p-5 shadow hover:shadow-md transition bg-white">
-        <div class="flex justify-between items-start mb-2">
-          <h2 class="text-xl font-semibold text-gray-800"><%= menu.name %></h2>
-          <div class="flex gap-2">
-            <button class="text-gray-500 hover:text-gray-800 open-detail-modal border border-gray-400 rounded p-1" data-menu-id="<%= menu._id %>">
-              <i data-lucide="eye" class="w-4 h-4"></i>
-            </button>
-            <a href="/admin/menu-edit/<%= menu._id %>" class="text-gray-500 hover:text-gray-800 border border-gray-400 rounded p-1">
-              <i data-lucide="pencil" class="w-4 h-4"></i>
-            </a>
-            <form action="/admin/menu-delete/<%= menu._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');" class="inline">
-              <button type="submit" class="text-gray-500 hover:text-red-600 border border-gray-400 rounded p-1">
-                <i data-lucide="trash" class="w-4 h-4"></i>
+      <div class="border rounded-xl shadow hover:shadow-md transition bg-white flex flex-col overflow-hidden">
+        <div class="w-full h-48 bg-gray-100 border-b border-gray-200 flex items-center justify-center text-sm text-gray-400">
+          <% if (menu.imageUrl) { %>
+            <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+          <% } else { %>
+            no image
+          <% } %>
+        </div>
+        <div class="flex-1 p-5 flex flex-col gap-3">
+          <div class="flex justify-between items-start">
+            <h2 class="text-lg font-semibold text-gray-800 leading-tight"><%= menu.name %></h2>
+            <div class="flex gap-2">
+              <button class="text-gray-500 hover:text-gray-800 open-detail-modal border border-gray-400 rounded p-1" data-menu-id="<%= menu._id %>">
+                <i data-lucide="eye" class="w-4 h-4"></i>
               </button>
-            </form>
+              <a href="/admin/menu-edit/<%= menu._id %>" class="text-gray-500 hover:text-gray-800 border border-gray-400 rounded p-1">
+                <i data-lucide="pencil" class="w-4 h-4"></i>
+              </a>
+              <form action="/admin/menu-delete/<%= menu._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');" class="inline">
+                <button type="submit" class="text-gray-500 hover:text-red-600 border border-gray-400 rounded p-1">
+                  <i data-lucide="trash" class="w-4 h-4"></i>
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-        <div class="flex flex-wrap gap-1 text-sm text-gray-600 mb-2">
-          <% if (menu.kind) { %>
-            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
-              種類: <%= menu.kind %>
-            </span>
-          <% } %>
-          <% if (menu.junle) { %>
-            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
-              ジャンル: <%= menu.junle %>
-            </span>
-          <% } %>
-          <% if (menu.menu) { %>
-            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
-              メニュー: <%= menu.menu %>
-            </span>
-          <% } %>
-          <% if (menu.cook) { %>
-            <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
-              調理法: <%= menu.cook %>
-            </span>
-          <% } %>
-        </div>
-        <div class="text-sm text-gray-500 mb-2">
-          <i data-lucide="clock" class="inline w-4 h-4 mr-1 align-text-bottom"></i>
-          <%= menu.time %>分　<%= menu.people %>人分
-        </div>
-        <div class="text-sm text-gray-500">
-          主な食材:
-          <%= (menu.ingredients || []).map(i => i.name?.ingredient).filter(Boolean).join('、') %>
+          <div class="flex flex-wrap gap-1 text-sm text-gray-600">
+            <% if (menu.kind) { %>
+              <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+                種類: <%= menu.kind %>
+              </span>
+            <% } %>
+            <% if (menu.junle) { %>
+              <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+                ジャンル: <%= menu.junle %>
+              </span>
+            <% } %>
+            <% if (menu.menu) { %>
+              <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+                メニュー: <%= menu.menu %>
+              </span>
+            <% } %>
+            <% if (menu.cook) { %>
+              <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
+                調理法: <%= menu.cook %>
+              </span>
+            <% } %>
+          </div>
+          <div class="text-sm text-gray-500">
+            <i data-lucide="clock" class="inline w-4 h-4 mr-1 align-text-bottom"></i>
+            <%= menu.time %>分　<%= menu.people %>人分
+          </div>
+          <div class="text-sm text-gray-500">
+            主な食材:
+            <%= (menu.ingredients || []).map(i => i.name?.ingredient).filter(Boolean).join('、') %>
+          </div>
         </div>
       </div>
     <% }) %>
