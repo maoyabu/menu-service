@@ -9,7 +9,8 @@
       junle: '',
       cook: '',
       time: '',
-      imageUrl: ''
+      imageUrl: '',
+      url: ''
     };
   }
   const menu = menuLookup[slot.menuId] || null;
@@ -21,7 +22,8 @@
       junle: '',
       cook: '',
       time: '',
-      imageUrl: ''
+      imageUrl: '',
+      url: ''
     };
   }
 
@@ -33,7 +35,8 @@
       junle: menu.junle || '',
       cook: menu.cook || '',
       time: (menu.time !== undefined && menu.time !== null) ? String(menu.time) : '',
-      imageUrl: menu.imageUrl || ''
+      imageUrl: menu.imageUrl || '',
+      url: menu.url || ''
     };
   };
 %>
@@ -190,7 +193,13 @@
                   <% } %>
                 </div>
                 <div class="space-y-2 flex-1">
-                  <p class="text-base font-semibold text-gray-900" data-element="dish-name"><%= row.name %></p>
+                  <p class="text-base font-semibold text-gray-900" data-element="dish-name">
+                    <% if (row.url) { %>
+                      <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="hover:underline"><%= row.name %></a>
+                    <% } else { %>
+                      <%= row.name %>
+                    <% } %>
+                  </p>
                   <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700" data-element="dish-chips">
                     <% 
                       const formattedTime = row.time ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分') : '';
@@ -214,7 +223,7 @@
                   <div class="menu-picker hidden mt-3" data-picker></div>
                 </div>
               </div>
-              <div class="flex items-center gap-2 self-end md:self-center">
+              <div class="flex items-center gap-2 self-end md:self-stretch md:items-end md:justify-end">
                 <button type="button" class="icon-button favorite-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-favorite" aria-pressed="false" title="お気に入りに追加" <% if (!row.hasMenu) { %>disabled<% } %>>
                   <span class="sr-only">お気に入りに追加</span>
                   <span class="lucide w-4 h-4" data-lucide="heart"></span>
@@ -246,7 +255,7 @@
         <div class="divide-y divide-blue-100 rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
           <% plan.forEach((day) => { const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
             <div class="px-4 py-4" data-day="<%= day.index %>" data-meal="dinner">
-              <div class="flex items-start gap-4">
+          <div class="flex items-start gap-4">
                 <div class="w-16 shrink-0 text-left">
                   <p class="text-sm font-semibold text-gray-900"><%= day.dayLabel %></p>
                   <% if (dateLabel) { %>
@@ -260,7 +269,7 @@
                        const label = categoryConfig[categoryKey]?.label || '';
                        const row = displayRow(menuLookup, slot); %>
                     <div
-                      class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden<%= row.hasMenu ? '' : ' slot-empty' %>"
+                      class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full<%= row.hasMenu ? '' : ' slot-empty' %>"
                       data-slot="<%= slotKey %>"
                       data-category="<%= categoryKey %>"
                     >
@@ -271,9 +280,15 @@
                           <span>no image</span>
                         <% } %>
                       </div>
-                      <div class="space-y-2 p-4">
+                      <div class="space-y-2 p-4 flex-1">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400"><%= label %></p>
-                        <p class="text-sm font-semibold text-gray-900" data-element="dish-name"><%= row.name %></p>
+                        <p class="text-sm font-semibold text-gray-900" data-element="dish-name">
+                          <% if (row.url) { %>
+                            <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="hover:underline"><%= row.name %></a>
+                          <% } else { %>
+                            <%= row.name %>
+                          <% } %>
+                        </p>
                         <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700" data-element="dish-chips">
                           <% 
                             const formattedTimeDinner = row.time ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分') : '';
@@ -294,7 +309,7 @@
                         <% const shouldShowDinnerDetail = row.detail && row.detail !== row.cook && row.detail !== row.junle; %>
                         <p class="text-xs text-gray-500 <%= shouldShowDinnerDetail ? '' : 'hidden' %>" data-element="dish-detail"><%= shouldShowDinnerDetail ? row.detail : '' %></p>
                       </div>
-                      <div class="flex items-center gap-2 justify-end flex-wrap">
+                      <div class="flex items-center gap-2 justify-end flex-wrap mt-auto pb-3 px-4">
                         <button type="button" class="icon-button favorite-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-favorite" aria-pressed="false" title="お気に入りに追加" <% if (!row.hasMenu) { %>disabled<% } %>>
                           <span class="sr-only">お気に入りに追加</span>
                           <span class="lucide w-4 h-4" data-lucide="heart"></span>

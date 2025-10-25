@@ -226,7 +226,15 @@
                       <span class="text-xs text-gray-400"><%= String(menu.time).endsWith('分') ? menu.time : menu.time + '分' %></span>
                     <% } %>
                   </div>
-                  <h3 class="text-lg font-semibold text-gray-900"><%= menu ? menu.name : 'メニュー候補がありません' %></h3>
+                  <h3 class="text-lg font-semibold text-gray-900">
+                  <% if (menu && menu.url) { %>
+                    <a href="<%= menu.url %>" target="menuWindow" rel="noopener" class="hover:underline">
+                        <%= menu.name %>
+                      </a>
+                    <% } else { %>
+                      <%= menu ? menu.name : 'メニュー候補がありません' %>
+                    <% } %>
+                  </h3>
                   <% if (menu && menu.comment) { %>
                     <p class="text-sm text-gray-500"><%= menu.comment %></p>
                   <% } %>
@@ -562,7 +570,17 @@
             nameRow.className = 'flex items-center justify-between gap-3';
             const nameSpan = document.createElement('span');
             nameSpan.className = 'text-sm font-semibold text-gray-900';
-            nameSpan.textContent = slot.menu ? slot.menu.name : 'メニュー候補がありません';
+            if (slot.menu && slot.menu.url) {
+              const link = document.createElement('a');
+              link.href = slot.menu.url;
+              link.target = 'menuWindow';
+              link.rel = 'noopener';
+              link.className = 'hover:underline';
+              link.textContent = slot.menu.name;
+              nameSpan.appendChild(link);
+            } else {
+              nameSpan.textContent = slot.menu ? slot.menu.name : 'メニュー候補がありません';
+            }
             nameRow.appendChild(nameSpan);
 
             if (slot.menu && slot.menu.time) {
