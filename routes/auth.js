@@ -991,16 +991,15 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   }
 
   const aggregateItems = (menus, field) => {
-    const itemsMap = new Map();
+    const itemsMap = new Map(); // name -> Map<unit, { amount, missingAmount }>
     menus.forEach((menu) => {
       if (!menu) return;
       (menu[field] || []).forEach((item) => {
         if (!item?.name) return;
+        const name = item.name;
         const unit = item.unit || '';
-        const key = `${item.name}__${unit}`;
-        const current = itemsMap.get(key) || {
-          name: item.name,
-          unit,
+        const unitMap = itemsMap.get(name) || new Map();
+        const current = unitMap.get(unit) || {
           amount: 0,
           missingAmount: false
         };
@@ -1009,16 +1008,21 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
         } else {
           current.missingAmount = true;
         }
-        itemsMap.set(key, current);
+        unitMap.set(unit, current);
+        itemsMap.set(name, unitMap);
       });
     });
 
-    return Array.from(itemsMap.values())
-      .map((entry) => ({
-        name: entry.name,
-        unit: entry.unit,
-        amount: entry.missingAmount ? null : Math.round(entry.amount * 100) / 100,
-        missingAmount: entry.missingAmount
+    return Array.from(itemsMap.entries())
+      .map(([name, unitMap]) => ({
+        name,
+        units: Array.from(unitMap.entries())
+          .map(([unit, entry]) => ({
+            unit,
+            amount: entry.missingAmount ? null : Math.round(entry.amount * 100) / 100,
+            missingAmount: entry.missingAmount
+          }))
+          .sort((a, b) => a.unit.localeCompare(b.unit, 'ja'))
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
   };

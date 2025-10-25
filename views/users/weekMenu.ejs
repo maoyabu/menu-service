@@ -71,6 +71,67 @@
   }
 </style>
 
+<div class="fixed inset-0 z-50 hidden" data-menu-modal aria-hidden="true">
+  <div class="absolute inset-0 bg-gray-900/70 backdrop-blur-sm" data-menu-modal-close></div>
+  <div class="relative flex min-h-full items-center justify-center px-4 py-8">
+    <div class="w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 flex flex-col" data-menu-modal-dialog>
+      <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.3em] text-blue-500">メニューを検索</p>
+          <h2 class="text-xl font-bold text-gray-900">候補から選択</h2>
+        </div>
+        <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-gray-300 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200" data-menu-modal-close aria-label="閉じる">
+          <span class="lucide w-4 h-4" data-lucide="x"></span>
+        </button>
+      </div>
+      <div class="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+        <div class="grid gap-4 md:grid-cols-4">
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">キーワード</label>
+            <div class="relative">
+              <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-300">
+                <span class="lucide w-4 h-4" data-lucide="search"></span>
+              </span>
+              <input type="search" data-menu-modal-search placeholder="メニュー名や食材で検索" class="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            </div>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">種類</label>
+            <select data-menu-modal-kind class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">ジャンル</label>
+            <select data-menu-modal-junle class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">調理方法</label>
+            <select data-menu-modal-cook class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="">すべて</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="hidden rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800" data-menu-modal-current>
+          <p class="text-xs font-semibold uppercase tracking-wide text-blue-500">現在のメニュー</p>
+          <p class="mt-1 text-base font-semibold text-blue-900" data-menu-modal-current-name></p>
+          <p class="text-xs text-blue-700/80" data-menu-modal-current-detail></p>
+        </div>
+
+        <div class="min-h-[180px]">
+          <div class="flex flex-wrap gap-2" data-menu-modal-list></div>
+          <div class="hidden rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500" data-menu-modal-empty>
+            条件に合うメニューが見つかりませんでした。検索条件を変更してください。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <section class="relative max-w-6xl mx-auto py-10 space-y-8">
   <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
     <div class="p-8 md:p-12 flex flex-col gap-6">
@@ -378,35 +439,312 @@
       return candidate;
     };
 
-    const openPicker = (container, categoryKey, slot) => {
-      if (!container) return;
-      let picker = container.querySelector('select');
-      if (!picker) {
-        picker = document.createElement('select');
-        picker.className = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200';
-        const options = menusByCategory[categoryKey] || [];
-        options.forEach((menu) => {
-          const option = document.createElement('option');
-          option.value = menu.id;
-          option.textContent = menu.name;
-          picker.appendChild(option);
-        });
-        container.appendChild(picker);
+    const modalElements = {
+      overlay: document.querySelector('[data-menu-modal]'),
+      dialog: document.querySelector('[data-menu-modal-dialog]'),
+      closeButtons: Array.from(document.querySelectorAll('[data-menu-modal-close]')),
+      searchInput: document.querySelector('[data-menu-modal-search]'),
+      kindSelect: document.querySelector('[data-menu-modal-kind]'),
+      junleSelect: document.querySelector('[data-menu-modal-junle]'),
+      cookSelect: document.querySelector('[data-menu-modal-cook]'),
+      list: document.querySelector('[data-menu-modal-list]'),
+      empty: document.querySelector('[data-menu-modal-empty]'),
+      currentSection: document.querySelector('[data-menu-modal-current]'),
+      currentName: document.querySelector('[data-menu-modal-current-name]'),
+      currentDetail: document.querySelector('[data-menu-modal-current-detail]')
+    };
 
-        picker.addEventListener('change', (event) => {
-          const nextMenu = menuLookup[event.target.value];
-          if (!nextMenu) return;
-          slot.menuId = nextMenu.id;
-          slot.dineOut = false;
-          slot.categoryKey = categoryKey;
-          container.classList.add('hidden');
-          render();
-        });
+    const modalState = {
+      isOpen: false,
+      slot: null,
+      categoryKey: '',
+      options: [],
+      currentMenu: null,
+      filters: {
+        search: '',
+        kind: '',
+        junle: '',
+        cook: ''
+      }
+    };
+
+    const populateSelectOptions = (select, values, initialValue = '') => {
+      if (!select) return;
+      const unique = new Set(values.filter(Boolean));
+      if (initialValue) unique.add(initialValue);
+      const sorted = Array.from(unique).sort((a, b) => a.localeCompare(b, 'ja'));
+      select.innerHTML = '';
+      const emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = 'すべて';
+      select.appendChild(emptyOption);
+      sorted.forEach((value) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+      if (initialValue && select.querySelector(`option[value="${initialValue}"]`)) {
+        select.value = initialValue;
+      } else {
+        select.value = '';
+      }
+    };
+
+    const applyModalFilters = () => {
+      const { search, kind, junle, cook } = modalState.filters;
+      const query = search.trim().toLowerCase();
+      const activeFilters = {
+        kind: kind || '',
+        junle: junle || '',
+        cook: cook || ''
+      };
+
+      return modalState.options.filter((menu) => {
+        if (!menu) return false;
+        if (activeFilters.kind && menu.kind !== activeFilters.kind) return false;
+        if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
+        if (activeFilters.cook && menu.cook !== activeFilters.cook) return false;
+        if (!query) return true;
+        const candidates = [
+          menu.name,
+          menu.junle,
+          menu.cook,
+          menu.kind,
+          menu.menu
+        ].filter(Boolean).map((text) => text.toLowerCase());
+        return candidates.some((text) => text.includes(query));
+      });
+    };
+
+    const renderModalCurrentMenu = () => {
+      const { currentMenu } = modalState;
+      if (!modalElements.currentSection || !modalElements.currentName || !modalElements.currentDetail) return;
+      if (!currentMenu) {
+        modalElements.currentSection.classList.add('hidden');
+        modalElements.currentName.textContent = '';
+        modalElements.currentDetail.textContent = '';
+        return;
       }
 
-      picker.value = slot.menuId || '';
-      container.classList.toggle('hidden');
+      modalElements.currentSection.classList.remove('hidden');
+      modalElements.currentName.textContent = currentMenu.name || '';
+      const detailParts = [currentMenu.junle, currentMenu.cook].filter(Boolean);
+      modalElements.currentDetail.textContent = detailParts.length ? detailParts.join(' / ') : '';
     };
+
+    const renderModalList = () => {
+      if (!modalElements.list || !modalElements.empty) return;
+      modalElements.list.innerHTML = '';
+      const filtered = applyModalFilters();
+
+      if (!filtered.length) {
+        modalElements.empty.classList.remove('hidden');
+        if (typeof window.refreshLucideIcons === 'function') {
+          window.refreshLucideIcons();
+        }
+        return;
+      }
+
+      modalElements.empty.classList.add('hidden');
+      const currentMenuId = modalState.currentMenu?.id || '';
+
+      filtered.forEach((menu) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.menuOption = menu.id;
+        button.className = [
+          'group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition',
+          menu.id === currentMenuId
+            ? 'border-blue-400 bg-blue-50 text-blue-700'
+            : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
+        ].join(' ');
+        button.title = menu.name;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'font-semibold';
+        nameSpan.textContent = menu.name;
+
+        const metaSpan = document.createElement('span');
+        metaSpan.className = 'text-[11px] text-gray-400 group-hover:text-blue-500';
+        const metaParts = [menu.junle, menu.cook].filter(Boolean);
+        metaSpan.textContent = metaParts.join(' / ');
+
+        button.appendChild(nameSpan);
+        if (metaSpan.textContent) {
+          button.appendChild(metaSpan);
+        }
+        modalElements.list.appendChild(button);
+      });
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    const closeMenuModal = () => {
+      if (!modalState.isOpen) return;
+      modalState.isOpen = false;
+      modalState.slot = null;
+      modalState.categoryKey = '';
+      modalState.options = [];
+      modalState.currentMenu = null;
+      modalState.filters = { search: '', kind: '', junle: '', cook: '' };
+      if (modalElements.overlay) {
+        modalElements.overlay.classList.add('hidden');
+        modalElements.overlay.setAttribute('aria-hidden', 'true');
+      }
+      document.body.classList.remove('overflow-hidden');
+    };
+
+    const selectMenuFromModal = (menuId) => {
+      if (!modalState.isOpen || !modalState.slot) return;
+      const nextMenu = menuLookup[menuId];
+      if (!nextMenu) return;
+      modalState.slot.menuId = nextMenu.id;
+      modalState.slot.dineOut = false;
+      modalState.slot.categoryKey = modalState.categoryKey;
+      closeMenuModal();
+      render();
+    };
+
+    const openMenuModal = (categoryKey, slot) => {
+      if (!modalElements.overlay || !slot) return;
+
+      const options = Array.isArray(menusByCategory[categoryKey])
+        ? menusByCategory[categoryKey].slice()
+        : [];
+      const currentMenu = slot.menuId ? menuLookup[slot.menuId] || null : null;
+
+      if (currentMenu && !options.some((menu) => menu.id === currentMenu.id)) {
+        options.unshift(currentMenu);
+      }
+
+      const deduped = Array.from(
+        options.reduce((map, menu) => {
+          if (menu && menu.id && !map.has(menu.id)) {
+            map.set(menu.id, menu);
+          }
+          return map;
+        }, new Map())
+      ).map(([, value]) => value);
+
+      modalState.isOpen = true;
+      modalState.slot = slot;
+      modalState.categoryKey = categoryKey;
+      modalState.currentMenu = currentMenu;
+      modalState.options = deduped.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      modalState.filters = {
+        search: '',
+        kind: '',
+        junle: currentMenu?.junle || '',
+        cook: ''
+      };
+
+      populateSelectOptions(
+        modalElements.kindSelect,
+        modalState.options.map((menu) => menu.kind),
+        ''
+      );
+      populateSelectOptions(
+        modalElements.junleSelect,
+        modalState.options.map((menu) => menu.junle),
+        modalState.filters.junle
+      );
+      populateSelectOptions(
+        modalElements.cookSelect,
+        modalState.options.map((menu) => menu.cook),
+        ''
+      );
+
+      if (
+        modalState.filters.junle &&
+        (!modalElements.junleSelect || modalElements.junleSelect.value !== modalState.filters.junle)
+      ) {
+        modalState.filters.junle = '';
+      }
+
+      renderModalCurrentMenu();
+
+      const initialResults = applyModalFilters();
+      if (!initialResults.length && modalState.filters.junle) {
+        modalState.filters.junle = '';
+        if (modalElements.junleSelect) modalElements.junleSelect.value = '';
+      }
+
+      renderModalList();
+
+      if (modalElements.searchInput) {
+        modalElements.searchInput.value = '';
+      }
+
+      modalElements.overlay.classList.remove('hidden');
+      modalElements.overlay.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('overflow-hidden');
+      if (modalElements.searchInput) {
+        setTimeout(() => modalElements.searchInput?.focus(), 50);
+      }
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    if (modalElements.overlay) {
+      modalElements.overlay.addEventListener('click', (event) => {
+        if (event.target === modalElements.overlay) {
+          closeMenuModal();
+        }
+      });
+    }
+
+    if (modalElements.list) {
+      modalElements.list.addEventListener('click', (event) => {
+        const optionButton = event.target.closest('[data-menu-option]');
+        if (!optionButton) return;
+        selectMenuFromModal(optionButton.dataset.menuOption);
+      });
+    }
+
+    if (modalElements.searchInput) {
+      modalElements.searchInput.addEventListener('input', (event) => {
+        modalState.filters.search = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.kindSelect) {
+      modalElements.kindSelect.addEventListener('change', (event) => {
+        modalState.filters.kind = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.junleSelect) {
+      modalElements.junleSelect.addEventListener('change', (event) => {
+        modalState.filters.junle = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.cookSelect) {
+      modalElements.cookSelect.addEventListener('change', (event) => {
+        modalState.filters.cook = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.closeButtons.length) {
+      modalElements.closeButtons.forEach((button) => {
+        button.addEventListener('click', () => closeMenuModal());
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeMenuModal();
+      }
+    });
 
     const updateChips = (container, menu, mealType) => {
       if (!container) return;
@@ -594,6 +932,9 @@
       const chipsEl = wrapper.querySelector('[data-element="dish-chips"]');
       const imageEl = wrapper.querySelector('[data-element="dish-image"]');
       const mealType = wrapper.dataset.meal || wrapper.closest('[data-meal]')?.dataset.meal || '';
+      const wrapperCategoryKey =
+        wrapper.dataset.category || wrapper.closest('[data-slot]')?.dataset.category || '';
+      const wrapperCategoryOptions = wrapperCategoryKey ? (menusByCategory[wrapperCategoryKey] || []) : [];
 
       if (!slot) {
         if (nameEl) nameEl.textContent = 'メニュー候補がありません';
@@ -604,7 +945,12 @@
         if (chipsEl) chipsEl.innerHTML = '';
         updateImage(imageEl, '', '');
         [favoriteBtn, dineBtn, shuffleBtn, changeBtn, clearBtn].forEach((btn) => {
-          if (btn) btn.disabled = true;
+          if (!btn) return;
+          if (btn === shuffleBtn || btn === changeBtn) {
+            btn.disabled = wrapperCategoryOptions.length === 0;
+          } else {
+            btn.disabled = true;
+          }
         });
         setSlotEmptyState(wrapper, true);
         wrapper.classList.add('opacity-60');
@@ -636,8 +982,8 @@
           dineBtn.setAttribute('aria-pressed', 'false');
           updateDineButtonIcons(dineBtn, false);
         }
-        if (shuffleBtn) shuffleBtn.disabled = !hasOptions;
-        if (changeBtn) changeBtn.disabled = !hasOptions;
+        if (shuffleBtn) shuffleBtn.disabled = !wrapperCategoryOptions.length;
+        if (changeBtn) changeBtn.disabled = !wrapperCategoryOptions.length;
         if (clearBtn) clearBtn.disabled = !hasMenuId;
         setSlotEmptyState(wrapper, true);
         wrapper.classList.remove('opacity-60');
@@ -788,17 +1134,15 @@
           slot.dineOut = false;
         }
       } else if (action === 'change') {
-        const pickerHost = slotWrapper.querySelector('[data-picker]');
-        openPicker(pickerHost, categoryKey, slot);
+        openMenuModal(categoryKey, slot);
       } else if (action === 'clear-slot') {
         slot.menuId = null;
         slot.favorite = false;
         slot.dineOut = false;
         slot.locked = false;
-        const pickerHost = slotWrapper.querySelector('[data-picker]');
-        if (pickerHost) pickerHost.classList.add('hidden');
-        const picker = slotWrapper.querySelector('select');
-        if (picker) picker.value = '';
+        if (modalState.isOpen && modalState.slot === slot) {
+          closeMenuModal();
+        }
       }
 
       render();
