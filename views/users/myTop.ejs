@@ -154,8 +154,12 @@
         </div>
         <div class="flex flex-col gap-2">
           <div class="flex flex-wrap gap-3">
-            <a href="<%= weekMenuLink %>" class="inline-flex items-center gap-2 rounded-full bg-white text-blue-600 text-sm font-semibold px-5 py-2 transition">
-              <span class="lucide text-blue-500" data-lucide="<%= buttonIcon %>"></span>
+            <% const isEditMode = hasNextWeekPlan; %>
+            <a
+              href="<%= weekMenuLink %>"
+              class="inline-flex items-center gap-2 rounded-full text-sm font-semibold px-5 py-2 transition <%= isEditMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-blue-600 hover:bg-blue-50' %>"
+            >
+              <span class="lucide <%= isEditMode ? 'text-white' : 'text-blue-500' %>" data-lucide="<%= buttonIcon %>"></span>
               <%= planButtonLabel %>
             </a>
           </div>
