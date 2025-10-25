@@ -154,15 +154,9 @@
         <button type="button" data-main-tab="plan" class="main-tab-button w-full rounded-full bg-gray-900 text-white px-4 py-2 shadow-sm">🍽 メニュー計画</button>
         <button type="button" data-main-tab="supplies" class="main-tab-button w-full rounded-full bg-gray-100 text-gray-600 px-4 py-2">🛒 食材・調味料リスト</button>
       </div>
-      <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-        <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
-          <span class="text-gray-600 font-medium">選択中の週</span>
-          <span class="text-base font-semibold text-gray-900"><%= weekRangeLabel %></span>
-        </div>
-        <button type="button" data-action="regenerate-week" class="inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-black focus:outline-none focus:ring-2 focus:ring-gray-300">
-          <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
-          全メニューを再生成
-        </button>
+      <div class="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+        <span class="text-gray-600 font-medium">選択中の週</span>
+        <span class="text-base font-semibold text-gray-900"><%= weekRangeLabel %></span>
       </div>
     </div>
 
@@ -336,6 +330,10 @@
 
     <div class="px-6 pb-6 space-y-6 hidden" data-main-panel="supplies">
       <div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700" data-requirements-summary></div>
+      <div class="w-full grid grid-cols-2 gap-2 text-sm font-semibold" data-supply-tab-buttons>
+        <button type="button" data-supply-tab="ingredients" class="supply-tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-emerald-500 text-white shadow-sm">🥕 食材</button>
+        <button type="button" data-supply-tab="seasonings" class="supply-tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-gray-100 text-gray-600">🧂 調味料</button>
+      </div>
       <div class="rounded-2xl border border-gray-200 bg-white">
         <div class="divide-y divide-gray-100" data-requirements-list></div>
         <div class="px-6 py-10 text-center text-sm text-gray-500" data-requirements-empty>必要な食材・調味料はまだありません。</div>
@@ -387,6 +385,7 @@
       planId: data.planId || '',
       tab: 'lunch',
       mainTab: 'plan',
+      supplyTab: 'ingredients',
       plan: clonePlan(data.plan)
     };
 
@@ -399,6 +398,7 @@
     const mainTabButtons = Array.from(document.querySelectorAll('[data-main-tab]'));
     const mainPanels = Array.from(document.querySelectorAll('[data-main-panel]'));
     const planTabButtonsContainer = document.querySelector('[data-plan-tab-buttons]');
+    const supplyTabButtons = Array.from(document.querySelectorAll('[data-supply-tab]'));
     const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
     const panels = Array.from(document.querySelectorAll('[data-panel]'));
     const saveButton = document.querySelector('[data-action="save-week-plan"]');
@@ -436,15 +436,18 @@
     };
 
     const computeRequirements = () => {
-      if (!Array.isArray(state.plan) || !state.plan.length) return [];
+      if (!Array.isArray(state.plan) || !state.plan.length) {
+        return { ingredients: [], seasonings: [] };
+      }
 
       const itemsMap = new Map();
 
-      const mergeEntry = (item, multiplier) => {
+      const mergeEntry = (item, multiplier, type) => {
         if (!item || !item.name) return;
         const unit = item.unit || '';
         const name = item.name;
-        const unitMap = itemsMap.get(name) || new Map();
+        const entry = itemsMap.get(name) || { unitMap: new Map(), types: new Set() };
+        const unitMap = entry.unitMap;
         const current = unitMap.get(unit) || { amount: 0, missingAmount: false };
         if (typeof item.amount === 'number' && !Number.isNaN(item.amount)) {
           current.amount += item.amount * multiplier;
@@ -452,7 +455,8 @@
           current.missingAmount = true;
         }
         unitMap.set(unit, current);
-        itemsMap.set(name, unitMap);
+        if (type) entry.types.add(type);
+        itemsMap.set(name, entry);
       };
 
       state.plan.forEach((day) => {
@@ -474,20 +478,22 @@
           const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
           const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
           const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
-          [...ingredients, ...seasonings].forEach((item) => mergeEntry(item, multiplier));
+          ingredients.forEach((item) => mergeEntry(item, multiplier, 'ingredient'));
+          seasonings.forEach((item) => mergeEntry(item, multiplier, 'seasoning'));
         });
       });
 
-      return Array.from(itemsMap.entries())
-        .map(([name, unitMap]) => ({
+      const allItems = Array.from(itemsMap.entries())
+        .map(([name, entry]) => ({
           name,
-          units: Array.from(unitMap.entries())
-            .map(([unit, entry]) => ({
+          types: Array.from(entry.types),
+          units: Array.from(entry.unitMap.entries())
+            .map(([unit, unitEntry]) => ({
               unit,
-              amount: entry.missingAmount
+              amount: unitEntry.missingAmount
                 ? null
-                : Math.round(entry.amount * 100) / 100,
-              missingAmount: entry.missingAmount
+                : Math.round(unitEntry.amount * 100) / 100,
+              missingAmount: unitEntry.missingAmount
             }))
             .sort((a, b) => {
               if (a.unit === b.unit) return 0;
@@ -497,18 +503,39 @@
             })
         }))
         .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
+      const ingredients = allItems.filter((item) => {
+        if (!item.types.length) return true;
+        return item.types.includes('ingredient');
+      });
+      const seasonings = allItems.filter((item) => {
+        if (!item.types.length) return true;
+        return item.types.includes('seasoning');
+      });
+
+      return { ingredients, seasonings };
     };
 
     const renderRequirements = () => {
       if (!requirementsListEl) return;
-      const requirements = computeRequirements();
+      const { ingredients, seasonings } = computeRequirements();
+      const activeKey = state.supplyTab === 'seasonings' ? 'seasonings' : 'ingredients';
+      const activeItems = activeKey === 'seasonings' ? seasonings : ingredients;
+
       requirementsListEl.innerHTML = '';
-      if (!requirements.length) {
+      if (requirementsEmptyEl) {
+        requirementsEmptyEl.textContent = activeKey === 'seasonings'
+          ? '必要な調味料はまだありません。'
+          : '必要な食材はまだありません。';
+      }
+
+      if (!activeItems.length) {
         if (requirementsEmptyEl) requirementsEmptyEl.classList.remove('hidden');
         return;
       }
+
       if (requirementsEmptyEl) requirementsEmptyEl.classList.add('hidden');
-      requirements.forEach((item) => {
+      activeItems.forEach((item) => {
         const row = document.createElement('div');
         row.className = 'flex flex-col gap-2 px-6 py-4 md:flex-row md:items-center md:justify-between';
         const nameEl = document.createElement('p');
@@ -530,6 +557,19 @@
         row.appendChild(pillWrap);
         requirementsListEl.appendChild(row);
       });
+    };
+
+    const switchSupplyTab = (nextSupply) => {
+      state.supplyTab = nextSupply === 'seasonings' ? 'seasonings' : 'ingredients';
+      supplyTabButtons.forEach((button) => {
+        const isActive = button.dataset.supplyTab === state.supplyTab;
+        button.classList.toggle('bg-emerald-500', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('bg-gray-100', !isActive);
+        button.classList.toggle('text-gray-600', !isActive);
+      });
+      renderRequirements();
     };
 
     const getSlotReference = (dayIndex, mealKey, slotKey) => {
@@ -1236,8 +1276,10 @@
       }
       if (nextMain === 'plan') {
         switchTab(state.tab);
+        renderRequirements();
+      } else {
+        switchSupplyTab(state.supplyTab);
       }
-      renderRequirements();
     };
 
     document.addEventListener('click', (event) => {
@@ -1328,6 +1370,13 @@
       });
     });
 
+    supplyTabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const targetSupply = button.dataset.supplyTab || 'ingredients';
+        switchSupplyTab(targetSupply);
+      });
+    });
+
     tabButtons.forEach((button) => {
       button.addEventListener('click', () => switchTab(button.dataset.tab));
     });
@@ -1374,6 +1423,7 @@
       saveButton.addEventListener('click', handleSave);
     }
 
+    switchSupplyTab(state.supplyTab);
     switchMainTab('plan');
     switchTab('lunch');
     render();
