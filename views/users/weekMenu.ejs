@@ -187,7 +187,13 @@
                 </div>
                 <div class="w-20 h-20 rounded-lg overflow-hidden border border-blue-100 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
                   <% if (row.imageUrl) { %>
-                    <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                    <% if (row.url) { %>
+                      <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="block w-full h-full">
+                        <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                      </a>
+                    <% } else { %>
+                      <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                    <% } %>
                   <% } else { %>
                     <span>no image</span>
                   <% } %>
@@ -275,7 +281,13 @@
                     >
                       <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
                         <% if (row.imageUrl) { %>
-                          <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                          <% if (row.url) { %>
+                            <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="block w-full h-full">
+                              <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                            </a>
+                          <% } else { %>
+                            <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
+                          <% } %>
                         <% } else { %>
                           <span>no image</span>
                         <% } %>
@@ -595,7 +607,7 @@
       return null;
     };
 
-    const updateImage = (container, url, name) => {
+    const updateImage = (container, url, name, linkUrl) => {
       if (!container) return;
       container.innerHTML = '';
       if (url) {
@@ -603,7 +615,17 @@
         img.src = url;
         img.alt = name || 'メニュー画像';
         img.className = 'object-cover w-full h-full';
-        container.appendChild(img);
+        if (linkUrl) {
+          const link = document.createElement('a');
+          link.href = linkUrl;
+          link.target = 'menuWindow';
+          link.rel = 'noopener';
+          link.className = 'block w-full h-full';
+          link.appendChild(img);
+          container.appendChild(link);
+        } else {
+          container.appendChild(img);
+        }
       } else {
         const span = document.createElement('span');
         span.className = 'text-[10px] text-gray-400';
@@ -1141,7 +1163,7 @@
           detailEl.classList.remove('hidden');
         }
         if (chipsEl) chipsEl.innerHTML = '';
-        updateImage(imageEl, '', '');
+        updateImage(imageEl, '', '', '');
         [favoriteBtn, dineBtn, shuffleBtn, changeBtn, clearBtn].forEach((btn) => {
           if (!btn) return;
           if (btn === shuffleBtn || btn === changeBtn) {
@@ -1162,13 +1184,15 @@
 
       if (!menu) {
         const hasMenuId = !!slot.menuId;
-        if (nameEl) nameEl.textContent = hasMenuId ? 'メニュー情報が見つかりません' : 'メニューは未選択です';
+        if (nameEl) {
+          nameEl.textContent = hasMenuId ? 'メニュー情報が見つかりません' : 'メニューは未選択です';
+        }
         if (detailEl) {
           detailEl.textContent = hasMenuId ? '管理者にご確認ください' : 'メニューを選択してください';
           detailEl.classList.remove('hidden');
         }
         if (chipsEl) chipsEl.innerHTML = '';
-        updateImage(imageEl, '', '');
+        updateImage(imageEl, '', '', '');
 
         if (favoriteBtn) {
           favoriteBtn.disabled = true;
@@ -1189,7 +1213,25 @@
       }
 
       setSlotEmptyState(wrapper, false);
-      if (nameEl) nameEl.textContent = menu.name;
+      if (nameEl) {
+        nameEl.textContent = menu.name;
+      }
+      const nameLinkContainer = wrapper.querySelector('[data-element="dish-name"] a');
+      if (menu.url) {
+        if (nameLinkContainer) {
+          nameLinkContainer.href = menu.url;
+          nameLinkContainer.textContent = menu.name;
+        } else if (nameEl) {
+          nameEl.innerHTML = '';
+          const link = document.createElement('a');
+          link.href = menu.url;
+          link.target = 'menuWindow';
+          link.rel = 'noopener';
+          link.className = 'hover:underline';
+          link.textContent = menu.name;
+          nameEl.appendChild(link);
+        }
+      }
       if (detailEl) {
         let detailText = menu.cook || menu.junle || menu.kind || menu.menu || '詳細情報は未登録です';
         const hideDetail = detailText && (detailText === menu.cook || detailText === menu.junle);
@@ -1202,7 +1244,7 @@
         }
       }
       updateChips(chipsEl, menu, mealType);
-      updateImage(imageEl, menu.imageUrl, menu.name);
+      updateImage(imageEl, menu.imageUrl, menu.name, menu.url);
 
       wrapper.classList.toggle('opacity-60', !!slot.dineOut);
 

@@ -210,7 +210,13 @@
               <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
                 <div class="h-52 md:h-64 bg-gray-100">
                   <% if (menu && menu.imageUrl) { %>
-                    <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                    <% if (menu.url) { %>
+                      <a href="<%= menu.url %>" target="menuWindow" rel="noopener">
+                        <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                      </a>
+                    <% } else { %>
+                      <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                    <% } %>
                   <% } else { %>
                     <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
                   <% } %>
@@ -554,7 +560,7 @@
           header.appendChild(label);
           mealCard.appendChild(header);
 
-          const list = document.createElement('div');
+        const list = document.createElement('div');
           list.className = 'space-y-2';
 
           meal.slots.forEach((slot) => {
@@ -612,6 +618,21 @@
               }
 
               slotWrap.appendChild(chipWrap);
+            }
+
+            if (slot.menu && slot.menu.url && slot.menu.imageUrl) {
+              const imageLinkWrap = document.createElement('a');
+              imageLinkWrap.href = slot.menu.url;
+              imageLinkWrap.target = 'menuWindow';
+              imageLinkWrap.rel = 'noopener';
+              imageLinkWrap.className = 'block overflow-hidden rounded-lg border border-blue-100 bg-blue-100/60';
+
+              const img = document.createElement('img');
+              img.src = slot.menu.imageUrl;
+              img.alt = slot.menu.name;
+              img.className = 'w-full h-32 object-cover';
+              imageLinkWrap.appendChild(img);
+              slotWrap.prepend(imageLinkWrap);
             }
 
             list.appendChild(slotWrap);
