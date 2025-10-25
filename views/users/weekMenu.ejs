@@ -258,29 +258,52 @@
               </div>
             </div>
           <% }) %>
-        </div>
-      </section>
+      </div>
+    </section>
 
       <section class="space-y-4 hidden" data-panel="dinner" hidden>
         <div class="divide-y divide-blue-100 rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
-          <% plan.forEach((day) => { const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
+          <% plan.forEach((day) => {
+               const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null;
+               const dateLabel = dateInfo ? dateInfo.display : '';
+               const baseDinnerSlots = ['staple', 'main', 'side', 'soup']
+                 .map((slotKey) => {
+                   const slot = day?.dinner?.[slotKey] || null;
+                   return slot ? { ...slot, baseKey: slotKey } : null;
+                 })
+                 .filter(Boolean);
+               const extraDinnerSlots = Array.isArray(day?.dinnerExtras)
+                 ? day.dinnerExtras.map((slot) => (slot ? { ...slot, baseKey: null } : null)).filter(Boolean)
+                 : [];
+               const dinnerSlots = [...baseDinnerSlots, ...extraDinnerSlots].filter((slot) => slot && slot.menuId);
+             %>
             <div class="px-4 py-4" data-day="<%= day.index %>" data-meal="dinner">
-          <div class="flex items-start gap-4">
+              <div class="flex items-start gap-4">
                 <div class="w-16 shrink-0 text-left">
                   <p class="text-sm font-semibold text-gray-900"><%= day.dayLabel %></p>
                   <% if (dateLabel) { %>
                     <p class="text-xs text-gray-500"><%= dateLabel %></p>
                   <% } %>
                 </div>
-                <div class="flex-1 grid gap-3 md:grid-cols-2 lg:grid-cols-4" data-meal-group>
-                  <% ['staple', 'main', 'side', 'soup'].forEach((slotKey) => {
-                       const slot = day?.dinner?.[slotKey] || null;
-                       const categoryKey = slotKey === 'staple' ? 'dinnerStaple' : (slotKey === 'main' ? 'dinnerMain' : (slotKey === 'side' ? 'dinnerSide' : 'dinnerSoup'));
-                       const label = categoryConfig[categoryKey]?.label || '';
-                       const row = displayRow(menuLookup, slot); %>
+                <div class="flex-1 grid gap-3 md:grid-cols-2 lg:grid-cols-4" data-dinner-group>
+                  <% dinnerSlots.forEach((slot, slotIndex) => {
+                       const categoryKey = slot?.categoryKey
+                         || (slot?.baseKey === 'staple'
+                           ? 'dinnerStaple'
+                           : slot?.baseKey === 'main'
+                             ? 'dinnerMain'
+                             : slot?.baseKey === 'side'
+                               ? 'dinnerSide'
+                               : slot?.baseKey === 'soup'
+                                 ? 'dinnerSoup'
+                                 : 'dinnerFlexible');
+                       const label = categoryConfig[categoryKey]?.label || 'ディナー';
+                       const row = displayRow(menuLookup, slot);
+                       if (!row.hasMenu) return;
+                  %>
                     <div
-                      class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full<%= row.hasMenu ? '' : ' slot-empty' %>"
-                      data-slot="<%= slotKey %>"
+                      class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full"
+                      data-dinner-index="<%= slotIndex %>"
                       data-category="<%= categoryKey %>"
                     >
                       <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
@@ -306,18 +329,20 @@
                           <% } %>
                         </p>
                         <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700" data-element="dish-chips">
-                          <% 
-                            const formattedTimeDinner = row.time ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分') : '';
+                          <%
+                            const formattedTimeDinner = row.time
+                              ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分')
+                              : '';
                             const chips = [
                               row.junle ? { label: 'ジャンル', value: row.junle } : null,
                               formattedTimeDinner ? { label: '調理時間', value: formattedTimeDinner } : null
-                            ].filter(Boolean); 
+                            ].filter(Boolean);
                           %>
                           <% if (chips.length) { %>
                             <% chips.forEach((chip) => { %>
-                              <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1">
-                                <span><%= chip.label %></span>
-                                <span class="font-medium text-amber-800"><%= chip.value %></span>
+                              <span class="inline-flex items-center gap-1 rounded-full bg-amber-100/80 px-2.5 py-1">
+                                <span class="text-amber-800/70 text-[10px] uppercase tracking-wide"><%= chip.label %></span>
+                                <span class="text-amber-900 text-[11px] font-semibold"><%= chip.value %></span>
                               </span>
                             <% }) %>
                           <% } %>
@@ -326,24 +351,24 @@
                         <p class="text-xs text-gray-500 <%= shouldShowDinnerDetail ? '' : 'hidden' %>" data-element="dish-detail"><%= shouldShowDinnerDetail ? row.detail : '' %></p>
                       </div>
                       <div class="flex items-center gap-2 justify-end flex-wrap mt-auto pb-3 px-4">
-                        <button type="button" class="icon-button favorite-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-favorite" aria-pressed="false" title="お気に入りに追加" <% if (!row.hasMenu) { %>disabled<% } %>>
+                        <button type="button" class="icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-amber-300 hover:text-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-favorite" title="お気に入りに追加">
                           <span class="sr-only">お気に入りに追加</span>
                           <span class="lucide w-4 h-4" data-lucide="heart"></span>
                         </button>
-                        <button type="button" class="icon-button dine-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-dine" aria-pressed="false" title="家と外食を切り替え" <% if (!row.hasMenu) { %>disabled<% } %>>
+                        <button type="button" class="icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="toggle-dine" aria-pressed="false" title="家と外食を切り替え">
                           <span class="sr-only">家と外食を切り替え</span>
                           <span data-role="dine-home" class="lucide w-4 h-4" data-lucide="home"></span>
                           <span data-role="dine-out" class="lucide w-4 h-4 hidden" data-lucide="utensils"></span>
                         </button>
-                        <button type="button" class="icon-button shuffle-toggle inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="shuffle" title="再提案" <% if (!row.hasMenu) { %>disabled<% } %>>
+                        <button type="button" class="icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="shuffle" title="再提案">
                           <span class="sr-only">再提案</span>
                           <span class="lucide w-4 h-4" data-lucide="refresh-ccw"></span>
                         </button>
-                        <button type="button" class="icon-button clear-slot inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-red-300 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="clear-slot" title="メニューを未選択にする" <% if (!row.hasMenu) { %>disabled<% } %>>
+                        <button type="button" class="icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-red-300 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="clear-slot" title="メニューを未選択にする">
                           <span class="sr-only">メニューを未選択にする</span>
                           <span class="lucide w-4 h-4" data-lucide="x-circle"></span>
                         </button>
-                        <button type="button" class="change-button icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="change" title="探す" <% if (!row.hasMenu) { %>disabled<% } %>>
+                        <button type="button" class="icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40" data-action="change" title="探す">
                           <span class="sr-only">探す</span>
                           <span class="lucide w-4 h-4" data-lucide="search"></span>
                         </button>
@@ -351,6 +376,15 @@
                       <div class="menu-picker hidden" data-picker></div>
                     </div>
                   <% }) %>
+
+                  <button
+                    type="button"
+                    class="rounded-xl border border-dashed border-blue-200 bg-white/80 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition"
+                    data-action="add-dinner-slot"
+                  >
+                    <span class="lucide w-6 h-6" data-lucide="plus"></span>
+                    <span class="text-xs font-semibold">ディナーメニューを追加</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -422,6 +456,7 @@
 
     const menuLookup = data.menuLookup || {};
     const menusByCategory = data.menusByCategory || {};
+    const categoryConfig = data.categoryConfig || {};
     const weekDates = Array.isArray(data.weekDates) ? data.weekDates : [];
     const currentGroupId = data.currentGroupId || '';
     const weekRangeLabel = data.weekRangeLabel || '';
@@ -436,10 +471,61 @@
     const requirementsListEl = document.querySelector('[data-requirements-list]');
     const requirementsEmptyEl = document.querySelector('[data-requirements-empty]');
     const requirementsSummaryEl = document.querySelector('[data-requirements-summary]');
-
     const ensureLunchSlots = (day) => {
       if (!day.lunchSlots) day.lunchSlots = [];
       return day.lunchSlots;
+    };
+
+    const ensureDinnerSlots = (day) => {
+      if (!day) return [];
+      if (!Array.isArray(day.dinnerSlots)) {
+        const slots = [];
+        if (day.dinner && typeof day.dinner === 'object') {
+          ['staple', 'main', 'side', 'soup'].forEach((key) => {
+            const slot = day.dinner[key];
+            if (slot) {
+              slots.push({ ...slot, baseKey: key });
+            }
+          });
+        }
+        if (Array.isArray(day.dinnerExtras)) {
+          day.dinnerExtras.forEach((slot) => {
+            if (slot) slots.push({ ...slot, baseKey: null });
+          });
+          day.dinnerExtras = [];
+        }
+        slots.forEach((slot) => {
+          if (!slot) return;
+          if (!slot.categoryKey) {
+            slot.categoryKey = slot.baseKey === 'staple'
+              ? 'dinnerStaple'
+              : slot.baseKey === 'main'
+                ? 'dinnerMain'
+                : slot.baseKey === 'side'
+                  ? 'dinnerSide'
+                  : slot.baseKey === 'soup'
+                    ? 'dinnerSoup'
+                    : 'dinnerFlexible';
+          }
+        });
+        day.dinner = {};
+        day.dinnerSlots = slots;
+      }
+      return day.dinnerSlots;
+    };
+
+    const removeDinnerSlotReference = (target) => {
+      if (!target) return false;
+      let removed = false;
+      state.plan.forEach((day) => {
+        const slots = ensureDinnerSlots(day);
+        const index = slots.indexOf(target);
+        if (index !== -1) {
+          slots.splice(index, 1);
+          removed = true;
+        }
+      });
+      return removed;
     };
 
     const createEmptySlot = (categoryKey = 'lunchMain') => ({
@@ -520,7 +606,7 @@
       state.plan.forEach((day) => {
         if (!day) return;
         const lunchSlots = ensureLunchSlots(day).filter(Boolean);
-        const dinnerSlots = Object.values(day?.dinner || {}).filter(Boolean);
+        const dinnerSlots = ensureDinnerSlots(day).filter(Boolean);
         const slots = [...lunchSlots, ...dinnerSlots];
 
         slots.forEach((slot) => {
@@ -718,6 +804,148 @@
       groupEl.appendChild(addButton);
     };
 
+    const renderDinnerDay = (day, dayIndex) => {
+      const dayContainer = document.querySelector(`[data-day="${dayIndex}"][data-meal="dinner"]`);
+      if (!dayContainer) return;
+      const groupEl = dayContainer.querySelector('[data-dinner-group]');
+      if (!groupEl) return;
+
+      groupEl.innerHTML = '';
+
+      const makeAddButton = (label, categoryKey = 'dinnerFlexible') => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.action = 'add-dinner-slot';
+        button.dataset.category = categoryKey || 'dinnerFlexible';
+        button.className = 'rounded-xl border border-dashed border-blue-200 bg-white/80 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition';
+        const icon = document.createElement('span');
+        icon.className = 'lucide w-6 h-6';
+        icon.setAttribute('data-lucide', 'plus');
+        const labelEl = document.createElement('span');
+        labelEl.className = 'text-xs font-semibold';
+        labelEl.textContent = label;
+        button.append(icon, labelEl);
+        return button;
+      };
+
+      const makeCard = (label, categoryKey) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full';
+        card.dataset.meal = 'dinner';
+        card.dataset.category = categoryKey;
+
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300';
+        imageWrap.setAttribute('data-element', 'dish-image');
+        card.appendChild(imageWrap);
+
+        const body = document.createElement('div');
+        body.className = 'space-y-2 p-4 flex-1';
+        const labelEl = document.createElement('p');
+        labelEl.className = 'text-[11px] font-semibold uppercase tracking-wide text-gray-400';
+        labelEl.textContent = label;
+        body.appendChild(labelEl);
+
+        const nameEl = document.createElement('p');
+        nameEl.className = 'text-sm font-semibold text-gray-900';
+        nameEl.setAttribute('data-element', 'dish-name');
+        nameEl.textContent = 'メニューを読み込み中...';
+        body.appendChild(nameEl);
+
+        const chips = document.createElement('div');
+        chips.className = 'flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700';
+        chips.setAttribute('data-element', 'dish-chips');
+        body.appendChild(chips);
+
+        const detail = document.createElement('p');
+        detail.className = 'text-xs text-gray-500 hidden';
+        detail.setAttribute('data-element', 'dish-detail');
+        body.appendChild(detail);
+
+        card.appendChild(body);
+
+        const actions = document.createElement('div');
+        actions.className = 'flex items-center gap-2 justify-end flex-wrap mt-auto pb-3 px-4';
+
+        const makeButton = (action, icon) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.action = action;
+          btn.className = 'icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-40';
+          const sr = document.createElement('span');
+          sr.className = 'sr-only';
+          sr.textContent = action;
+          btn.appendChild(sr);
+          const iconEl = document.createElement('span');
+          iconEl.className = 'lucide w-4 h-4';
+          iconEl.setAttribute('data-lucide', icon);
+          btn.appendChild(iconEl);
+          return btn;
+        };
+
+        const favoriteBtn = makeButton('toggle-favorite', 'heart');
+        favoriteBtn.querySelector('.sr-only').textContent = 'お気に入りに追加';
+        favoriteBtn.classList.add('hover:border-amber-300', 'hover:text-amber-600', 'focus:ring-amber-100');
+
+        const dineBtn = makeButton('toggle-dine', 'home');
+        dineBtn.querySelector('.sr-only').textContent = '家と外食を切り替え';
+        dineBtn.classList.add('hover:border-blue-300', 'hover:text-blue-600', 'focus:ring-blue-100');
+        const dineHomeIcon = dineBtn.querySelector('.lucide');
+        if (dineHomeIcon) dineHomeIcon.dataset.role = 'dine-home';
+        const dineOutIcon = document.createElement('span');
+        dineOutIcon.className = 'lucide w-4 h-4 hidden';
+        dineOutIcon.dataset.role = 'dine-out';
+        dineOutIcon.setAttribute('data-lucide', 'utensils');
+        dineBtn.appendChild(dineOutIcon);
+
+        const shuffleBtn = makeButton('shuffle', 'refresh-ccw');
+        shuffleBtn.querySelector('.sr-only').textContent = '再提案';
+        shuffleBtn.classList.add('hover:border-blue-300', 'hover:text-blue-600', 'focus:ring-blue-100');
+
+        const clearBtn = makeButton('clear-slot', 'x-circle');
+        clearBtn.querySelector('.sr-only').textContent = 'メニューを未選択にする';
+        clearBtn.classList.add('hover:border-red-300', 'hover:text-red-600', 'focus:ring-red-100');
+
+        const changeBtn = makeButton('change', 'search');
+        changeBtn.querySelector('.sr-only').textContent = '探す';
+        changeBtn.classList.add('hover:border-blue-300', 'hover:text-blue-600', 'focus:ring-blue-100');
+
+        actions.append(favoriteBtn, dineBtn, shuffleBtn, clearBtn, changeBtn);
+        card.appendChild(actions);
+
+        const picker = document.createElement('div');
+        picker.className = 'menu-picker hidden';
+        picker.setAttribute('data-picker', '');
+        card.appendChild(picker);
+
+        return card;
+      };
+
+      const slots = ensureDinnerSlots(day);
+
+      slots.forEach((slot, index) => {
+        if (!slot || !slot.menuId) return;
+        const categoryKey = slot.categoryKey
+          || (slot.baseKey === 'staple'
+            ? 'dinnerStaple'
+            : slot.baseKey === 'main'
+              ? 'dinnerMain'
+              : slot.baseKey === 'side'
+                ? 'dinnerSide'
+                : slot.baseKey === 'soup'
+                  ? 'dinnerSoup'
+                  : 'dinnerFlexible');
+        slot.categoryKey = categoryKey;
+        const label = categoryConfig[categoryKey]?.label || 'ディナー';
+        const card = makeCard(label, categoryKey);
+        card.dataset.dinnerIndex = String(index);
+        groupEl.appendChild(card);
+      });
+
+      const addDinnerButton = makeAddButton('ディナーメニューを追加', 'dinnerFlexible');
+      groupEl.appendChild(addDinnerButton);
+    };
+
     const switchSupplyTab = (nextSupply) => {
       state.supplyTab = nextSupply === 'seasonings' ? 'seasonings' : 'ingredients';
       supplyTabButtons.forEach((button) => {
@@ -740,7 +968,12 @@
         if (Number.isNaN(index) || index < 0) return null;
         return slots[index] || null;
       }
-      if (mealKey === 'dinner') return day?.dinner?.[slotKey] || null;
+      if (mealKey === 'dinner') {
+        const slots = ensureDinnerSlots(day);
+        const index = Number(slotKey);
+        if (Number.isNaN(index) || index < 0) return null;
+        return slots[index] || null;
+      }
       return null;
     };
 
@@ -794,6 +1027,25 @@
         guard += 1;
       } while (candidate?.id === excludeMenuId && guard < 10);
       return candidate;
+    };
+
+    const inferDinnerCategoryKey = (menu) => {
+      if (!menu) return '';
+      const kind = menu.kind || '';
+      if (!kind) return '';
+      const mapping = [
+        ['dinnerStaple', Array.isArray(categoryConfig.dinnerStaple?.kinds) ? categoryConfig.dinnerStaple.kinds : []],
+        ['dinnerMain', Array.isArray(categoryConfig.dinnerMain?.kinds) ? categoryConfig.dinnerMain.kinds : []],
+        ['dinnerSide', Array.isArray(categoryConfig.dinnerSide?.kinds) ? categoryConfig.dinnerSide.kinds : []],
+        ['dinnerSoup', Array.isArray(categoryConfig.dinnerSoup?.kinds) ? categoryConfig.dinnerSoup.kinds : []],
+        ['dinnerFlexible', Array.isArray(categoryConfig.dinnerFlexible?.kinds) ? categoryConfig.dinnerFlexible.kinds : []]
+      ];
+      for (const [key, kinds] of mapping) {
+        if (kinds.includes(kind)) {
+          return key;
+        }
+      }
+      return '';
     };
 
     const modalElements = {
@@ -954,13 +1206,13 @@
         modalElements.overlay.setAttribute('aria-hidden', 'true');
       }
       document.body.classList.remove('overflow-hidden');
-      if (
-        pendingSlot &&
-        !pendingSlot.menuId &&
-        pendingCategory &&
-        pendingCategory.startsWith('lunch')
-      ) {
-        const removed = removeSlotReference(pendingSlot);
+      if (pendingSlot && !pendingSlot.menuId && pendingCategory) {
+        let removed = false;
+        if (pendingCategory.startsWith('lunch')) {
+          removed = removeSlotReference(pendingSlot);
+        } else if (pendingCategory.startsWith('dinner')) {
+          removed = removeDinnerSlotReference(pendingSlot);
+        }
         if (removed) {
           render();
         }
@@ -973,7 +1225,15 @@
       if (!nextMenu) return;
       modalState.slot.menuId = nextMenu.id;
       modalState.slot.dineOut = false;
-      modalState.slot.categoryKey = modalState.categoryKey;
+      const inferred = inferDinnerCategoryKey(nextMenu);
+      if (modalState.categoryKey && modalState.categoryKey.startsWith('dinner')) {
+        modalState.slot.categoryKey = inferred || modalState.categoryKey;
+      } else {
+        modalState.slot.categoryKey = modalState.categoryKey;
+      }
+      if (modalState.slot.categoryKey) {
+        modalState.categoryKey = modalState.slot.categoryKey;
+      }
       closeMenuModal();
       render();
     };
@@ -1201,25 +1461,27 @@
           });
         }
 
-        const dinnerSlots = [];
-        if (day?.dinner) {
-          Object.entries(day.dinner).forEach(([key, value]) => {
-            if (!value || !value.menuId) return;
-            const categoryKey = value.categoryKey || (key === 'staple' ? 'dinnerStaple'
-              : key === 'main' ? 'dinnerMain'
-              : key === 'side' ? 'dinnerSide'
-              : key === 'soup' ? 'dinnerSoup'
-              : null);
-            if (!categoryKey) return;
-            dinnerSlots.push({
+        const dinnerSlots = ensureDinnerSlots(day)
+          .filter((slot) => slot && slot.menuId)
+          .map((slot) => {
+            const categoryKey = slot.categoryKey
+              || (slot.baseKey === 'staple'
+                ? 'dinnerStaple'
+                : slot.baseKey === 'main'
+                  ? 'dinnerMain'
+                  : slot.baseKey === 'side'
+                    ? 'dinnerSide'
+                    : slot.baseKey === 'soup'
+                      ? 'dinnerSoup'
+                      : 'dinnerFlexible');
+            return {
               categoryKey,
-              menuId: value.menuId,
-              dineOut: !!value.dineOut,
-              favorite: !!value.favorite,
-              locked: !!value.locked
-            });
+              menuId: slot.menuId,
+              dineOut: !!slot.dineOut,
+              favorite: !!slot.favorite,
+              locked: !!slot.locked
+            };
           });
-        }
 
         if (dinnerSlots.length) {
           dayPlans.push({
@@ -1355,6 +1617,15 @@
         : slot.menu || null;
       const hasMenuId = !!slot.menuId;
 
+      if (menu && mealType === 'dinner') {
+        const inferredCategory = inferDinnerCategoryKey(menu);
+        if (inferredCategory) {
+          slot.categoryKey = inferredCategory;
+          wrapper.dataset.category = inferredCategory;
+          effectiveCategoryKey = inferredCategory;
+        }
+      }
+
       if (!menu) {
         if (nameEl) {
           nameEl.innerHTML = '';
@@ -1441,6 +1712,7 @@
     const render = () => {
       state.plan.forEach((day, dayIndex) => {
         renderLunchDay(day, dayIndex);
+        renderDinnerDay(day, dayIndex);
       });
 
       state.plan.forEach((day, dayIndex) => {
@@ -1458,15 +1730,19 @@
           renderSlot(card, slot);
         });
 
-        const dinnerDayWrapper = document.querySelector(`[data-day="${dayIndex}"][data-meal="dinner"]`);
-        if (dinnerDayWrapper) {
-          ['staple', 'main', 'side', 'soup'].forEach((slotKey) => {
-            const slotWrapper = dinnerDayWrapper.querySelector(`[data-slot="${slotKey}"]`);
-            if (slotWrapper) {
-              renderSlot(slotWrapper, day?.dinner?.[slotKey] || null);
-            }
-          });
-        }
+        const dinnerCards = document.querySelectorAll(
+          `[data-day="${dayIndex}"][data-meal="dinner"] [data-dinner-index]`
+        );
+        dinnerCards.forEach((card) => {
+          const slotIndex = Number(card.dataset.dinnerIndex);
+          const slots = ensureDinnerSlots(day);
+          const slot = Number.isNaN(slotIndex) ? null : slots[slotIndex];
+          if (!slot) {
+            card.remove();
+            return;
+          }
+          renderSlot(card, slot);
+        });
       });
 
       renderRequirements();
@@ -1545,20 +1821,36 @@
         return;
       }
 
+      if (action === 'add-dinner-slot') {
+        const targetCategory = actionNode.dataset.category || 'dinnerFlexible';
+        const newSlot = createEmptySlot(targetCategory);
+        newSlot.categoryKey = targetCategory;
+        newSlot.baseKey = null;
+        const dinnerSlots = ensureDinnerSlots(day);
+        dinnerSlots.push(newSlot);
+        render();
+        openMenuModal(targetCategory, newSlot);
+        return;
+      }
+
       let identifier = null;
       let slotWrapper = null;
+
       if (mealKey === 'lunch') {
         slotWrapper = actionNode.closest('[data-slot-index]');
         if (!slotWrapper) return;
         identifier = Number(slotWrapper.dataset.slotIndex);
         if (Number.isNaN(identifier)) return;
       } else {
-        slotWrapper = actionNode.closest('[data-slot]');
+        slotWrapper = actionNode.closest('[data-dinner-index]');
         if (!slotWrapper) return;
-        identifier = slotWrapper.dataset.slot;
+        identifier = Number(slotWrapper.dataset.dinnerIndex);
+        if (Number.isNaN(identifier)) return;
       }
 
-      const categoryKey = slotWrapper.dataset.category;
+      const categoryKey = slotWrapper.dataset.category || (mealKey === 'dinner'
+        ? (ensureDinnerSlots(day)[identifier]?.categoryKey || 'dinnerFlexible')
+        : '');
       if (!categoryKey) return;
 
       const slot = (() => {
@@ -1571,8 +1863,13 @@
           const slots = ensureLunchSlots(day);
           slots[identifier] = baseSlot;
         } else if (mealKey === 'dinner') {
-          day.dinner = day.dinner || {};
-          day.dinner[identifier] = baseSlot;
+          const slots = ensureDinnerSlots(day);
+          if (identifier >= 0 && identifier < slots.length) {
+            slots[identifier] = baseSlot;
+          } else {
+            slots.push(baseSlot);
+            identifier = slots.length - 1;
+          }
         }
 
         return baseSlot;
@@ -1592,6 +1889,12 @@
         if (nextMenu) {
           slot.menuId = nextMenu.id;
           slot.dineOut = false;
+          if (categoryKey.startsWith('dinner')) {
+            const inferred = inferDinnerCategoryKey(nextMenu);
+            if (inferred) {
+              slot.categoryKey = inferred;
+            }
+          }
         }
       } else if (action === 'change') {
         openMenuModal(categoryKey, slot);
@@ -1608,6 +1911,8 @@
           } else {
             removeSlotReference(slot);
           }
+        } else if (mealKey === 'dinner') {
+          removeDinnerSlotReference(slot);
         }
         if (modalState.isOpen && modalState.slot === slot) {
           closeMenuModal();
@@ -1645,25 +1950,24 @@
           const cloneDay = {
             ...day,
             lunchSlots: [],
-            dinner: {
-              staple: null,
-              main: null,
-              side: null,
-              soup: null
-            }
+            dinnerSlots: []
           };
 
-          const rebuildSlot = (categoryKey, allowEmptyObject = false) => {
+          const rebuildSlot = (categoryKey, allowEmptyObject = false, baseKey = null) => {
             const nextMenu = pickRandomMenu(categoryKey);
             if (!nextMenu) {
-              return allowEmptyObject ? createEmptySlot(categoryKey) : null;
+              if (!allowEmptyObject) return null;
+              const slot = createEmptySlot(categoryKey);
+              slot.baseKey = baseKey;
+              return slot;
             }
             return {
               menuId: nextMenu.id,
               categoryKey,
               favorite: false,
               dineOut: false,
-              locked: false
+              locked: false,
+              baseKey
             };
           };
 
@@ -1677,10 +1981,18 @@
             return rebuildSlot(categoryKey, true);
           });
 
-          cloneDay.dinner.staple = rebuildSlot('dinnerStaple');
-          cloneDay.dinner.main = rebuildSlot('dinnerMain');
-          cloneDay.dinner.side = rebuildSlot('dinnerSide');
-          cloneDay.dinner.soup = rebuildSlot('dinnerSoup');
+          const dinnerSeeds = [
+            ['dinnerStaple', 'staple'],
+            ['dinnerMain', 'main'],
+            ['dinnerSide', 'side'],
+            ['dinnerSoup', 'soup']
+          ];
+
+          cloneDay.dinnerSlots = dinnerSeeds
+            .map(([categoryKey, baseKey]) => rebuildSlot(categoryKey, false, baseKey))
+            .filter(Boolean);
+          cloneDay.dinner = {};
+          cloneDay.dinnerExtras = [];
 
           return cloneDay;
         });
