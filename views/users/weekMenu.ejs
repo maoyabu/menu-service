@@ -151,8 +151,8 @@
   <div class="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden">
     <div class="px-6 py-6 space-y-5">
       <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-semibold">
-        <button type="button" class="w-full rounded-full bg-gray-900 text-white px-4 py-2 shadow-sm">🍽 メニュー計画</button>
-        <button type="button" class="w-full rounded-full bg-gray-100 text-gray-600 px-4 py-2">🛒 食材・調味料リスト</button>
+        <button type="button" data-main-tab="plan" class="main-tab-button w-full rounded-full bg-gray-900 text-white px-4 py-2 shadow-sm">🍽 メニュー計画</button>
+        <button type="button" data-main-tab="supplies" class="main-tab-button w-full rounded-full bg-gray-100 text-gray-600 px-4 py-2">🛒 食材・調味料リスト</button>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
@@ -164,13 +164,13 @@
           全メニューを再生成
         </button>
       </div>
-      <div class="w-full grid grid-cols-2 gap-2 text-sm font-semibold">
+    </div>
+
+    <div class="px-6 pb-6 space-y-10" data-main-panel="plan">
+      <div class="w-full grid grid-cols-2 gap-2 text-sm font-semibold" data-plan-tab-buttons>
         <button type="button" data-tab="lunch" class="tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-gray-900 text-white shadow-sm">🍱 ランチ</button>
         <button type="button" data-tab="dinner" class="tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-gray-100 text-gray-600">🍽 ディナー</button>
       </div>
-    </div>
-
-    <div class="px-6 pb-6 space-y-10">
       <section class="space-y-4" data-panel="lunch">
         <div class="divide-y divide-blue-100 rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
           <% plan.forEach((day) => { const slot = day?.lunch?.main || null; const row = displayRow(menuLookup, slot); const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
@@ -333,6 +333,14 @@
         </div>
       </section>
     </div>
+
+    <div class="px-6 pb-6 space-y-6 hidden" data-main-panel="supplies">
+      <div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700" data-requirements-summary></div>
+      <div class="rounded-2xl border border-gray-200 bg-white">
+        <div class="divide-y divide-gray-100" data-requirements-list></div>
+        <div class="px-6 py-10 text-center text-sm text-gray-500" data-requirements-empty>必要な食材・調味料はまだありません。</div>
+      </div>
+    </div>
   </div>
 
   <div class="mt-10 flex justify-center">
@@ -351,6 +359,7 @@
     weekDates: JSON.parse('<%- serialize(weekDates) %>'),
     weekRangeLabel: <%- serialize(weekRangeLabel) %>,
     currentGroupId: <%- serialize(currentGroupId || '') %>,
+    groupSize: <%- serialize(groupSize || 1) %>,
     planId: <%- serialize(existingPlanId || '') %>,
     weekStartISO: <%- serialize(weekStartISO || '') %>,
     isHistoricalWeek: <%- serialize(isHistoricalWeek || false) %>,
@@ -377,17 +386,151 @@
     const state = {
       planId: data.planId || '',
       tab: 'lunch',
+      mainTab: 'plan',
       plan: clonePlan(data.plan)
     };
 
-    const menuLookup = data.menuLookup;
-    const menusByCategory = data.menusByCategory;
+    const menuLookup = data.menuLookup || {};
+    const menusByCategory = data.menusByCategory || {};
     const weekDates = Array.isArray(data.weekDates) ? data.weekDates : [];
     const currentGroupId = data.currentGroupId || '';
     const weekRangeLabel = data.weekRangeLabel || '';
+    const groupSize = Number(data.groupSize) > 0 ? Number(data.groupSize) : 1;
+    const mainTabButtons = Array.from(document.querySelectorAll('[data-main-tab]'));
+    const mainPanels = Array.from(document.querySelectorAll('[data-main-panel]'));
+    const planTabButtonsContainer = document.querySelector('[data-plan-tab-buttons]');
     const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
     const panels = Array.from(document.querySelectorAll('[data-panel]'));
     const saveButton = document.querySelector('[data-action="save-week-plan"]');
+    const requirementsListEl = document.querySelector('[data-requirements-list]');
+    const requirementsEmptyEl = document.querySelector('[data-requirements-empty]');
+    const requirementsSummaryEl = document.querySelector('[data-requirements-summary]');
+
+    if (requirementsSummaryEl) {
+      requirementsSummaryEl.innerHTML = `<span class="font-semibold">${groupSize}人分</span>の必要量に換算しています。`;
+    }
+
+    const specialPrefixUnits = new Set(['大さじ', '小さじ']);
+
+    const formatQuantity = (value) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) return '';
+      const rounded = Math.round(value * 100) / 100;
+      return Number.isFinite(rounded)
+        ? rounded.toFixed(2).replace(/\.?0+$/, '')
+        : '';
+    };
+
+    const formatRequirementUnit = (entry) => {
+      if (!entry) return '';
+      const { amount, unit } = entry;
+      if (amount === null || typeof amount === 'undefined') {
+        return unit || '数量未設定';
+      }
+      const quantityText = formatQuantity(amount);
+      if (!unit) return quantityText;
+      if (specialPrefixUnits.has(unit)) {
+        return `${unit}${quantityText}`;
+      }
+      const hasNonAscii = /[^\x00-\x7F]/.test(unit);
+      return hasNonAscii ? `${quantityText}${unit}` : `${quantityText} ${unit}`;
+    };
+
+    const computeRequirements = () => {
+      if (!Array.isArray(state.plan) || !state.plan.length) return [];
+
+      const itemsMap = new Map();
+
+      const mergeEntry = (item, multiplier) => {
+        if (!item || !item.name) return;
+        const unit = item.unit || '';
+        const name = item.name;
+        const unitMap = itemsMap.get(name) || new Map();
+        const current = unitMap.get(unit) || { amount: 0, missingAmount: false };
+        if (typeof item.amount === 'number' && !Number.isNaN(item.amount)) {
+          current.amount += item.amount * multiplier;
+        } else {
+          current.missingAmount = true;
+        }
+        unitMap.set(unit, current);
+        itemsMap.set(name, unitMap);
+      };
+
+      state.plan.forEach((day) => {
+        if (!day) return;
+        const slots = [
+          day?.lunch?.main,
+          day?.dinner?.staple,
+          day?.dinner?.main,
+          day?.dinner?.side,
+          day?.dinner?.soup
+        ];
+
+        slots.forEach((slot) => {
+          if (!slot || slot.dineOut || !slot.menuId) return;
+          const menu = menuLookup[slot.menuId];
+          if (!menu) return;
+          const basePeople = Number(menu.people);
+          const rawMultiplier = basePeople && basePeople > 0 ? groupSize / basePeople : 1;
+          const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
+          const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
+          const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
+          [...ingredients, ...seasonings].forEach((item) => mergeEntry(item, multiplier));
+        });
+      });
+
+      return Array.from(itemsMap.entries())
+        .map(([name, unitMap]) => ({
+          name,
+          units: Array.from(unitMap.entries())
+            .map(([unit, entry]) => ({
+              unit,
+              amount: entry.missingAmount
+                ? null
+                : Math.round(entry.amount * 100) / 100,
+              missingAmount: entry.missingAmount
+            }))
+            .sort((a, b) => {
+              if (a.unit === b.unit) return 0;
+              if (!a.unit) return 1;
+              if (!b.unit) return -1;
+              return a.unit.localeCompare(b.unit, 'ja');
+            })
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    };
+
+    const renderRequirements = () => {
+      if (!requirementsListEl) return;
+      const requirements = computeRequirements();
+      requirementsListEl.innerHTML = '';
+      if (!requirements.length) {
+        if (requirementsEmptyEl) requirementsEmptyEl.classList.remove('hidden');
+        return;
+      }
+      if (requirementsEmptyEl) requirementsEmptyEl.classList.add('hidden');
+      requirements.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-col gap-2 px-6 py-4 md:flex-row md:items-center md:justify-between';
+        const nameEl = document.createElement('p');
+        nameEl.className = 'text-sm font-semibold text-gray-900';
+        nameEl.textContent = item.name;
+        row.appendChild(nameEl);
+
+        const pillWrap = document.createElement('div');
+        pillWrap.className = 'flex flex-wrap gap-2 text-xs text-gray-700';
+        const units = Array.isArray(item.units) ? item.units : [];
+        const formattedUnits = units
+          .map((unitEntry) => formatRequirementUnit(unitEntry))
+          .filter(Boolean);
+        const pill = document.createElement('span');
+        pill.className = 'inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1';
+        pill.textContent = formattedUnits.length ? formattedUnits.join(' + ') : '数量未設定';
+        pillWrap.appendChild(pill);
+
+        row.appendChild(pillWrap);
+        requirementsListEl.appendChild(row);
+      });
+    };
 
     const getSlotReference = (dayIndex, mealKey, slotKey) => {
       const day = state.plan[dayIndex];
@@ -1048,6 +1191,8 @@
         }
       });
 
+      renderRequirements();
+
       if (typeof window.refreshLucideIcons === 'function') {
         window.refreshLucideIcons();
       }
@@ -1068,6 +1213,31 @@
         panel.hidden = shouldHide;
         panel.classList.toggle('hidden', shouldHide);
       });
+    };
+
+    const switchMainTab = (nextMain) => {
+      state.mainTab = nextMain;
+      mainTabButtons.forEach((button) => {
+        const isActive = button.dataset.mainTab === nextMain;
+        button.classList.toggle('bg-gray-900', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('bg-gray-100', !isActive);
+        button.classList.toggle('text-gray-600', !isActive);
+      });
+      mainPanels.forEach((panel) => {
+        const shouldHide = panel.dataset.mainPanel !== nextMain;
+        panel.hidden = shouldHide;
+        panel.classList.toggle('hidden', shouldHide);
+      });
+      if (planTabButtonsContainer) {
+        planTabButtonsContainer.classList.toggle('hidden', nextMain !== 'plan');
+        planTabButtonsContainer.hidden = nextMain !== 'plan';
+      }
+      if (nextMain === 'plan') {
+        switchTab(state.tab);
+      }
+      renderRequirements();
     };
 
     document.addEventListener('click', (event) => {
@@ -1151,6 +1321,13 @@
       }
     });
 
+    mainTabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const targetMain = button.dataset.mainTab || 'plan';
+        switchMainTab(targetMain);
+      });
+    });
+
     tabButtons.forEach((button) => {
       button.addEventListener('click', () => switchTab(button.dataset.tab));
     });
@@ -1197,6 +1374,7 @@
       saveButton.addEventListener('click', handleSave);
     }
 
+    switchMainTab('plan');
     switchTab('lunch');
     render();
     if (typeof window.refreshLucideIcons === 'function') {

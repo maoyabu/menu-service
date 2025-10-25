@@ -259,6 +259,30 @@ const aggregateSummary = (plan, menuLookup, field) => {
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
 };
 
+const normalizeId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (value instanceof mongoose.Types.ObjectId) return value.toString();
+  if (value._id) return String(value._id);
+  return '';
+};
+
+const calculateGroupSize = (groups, groupId) => {
+  if (!groupId) return 1;
+  const target = groups.find((group) => normalizeId(group._id) === String(groupId));
+  if (!target) return 1;
+  const ids = new Set();
+  const ownerId = normalizeId(target.createdBy);
+  if (ownerId) ids.add(ownerId);
+  if (Array.isArray(target.members)) {
+    target.members.forEach((member) => {
+      const id = normalizeId(member);
+      if (id) ids.add(id);
+    });
+  }
+  return ids.size || 1;
+};
+
 const buildWeekPlanPayload = (menusByCategory, options = {}) => {
   const { startDate } = options;
   const menuLookup = {};
@@ -566,6 +590,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       }
     }
 
+    const groupSize = calculateGroupSize(userGroups, currentGroupId);
+
     let plan = [];
     let menuLookup = {};
     let ingredientSummary = [];
@@ -697,6 +723,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       ingredientSummary,
       seasoningSummary,
       currentGroupId,
+      groupSize,
       existingPlanId,
       weekStartISO,
       isHistoricalWeek: targetWeekStart.getTime() < todayWeekStart.getTime(),
