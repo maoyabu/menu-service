@@ -7,7 +7,8 @@ const SLOT_TYPES = [
   'dinner-staple',
   'dinner-main',
   'dinner-side',
-  'dinner-soup'
+  'dinner-soup',
+  'dinner-flex'
 ];
 
 const menuSlotSchema = new Schema({

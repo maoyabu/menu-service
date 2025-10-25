@@ -89,7 +89,7 @@ const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const CATEGORY_CONFIG = {
   lunchMain: {
-    kinds: ['主菜', '主食', '主食・ごはん', '主食・パン', '主食・麺'],
+    kinds: ['主菜', '副菜', '汁物', '主食', '主食・ごはん', '主食・パン', '主食・麺'],
     label: 'メインディッシュ',
     mealType: 'ランチ'
   },
@@ -112,6 +112,19 @@ const CATEGORY_CONFIG = {
     kinds: ['汁物'],
     label: '汁物',
     mealType: 'ディナー'
+  },
+  dinnerFlexible: {
+    kinds: [
+      '主菜',
+      '副菜',
+      '汁物',
+      '主食',
+      '主食・ごはん',
+      '主食・パン',
+      '主食・麺'
+    ],
+    label: 'ディナー追加',
+    mealType: 'ディナー'
   }
 };
 
@@ -120,7 +133,8 @@ const CATEGORY_TO_SLOT_TYPE = {
   dinnerStaple: 'dinner-staple',
   dinnerMain: 'dinner-main',
   dinnerSide: 'dinner-side',
-  dinnerSoup: 'dinner-soup'
+  dinnerSoup: 'dinner-soup',
+  dinnerFlexible: 'dinner-flex'
 };
 
 const SLOT_TYPE_DETAILS = Object.freeze({
@@ -128,7 +142,8 @@ const SLOT_TYPE_DETAILS = Object.freeze({
   'dinner-staple': { meal: 'dinner', key: 'staple', categoryKey: 'dinnerStaple' },
   'dinner-main': { meal: 'dinner', key: 'main', categoryKey: 'dinnerMain' },
   'dinner-side': { meal: 'dinner', key: 'side', categoryKey: 'dinnerSide' },
-  'dinner-soup': { meal: 'dinner', key: 'soup', categoryKey: 'dinnerSoup' }
+  'dinner-soup': { meal: 'dinner', key: 'soup', categoryKey: 'dinnerSoup' },
+  'dinner-flex': { meal: 'dinner', key: 'extras', categoryKey: 'dinnerFlexible' }
 });
 
 const formatMenuDocument = (doc) => ({
@@ -136,6 +151,7 @@ const formatMenuDocument = (doc) => ({
   name: doc.name,
   kind: doc.kind,
   cook: doc.cook,
+  people: doc.people,
   material: !!doc.material,
   url: doc.url,
   imageUrl: doc.imageUrl || '',
@@ -231,11 +247,12 @@ const aggregateSummary = (plan, menuLookup, field) => {
 
   plan.forEach((day) => {
     const slots = [
-      day?.lunch?.main,
+      ...(Array.isArray(day?.lunchSlots) ? day.lunchSlots : []),
       day?.dinner?.staple,
       day?.dinner?.main,
       day?.dinner?.side,
-      day?.dinner?.soup
+      day?.dinner?.soup,
+      ...(Array.isArray(day?.dinnerExtras) ? day.dinnerExtras : [])
     ];
 
     slots.forEach((slot) => {
@@ -314,15 +331,14 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
       dayLabel: WEEKDAY_JA[index],
       dayLabelEn: WEEKDAY_EN[index],
       dateISO: date.toISOString(),
-      lunch: {
-        main: createSlot('lunchMain')
-      },
+      lunchSlots: [createSlot('lunchMain')].filter(Boolean),
       dinner: {
         staple: createSlot('dinnerStaple'),
         main: createSlot('dinnerMain'),
         side: createSlot('dinnerSide'),
         soup: createSlot('dinnerSoup')
-      }
+      },
+      dinnerExtras: []
     };
   });
 
@@ -615,8 +631,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         dayLabel: WEEKDAY_JA[index],
         dayLabelEn: WEEKDAY_EN[index],
         dateISO: date.toISOString(),
-        lunch: { main: null },
-        dinner: { staple: null, main: null, side: null, soup: null }
+        lunchSlots: [],
+        dinner: { staple: null, main: null, side: null, soup: null },
+        dinnerExtras: []
       }));
 
       menuLookup = {};
@@ -669,7 +686,11 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           };
 
           if (map.meal === 'lunch') {
-            target.lunch[map.key] = slotData;
+            target.lunchSlots = target.lunchSlots || [];
+            target.lunchSlots.push(slotData);
+          } else if (map.key === 'extras') {
+            target.dinnerExtras = target.dinnerExtras || [];
+            target.dinnerExtras.push(slotData);
           } else {
             target.dinner[map.key] = slotData;
           }
@@ -708,15 +729,18 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
         plan = plan.map((day) => ({
           ...day,
-          lunch: {
-            main: ensureSlot(day?.lunch?.main, 'lunchMain')
-          },
+          lunchSlots: Array.isArray(day?.lunchSlots)
+            ? day.lunchSlots.map((slot) => ensureSlot(slot, slot?.categoryKey || 'lunchMain'))
+            : [],
           dinner: {
             staple: ensureSlot(day?.dinner?.staple, 'dinnerStaple'),
             main: ensureSlot(day?.dinner?.main, 'dinnerMain'),
             side: ensureSlot(day?.dinner?.side, 'dinnerSide'),
             soup: ensureSlot(day?.dinner?.soup, 'dinnerSoup')
-          }
+          },
+          dinnerExtras: Array.isArray(day?.dinnerExtras)
+            ? day.dinnerExtras.map((slot) => ensureSlot(slot, slot?.categoryKey || 'dinnerFlexible'))
+            : []
         }));
         ingredientSummary = [];
         seasoningSummary = [];
@@ -972,8 +996,9 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       display: formatDisplayDate(date),
       weekday: WEEKDAY_JA[index],
       isToday: startOfDay(date).getTime() === today.getTime(),
-      lunch: { main: null },
+      lunchSlots: [],
       dinner: { staple: null, main: null, side: null, soup: null },
+      dinnerExtras: [],
       meals: [],
       ingredientsSummary: [],
       seasoningSummary: [],
@@ -1012,7 +1037,11 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     };
 
     if (map.meal === 'lunch') {
-      dayEntry.lunch[map.key] = slotPayload;
+      dayEntry.lunchSlots = dayEntry.lunchSlots || [];
+      dayEntry.lunchSlots.push(slotPayload);
+    } else if (map.key === 'extras') {
+      dayEntry.dinnerExtras = dayEntry.dinnerExtras || [];
+      dayEntry.dinnerExtras.push(slotPayload);
     } else {
       dayEntry.dinner[map.key] = slotPayload;
     }
@@ -1068,7 +1097,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   weekPlanOverview.forEach((day) => {
     const meals = [];
 
-    const lunchSlots = Object.values(day.lunch).filter(Boolean);
+    const lunchSlots = Array.isArray(day.lunchSlots) ? day.lunchSlots.filter(Boolean) : [];
     if (lunchSlots.length) {
       meals.push({
         mealKey: 'lunch',
@@ -1082,7 +1111,9 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       });
     }
 
-    const dinnerSlots = Object.values(day.dinner).filter(Boolean);
+    const dinnerBaseSlots = Object.values(day.dinner || {}).filter(Boolean);
+    const dinnerExtraSlots = Array.isArray(day.dinnerExtras) ? day.dinnerExtras.filter(Boolean) : [];
+    const dinnerSlots = [...dinnerBaseSlots, ...dinnerExtraSlots];
     if (dinnerSlots.length) {
       meals.push({
         mealKey: 'dinner',
