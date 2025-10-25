@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import User from '../models/users.js';
 import Menu from '../models/menu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
+import Group from '../models/groups.js';
 import { isLoggedIn } from '../middleware.js';
 
 const router = express.Router();
@@ -590,7 +591,17 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       }
     }
 
-    const groupSize = calculateGroupSize(userGroups, currentGroupId);
+    let groupSize = 1;
+    if (currentGroupId) {
+      const groupDoc = await Group.findById(currentGroupId)
+        .select('createdBy members')
+        .lean();
+      if (groupDoc) {
+        groupSize = calculateGroupSize([groupDoc], currentGroupId);
+      } else {
+        groupSize = calculateGroupSize(userGroups, currentGroupId);
+      }
+    }
 
     let plan = [];
     let menuLookup = {};
