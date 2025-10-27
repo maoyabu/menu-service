@@ -796,8 +796,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     }
 
     // グループ名・メンバー名の計算が終わったあと
-    console.log('currentGroupName:', currentGroupName);
-    console.log('currentGroupMembers:', currentGroupMembers);
+    // console.log('currentGroupName:', currentGroupName);
+    // console.log('currentGroupMembers:', currentGroupMembers);
 
 	const weekStartISO = targetWeekStart.toISOString();
 	res.render('users/weekMenu', {
