@@ -157,10 +157,10 @@
         <button type="button" data-main-tab="plan" class="main-tab-button w-full rounded-full bg-gray-900 text-white px-4 py-2 shadow-sm">🍽 メニュー計画</button>
         <button type="button" data-main-tab="supplies" class="main-tab-button w-full rounded-full bg-gray-100 text-gray-600 px-4 py-2">🛒 食材・調味料リスト</button>
       </div>
-      <div class="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+      <!-- <div class="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
         <span class="text-gray-600 font-medium">選択中の週</span>
         <span class="text-base font-semibold text-gray-900"><%= weekRangeLabel %></span>
-      </div>
+      </div> -->
     </div>
 
     <div class="px-6 pb-6 space-y-10" data-main-panel="plan">
@@ -426,7 +426,10 @@
     planId: <%- serialize(existingPlanId || '') %>,
     weekStartISO: <%- serialize(weekStartISO || '') %>,
     isHistoricalWeek: <%- serialize(isHistoricalWeek || false) %>,
-    todayISO: <%- serialize(todayISO || '') %>
+    todayISO: <%- serialize(todayISO || '') %>,
+    // 換算用のグループ名とメンバー名を保持
+    currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
+    currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>
   };
 </script>
 
@@ -551,7 +554,17 @@
     };
 
     if (requirementsSummaryEl) {
-      requirementsSummaryEl.innerHTML = `<span class="font-semibold">${groupSize}人分</span>の必要量に換算しています。`;
+      // 現在の換算人数に加えて、グループ名と所属メンバー名をタグ形式で表示する
+      let summaryHtml = `<span class="font-semibold">${groupSize}人分</span>の必要量に換算しています。`;
+      if (data.currentGroupName) {
+        summaryHtml += ` グループ名<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-1 text-emerald-800">${data.currentGroupName}</span>`;
+      }
+      if (Array.isArray(data.currentGroupMembers)) {
+        data.currentGroupMembers.forEach((memberName) => {
+          summaryHtml += ` <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-1 text-emerald-800">${memberName}</span>`;
+        });
+      }
+      requirementsSummaryEl.innerHTML = summaryHtml;
     }
 
     const specialPrefixUnits = new Set(['大さじ', '小さじ']);

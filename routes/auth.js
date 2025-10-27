@@ -505,6 +505,7 @@ router.post('/logout', (req, res, next) => {
   });
 });
 
+//weekMenu.ejsを開く
 router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   try {
     const kindSet = new Set();
@@ -608,14 +609,22 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     }
 
     let groupSize = 1;
+    let groupDocPopulated = null;
     if (currentGroupId) {
-      const groupDoc = await Group.findById(currentGroupId)
-        .select('createdBy members')
+      groupDocPopulated = await Group.findById(currentGroupId)
+        .populate({ path: 'createdBy', select: '_id displayname username email' })
+        .populate({ path: 'members', select: '_id displayname username email' })
         .lean();
-      if (groupDoc) {
-        groupSize = calculateGroupSize([groupDoc], currentGroupId);
-      } else {
-        groupSize = calculateGroupSize(userGroups, currentGroupId);
+
+      if (groupDocPopulated) {
+        const ids = new Set();
+        if (groupDocPopulated.createdBy && groupDocPopulated.createdBy._id) {
+          ids.add(String(groupDocPopulated.createdBy._id));
+        }
+        (groupDocPopulated.members || []).filter(Boolean).forEach((m) => {
+          if (m && m._id) ids.add(String(m._id));
+        });
+        groupSize = ids.size || 1;
       }
     }
 
@@ -747,23 +756,70 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       }
     }
 
-    const weekStartISO = targetWeekStart.toISOString();
-    res.render('users/weekMenu', {
-      categoryConfig: CATEGORY_CONFIG,
-      menusByCategory,
-      menuLookup,
-      plan,
-      weekDates: weekDatesForView,
-      weekRangeLabel,
-      ingredientSummary,
-      seasoningSummary,
-      currentGroupId,
-      groupSize,
-      existingPlanId,
-      weekStartISO,
-      isHistoricalWeek: targetWeekStart.getTime() < todayWeekStart.getTime(),
-      todayISO: today.toISOString()
-    });
+    let currentGroupName = '';
+    let currentGroupMembers = [];
+
+    if (currentGroupId) {
+      if (groupDocPopulated) {
+        // Prefer populated document: only existing users are present; nulls are filtered out
+        currentGroupName = groupDocPopulated.group_name || '';
+        const members = [];
+        const owner = groupDocPopulated.createdBy || null;
+        if (owner && owner._id) {
+          members.push(owner.displayname || owner.username || owner.email || '');
+        }
+        (groupDocPopulated.members || []).filter(Boolean).forEach((member) => {
+          if (!owner || String(member._id) !== String(owner._id)) {
+            members.push(member.displayname || member.username || member.email || '');
+          }
+        });
+        currentGroupMembers = members;
+      } else {
+        // Fallback: use res.locals.userGroups (filter to truthy/populated entries only)
+        const targetGroup = userGroups.find((g) => String(g._id) === String(currentGroupId));
+        if (targetGroup) {
+          currentGroupName = targetGroup.group_name || '';
+          const members = [];
+          const owner = targetGroup.createdBy;
+          if (owner && (owner.displayname || owner.username || owner.email)) {
+            members.push(owner.displayname || owner.username || owner.email || '');
+          }
+          (targetGroup.members || []).filter(Boolean).forEach((member) => {
+            const memberId = member._id || member;
+            if (owner && String(memberId) === String(owner._id || owner)) return;
+            const name = member.displayname || member.username || member.email || '';
+            if (name) members.push(name);
+          });
+          currentGroupMembers = members;
+        }
+      }
+    }
+
+    // グループ名・メンバー名の計算が終わったあと
+    console.log('currentGroupName:', currentGroupName);
+    console.log('currentGroupMembers:', currentGroupMembers);
+
+	const weekStartISO = targetWeekStart.toISOString();
+	res.render('users/weekMenu', {
+    categoryConfig: CATEGORY_CONFIG,
+    menusByCategory,
+    menuLookup,
+    plan,
+    weekDates: weekDatesForView,
+    weekRangeLabel,
+    ingredientSummary,
+    seasoningSummary,
+    currentGroupId,
+    groupSize,
+    existingPlanId,
+    weekStartISO,
+    isHistoricalWeek: targetWeekStart.getTime() < todayWeekStart.getTime(),
+    todayISO: today.toISOString(),
+    // ここから追加
+    currentGroupName,
+    currentGroupMembers
+	});
+  
   } catch (err) {
     console.error('週次メニュー生成エラー:', err);
     return next(err);

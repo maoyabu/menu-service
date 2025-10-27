@@ -1,0 +1,27 @@
+*** Begin Patch
+*** Update File: views/users/weekMenu.ejs
+@@ window.weekMenuData = {
+-    todayISO: <%- serialize(todayISO || '') %>
++    todayISO: <%- serialize(todayISO || '') %>,
++    // 追加: 換算に使用しているグループ名と所属メンバー名を保持するプロパティ
++    // サーバー側で currentGroupName (文字列) と currentGroupMembers (名前の配列) を渡してください
++    currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
++    currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>
+@@
+-    if (requirementsSummaryEl) {
+-      requirementsSummaryEl.innerHTML = `<span class=\"font-semibold\">${groupSize}人分</span>の必要量に換算しています。`;
+-    }
++    if (requirementsSummaryEl) {
++      // 現在の換算人数に加えて、グループ名と所属メンバー名をタグ形式で表示する
++      let summaryHtml = `<span class=\"font-semibold\">${groupSize}人分</span>の必要量に換算しています。`;
++      if (data.currentGroupName) {
++        summaryHtml += ` <span class=\"inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-1 text-emerald-800\">${data.currentGroupName}</span>`;
++      }
++      if (Array.isArray(data.currentGroupMembers)) {
++        data.currentGroupMembers.forEach((memberName) => {
++          summaryHtml += ` <span class=\"inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-1 text-emerald-800\">${memberName}</span>`;
++        });
++      }
++      requirementsSummaryEl.innerHTML = summaryHtml;
++    }
+*** End Patch
