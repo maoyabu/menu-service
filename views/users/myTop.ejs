@@ -208,7 +208,13 @@
           <% todayPlan.meals.forEach((meal) => { %>
             <% meal.slots.forEach((slot) => { const menu = slot.menu || null; %>
               <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
-                <div class="h-52 md:h-64 bg-gray-100">
+                <div class="relative h-52 md:h-64 bg-gray-100">
+                  <!-- 画像左上のランチ/ディナー タグ（重ね表示） -->
+                  <span class="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold <%= meal.mealKey === 'lunch' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600' %>">
+                    <span class="lucide w-3 h-3 <%= meal.mealKey === 'lunch' ? 'text-orange-500' : 'text-blue-500' %>" data-lucide="<%= meal.mealKey === 'lunch' ? 'sun' : 'moon' %>"></span>
+                    <%= meal.label %>
+                  </span>
+
                   <% if (menu && menu.imageUrl) { %>
                     <% if (menu.url) { %>
                       <a href="<%= menu.url %>" target="menuWindow" rel="noopener">
@@ -222,16 +228,6 @@
                   <% } %>
                 </div>
                 <div class="p-4 space-y-2 flex-1 flex flex-col">
-                  <div class="flex items-center justify-between gap-3">
-                    <% const isLunch = meal.mealKey === 'lunch'; %>
-                    <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold <%= isLunch ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600' %>">
-                      <span class="lucide w-3 h-3 <%= isLunch ? 'text-orange-500' : 'text-blue-500' %>" data-lucide="<%= meal.mealKey === 'lunch' ? 'sun' : 'moon' %>"></span>
-                      <%= meal.label %>
-                    </span>
-                    <% if (menu && menu.time) { %>
-                      <span class="text-xs text-gray-400"><%= String(menu.time).endsWith('分') ? menu.time : menu.time + '分' %></span>
-                    <% } %>
-                  </div>
                   <h3 class="text-lg font-semibold text-gray-900">
                   <% if (menu && menu.url) { %>
                     <a href="<%= menu.url %>" target="menuWindow" rel="noopener" class="hover:underline">
@@ -241,11 +237,14 @@
                       <%= menu ? menu.name : 'メニュー候補がありません' %>
                     <% } %>
                   </h3>
-                  <% if (menu && menu.comment) { %>
-                    <p class="text-sm text-gray-500"><%= menu.comment %></p>
-                  <% } %>
-                  <% if (menu && (menu.junle || menu.cook)) { %>
+                  <% if (menu && (menu.time || menu.junle || menu.cook)) { %>
                     <div class="flex flex-wrap gap-2 text-[11px] text-gray-500">
+                      <% if (menu.time) { %>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                          <span>時間</span>
+                          <span class="font-medium"><%= String(menu.time).endsWith('分') ? menu.time : menu.time + '分' %></span>
+                        </span>
+                      <% } %>
                       <% if (menu.junle) { %>
                         <span class="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-700">
                           <span>ジャンル</span>
@@ -259,6 +258,9 @@
                         </span>
                       <% } %>
                     </div>
+                  <% } %>
+                  <% if (menu && menu.comment) { %>
+                    <p class="text-sm text-gray-500"><%= menu.comment %></p>
                   <% } %>
                 </div>
               </div>
@@ -567,10 +569,6 @@
             const slotWrap = document.createElement('div');
             slotWrap.className = 'space-y-1';
 
-            const categoryLabel = document.createElement('p');
-            categoryLabel.className = 'text-xs font-medium text-gray-500';
-            categoryLabel.textContent = slot.categoryLabel;
-            slotWrap.appendChild(categoryLabel);
 
             const nameRow = document.createElement('div');
             nameRow.className = 'flex items-center justify-between gap-3';
@@ -588,50 +586,61 @@
               nameSpan.textContent = slot.menu ? slot.menu.name : 'メニュー候補がありません';
             }
             nameRow.appendChild(nameSpan);
-
-            if (slot.menu && slot.menu.time) {
-              const timeSpan = document.createElement('span');
-              timeSpan.className = 'text-xs text-gray-400';
-              const timeText = String(slot.menu.time);
-              timeSpan.textContent = timeText.endsWith('分') ? timeText : `${timeText}分`;
-              nameRow.appendChild(timeSpan);
-            }
-
+            // Remove old time text here, will add as tag below
             slotWrap.appendChild(nameRow);
 
-            if (slot.menu && (slot.menu.junle || slot.menu.cook)) {
+            // タグ表示 (調理時間, ジャンル, 調理方法)
+            if (slot.menu && (slot.menu.time || slot.menu.junle || slot.menu.cook)) {
               const chipWrap = document.createElement('div');
               chipWrap.className = 'flex flex-wrap gap-2 text-[11px] text-gray-500';
 
+              // 調理時間タグを最初に追加
+              if (slot.menu && slot.menu.time) {
+                const timeChip = document.createElement('span');
+                timeChip.className = 'inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700';
+                timeChip.innerHTML = `<span>時間</span><span class="font-medium">${String(slot.menu.time).endsWith('分') ? slot.menu.time : slot.menu.time + '分'}</span>`;
+                chipWrap.appendChild(timeChip);
+              }
               if (slot.menu.junle) {
                 const chip = document.createElement('span');
                 chip.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5';
                 chip.innerHTML = `<span>ジャンル</span><span class="font-medium text-amber-700">${slot.menu.junle}</span>`;
                 chipWrap.appendChild(chip);
               }
-
               if (slot.menu.cook) {
                 const chip = document.createElement('span');
-                chip.className = 'inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5';
-                chip.innerHTML = `<span>調理方法</span><span class="font-medium text-sky-700">${slot.menu.cook}</span>`;
+                chip.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5';
+                chip.innerHTML = `<span>調理方法</span><span class="font-medium text-amber-700">${slot.menu.cook}</span>`;
                 chipWrap.appendChild(chip);
               }
-
               slotWrap.appendChild(chipWrap);
             }
 
+            // 画像とメインタグオーバーレイ
             if (slot.menu && slot.menu.url && slot.menu.imageUrl) {
               const imageLinkWrap = document.createElement('a');
               imageLinkWrap.href = slot.menu.url;
               imageLinkWrap.target = 'menuWindow';
               imageLinkWrap.rel = 'noopener';
-              imageLinkWrap.className = 'block overflow-hidden rounded-lg border border-blue-100 bg-blue-100/60';
+              imageLinkWrap.className = 'block overflow-hidden rounded-lg border border-blue-100 bg-blue-100/60 relative';
 
               const img = document.createElement('img');
               img.src = slot.menu.imageUrl;
               img.alt = slot.menu.name;
               img.className = 'w-full h-32 object-cover';
-              imageLinkWrap.appendChild(img);
+
+              if (slot.categoryLabel) {
+                const overlayTag = document.createElement('span');
+                overlayTag.className = 'absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2 py-1 text-xs font-semibold';
+                overlayTag.textContent = slot.categoryLabel;
+                const overlayWrap = document.createElement('div');
+                overlayWrap.className = 'relative';
+                overlayWrap.appendChild(img);
+                overlayWrap.appendChild(overlayTag);
+                imageLinkWrap.appendChild(overlayWrap);
+              } else {
+                imageLinkWrap.appendChild(img);
+              }
               slotWrap.prepend(imageLinkWrap);
             }
 
