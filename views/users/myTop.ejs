@@ -134,12 +134,33 @@
     box-shadow: 0 0 0 2px rgba(59,130,246,0.45);
     background-color: #dbeafe;
   }
+  /* --- hero carousel --- */
+  #hero-carousel { position: relative; overflow: hidden; }
+  #hero-carousel .hero-track { position: absolute; inset: 0; display: flex; width: 100%; height: 100%; transition: transform .8s ease; }
+  #hero-carousel .hero-slide { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; }
+  #hero-carousel .hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.0) 20%, rgba(0,0,0,.25) 100%); pointer-events: none; }
+  #hero-carousel .hero-empty { display:flex; align-items:center; justify-content:center; height:100%; color: rgba(255,255,255,.8); }
+  /* --- drop shadow utility for watermark --- */
+  .drop-shadow { filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+
+  /* --- watermark outline text --- */
+  .wm-outline {
+    color: #fff;
+    -webkit-text-stroke: 1px rgba(0,0,0,.9);
+    text-shadow:
+      0 0 1px rgba(0,0,0,.9),
+      1px 0 1px rgba(0,0,0,.9),
+      -1px 0 1px rgba(0,0,0,.9),
+      0 1px 1px rgba(0,0,0,.9),
+      0 -1px 1px rgba(0,0,0,.9);
+    paint-order: stroke fill;
+  }
 </style>
 
 <section class="relative max-w-6xl mx-auto py-10 space-y-10">
   <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
-    <div class="p-8 md:p-12 flex flex-col md:flex-row md:items-center md:justify-between gap-12">
-      <div class="flex flex-col gap-6 max-w-2xl">
+    <div class="p-8 md:p-12 flex flex-col md:flex-row md:items-start md:justify-between gap-12">
+      <div class="flex flex-col gap-6 max-w-2xl h-48 md:h-56 md:justify-between">
         <!-- <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] bg-white/20 px-4 py-1 rounded-full w-max">
           <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
           my top
@@ -170,16 +191,53 @@
       </div>
 
       <div class="relative">
-        <div class="w-48 h-48 md:w-56 md:h-56 rounded-3xl bg-white/10 border border-white/30 backdrop-blur-sm flex items-center justify-center">
-          <div class="text-center">
-            <span class="text-6xl md:text-7xl font-black text-white/90">7</span>
-            <p class="uppercase text-xs tracking-[0.35em] text-white/60 mt-2">days plan</p>
+        <div id="hero-carousel" class="w-80 h-48 md:w-96 md:h-56 rounded-xl overflow-hidden border border-white/30 shadow-lg bg-white/10">
+          <div class="hero-empty" data-carousel-empty>
+            <div class="text-center">
+              <span class="text-6xl md:text-7xl font-black text-white/90">7</span>
+              <p class="uppercase text-xs tracking-[0.35em] text-white/60 mt-2">days plan</p>
+            </div>
+          </div>
+          <div class="hero-overlay"></div>
+          <div class="absolute bottom-2 right-2 z-10 select-none pointer-events-none leading-none">
+            <div class="leading-none">
+              <span class="align-baseline font-black tracking-tight wm-outline text-4xl md:text-5xl">7</span>
+              <span class="align-baseline font-semibold wm-outline text-base md:text-lg ml-1">DAYS PLAN</span>
+            </div>
           </div>
         </div>
-        <div class="absolute -bottom-6 -left-6 bg-emerald-400 text-blue-950 px-4 py-2 rounded-2xl shadow-md text-xs font-semibold tracking-wider">
-          next action: 家族会議
-        </div>
       </div>
+</section>
+
+<script>
+  // Use server-provided headerImages (from Menu), excluding today's & this week's images if available
+  (function(){
+    var serverImages = <%- serialize(headerImages || []) %>;
+
+    // Exclusion list: today plan
+    var exclude = [];
+    <% if (todayPlan && todayPlan.hasPlan) { %>
+      <% todayPlan.meals.forEach(function(meal){ meal.slots.forEach(function(slot){ %>
+        <% if (slot.menu && slot.menu.imageUrl) { %>
+          exclude.push("<%- (slot.menu.imageUrl || '').replace(/"/g, '\\"') %>");
+        <% } %>
+      <% }) }) %>
+    <% } %>
+
+    // Exclusion list: weekly plan (populated by render)
+    if (Array.isArray(window.weekPlanImageExclusions)) {
+      exclude = exclude.concat(window.weekPlanImageExclusions);
+    }
+
+    var excludeSet = new Set(exclude.filter(Boolean));
+    var candidates = (Array.isArray(serverImages) ? serverImages : []).filter(Boolean).filter(function(src){
+      return !excludeSet.has(src);
+    });
+
+    // Fallback to serverImages if everything got excluded
+    window.headerImages = candidates.length ? candidates : (serverImages || []);
+  })();
+</script>
     </div>
   </header>
 
@@ -387,7 +445,7 @@
           <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
             <div class="h-36 bg-gray-100">
               <% if (fav.imageUrl) { %>
-                <img src="<%= fav.imageUrl %>" alt="<%= fav.name %>" class="w-full h-full object-cover">
+                <img src="<%= fav.imageUrl %>" alt="<%= fav.name %>" class="w-full h-full object-cover my-fav-image" loading="lazy">
               <% } else { %>
                 <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
               <% } %>
@@ -490,6 +548,45 @@
     days: <%- serialize(weekPlanOverview || []) %>,
     defaultDayIndex: <%= typeof defaultWeekDayIndex !== 'undefined' ? defaultWeekDayIndex : 0 %>
   };
+</script>
+
+<script>
+  (function(){
+    var el = document.getElementById('hero-carousel');
+    if (!el) return;
+    var images = Array.isArray(window.headerImages) ? window.headerImages.slice(0, 10) : [];
+    if (!images.length) return; // keep the fallback tile
+    var empty = el.querySelector('[data-carousel-empty]');
+    if (empty) empty.remove();
+
+    // build track
+    var track = document.createElement('div');
+    track.className = 'hero-track';
+    el.appendChild(track);
+
+    images.forEach(function(src, idx){
+      var img = document.createElement('img');
+      img.src = src;
+      img.alt = 'header image ' + (idx+1);
+      img.className = 'hero-slide';
+      track.appendChild(img);
+    });
+
+    var current = 0;
+    var total = images.length;
+    var goTo = function(index){
+      current = (index + total) % total;
+      track.style.transform = 'translateX(' + (-100 * current) + '%)';
+    };
+
+    // 初期位置
+    goTo(0);
+
+    // 8秒ごとにスライド
+    setInterval(function(){
+      goTo(current + 1);
+    }, 8000);
+  })();
 </script>
 
 <script>
@@ -642,6 +739,13 @@
                 imageLinkWrap.appendChild(img);
               }
               slotWrap.prepend(imageLinkWrap);
+              // 週のプランで使用している画像を除外候補に追加
+              if (slot.menu && slot.menu.imageUrl) {
+                window.weekPlanImageExclusions = window.weekPlanImageExclusions || [];
+                if (!window.weekPlanImageExclusions.includes(slot.menu.imageUrl)) {
+                  window.weekPlanImageExclusions.push(slot.menu.imageUrl);
+                }
+              }
             }
 
             list.appendChild(slotWrap);
