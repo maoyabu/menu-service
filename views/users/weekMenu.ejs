@@ -179,7 +179,7 @@
                     <p class="text-xs text-gray-500"><%= dateLabel %></p>
                   <% } %>
                 </div>
-                <div class="flex-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-lunch-group>
+                <div class="flex-1 grid gap-3 md:grid-cols-2 lg:grid-cols-4" data-lunch-group>
                   <% rawLunchSlots.forEach((slot, slotIndex) => { if (!(slot && slot.menuId)) { return; } const row = displayRow(menuLookup, slot); %>
                     <div class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full<%= row.hasMenu ? '' : ' slot-empty' %>" data-slot-index="<%= slotIndex %>" data-category="<%= (slot && slot.categoryKey) || 'lunchMain' %>">
                       <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
@@ -250,9 +250,9 @@
                       </div>
                     </div>
                   <% }) %>
-                  <button type="button" class="rounded-xl border border-dashed border-blue-200 bg-white/80 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition" data-action="add-lunch-slot">
+                  <button type="button" class="rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition" data-action="add-lunch-slot">
                     <span class="lucide w-6 h-6" data-lucide="plus"></span>
-                    <span class="text-xs font-semibold">ランチメニューを追加</span>
+                    <span class="text-xs font-semibold">メニューを追加</span>
                   </button>
                 </div>
               </div>
@@ -379,11 +379,11 @@
 
                   <button
                     type="button"
-                    class="rounded-xl border border-dashed border-blue-200 bg-white/80 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition"
+                    class="rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition"
                     data-action="add-dinner-slot"
                   >
                     <span class="lucide w-6 h-6" data-lucide="plus"></span>
-                    <span class="text-xs font-semibold">ディナーメニューを追加</span>
+                    <span class="text-xs font-semibold">メニューを追加</span>
                   </button>
                 </div>
               </div>
@@ -806,13 +806,13 @@
       const addButton = document.createElement('button');
       addButton.type = 'button';
       addButton.dataset.action = 'add-lunch-slot';
-      addButton.className = 'rounded-xl border border-dashed border-blue-200 bg-white/80 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition';
+      addButton.className = 'rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition';
       const addIcon = document.createElement('span');
       addIcon.className = 'lucide w-6 h-6';
       addIcon.setAttribute('data-lucide', 'plus');
       const addLabel = document.createElement('span');
       addLabel.className = 'text-xs font-semibold';
-      addLabel.textContent = 'ランチメニューを追加';
+      addLabel.textContent = 'メニューを追加';
       addButton.append(addIcon, addLabel);
       groupEl.appendChild(addButton);
     };
@@ -830,7 +830,7 @@
         button.type = 'button';
         button.dataset.action = 'add-dinner-slot';
         button.dataset.category = categoryKey || 'dinnerFlexible';
-        button.className = 'rounded-xl border border-dashed border-blue-200 bg-white/80 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition';
+        button.className = 'rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition';
         const icon = document.createElement('span');
         icon.className = 'lucide w-6 h-6';
         icon.setAttribute('data-lucide', 'plus');
@@ -955,7 +955,7 @@
         groupEl.appendChild(card);
       });
 
-      const addDinnerButton = makeAddButton('ディナーメニューを追加', 'dinnerFlexible');
+      const addDinnerButton = makeAddButton('メニューを追加', 'dinnerFlexible');
       groupEl.appendChild(addDinnerButton);
     };
 
