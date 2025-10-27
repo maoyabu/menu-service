@@ -187,8 +187,7 @@
                 <div class="flex-1 grid gap-3 md:grid-cols-2 lg:grid-cols-4" data-lunch-group>
                   <% rawLunchSlots.forEach((slot, slotIndex) => { if (!(slot && slot.menuId)) { return; } const row = displayRow(menuLookup, slot); %>
                     <div class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full<%= row.hasMenu ? '' : ' slot-empty' %>" data-slot-index="<%= slotIndex %>" data-category="<%= (slot && slot.categoryKey) || 'lunchMain' %>">
-                      <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
-                        <% if (row.imageUrl) { %>
+                      <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative" data-element="dish-image">                        <% if (row.imageUrl) { %>
                           <% if (row.url) { %>
                             <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="block w-full h-full">
                               <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
@@ -199,9 +198,11 @@
                         <% } else { %>
                           <span>no image</span>
                         <% } %>
+                        <% if (row.junle) { %>
+                          <span class="absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold"><%= row.junle %></span>                        <% } %>
                       </div>
                       <div class="space-y-2 p-4 flex-1">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">ランチ</p>
+                        <!-- ランチラベル削除 -->
                         <p class="text-sm font-semibold text-gray-900" data-element="dish-name">
                           <% if (row.url) { %>
                             <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="hover:underline"><%= row.name %></a>
@@ -212,19 +213,18 @@
                         <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700" data-element="dish-chips">
                           <% 
                             const formattedTimeLunch = row.time ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分') : '';
-                            const chips = [
-                              row.junle ? { label: 'ジャンル', value: row.junle } : null,
-                              row.cook ? { label: '調理方法', value: row.cook } : null,
-                              formattedTimeLunch ? { label: '調理時間', value: formattedTimeLunch } : null
-                            ].filter(Boolean); 
                           %>
-                          <% if (chips.length) { %>
-                            <% chips.forEach((chip) => { %>
-                              <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1">
-                                <span><%= chip.label %></span>
-                                <span class="font-medium text-amber-800"><%= chip.value %></span>
-                              </span>
-                            <% }) %>
+                          <% if (formattedTimeLunch) { %>
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-800">
+                              <span>調理時間</span>
+                              <span class="font-medium"><%= formattedTimeLunch %></span>
+                            </span>
+                          <% } %>
+                          <% if (row.cook) { %>
+                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1">
+                              <span>調理方法</span>
+                              <span class="font-medium text-amber-800"><%= row.cook %></span>
+                            </span>
                           <% } %>
                         </div>
                         <% const shouldShowLunchDetail = row.detail && row.detail !== row.cook && row.detail !== row.junle; %>
@@ -311,7 +311,7 @@
                       data-dinner-index="<%= slotIndex %>"
                       data-category="<%= categoryKey %>"
                     >
-                      <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300" data-element="dish-image">
+                      <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative" data-element="dish-image">
                         <% if (row.imageUrl) { %>
                           <% if (row.url) { %>
                             <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="block w-full h-full">
@@ -323,9 +323,12 @@
                         <% } else { %>
                           <span>no image</span>
                         <% } %>
+                        <% if (label) { %>
+                          <span class="absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold"><%= label %></span>
+                        <% } %>
                       </div>
                       <div class="space-y-2 p-4 flex-1">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400"><%= label %></p>
+                        <!-- カテゴリラベルは削除 -->
                         <p class="text-sm font-semibold text-gray-900" data-element="dish-name">
                           <% if (row.url) { %>
                             <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="hover:underline"><%= row.name %></a>
@@ -338,18 +341,19 @@
                             const formattedTimeDinner = row.time
                               ? (String(row.time).endsWith('分') ? String(row.time) : String(row.time) + '分')
                               : '';
-                            const chips = [
-                              row.junle ? { label: 'ジャンル', value: row.junle } : null,
-                              formattedTimeDinner ? { label: '調理時間', value: formattedTimeDinner } : null
-                            ].filter(Boolean);
+
                           %>
-                          <% if (chips.length) { %>
-                            <% chips.forEach((chip) => { %>
-                              <span class="inline-flex items-center gap-1 rounded-full bg-amber-100/80 px-2.5 py-1">
-                                <span class="text-amber-800/70 text-[10px] uppercase tracking-wide"><%= chip.label %></span>
-                                <span class="text-amber-900 text-[11px] font-semibold"><%= chip.value %></span>
-                              </span>
-                            <% }) %>
+                          <% if (formattedTimeDinner) { %>
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-800">
+                              <span>調理時間</span>
+                              <span class="font-medium"><%= formattedTimeDinner %></span>
+                            </span>
+                          <% } %>
+                          <% if (row.cook) { %>
+                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1">
+                              <span>調理方法</span>
+                              <span class="font-medium text-amber-800"><%= row.cook %></span>
+                            </span>
                           <% } %>
                         </div>
                         <% const shouldShowDinnerDetail = row.detail && row.detail !== row.cook && row.detail !== row.junle; %>
@@ -734,16 +738,17 @@
         card.dataset.category = slot?.categoryKey || 'lunchMain';
 
         const imageWrap = document.createElement('div');
-        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300';
+        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative';
         imageWrap.setAttribute('data-element', 'dish-image');
         card.appendChild(imageWrap);
 
         const body = document.createElement('div');
         body.className = 'space-y-2 p-4 flex-1';
-        const label = document.createElement('p');
-        label.className = 'text-[11px] font-semibold uppercase tracking-wide text-gray-400';
-        label.textContent = 'ランチ';
-        body.appendChild(label);
+        // Remove ランチ label
+        // const label = document.createElement('p');
+        // label.className = 'text-[11px] font-semibold uppercase tracking-wide text-gray-400';
+        // label.textContent = 'ランチ';
+        // body.appendChild(label);
 
         const nameEl = document.createElement('p');
         nameEl.className = 'text-sm font-semibold text-gray-900';
@@ -853,16 +858,20 @@
         card.dataset.category = categoryKey;
 
         const imageWrap = document.createElement('div');
-        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300';
+        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative';
         imageWrap.setAttribute('data-element', 'dish-image');
+        // Badge for category
+        if (label) {
+          const badge = document.createElement('span');
+          badge.className = 'absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
+          badge.textContent = label;
+          imageWrap.appendChild(badge);
+        }
         card.appendChild(imageWrap);
 
         const body = document.createElement('div');
         body.className = 'space-y-2 p-4 flex-1';
-        const labelEl = document.createElement('p');
-        labelEl.className = 'text-[11px] font-semibold uppercase tracking-wide text-gray-400';
-        labelEl.textContent = label;
-        body.appendChild(labelEl);
+        // Remove category label below image (do not render)
 
         const nameEl = document.createElement('p');
         nameEl.className = 'text-sm font-semibold text-gray-900';
@@ -1395,7 +1404,6 @@
     });
 
     const updateChips = (container, menu, mealType) => {
-      if (!container) return;
       container.innerHTML = '';
       if (!menu) return;
 
@@ -1403,33 +1411,60 @@
         ? (String(menu.time).trim().endsWith('分') ? String(menu.time).trim() : `${String(menu.time).trim()}分`)
         : '';
 
-      const chipsData = [];
-      if (menu.junle) {
-        chipsData.push({ label: 'ジャンル', value: menu.junle });
-      }
-      if (mealType === 'lunch' && menu.cook) {
-        chipsData.push({ label: '調理方法', value: menu.cook });
-      }
-      if (formattedTime) {
-        chipsData.push({ label: '調理時間', value: formattedTime });
+      if (mealType === 'lunch') {
+        // Time first (green)
+        if (formattedTime) {
+          const timeSpan = document.createElement('span');
+          timeSpan.className = 'inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-800';
+          const l1 = document.createElement('span'); l1.textContent = '調理時間';
+          const v1 = document.createElement('span'); v1.className = 'font-medium'; v1.textContent = formattedTime;
+          timeSpan.append(l1, v1);
+          container.appendChild(timeSpan);
+        }
+        // Then cooking method (amber), keep existing color style
+        if (menu.cook) {
+          const cookSpan = document.createElement('span');
+          cookSpan.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1';
+          const l2 = document.createElement('span'); l2.textContent = '調理方法';
+          const v2 = document.createElement('span'); v2.className = 'font-medium text-amber-800'; v2.textContent = menu.cook;
+          cookSpan.append(l2, v2);
+          container.appendChild(cookSpan);
+        }
+        return; // Do not render genre chip for lunch
       }
 
-      if (!chipsData.length) return;
+      if (mealType === 'dinner') {
+        // Dinner: 調理時間 (green) first, then 調理方法 (amber), no genre
+        if (formattedTime) {
+          const timeSpan = document.createElement('span');
+          timeSpan.className = 'inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-800';
+          const l1 = document.createElement('span'); l1.textContent = '調理時間';
+          const v1 = document.createElement('span'); v1.className = 'font-medium'; v1.textContent = formattedTime;
+          timeSpan.append(l1, v1);
+          container.appendChild(timeSpan);
+        }
+        if (menu.cook) {
+          const cookSpan = document.createElement('span');
+          cookSpan.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1';
+          const l2 = document.createElement('span'); l2.textContent = '調理方法';
+          const v2 = document.createElement('span'); v2.className = 'font-medium text-amber-800'; v2.textContent = menu.cook;
+          cookSpan.append(l2, v2);
+          container.appendChild(cookSpan);
+        }
+        return; // do not render genre for dinner
+      }
+
+      // (Keep existing behavior for other meal types)
+      const chipsData = [];
+      if (menu.junle) chipsData.push({ label: 'ジャンル', value: menu.junle, kind: 'amber' });
+      if (formattedTime) chipsData.push({ label: '調理時間', value: formattedTime, kind: 'amber' });
 
       chipsData.forEach((chip) => {
         const span = document.createElement('span');
         span.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1';
-        span.textContent = '';
-
-        const labelSpan = document.createElement('span');
-        labelSpan.textContent = chip.label;
-        span.appendChild(labelSpan);
-
-        const valueSpan = document.createElement('span');
-        valueSpan.className = 'font-medium text-amber-800';
-        valueSpan.textContent = chip.value;
-        span.appendChild(valueSpan);
-
+        const labelSpan = document.createElement('span'); labelSpan.textContent = chip.label;
+        const valueSpan = document.createElement('span'); valueSpan.className = 'font-medium text-amber-800'; valueSpan.textContent = chip.value;
+        span.append(labelSpan, valueSpan);
         container.appendChild(span);
       });
     };
@@ -1706,7 +1741,31 @@
 
       updateChips(chipsEl, menu, mealType);
       updateImage(imageEl, menu.imageUrl, menu.name, menu.url || '');
+      // Add/Update badge on image
+      if (imageEl) {
+        const oldBadge = imageEl.querySelector('.genre-badge');
+        if (oldBadge) oldBadge.remove();
 
+        if (mealType === 'lunch' && menu && menu.junle) {
+          imageEl.classList.add('relative');
+          const badge = document.createElement('span');
+          badge.className = 'genre-badge absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
+          badge.textContent = menu.junle;
+          imageEl.appendChild(badge);
+        }
+        if (mealType === 'dinner') {
+          const categoryKey = wrapper.dataset.category || '';
+          const catLabel = (categoryConfig[categoryKey] && categoryConfig[categoryKey].label) ? categoryConfig[categoryKey].label : 'ディナー';
+          if (catLabel) {
+            imageEl.classList.add('relative');
+            const badge = document.createElement('span');
+            badge.className = 'genre-badge absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
+            badge.textContent = catLabel;
+            imageEl.appendChild(badge);
+          }
+        }
+      }
+      
       if (favoriteBtn) {
         favoriteBtn.disabled = false;
         favoriteBtn.setAttribute('aria-pressed', slot.favorite ? 'true' : 'false');
