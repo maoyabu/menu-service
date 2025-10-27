@@ -143,7 +143,12 @@
           <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
           1week meal planning
         </span>
-        <h1 class="text-3xl md:text-4xl font-bold leading-tight"><%= weekRangeLabel %> の 7 DAYS PLAN を計画しよう！</h1>
+        <% 
+          const parts = weekRangeLabel.split('〜');
+          const year = new Date().getFullYear();
+          const displayLabel = parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`;
+        %>
+        <h1 class="text-3xl md:text-4xl font-bold leading-tight"><%= displayLabel %> の 7 DAYS PLAN を計画しよう！</h1>
         <p class="text-sm md:text-base text-white/80 max-w-2xl">
           AIが提案するメニューをカスタマイズして、この週の食事の予定を立てましょう
         </p>
