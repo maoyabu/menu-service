@@ -72,6 +72,11 @@
     border-color: #9ca3af !important;
     color: #64748b !important;
   }
+  /* Force spacing for the requirements summary below the tabs */
+  [data-requirements-summary] {
+    margin-top: 5px !important;
+    margin-bottom: 0 !important;
+  }
 </style>
 
 <div class="fixed inset-0 z-50 hidden" data-menu-modal aria-hidden="true">
@@ -156,27 +161,27 @@
     </div>
   </header>
 
-    <div class="px-6 py-3 space-y-1">
+    <div class="px-0 py-0 space-y-0">
       <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-semibold">
         <button type="button" data-main-tab="plan" class="main-tab-button w-full rounded-full bg-gray-900 text-white px-4 py-2 shadow-sm">🍽 7 DAYS PLAN</button>
         <button type="button" data-main-tab="supplies" class="main-tab-button w-full rounded-full bg-gray-100 text-gray-600 px-4 py-2">🛒 食材・調味料リスト</button>
       </div>
     </div>
-    <div class="px-6">
+    <div class="px-0">
       <div
-        class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 hidden"
+        class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 mt-[10px] mb-0 hidden"
         data-requirements-summary
       ></div>
     </div>
 
   <div class="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden">
-    <div class="px-6 pb-6 space-y-10" data-main-panel="plan">
-      <div class="w-full grid grid-cols-2 gap-2 text-sm font-semibold" data-plan-tab-buttons>
-        <button type="button" data-tab="lunch" class="tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-blue-600 text-white shadow-sm">🍱 ランチ</button>
-        <button type="button" data-tab="dinner" class="tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-blue-50 text-blue-600">🍽 ディナー</button>
+    <div class="px-6 pb-6 pt-[24px] space-y-0" data-main-panel="plan">
+      <div class="inline-grid grid-cols-2 text-sm font-semibold border border-blue-600 overflow-hidden w-64 ml-0 rounded-none" data-plan-tab-buttons>
+        <button type="button" data-tab="lunch" class="tab-button w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white border-r border-blue-600">🍱 ランチ</button>
+        <button type="button" data-tab="dinner" class="tab-button w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-white text-blue-600">🍽 ディナー</button>
       </div>
       <section class="space-y-4" data-panel="lunch">
-        <div class="divide-y divide-blue-100 rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
+        <div class="divide-y divide-blue-100 rounded-none border border-blue-100 bg-blue-50 shadow-sm">
           <% plan.forEach((day) => { const rawLunchSlots = Array.isArray(day.lunchSlots) ? day.lunchSlots : []; const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null; const dateLabel = dateInfo ? dateInfo.display : ''; %>
             <div class="px-4 py-4" data-day="<%= day.index %>" data-meal="lunch">
               <div class="flex items-start gap-4">
@@ -269,7 +274,7 @@
     </section>
 
       <section class="space-y-4 hidden" data-panel="dinner" hidden>
-        <div class="divide-y divide-blue-100 rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
+        <div class="divide-y divide-blue-100 rounded-none border border-blue-100 bg-blue-50 shadow-sm">
           <% plan.forEach((day) => {
                const dateInfo = Array.isArray(weekDates) ? weekDates[day.index] : null;
                const dateLabel = dateInfo ? dateInfo.display : '';
@@ -404,13 +409,12 @@
       </section>
     </div>
 
-    <div class="px-6 pb-6 space-y-6 hidden" data-main-panel="supplies">
-      <!-- <div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700" data-requirements-summary></div> -->
-      <div class="w-full grid grid-cols-2 gap-2 text-sm font-semibold" data-supply-tab-buttons>
-        <button type="button" data-supply-tab="ingredients" class="supply-tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-emerald-500 text-white shadow-sm">🥕 食材</button>
-        <button type="button" data-supply-tab="seasonings" class="supply-tab-button w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-gray-100 text-gray-600">🧂 調味料</button>
+    <div class="px-6 pb-6 pt-[24px] space-y-0 hidden" data-main-panel="supplies">
+      <div class="inline-grid grid-cols-2 text-sm font-semibold border border-emerald-600 overflow-hidden w-64 ml-0 rounded-none" data-supply-tab-buttons>
+        <button type="button" data-tab="ingredients" class="supply-tab-button w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white border-r border-emerald-600">🥦 食材</button>
+        <button type="button" data-tab="seasonings" class="supply-tab-button w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-white text-emerald-600">🧂 調味料</button>
       </div>
-      <div class="rounded-2xl border border-gray-200 bg-white">
+      <div class="divide-y divide-emerald-100 rounded-none border-t-0 border border-emerald-100 bg-emerald-50 shadow-sm -mt-0.5 mt-0">
         <div class="divide-y divide-gray-100" data-requirements-list></div>
         <div class="px-6 py-10 text-center text-sm text-gray-500" data-requirements-empty>必要な食材・調味料はまだありません。</div>
       </div>
@@ -478,7 +482,115 @@
     const mainTabButtons = Array.from(document.querySelectorAll('[data-main-tab]'));
     const mainPanels = Array.from(document.querySelectorAll('[data-main-panel]'));
     const planTabButtonsContainer = document.querySelector('[data-plan-tab-buttons]');
-    const supplyTabButtons = Array.from(document.querySelectorAll('[data-supply-tab]'));
+    // lunch/dinner sections
+    const lunchPanel = document.querySelector('[data-panel="lunch"]');
+    const dinnerPanel = document.querySelector('[data-panel="dinner"]');
+
+    // Helper: apply button appearance based on current state.tab
+    const applyPlanTabStyles = () => {
+      if (!planTabButtonsContainer) return;
+      const buttons = Array.from(planTabButtonsContainer.querySelectorAll('.tab-button'));
+      buttons.forEach((btn) => {
+        const isLunchBtn = btn.dataset.tab === 'lunch';
+        const isDinnerBtn = btn.dataset.tab === 'dinner';
+        const isActive = (state.tab === 'lunch' && isLunchBtn) || (state.tab === 'dinner' && isDinnerBtn);
+
+        // reset base
+        btn.classList.remove('bg-blue-600', 'bg-blue-700', 'text-white', 'bg-white', 'text-blue-600');
+
+        // apply
+        if (isActive) {
+          if (isLunchBtn) {
+            btn.classList.add('bg-blue-600', 'text-white');
+          } else if (isDinnerBtn) {
+            btn.classList.add('bg-blue-700', 'text-white');
+          }
+        } else {
+          btn.classList.add('bg-white', 'text-blue-600');
+        }
+      });
+    };
+
+    // Helper: show the correct panel
+    const applyPlanPanels = () => {
+      if (lunchPanel) {
+        const hideLunch = state.tab !== 'lunch';
+        lunchPanel.classList.toggle('hidden', hideLunch);
+        lunchPanel.toggleAttribute('hidden', hideLunch);
+      }
+      if (dinnerPanel) {
+        const hideDinner = state.tab !== 'dinner';
+        dinnerPanel.classList.toggle('hidden', hideDinner);
+        dinnerPanel.toggleAttribute('hidden', hideDinner);
+      }
+    };
+
+    // Switch tab API
+    const switchPlanTabRect = (next) => {
+      state.tab = next === 'dinner' ? 'dinner' : 'lunch';
+      applyPlanTabStyles();
+      applyPlanPanels();
+    };
+
+    // Bind click (event delegation on the container)
+    if (planTabButtonsContainer) {
+      planTabButtonsContainer.addEventListener('click', (e) => {
+        const target = e.target.closest('.tab-button');
+        if (!target) return;
+        const next = target.dataset.tab;
+        if (!next) return;
+        switchPlanTabRect(next);
+      });
+    }
+
+    // Initial paint
+    applyPlanTabStyles();
+    applyPlanPanels();
+    // --- 食材／調味料 タブ切り替え処理 ---
+    document.addEventListener('DOMContentLoaded', () => {
+      const supplyTabButtonsContainer = document.querySelector('[data-supply-tab-buttons]');
+      const supplyTabs = supplyTabButtonsContainer ? supplyTabButtonsContainer.querySelectorAll('.supply-tab-button') : [];
+      const ingredientsPanel = document.querySelector('[data-supply-panel="ingredients"]');
+      const seasoningsPanel = document.querySelector('[data-supply-panel="seasonings"]');
+
+      const applySupplyTabStyles = (activeTab) => {
+        supplyTabs.forEach(btn => {
+          const isIngredients = btn.dataset.tab === 'ingredients';
+          const isSeasonings = btn.dataset.tab === 'seasonings';
+          btn.classList.remove('bg-emerald-600', 'bg-emerald-700', 'text-white', 'bg-white', 'text-emerald-600');
+          if ((isIngredients && activeTab === 'ingredients') || (isSeasonings && activeTab === 'seasonings')) {
+            btn.classList.add(activeTab === 'ingredients' ? 'bg-emerald-600' : 'bg-emerald-700', 'text-white');
+          } else {
+            btn.classList.add('bg-white', 'text-emerald-600');
+          }
+        });
+      };
+
+      const applySupplyPanels = (activeTab) => {
+        if (ingredientsPanel) {
+          ingredientsPanel.classList.toggle('hidden', activeTab !== 'ingredients');
+          ingredientsPanel.toggleAttribute('hidden', activeTab !== 'ingredients');
+        }
+        if (seasoningsPanel) {
+          seasoningsPanel.classList.toggle('hidden', activeTab !== 'seasonings');
+          seasoningsPanel.toggleAttribute('hidden', activeTab !== 'seasonings');
+        }
+      };
+
+      if (supplyTabButtonsContainer) {
+        supplyTabButtonsContainer.addEventListener('click', (e) => {
+          const target = e.target.closest('.supply-tab-button');
+          if (!target) return;
+          const next = target.dataset.tab;
+          applySupplyTabStyles(next);
+          applySupplyPanels(next);
+        });
+      }
+
+      // 初期状態を食材タブに設定
+      applySupplyTabStyles('ingredients');
+      applySupplyPanels('ingredients');
+    });
     const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
     const panels = Array.from(document.querySelectorAll('[data-panel]'));
     const saveButton = document.querySelector('[data-action="save-week-plan"]');
@@ -1763,6 +1875,7 @@
             const badge = document.createElement('span');
             badge.className = 'genre-badge absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
             badge.textContent = catLabel;
+
             imageEl.appendChild(badge);
           }
         }
