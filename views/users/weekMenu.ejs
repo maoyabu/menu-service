@@ -582,14 +582,19 @@
           const target = e.target.closest('.supply-tab-button');
           if (!target) return;
           const next = target.dataset.tab;
+          if (!next) return;
+          state.supplyTab = next; // 'ingredients' or 'seasonings'
           applySupplyTabStyles(next);
           applySupplyPanels(next);
+          renderRequirements();
         });
       }
 
-      // 初期状態を食材タブに設定
+      // 初期状態を食材タブに設定して描画
+      state.supplyTab = 'ingredients';
       applySupplyTabStyles('ingredients');
       applySupplyPanels('ingredients');
+      renderRequirements();
     });
     const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
     const panels = Array.from(document.querySelectorAll('[data-panel]'));
