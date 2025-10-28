@@ -1083,39 +1083,6 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     headerImageItems = pickRandom(allItems, 10);
     // --- end build headerImageItems ---
 }
-    // // Build header image candidates from Menu (server-side), excluding images used in this week's plan
-    // const usedImageSet = new Set(
-    //   Object.values(currentWeekMenuLookup || {})
-    //     .map((m) => (m && m.imageUrl ? String(m.imageUrl) : ''))
-    //     .filter(Boolean)
-    // );
-
-    // const candidateImageDocs = await Menu.find({
-    //   imageUrl: { $exists: true, $ne: '' },
-    //   $or: [{ material: { $exists: false } }, { material: { $ne: true } }]
-    // })
-    //   .select('imageUrl')
-    //   .lean();
-
-    // const allCandidates = Array.from(
-    //   new Set((candidateImageDocs || []).map((d) => (d && d.imageUrl ? String(d.imageUrl) : '')).filter(Boolean))
-    // ).filter((url) => !usedImageSet.has(url));
-
-    // // Fisher–Yates shuffle then take up to 10
-    // const pickRandom = (arr, n) => {
-    //   const a = arr.slice();
-    //   for (let i = a.length - 1; i > 0; i--) {
-    //     const j = Math.floor(Math.random() * (i + 1));
-    //     [a[i], a[j]] = [a[j], a[i]];
-    //   }
-    //   return a.slice(0, n);
-    // };
-
-    // var headerImages = pickRandom(allCandidates, 10);
-  // } else {
-  //   // If no menuIdSet, fallback to empty headerImages
-  //   var headerImages = [];
-  // }
 
   const initializeWeekOverview = () =>
     currentWeekDates.map((date, index) => ({
