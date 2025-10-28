@@ -701,7 +701,13 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
             target.dinnerExtras = target.dinnerExtras || [];
             target.dinnerExtras.push(slotData);
           } else {
-            target.dinner[map.key] = slotData;
+            // If same dinner category already exists, append to dinnerExtras instead of overwriting
+            if (!target.dinner[map.key]) {
+              target.dinner[map.key] = slotData;
+            } else {
+              target.dinnerExtras = target.dinnerExtras || [];
+              target.dinnerExtras.push(slotData);
+            }
           }
         });
       });
@@ -1138,7 +1144,13 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       dayEntry.dinnerExtras = dayEntry.dinnerExtras || [];
       dayEntry.dinnerExtras.push(slotPayload);
     } else {
-      dayEntry.dinner[map.key] = slotPayload;
+      // If same dinner category already exists, append to dinnerExtras instead of overwriting
+      if (!dayEntry.dinner[map.key]) {
+        dayEntry.dinner[map.key] = slotPayload;
+      } else {
+        dayEntry.dinnerExtras = dayEntry.dinnerExtras || [];
+        dayEntry.dinnerExtras.push(slotPayload);
+      }
     }
   };
 

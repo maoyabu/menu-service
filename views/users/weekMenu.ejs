@@ -599,6 +599,14 @@
     const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
     const panels = Array.from(document.querySelectorAll('[data-panel]'));
     const saveButton = document.querySelector('[data-action="save-week-plan"]');
+    // Bind save button click
+    if (saveButton) {
+      saveButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSave();
+      });
+    }
     const requirementsListEl = document.querySelector('[data-requirements-list]');
     const requirementsEmptyEl = document.querySelector('[data-requirements-empty]');
     const requirementsSummaryEl = document.querySelector('[data-requirements-summary]');
