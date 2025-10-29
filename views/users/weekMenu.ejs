@@ -106,6 +106,41 @@
   .plan-calendar-legend--future  { border-color:#bfdbfe; background:#f0f7ff; color:#1d4ed8; }
   .plan-calendar-legend--past    { border-color:#cbd5e1; background:#f8fafc; color:#475569; }
 
+  /* week status coloring */
+  .plan-calendar-day.is-planned > button {
+    background-color: #e8f0ff; /* blue-50 っぽい */
+    border-color: #93c5fd;     /* blue-300 */
+    color: #1e3a8a;            /* blue-900 */
+  }
+  .plan-calendar-day.is-future > button {
+    background-color: #f0f7ff; /* light */
+    border-color: #bfdbfe;     /* blue-200 */
+    color: #1d4ed8;            /* blue-700 */
+  }
+  /* 過去の週（過去を記録） */
+  .plan-calendar-day.is-past > button {
+    background-color: #e2e8f0 !important; /* slate-200〜300 と現行より少し濃い */
+    border-color: #cbd5e1 !important;     /* slate-300 */
+    color: #475569 !important;            /* slate-600 ※読みやすいが濃すぎない */
+  }
+  /* ドット色 */
+  .plan-calendar-day.is-planned .plan-calendar-week-badge { background:#3b82f6; } /* blue-500 */
+  .plan-calendar-day.is-future  .plan-calendar-week-badge { background:#60a5fa; } /* blue-400 */
+.plan-calendar-day.is-past .plan-calendar-week-badge { background-color: #94a3b8 !important; } /* slate-400 */
+  /* 現在編集中の週（プラン登録済み）を強調 */
+  .plan-calendar-day.is-planned > button {
+    background-color: #2563eb !important; /* blue-600 */
+    border-color: #1e3a8a !important;     /* blue-900 */
+    color: #ffffff !important;            /* 白文字 */
+    font-weight: 600;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) inset; /* 内側に淡いグロー */
+  }
+
+  /* ドットも濃い青に統一 */
+  .plan-calendar-day.is-planned .plan-calendar-week-badge {
+    background-color: #1e40af !important; /* blue-800 */
+  }
+
   @media (min-width: 768px) {
     .header-calendar-wrap { max-width: 420px; }
   }
@@ -548,6 +583,17 @@
         const endOfMonth   = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
         const formatMonthLabel = (d) => `${d.getFullYear()}年 ${d.getMonth() + 1}月`;
 
+        // Week status helpers (used to color cells)
+        const startOfWeekMonISO = (d) => {
+          const ws = startOfWeekMon(d);
+          const local00 = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate());
+          return new Date(local00.getTime() - (local00.getTimezoneOffset() * 60000)).toISOString();
+        };
+        const todayWeekISO = startOfWeekMonISO(new Date());
+        const currentPlanWeekISO = (window.weekMenuData && window.weekMenuData.weekStartISO)
+          ? startOfWeekMonISO(new Date(window.weekMenuData.weekStartISO))
+          : todayWeekISO;
+
         const baseISO = window.weekMenuData?.weekStartISO || window.weekMenuData?.todayISO || new Date().toISOString();
         const initialWeek = startOfWeekMon(new Date(baseISO));
         const stateCal = { currentMonth: startOfMonth(initialWeek) };
@@ -588,6 +634,19 @@
             const badge = document.createElement('span');
             badge.className = 'plan-calendar-week-badge';
             cell.appendChild(badge);
+
+            // ←← ここ追加
+            const weekISO = startOfWeekMonISO(d);
+            let statusClass = '';
+            if (weekISO === currentPlanWeekISO) {
+              statusClass = 'is-planned';
+            } else if (weekISO > todayWeekISO) {
+              statusClass = 'is-future';
+            } else {
+              statusClass = 'is-past';
+            }
+            if (statusClass) cell.classList.add(statusClass);
+            // →→ 追加ここまで
 
             grid.appendChild(cell);
           }
