@@ -77,6 +77,38 @@
     margin-top: 5px !important;
     margin-bottom: 0 !important;
   }
+  /* ===== Inline 7 DAYS PLAN calendar (compact, myTop palette) ===== */
+  .plan-calendar { display: flex; flex-direction: column; gap: 10px; }
+  .plan-calendar-header-btn {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border:1px solid #93c5fd; border-radius:9999px;
+    background:#ffffff; color:#1d4ed8; transition:all .15s ease;
+  }
+  .plan-calendar-header-btn:hover{ border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.2); }
+  #plan-calendar-month-label{ color:#1e3a8a; }
+
+  .plan-calendar-grid { display:grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap:6px; grid-auto-rows: 28px; }
+  .plan-calendar-day { position:relative; }
+  .plan-calendar-day > button {
+    width:100%; height:100%;
+    border:1px solid #bfdbfe; border-radius:12px; background:#f0f7ff;
+    line-height:1; font-size:12px; color:#1e3a8a;
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+  }
+  .plan-calendar-day > button:hover{ border-color:#60a5fa; background:#e8f2ff; }
+  .plan-calendar-day--muted > button { background:#f1f5f9; border-color:#e2e8f0; color:#94a3b8; }
+  .plan-calendar-day--today > button { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.25) inset; }
+
+  .plan-calendar-week-badge { position:absolute; right:4px; bottom:4px; width:6px; height:6px; border-radius:9999px; background:#93c5fd; }
+
+  .plan-calendar-legend { display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:4px 8px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#1e3a8a; }
+  .plan-calendar-legend--planned { border-color:#93c5fd; background:#e0eaff; color:#1e3a8a; }
+  .plan-calendar-legend--future  { border-color:#bfdbfe; background:#f0f7ff; color:#1d4ed8; }
+  .plan-calendar-legend--past    { border-color:#cbd5e1; background:#f8fafc; color:#475569; }
+
+  @media (min-width: 768px) {
+    .header-calendar-wrap { max-width: 420px; }
+  }
 </style>
 
 <div class="fixed inset-0 z-50 hidden" data-menu-modal aria-hidden="true">
@@ -142,21 +174,63 @@
 
 <section class="relative max-w-6xl mx-auto py-10 space-y-8">
   <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
-    <div class="p-8 md:p-12 flex flex-col gap-6">
-      <div class="space-y-3">
-        <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] bg-white/20 px-4 py-1 rounded-full">
-          <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
-          7 DAYS PLAN
-        </span>
-        <% 
-          const parts = weekRangeLabel.split('〜');
-          const year = new Date().getFullYear();
-          const displayLabel = parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`;
-        %>
-        <h1 class="text-3xl md:text-4xl font-bold leading-tight"><%= displayLabel %> の 7 DAYS PLAN を計画しよう！</h1>
-        <p class="text-sm md:text-base text-white/80 max-w-2xl">
-          AIが提案するメニューをカスタマイズして、この週の食事の予定を立てましょう
-        </p>
+    <div class="p-6 md:p-8 lg:p-10">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <!-- Left: title/description -->
+        <div class="space-y-3">
+          <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] bg-white/20 px-4 py-1 rounded-full">
+            <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+            7 DAYS PLAN
+          </span>
+          <% 
+            const parts = weekRangeLabel.split('〜');
+            const year = new Date().getFullYear();
+            const displayLabel = parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`;
+          %>
+          <h1 class="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight"><%= displayLabel %><br> の 7 DAYS PLAN を計画しよう！</h1>
+          <p class="text-sm md:text-base text-white/80 max-w-2xl">
+            AIが提案するメニューを自分好みにカスタマイズして、7 DAYS PLANを立てましょう
+          </p>
+        </div>
+
+        <!-- Right: inline compact calendar -->
+        <aside class="header-calendar-wrap bg-white rounded-2xl shadow border border-gray-100 p-4 plan-calendar">
+          <header class="flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900">7 DAYS PLAN</h2>
+              <p class="text-[11px] text-gray-500 mt-1">週をクリックして切り替えできます</p>
+            </div>
+            <div class="inline-flex items-center gap-2">
+              <button type="button" class="plan-calendar-header-btn" id="plan-calendar-prev" aria-label="前の月">
+                <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
+              </button>
+              <span class="text-sm font-semibold text-gray-800" id="plan-calendar-month-label">----</span>
+              <button type="button" class="plan-calendar-header-btn" id="plan-calendar-next" aria-label="次の月">
+                <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
+              </button>
+            </div>
+          </header>
+
+          <div class="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            <span class="text-center">月</span>
+            <span class="text-center">火</span>
+            <span class="text-center">水</span>
+            <span class="text-center">木</span>
+            <span class="text-center">金</span>
+            <span class="text-center">土</span>
+            <span class="text-center">日</span>
+          </div>
+
+          <div id="plan-calendar-grid" class="plan-calendar-grid text-[12px] text-gray-600">
+            <div class="text-center text-sm text-gray-400 py-4" style="grid-column: span 7 / span 7;">読み込み中...</div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="plan-calendar-legend plan-calendar-legend--planned">プラン登録済み</span>
+            <span class="plan-calendar-legend plan-calendar-legend--future">これから設定</span>
+            <span class="plan-calendar-legend plan-calendar-legend--past">過去を記録</span>
+          </div>
+        </aside>
       </div>
     </div>
   </header>
@@ -446,6 +520,99 @@
     currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
     currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>
   };
+</script>
+
+<script>
+  // ===== Robust Inline 7 DAYS PLAN Calendar bootstrap (runs independently) =====
+  (function () {
+    if (window.__inlinePlanCalendarInitDone) return;
+
+    function safeInit() {
+      if (window.__inlinePlanCalendarInitDone) return;
+      try {
+        const grid = document.getElementById('plan-calendar-grid');
+        const monthLabel = document.getElementById('plan-calendar-month-label');
+        const prevBtn = document.getElementById('plan-calendar-prev');
+        const nextBtn = document.getElementById('plan-calendar-next');
+        if (!grid || !monthLabel) {
+          // Retry shortly in case header HTML renders later
+          setTimeout(safeInit, 50);
+          return;
+        }
+
+        // Utilities
+        const tzFix = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const startOfWeekMon = (d) => { const nd = tzFix(d); const day = (nd.getDay() + 6) % 7; nd.setDate(nd.getDate() - day); return nd; };
+        const addDays = (d, n) => { const nd = new Date(d); nd.setDate(nd.getDate() + n); return nd; };
+        const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+        const endOfMonth   = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        const formatMonthLabel = (d) => `${d.getFullYear()}年 ${d.getMonth() + 1}月`;
+
+        const baseISO = window.weekMenuData?.weekStartISO || window.weekMenuData?.todayISO || new Date().toISOString();
+        const initialWeek = startOfWeekMon(new Date(baseISO));
+        const stateCal = { currentMonth: startOfMonth(initialWeek) };
+
+        const buildWeekStartISO = (d) => {
+          const ws = startOfWeekMon(d);
+          const local = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate());
+          return new Date(local.getTime() - (local.getTimezoneOffset() * 60000)).toISOString();
+        };
+        const navigateToWeek = (weekStart) => {
+          const url = new URL(window.location.href);
+          url.searchParams.set('weekStart', weekStart);
+          window.location.assign(url.toString());
+        };
+
+        function renderCalendar() {
+          const first = startOfMonth(stateCal.currentMonth);
+          const last  = endOfMonth(stateCal.currentMonth);
+          const gridStart = startOfWeekMon(first);
+          const gridEnd   = addDays(startOfWeekMon(addDays(last, 7)), 6); // 6 rows
+
+          monthLabel.textContent = formatMonthLabel(first);
+          grid.innerHTML = '';
+
+          for (let d = new Date(gridStart); d <= gridEnd; d = addDays(d, 1)) {
+            const inMonth = d.getMonth() === first.getMonth();
+            const isToday = tzFix(new Date()).toDateString() === tzFix(d).toDateString();
+
+            const cell = document.createElement('div');
+            cell.className = 'plan-calendar-day' + (inMonth ? '' : ' plan-calendar-day--muted') + (isToday ? ' plan-calendar-day--today' : '');
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = String(d.getDate());
+            btn.addEventListener('click', () => navigateToWeek(buildWeekStartISO(d)));
+            cell.appendChild(btn);
+
+            const badge = document.createElement('span');
+            badge.className = 'plan-calendar-week-badge';
+            cell.appendChild(badge);
+
+            grid.appendChild(cell);
+          }
+
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+        }
+
+        if (prevBtn) prevBtn.addEventListener('click', () => { stateCal.currentMonth = startOfMonth(addDays(stateCal.currentMonth, -1)); renderCalendar(); });
+        if (nextBtn) nextBtn.addEventListener('click', () => { stateCal.currentMonth = startOfMonth(addDays(stateCal.currentMonth, 32)); renderCalendar(); });
+
+        renderCalendar();
+        window.__inlinePlanCalendarInitDone = true;
+        if (window && window.console) console.debug('[weekMenu] inline calendar bootstrapped');
+      } catch (e) {
+        console.error('[weekMenu] inline calendar init error', e);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', safeInit, { once: true });
+    } else {
+      // DOM already ready
+      setTimeout(safeInit, 0);
+    }
+  })();
 </script>
 
 <script>
@@ -2227,4 +2394,5 @@
       window.refreshLucideIcons();
     }
   })();
+
 </script>
