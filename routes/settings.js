@@ -34,6 +34,7 @@ const fetchSettingsContext = async (userId) => {
   return { user, groups: groups || [] };
 };
 
+// 設定画面表示
 router.get('/', async (req, res, next) => {
   try {
     const { user, groups } = await fetchSettingsContext(req.user._id);
@@ -69,6 +70,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// プロフィール更新処理
 router.post('/profile', async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
@@ -136,6 +138,7 @@ router.post('/profile', async (req, res, next) => {
   }
 });
 
+// パスワード変更処理
 router.post('/password', async (req, res, next) => {
   const { currentPassword, newPassword, confirmNewPassword } = req.body;
 
@@ -174,6 +177,7 @@ router.post('/password', async (req, res, next) => {
   }
 });
 
+// 退会処理
 router.post('/deactivate', async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
@@ -195,6 +199,7 @@ router.post('/deactivate', async (req, res, next) => {
   }
 });
 
+// グループ作成処理
 router.post('/groups', async (req, res, next) => {
   const { group_name: rawGroupName } = req.body;
   if (!rawGroupName?.trim()) {
@@ -244,6 +249,7 @@ router.post('/groups', async (req, res, next) => {
   }
 });
 
+// グループ情報更新処理
 router.post('/groups/:groupId/update', async (req, res, next) => {
   const { groupId } = req.params;
   const { group_name: rawGroupName } = req.body;
@@ -280,6 +286,8 @@ router.post('/groups/:groupId/update', async (req, res, next) => {
   }
 });
 
+
+// グループ削除処理
 router.post('/groups/:groupId/delete', async (req, res, next) => {
   const { groupId } = req.params;
   try {
@@ -319,6 +327,7 @@ router.post('/groups/:groupId/delete', async (req, res, next) => {
   }
 });
 
+// グループ招待処理
 router.post('/groups/:groupId/invite', async (req, res, next) => {
   const { groupId } = req.params;
   const { email } = req.body;
@@ -372,6 +381,7 @@ router.post('/groups/:groupId/invite', async (req, res, next) => {
   }
 });
 
+// グループメンバー削除・退会処理
 router.post('/groups/:groupId/remove-member', async (req, res, next) => {
   const { groupId } = req.params;
   const { memberId } = req.body;
@@ -431,6 +441,7 @@ router.post('/groups/:groupId/remove-member', async (req, res, next) => {
   }
 });
 
+// グループ招待キャンセル処理
 router.post('/groups/:groupId/cancel-invite', async (req, res, next) => {
   const { groupId } = req.params;
   const { email } = req.body;
@@ -465,6 +476,7 @@ router.post('/groups/:groupId/cancel-invite', async (req, res, next) => {
   }
 });
 
+// デフォルトグループ設定処理
 router.post('/groups/:groupId/default', async (req, res, next) => {
   const { groupId } = req.params;
 

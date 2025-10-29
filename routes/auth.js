@@ -5,6 +5,16 @@ import Menu from '../models/menu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import Group from '../models/groups.js';
 import { isLoggedIn } from '../middleware.js';
+// ===== Password Reset (Forgot / Reset) =====
+import crypto from 'crypto';
+import path from 'path';
+import ejs from 'ejs';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+const __dirname = path.resolve();
 
 const router = express.Router();
 
@@ -1377,6 +1387,140 @@ router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
   } catch (err) {
     console.error('カレンダーデータ取得エラー:', err);
     return res.status(500).json({ error: 'カレンダーデータを取得できませんでした。' });
+  }
+});
+
+function buildTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (host && user && pass) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+  }
+  return {
+    sendMail: async (opts) => {
+      console.log('[DEV] sendMail mocked:', opts);
+      return { messageId: 'mocked' };
+    },
+  };
+}
+
+async function sendPasswordResetMail(toEmail, resetUrl, username) {
+  const tplPath = path.join(__dirname, 'utils', 'templates', 'passwordReset.ejs');
+  const html = await ejs.renderFile(tplPath, { resetUrl, username });
+  const from = process.env.MAIL_FROM || 'no-reply@example.com';
+  const transporter = buildTransporter();
+  await transporter.sendMail({
+    from,
+    to: toEmail,
+    subject: 'パスワード再設定のご案内',
+    html,
+  });
+}
+
+// GET /auth/forgot
+router.get('/auth/forgot', (req, res) => {
+  res.render('auth/forgot-password');
+});
+
+// POST /auth/forgot
+router.post('/auth/forgot', async (req, res, next) => {
+  try {
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!email) {
+      req.flash('error', '登録メールアドレスを入力してください');
+      return res.redirect('/user/login');
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      req.flash('success', 'パスワード再設定メールを送信しました（該当アドレスが登録されていれば届きます）');
+      return res.redirect('/user/login');
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const resetUrl = `${baseUrl}/auth/reset/${token}`;
+    await sendPasswordResetMail(user.email, resetUrl, user.displayname || user.username || user.email);
+
+    req.flash('success', 'パスワード再設定メールを送信しました');
+    res.redirect('/user/login');
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /auth/reset/:token
+router.get('/auth/reset/:token', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    }).lean();
+
+    if (!user) {
+      req.flash('error', 'リンクの有効期限が切れているか無効です。もう一度お試しください。');
+      return res.redirect('/user/login');
+    }
+
+    return res.render('auth/reset-password', { token });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /auth/reset/:token
+router.post('/auth/reset/:token', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { newPassword, confirmNewPassword } = req.body;
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      req.flash('error', 'リンクの有効期限が切れているか無効です。もう一度お試しください。');
+      return res.redirect('/user/login');
+    }
+    if (!newPassword || newPassword !== confirmNewPassword) {
+      req.flash('error', '新しいパスワードが一致しません');
+      return res.redirect(`/auth/reset/${token}`);
+    }
+
+    await new Promise((resolve, reject) => {
+      user.setPassword(newPassword, (err) => (err ? reject(err) : resolve()));
+    });
+
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    await new Promise((resolve, reject) => {
+      req.logIn(user, (err) => (err ? reject(err) : resolve()));
+    });
+
+    if (user.defaultGroup) {
+      req.session.activeGroupId = user.defaultGroup.toString();
+    }
+    const to = user.defaultGroup ? `/users/week-menu?group=${user.defaultGroup.toString()}` : '/users/week-menu';
+    req.flash('success', 'パスワードを更新しました。');
+    res.redirect(to);
+  } catch (err) {
+    next(err);
   }
 });
 

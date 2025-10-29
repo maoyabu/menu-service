@@ -1,0 +1,14 @@
+<%- include('_mailHeader') %>
+<h2>グループへのご招待</h2>
+<p><strong><%= inviter %></strong> さんがあなたを「<%= groupName %>」グループに招待しました。</p>
+<p>以下のリンクから参加を承認してください。</p>
+<p>
+    <a href="<%= inviteUrl %>" style="display: inline-block; padding: 10px 20px; background-color: #007BFF; color: #ffffff; text-decoration: none; border-radius: 5px;">
+        グループへの招待を受ける
+    </a>
+</p>
+
+
+</div>
+
+<%- include('_mailFooter') %>
