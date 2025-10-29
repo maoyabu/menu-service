@@ -2,8 +2,49 @@ import express from 'express';
 import User from '../models/users.js';
 import Group from '../models/groups.js';
 import { isLoggedIn } from '../middleware.js';
+import ejs from 'ejs';
+import nodemailer from 'nodemailer';
+import path from 'path';
 
 const router = express.Router();
+
+// --- mail helpers ---
+const buildTransporter = () => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (host && user && pass) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass }
+    });
+  }
+  return {
+    // dev fallback: log only
+    sendMail: async (opts) => {
+      console.log('[DEV] sendMail mocked (settings):', opts);
+    }
+  };
+};
+
+const sendInviteMail = async ({ toEmail, inviterName, groupName, inviteUrl }) => {
+  const transporter = buildTransporter();
+  const from = process.env.MAIL_FROM || 'no-reply@example.com';
+  const subject = 'グループ招待のご案内';
+
+  const tplPath = path.resolve(process.cwd(), 'utils/templates/invite.ejs');
+  const html = await ejs.renderFile(tplPath, {
+    inviter: inviterName,
+    inviterName,
+    groupName,
+    inviteUrl
+  });
+
+  await transporter.sendMail({ from, to: toEmail, subject, html });
+};
 
 router.use(isLoggedIn);
 
@@ -186,13 +227,31 @@ router.post('/deactivate', async (req, res, next) => {
       return res.redirect('/settings');
     }
     user.unsubscribe_date = new Date();
+    user.services = {
+      allaboutme: false,
+      finance: false,
+      assets: false,
+      menu: false
+    };
     await user.save();
+    await Group.updateMany(
+      { members: req.user._id },
+      { $pull: { members: req.user._id } }
+    );
+    await Group.updateMany(
+      { createdBy: req.user._id },
+      { $pull: { members: req.user._id } }
+    );
+    await User.updateMany(
+      { defaultGroup: { $exists: true, $ne: null } },
+      { $unset: { defaultGroup: '' } }
+    );
     req.logout((err) => {
       if (err) {
         return next(err);
       }
       req.flash('success', '退会手続きを受け付けました');
-      res.redirect('/login');
+      res.redirect('/user/login');
     });
   } catch (err) {
     next(err);
@@ -374,8 +433,136 @@ router.post('/groups/:groupId/invite', async (req, res, next) => {
     group.invitedUsers.push(normalizedEmail);
 
     await group.save();
+
+    try {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const inviteUrl = `${baseUrl}/settings/invite/accept?group=${group._id.toString()}&email=${encodeURIComponent(normalizedEmail)}`;
+      const inviterName = req.user.displayname || req.user.username || req.user.email;
+      await sendInviteMail({
+        toEmail: normalizedEmail,
+        inviterName,
+        groupName: group.group_name,
+        inviteUrl
+      });
+    } catch (mailErr) {
+      console.error('invite mail error:', mailErr);
+      req.flash('error', '招待メールの送信に失敗しました（後でもう一度お試しください）');
+      return res.redirect(`/settings?group=${groupId}`);
+    }
+
     req.flash('success', '招待を送信しました');
     res.redirect(`/settings?group=${groupId}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 招待再送処理
+router.post('/groups/:groupId/resend-invite', async (req, res, next) => {
+  const { groupId } = req.params;
+  const { email } = req.body;
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) {
+    req.flash('error', '再送するメールアドレスを入力してください');
+    return res.redirect(`/settings?group=${groupId}`);
+  }
+  try {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      req.flash('error', 'グループが見つかりませんでした');
+      return res.redirect('/settings');
+    }
+    if (!group.createdBy.equals(req.user._id)) {
+      req.flash('error', '再送できるのはオーナーのみです');
+      return res.redirect(`/settings?group=${groupId}`);
+    }
+    const isInvited = (group.invitedUsers || []).some((addr) => addr === normalizedEmail);
+    if (!isInvited) {
+      req.flash('error', 'このメールアドレスには招待が登録されていません');
+      return res.redirect(`/settings?group=${groupId}`);
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const inviteUrl = `${baseUrl}/settings/invite/accept?group=${group._id.toString()}&email=${encodeURIComponent(normalizedEmail)}`;
+    const inviterName = req.user.displayname || req.user.username || req.user.email;
+    await sendInviteMail({
+      toEmail: normalizedEmail,
+      inviterName,
+      groupName: group.group_name,
+      inviteUrl
+    });
+
+    req.flash('success', '招待メールを再送しました');
+    res.redirect(`/settings?group=${groupId}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 招待受諾処理（メールの「参加する」ボタンから遷移）
+router.get('/invite/accept', async (req, res, next) => {
+  try {
+    const groupId = String(req.query.group || '').trim();
+    const emailRaw = String(req.query.email || '').trim();
+    const email = emailRaw.toLowerCase();
+
+    if (!groupId || !email) {
+      req.flash('error', '招待リンクが不正です');
+      return res.redirect('/user/login');
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      req.flash('error', '対象のグループが見つかりませんでした');
+      return res.redirect('/user/login');
+    }
+
+    const invited = (group.invitedUsers || []).some((addr) => addr === email);
+    if (!invited) {
+      // 既に承認済み or 取り消し後の可能性
+      req.flash('error', 'この招待は無効か、すでに処理済みです');
+      return res.redirect('/user/login');
+    }
+
+    const existing = await User.findOne({ email }).exec();
+
+    if (existing) {
+      // 1) 既存ユーザー：メンバーに追加、サービスを Menu のみに制限
+      const alreadyMember = (group.members || []).some((m) => m.toString() === existing._id.toString());
+      if (!alreadyMember) {
+        group.members = group.members || [];
+        group.members.push(existing._id);
+      }
+      // 招待リストから除外
+      group.invitedUsers = (group.invitedUsers || []).filter((addr) => addr !== email);
+      await group.save();
+
+      // ユーザー側にもグループ追加
+      await User.findByIdAndUpdate(existing._id, {
+        $addToSet: { groups: group._id },
+        $set: {
+          services: {
+            allaboutme: false,
+            finance: false,
+            assets: false,
+            menu: true
+          }
+        }
+      });
+
+      req.flash('success', 'グループへの参加が完了しました。ログインしてください。');
+      return res.redirect('/user/login');
+    }
+
+    // 2) 新規ユーザー：登録フローへ誘導。登録時に Menu のみ有効化するためのフラグを保存
+    req.session.pendingInvite = {
+      email,
+      groupId: group._id.toString(),
+      menuOnly: true
+    };
+
+    req.flash('success', '会員登録後ログインして利用を開始してください');
+    return res.redirect(`/user/register?email=${encodeURIComponent(email)}&menuOnly=1`);
   } catch (err) {
     next(err);
   }

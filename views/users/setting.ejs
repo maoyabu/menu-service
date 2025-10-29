@@ -269,11 +269,26 @@
                   <p class="text-sm text-red-600">退会すると一部データは閲覧できなくなります。必要な情報は事前にダウンロードしてください。</p>
                 </div>
               </div>
-              <button type="submit" class="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+              <button type="button" id="open-deactivate-confirm" class="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
                 <span class="lucide w-4 h-4" data-lucide="log-out"></span>
                 退会する
               </button>
             </form>
+            <div class="fixed inset-0 z-50 hidden" id="deactivate-modal" aria-hidden="true">
+              <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" data-close></div>
+              <div class="relative min-h-full flex items-center justify-center p-4">
+                <div class="w-full max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-gray-200">
+                  <div class="p-6">
+                    <h3 class="text-lg font-semibold text-gray-900">退会の確認</h3>
+                    <p class="mt-2 text-sm text-gray-600">アカウントを退会します。よろしいですか？この操作は取り消せません。</p>
+                    <div class="mt-6 flex items-center justify-end gap-3">
+                      <button type="button" class="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200" data-close>キャンセル</button>
+                      <button type="button" id="confirm-deactivate" class="inline-flex items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300">退会する</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -520,13 +535,22 @@
                             <p class="font-semibold"><%= inviteEmail %></p>
                           </div>
                           <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
-                            <form action="/settings/groups/<%= selectedGroup._id %>/cancel-invite" method="POST">
-                              <input type="hidden" name="email" value="<%= inviteEmail %>" />
-                              <button type="submit" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-red-500">
-                                <span class="lucide w-4 h-4" data-lucide="x-circle"></span>
-                                取消
-                              </button>
-                            </form>
+                            <div class="flex items-center gap-3">
+                              <form action="/settings/groups/<%= selectedGroup._id %>/resend-invite" method="POST" class="inline">
+                                <input type="hidden" name="email" value="<%= inviteEmail %>" />
+                                <button type="submit" class="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700" title="招待メールを再送信">
+                                  <span class="lucide w-4 h-4" data-lucide="refresh-ccw"></span>
+                                  再送
+                                </button>
+                              </form>
+                              <form action="/settings/groups/<%= selectedGroup._id %>/cancel-invite" method="POST" class="inline">
+                                <input type="hidden" name="email" value="<%= inviteEmail %>" />
+                                <button type="submit" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-red-500" title="招待を取消">
+                                  <span class="lucide w-4 h-4" data-lucide="x-circle"></span>
+                                  取消
+                                </button>
+                              </form>
+                            </div>
                           <% } %>
                         </li>
                       <% }) %>
@@ -548,6 +572,38 @@
       </main>
     </div>
   </div>
+<script>
+(function () {
+  const openBtn = document.getElementById('open-deactivate-confirm');
+  const modal = document.getElementById('deactivate-modal');
+  const confirmBtn = document.getElementById('confirm-deactivate');
+  const form = document.querySelector('form[action="/settings/deactivate"]');
+
+  if (!openBtn || !modal || !form) return;
+
+  const closeEls = modal.querySelectorAll('[data-close]');
+
+  function open() {
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function close() {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  openBtn.addEventListener('click', open);
+  closeEls.forEach((el) => el.addEventListener('click', close));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+
+  confirmBtn.addEventListener('click', () => form.submit());
+})();
+</script>
 </section>
 
 <script>

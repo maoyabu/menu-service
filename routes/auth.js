@@ -5,6 +5,8 @@ import Menu from '../models/menu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import Group from '../models/groups.js';
 import { isLoggedIn } from '../middleware.js';
+import passport from 'passport';
+import { Strategy as LocalStrategy } from 'passport-local';
 // ===== Password Reset (Forgot / Reset) =====
 import crypto from 'crypto';
 import path from 'path';
@@ -12,11 +14,40 @@ import ejs from 'ejs';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
+
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const __dirname = path.resolve();
 
 const router = express.Router();
+
+passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
+  try {
+    const user = await User.findOne({ email: (email || '').toLowerCase() });
+    if (!user) {
+      return done(null, false, { message: 'メールアドレスまたはパスワードが違います。' });
+    }
+
+    // 退会済みチェック
+    if (user.unsubscribe_date) {
+      return done(null, false, { message: 'このアカウントは退会済みです。' });
+    }
+
+    const isValid = await new Promise((resolve) => {
+      user.authenticate(password, (_err, thisUser, passwordError) => {
+        resolve(!passwordError && !!thisUser);
+      });
+    });
+
+    if (!isValid) {
+      return done(null, false, { message: 'メールアドレスまたはパスワードが違います。' });
+    }
+
+    return done(null, user);
+  } catch (err) {
+    return done(err);
+  }
+}));
 
 const normalizeBoolean = (value) => {
   if (typeof value === 'boolean') return value;
@@ -57,6 +88,11 @@ const authenticateWithIdentifier = async (req, res, next, options = {}) => {
     if (!user) {
       req.flash('error', 'ユーザー名またはメールアドレスが無効です');
       console.error('ユーザーが見つかりません:', identifier);
+      return res.redirect(failureRedirect);
+    }
+    // 退会済みチェック（カスタム認証経由でも拒否）
+    if (user.unsubscribe_date) {
+      req.flash('error', 'このアカウントは退会済みです。');
       return res.redirect(failureRedirect);
     }
 
@@ -460,12 +496,18 @@ router.post('/user/register', async (req, res, next) => {
       return redirectToForm();
     }
 
-    const services = {
-      allaboutme: normalizeBoolean(req.body?.services?.allaboutme),
-      finance: normalizeBoolean(req.body?.services?.finance),
-      assets: normalizeBoolean(req.body?.services?.assets),
-      menu: normalizeBoolean(req.body?.services?.menu)
-    };
+  let services = {
+    allaboutme: normalizeBoolean(req.body?.services?.allaboutme),
+    finance: normalizeBoolean(req.body?.services?.finance),
+    assets: normalizeBoolean(req.body?.services?.assets),
+    menu: normalizeBoolean(req.body?.services?.menu)
+  };
+
+  const pendingInvite = req.session && req.session.pendingInvite;
+  if (pendingInvite && pendingInvite.menuOnly) {
+    // 招待経由の新規登録は Menu のみ利用可に強制
+    services = { allaboutme: false, finance: false, assets: false, menu: true };
+  }
 
     const birthDate = parseOptionalDate(birth_date);
 
@@ -490,6 +532,44 @@ router.post('/user/register', async (req, res, next) => {
         resolve();
       });
     });
+
+    // (B) 招待グループへの参加 + サービス制限（Menu のみ）
+    try {
+      const pendingInvite = req.session && req.session.pendingInvite;
+      if (pendingInvite && pendingInvite.groupId) {
+        const group = await Group.findById(pendingInvite.groupId);
+        if (group) {
+          // メンバー追加（未参加なら）
+          const isMember = (group.members || []).some((m) => String(m) === String(registeredUser._id));
+          if (!isMember) {
+            group.members = group.members || [];
+            group.members.push(registeredUser._id);
+          }
+          // 招待メールリストから除外
+          const _email = (registeredUser.email || '').toLowerCase();
+          if (_email) {
+            group.invitedUsers = (group.invitedUsers || []).filter((addr) => addr !== _email);
+          }
+          await group.save();
+
+          // ユーザー側にも反映（Menu のみ有効 + defaultGroup 設定）
+          await User.findByIdAndUpdate(registeredUser._id, {
+            $addToSet: { groups: group._id },
+            $set: {
+              services: { allaboutme: false, finance: false, assets: false, menu: true },
+              defaultGroup: group._id,
+            }
+          });
+
+          // セッションのアクティブグループも更新
+          req.session.activeGroupId = group._id.toString();
+        }
+      }
+    } catch (e) {
+      console.error('invite attach error:', e);
+    } finally {
+      if (req.session) delete req.session.pendingInvite;
+    }
 
     req.flash('success', '会員登録が完了しました。ログインしました。');
     return res.redirect('/users/my-top');
@@ -1522,6 +1602,19 @@ router.post('/auth/reset/:token', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+router.get('/user/register', (req, res) => {
+  const presetEmail = (req.query.email || '').toLowerCase();
+  const menuOnly = (req.query.menuOnly === '1');
+  const [registrationAlert] = req.flash('registrationAlert');
+
+  return res.render('auth/userLogin', {
+    presetEmail,
+    menuOnly,
+    defaultTab: 'register',
+    registrationAlert: registrationAlert || null,
+  });
 });
 
 export default router;
