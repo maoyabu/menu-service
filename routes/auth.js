@@ -535,9 +535,22 @@ router.post('/user/register', async (req, res, next) => {
 
     // (B) 招待グループへの参加 + サービス制限（Menu のみ）
     try {
-      const pendingInvite = req.session && req.session.pendingInvite;
-      if (pendingInvite && pendingInvite.groupId) {
-        const group = await Group.findById(pendingInvite.groupId);
+      // 1) セッションの pendingInvite を優先
+      let inviteGroupId = (req.session && req.session.pendingInvite && req.session.pendingInvite.groupId) ? String(req.session.pendingInvite.groupId) : '';
+
+      // 2) セッションが無ければ、メールアドレスが招待リストに含まれるグループを検索して補完
+      if (!inviteGroupId) {
+        const emailLower = (registeredUser.email || '').toLowerCase();
+        if (emailLower) {
+          const invitedGroup = await Group.findOne({ invitedUsers: emailLower }).lean();
+          if (invitedGroup) {
+            inviteGroupId = String(invitedGroup._id);
+          }
+        }
+      }
+
+      if (inviteGroupId) {
+        const group = await Group.findById(inviteGroupId);
         if (group) {
           // メンバー追加（未参加なら）
           const isMember = (group.members || []).some((m) => String(m) === String(registeredUser._id));
@@ -545,21 +558,24 @@ router.post('/user/register', async (req, res, next) => {
             group.members = group.members || [];
             group.members.push(registeredUser._id);
           }
-          // 招待メールリストから除外
+          // 招待メールリストから除外（一致メールを抜く）
           const _email = (registeredUser.email || '').toLowerCase();
           if (_email) {
-            group.invitedUsers = (group.invitedUsers || []).filter((addr) => addr !== _email);
+            group.invitedUsers = (group.invitedUsers || []).filter((addr) => String(addr).toLowerCase() !== _email);
           }
           await group.save();
 
           // ユーザー側にも反映（Menu のみ有効 + defaultGroup 設定）
-          await User.findByIdAndUpdate(registeredUser._id, {
-            $addToSet: { groups: group._id },
-            $set: {
-              services: { allaboutme: false, finance: false, assets: false, menu: true },
-              defaultGroup: group._id,
+          await User.findByIdAndUpdate(
+            registeredUser._id,
+            {
+              $addToSet: { groups: group._id },
+              $set: {
+                services: { allaboutme: false, finance: false, assets: false, menu: true },
+                defaultGroup: group._id,
+              }
             }
-          });
+          );
 
           // セッションのアクティブグループも更新
           req.session.activeGroupId = group._id.toString();
@@ -1521,8 +1537,8 @@ router.post('/auth/forgot', async (req, res, next) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      req.flash('success', 'パスワード再設定メールを送信しました（該当アドレスが登録されていれば届きます）');
-      return res.redirect('/user/login');
+      req.flash('error', 'ユーザーの登録がありません。会員登録をしてください。');
+      return res.redirect(`/user/register?email=${encodeURIComponent(email)}&menuOnly=0`);
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -1606,7 +1622,7 @@ router.post('/auth/reset/:token', async (req, res, next) => {
 
 router.get('/user/register', (req, res) => {
   const presetEmail = (req.query.email || '').toLowerCase();
-  const menuOnly = (req.query.menuOnly === '1');
+  const menuOnly = (req.query.menuOnly === '1') || !!(req.session?.pendingInvite?.menuOnly);
   const [registrationAlert] = req.flash('registrationAlert');
 
   return res.render('auth/userLogin', {

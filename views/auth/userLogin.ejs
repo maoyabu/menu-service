@@ -155,28 +155,11 @@
           />
         </div>
 
-        <div>
-          <label class="block text-sm font-semibold text-gray-700">利用するサービス</label>
-          <p class="mt-1 text-xs text-gray-500">利用開始時に有効化するサービスを選択できます。</p>
-          <div class="mt-3 grid sm:grid-cols-2 gap-3 text-sm">
-            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
-              <input type="checkbox" name="services[allaboutme]" value="true" <%= (typeof menuOnly !== 'undefined' && menuOnly) ? 'disabled' : '' %> class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              All About Me
-            </label>
-            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
-              <input type="checkbox" name="services[finance]" value="true" <%= (typeof menuOnly !== 'undefined' && menuOnly) ? 'disabled' : '' %> class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              Finance
-            </label>
-            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
-              <input type="checkbox" name="services[assets]" value="true" <%= (typeof menuOnly !== 'undefined' && menuOnly) ? 'disabled' : '' %> class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              Assets
-            </label>
-            <label class="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300">
-              <input type="checkbox" name="services[menu]" value="true" <%= (typeof menuOnly !== 'undefined' && menuOnly) ? 'checked disabled' : 'checked' %> class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-              Menu
-            </label>
-          </div>
-        </div>
+        <!-- 利用サービスは登録時は固定（Menuのみ有効）。UIは非表示、値は hidden で送信 -->
+        <input type="hidden" name="services[allaboutme]" value="false">
+        <input type="hidden" name="services[finance]" value="false">
+        <input type="hidden" name="services[assets]" value="false">
+        <input type="hidden" name="services[menu]" value="true">
 
         <label class="flex items-start gap-3 text-sm text-gray-600">
           <input type="checkbox" name="termsAgree" required class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />

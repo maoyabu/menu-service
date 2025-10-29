@@ -30,6 +30,7 @@ const buildTransporter = () => {
   };
 };
 
+
 const sendInviteMail = async ({ toEmail, inviterName, groupName, inviteUrl }) => {
   const transporter = buildTransporter();
   const from = process.env.MAIL_FROM || 'no-reply@example.com';
@@ -45,6 +46,76 @@ const sendInviteMail = async ({ toEmail, inviterName, groupName, inviteUrl }) =>
 
   await transporter.sendMail({ from, to: toEmail, subject, html });
 };
+
+// 招待受諾処理（メールの「参加する」ボタンから遷移）
+router.get('/invite/accept', async (req, res, next) => {
+  try {
+    const groupId = String(req.query.group || '').trim();
+    const emailRaw = String(req.query.email || '').trim();
+    const email = emailRaw.toLowerCase();
+
+    if (!groupId || !email) {
+      req.flash('error', '招待リンクが不正です');
+      return res.redirect('/user/login');
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      req.flash('error', '対象のグループが見つかりませんでした');
+      return res.redirect('/user/login');
+    }
+
+    const invited = (group.invitedUsers || []).some((addr) => addr === email);
+    if (!invited) {
+      // 既に承認済み or 取り消し後の可能性
+      req.flash('error', 'この招待は無効か、すでに処理済みです');
+      return res.redirect('/user/login');
+    }
+
+    const existing = await User.findOne({ email }).exec();
+
+    if (existing) {
+      // 1) 既存ユーザー：メンバーに追加、サービスを Menu のみに制限
+      const alreadyMember = (group.members || []).some((m) => m.toString() === existing._id.toString());
+      if (!alreadyMember) {
+        group.members = group.members || [];
+        group.members.push(existing._id);
+      }
+      // 招待リストから除外
+      group.invitedUsers = (group.invitedUsers || []).filter((addr) => addr !== email);
+      await group.save();
+
+      // ユーザー側にもグループ追加
+      await User.findByIdAndUpdate(existing._id, {
+        $addToSet: { groups: group._id },
+        $set: {
+          services: {
+            allaboutme: false,
+            finance: false,
+            assets: false,
+            menu: true
+          }
+        }
+      });
+
+      req.flash('success', 'グループへの参加が完了しました。ログインしてください。');
+      return res.redirect('/user/login');
+    }
+
+    // 2) 新規ユーザー：登録フローへ誘導。登録時に Menu のみ有効化するためのフラグを保存
+    req.session.pendingInvite = {
+      email,
+      groupId: group._id.toString(),
+      menuOnly: true
+    };
+
+    req.flash('success', '会員登録後ログインして利用を開始してください');
+    return res.redirect(`/user/register?email=${encodeURIComponent(email)}&menuOnly=1`);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 router.use(isLoggedIn);
 
@@ -499,74 +570,6 @@ router.post('/groups/:groupId/resend-invite', async (req, res, next) => {
   }
 });
 
-// 招待受諾処理（メールの「参加する」ボタンから遷移）
-router.get('/invite/accept', async (req, res, next) => {
-  try {
-    const groupId = String(req.query.group || '').trim();
-    const emailRaw = String(req.query.email || '').trim();
-    const email = emailRaw.toLowerCase();
-
-    if (!groupId || !email) {
-      req.flash('error', '招待リンクが不正です');
-      return res.redirect('/user/login');
-    }
-
-    const group = await Group.findById(groupId);
-    if (!group) {
-      req.flash('error', '対象のグループが見つかりませんでした');
-      return res.redirect('/user/login');
-    }
-
-    const invited = (group.invitedUsers || []).some((addr) => addr === email);
-    if (!invited) {
-      // 既に承認済み or 取り消し後の可能性
-      req.flash('error', 'この招待は無効か、すでに処理済みです');
-      return res.redirect('/user/login');
-    }
-
-    const existing = await User.findOne({ email }).exec();
-
-    if (existing) {
-      // 1) 既存ユーザー：メンバーに追加、サービスを Menu のみに制限
-      const alreadyMember = (group.members || []).some((m) => m.toString() === existing._id.toString());
-      if (!alreadyMember) {
-        group.members = group.members || [];
-        group.members.push(existing._id);
-      }
-      // 招待リストから除外
-      group.invitedUsers = (group.invitedUsers || []).filter((addr) => addr !== email);
-      await group.save();
-
-      // ユーザー側にもグループ追加
-      await User.findByIdAndUpdate(existing._id, {
-        $addToSet: { groups: group._id },
-        $set: {
-          services: {
-            allaboutme: false,
-            finance: false,
-            assets: false,
-            menu: true
-          }
-        }
-      });
-
-      req.flash('success', 'グループへの参加が完了しました。ログインしてください。');
-      return res.redirect('/user/login');
-    }
-
-    // 2) 新規ユーザー：登録フローへ誘導。登録時に Menu のみ有効化するためのフラグを保存
-    req.session.pendingInvite = {
-      email,
-      groupId: group._id.toString(),
-      menuOnly: true
-    };
-
-    req.flash('success', '会員登録後ログインして利用を開始してください');
-    return res.redirect(`/user/register?email=${encodeURIComponent(email)}&menuOnly=1`);
-  } catch (err) {
-    next(err);
-  }
-});
 
 // グループメンバー削除・退会処理
 router.post('/groups/:groupId/remove-member', async (req, res, next) => {
