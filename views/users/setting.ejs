@@ -470,7 +470,7 @@
                         <p class="text-xs text-gray-500"><%= memberEmail %></p>
                       </div>
                       <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
-                        <form action="/settings/groups/<%= selectedGroup._id %>/remove-member" method="POST">
+                        <form action="/settings/groups/<%= selectedGroup._id %>/remove-member" method="POST" onsubmit="return confirm('<%= memberLabel %> をグループから退会させます。よろしいですか？');">
                           <input type="hidden" name="memberId" value="<%= member._id || member %>" />
                           <button type="submit" class="inline-flex items-center gap-2 text-sm text-red-500 hover:text-red-600">
                             <span class="lucide w-4 h-4" data-lucide="user-minus"></span>
