@@ -87,7 +87,7 @@
   .plan-calendar-header-btn:hover{ border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.2); }
   #plan-calendar-month-label{ color:#1e3a8a; }
 
-  .plan-calendar-grid { display:grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap:6px; grid-auto-rows: 28px; }
+  .plan-calendar-grid { display:grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap:4px; grid-auto-rows: 24px; }
   .plan-calendar-day { position:relative; }
   .plan-calendar-day > button {
     width:100%; height:100%;
@@ -99,18 +99,20 @@
   .plan-calendar-day--muted > button { background:#f1f5f9; border-color:#e2e8f0; color:#94a3b8; }
   .plan-calendar-day--today > button { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.25) inset; }
 
-  .plan-calendar-week-badge { position:absolute; right:4px; bottom:4px; width:6px; height:6px; border-radius:9999px; background:#93c5fd; }
 
   .plan-calendar-legend { display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:4px 8px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#1e3a8a; }
-  .plan-calendar-legend--planned { border-color:#93c5fd; background:#e0eaff; color:#1e3a8a; }
+  .plan-calendar-legend--planned {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+  }
   .plan-calendar-legend--future  { border-color:#bfdbfe; background:#f0f7ff; color:#1d4ed8; }
   .plan-calendar-legend--past    { border-color:#cbd5e1; background:#f8fafc; color:#475569; }
 
   /* week status coloring */
   .plan-calendar-day.is-planned > button {
-    background-color: #e8f0ff; /* blue-50 っぽい */
-    border-color: #93c5fd;     /* blue-300 */
-    color: #1e3a8a;            /* blue-900 */
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    border-radius: 6px;
   }
   .plan-calendar-day.is-future > button {
     background-color: #f0f7ff; /* light */
@@ -123,26 +125,19 @@
     border-color: #cbd5e1 !important;     /* slate-300 */
     color: #475569 !important;            /* slate-600 ※読みやすいが濃すぎない */
   }
-  /* ドット色 */
-  .plan-calendar-day.is-planned .plan-calendar-week-badge { background:#3b82f6; } /* blue-500 */
-  .plan-calendar-day.is-future  .plan-calendar-week-badge { background:#60a5fa; } /* blue-400 */
-.plan-calendar-day.is-past .plan-calendar-week-badge { background-color: #94a3b8 !important; } /* slate-400 */
-  /* 現在編集中の週（プラン登録済み）を強調 */
-  .plan-calendar-day.is-planned > button {
-    background-color: #2563eb !important; /* blue-600 */
-    border-color: #1e3a8a !important;     /* blue-900 */
-    color: #ffffff !important;            /* 白文字 */
-    font-weight: 600;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) inset; /* 内側に淡いグロー */
-  }
 
-  /* ドットも濃い青に統一 */
-  .plan-calendar-day.is-planned .plan-calendar-week-badge {
-    background-color: #1e40af !important; /* blue-800 */
+  /* Constrain inline header calendar width to match myTop */
+  .header-calendar-wrap {
+    width: 100%;
+    max-width: 360px;
+    margin-left: auto; /* right-align */
+    margin-right: 0;
   }
-
   @media (min-width: 768px) {
-    .header-calendar-wrap { max-width: 420px; }
+    .header-calendar-wrap {
+      max-width: 360px;
+      /* Do not override margin-left: auto; */
+    }
   }
 </style>
 
@@ -639,9 +634,6 @@
             btn.addEventListener('click', () => navigateToWeek(buildWeekStartISO(d)));
             cell.appendChild(btn);
 
-            const badge = document.createElement('span');
-            badge.className = 'plan-calendar-week-badge';
-            cell.appendChild(badge);
 
             // ←← ここ追加
             const weekISO = startOfWeekMonISO(d);
@@ -1334,15 +1326,17 @@
       groupEl.appendChild(addDinnerButton);
     };
 
+    const supplyTabButtons = Array.from(document.querySelectorAll('.supply-tab-button'));
     const switchSupplyTab = (nextSupply) => {
       state.supplyTab = nextSupply === 'seasonings' ? 'seasonings' : 'ingredients';
       supplyTabButtons.forEach((button) => {
-        const isActive = button.dataset.supplyTab === state.supplyTab;
-        button.classList.toggle('bg-emerald-500', isActive);
+        const isActive = (button.dataset.tab === state.supplyTab);
+        button.classList.toggle('bg-emerald-600', isActive);
+        button.classList.toggle('bg-emerald-700', false);
         button.classList.toggle('text-white', isActive);
+        button.classList.toggle('bg-white', !isActive);
+        button.classList.toggle('text-emerald-600', !isActive);
         button.classList.toggle('shadow-sm', isActive);
-        button.classList.toggle('bg-gray-100', !isActive);
-        button.classList.toggle('text-gray-600', !isActive);
       });
       renderRequirements();
     };
