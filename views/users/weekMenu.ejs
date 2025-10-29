@@ -583,6 +583,9 @@
         const endOfMonth   = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
         const formatMonthLabel = (d) => `${d.getFullYear()}年 ${d.getMonth() + 1}月`;
 
+        // Prefer weekStart from URL if present (overrides plan/session)
+        const urlWeekStart = new URL(window.location.href).searchParams.get('weekStart');
+
         // Week status helpers (used to color cells)
         const startOfWeekMonISO = (d) => {
           const ws = startOfWeekMon(d);
@@ -590,11 +593,13 @@
           return new Date(local00.getTime() - (local00.getTimezoneOffset() * 60000)).toISOString();
         };
         const todayWeekISO = startOfWeekMonISO(new Date());
-        const currentPlanWeekISO = (window.weekMenuData && window.weekMenuData.weekStartISO)
-          ? startOfWeekMonISO(new Date(window.weekMenuData.weekStartISO))
-          : todayWeekISO;
+        const currentPlanWeekISO = urlWeekStart
+          ? startOfWeekMonISO(new Date(urlWeekStart))
+          : (window.weekMenuData?.weekStartISO
+              ? startOfWeekMonISO(new Date(window.weekMenuData.weekStartISO))
+              : todayWeekISO);
 
-        const baseISO = window.weekMenuData?.weekStartISO || window.weekMenuData?.todayISO || new Date().toISOString();
+        const baseISO = urlWeekStart || window.weekMenuData?.weekStartISO || window.weekMenuData?.todayISO || new Date().toISOString();
         const initialWeek = startOfWeekMon(new Date(baseISO));
         const stateCal = { currentMonth: startOfMonth(initialWeek) };
 
@@ -605,6 +610,9 @@
         };
         const navigateToWeek = (weekStart) => {
           const url = new URL(window.location.href);
+          // clear plan pinning so server recalculates by weekStart
+          url.searchParams.delete('plan');
+          url.searchParams.delete('planId');
           url.searchParams.set('weekStart', weekStart);
           window.location.assign(url.toString());
         };
