@@ -5,6 +5,12 @@ import { isLoggedIn } from '../middleware.js';
 import ejs from 'ejs';
 import nodemailer from 'nodemailer';
 import path from 'path';
+import fs from 'fs';
+
+import multer from 'multer';
+import cloudinary from '../utils/cloudinary.js';
+
+const upload = multer({ dest: 'uploads/' });
 
 const router = express.Router();
 
@@ -286,6 +292,34 @@ router.post('/password', async (req, res, next) => {
       return res.redirect('/settings');
     }
     next(err);
+  }
+});
+
+// プロフィール画像アップロード
+router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      req.flash('error', '画像ファイルがありません');
+      return res.redirect('/settings?view=profile');
+    }
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'profile_avatars'
+    });
+
+    await User.findByIdAndUpdate(req.user._id, { avatar: result.secure_url });
+
+    // ローカルファイルを削除
+    fs.unlink(req.file.path, (err) => {
+      if (err) console.error('ローカル画像削除エラー:', err);
+    });
+
+    req.flash('success', 'プロフィール画像を更新しました');
+    res.redirect('/settings?view=profile');
+  } catch (e) {
+    console.error(e);
+    req.flash('error', '画像アップロードに失敗しました');
+    res.redirect('/settings?view=profile');
   }
 });
 
