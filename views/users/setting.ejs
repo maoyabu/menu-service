@@ -89,17 +89,19 @@
                     </div>
                   <% } %>
                   <div class="absolute inset-0 hidden group-hover:flex items-center justify-center text-[11px] font-medium text-white bg-black/40 pointer-events-none">画像を変更</div>
+                  <!-- Loading overlay when swapping avatar -->
+                  <div id="avatar-loading" class="hidden absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+                    <span class="inline-flex items-center gap-2 text-xs font-semibold">
+                      <span class="lucide w-4 h-4 animate-spin" data-lucide="loader"></span>
+                      変更中…
+                    </span>
+                  </div>
                 </div>
 
                 <div class="flex-1">
                   <label for="avatar-file" class="block text-sm font-medium text-gray-700">プロフィール画像をアップロード</label>
                   <p class="text-xs text-gray-500 mt-1">JPEG/PNG/WebP（5MBまで）</p>
                   <p id="avatar-help" class="sr-only">画像ファイルを選択すると自動でアップロードされます</p>
-
-                  <button type="button" id="avatar-upload-btn" class="mt-3 inline-flex items-center gap-2 bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-600 transition">
-                    <span class="lucide w-4 h-4" data-lucide="upload"></span>
-                    アップロード
-                  </button>
                 </div>
               </div>
 
@@ -664,11 +666,28 @@
     const fileInput = document.getElementById('avatar-file');
     const form = document.getElementById('avatar-upload-form');
     const trigger = document.getElementById('avatar-trigger');
-    const btn = document.getElementById('avatar-upload-btn');
+    const loading = document.getElementById('avatar-loading');
+
+    function showLoading(on) {
+      if (!loading) return;
+      loading.classList.toggle('hidden', !on);
+      if (on) {
+        // prevent further clicks while uploading
+        trigger?.classList.add('pointer-events-none');
+      } else {
+        trigger?.classList.remove('pointer-events-none');
+      }
+    }
 
     function submitUpload() {
       if (fileInput && fileInput.files && fileInput.files[0]) {
-        form.submit();
+        showLoading(true);
+        try {
+          form.submit();
+        } catch (e) {
+          console.error(e);
+          showLoading(false);
+        }
       }
     }
 
@@ -683,14 +702,6 @@
     if (fileInput) {
       fileInput.addEventListener('click', e => e.stopPropagation());
       fileInput.addEventListener('change', submitUpload);
-    }
-
-    if (btn) {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        submitUpload();
-      });
     }
   })();
   </script>
