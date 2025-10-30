@@ -26,12 +26,12 @@
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">種類 *</label>
-        <select name="kind" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
-          <option value="">種類を選択</option>
-          <% kindList.forEach(kind => { %>
-            <option value="<%= kind %>"><%= kind %></option>
-          <% }) %>
-        </select>
+        <input type="text" name="kind" list="kind-list" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 主菜 / 副菜 / デザート など" required>
+        <datalist id="kind-list">
+          <% (kindList || []).forEach(kind => { %>
+            <option value="<%= kind %>"></option>
+          <% }); %>
+        </datalist>
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">ジャンル *</label>
