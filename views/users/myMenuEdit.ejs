@@ -77,7 +77,40 @@
         <textarea name="comment" rows="3" class="w-full border rounded-lg px-3 py-2"><%= menuDoc.comment || '' %></textarea>
       </div>
     </div>
-
+    <div class="border-t pt-4">
+      <div class="rounded-xl border px-4 py-3 bg-gray-50 space-y-3">
+        <div class="flex flex-wrap items-center gap-4 text-[15px]">
+          <label class="inline-flex items-center gap-2 font-medium">
+            <input type="checkbox" name="favorite" value="true" class="w-4 h-4" <%= (!owned || owned.favorite) ? 'checked' : '' %> />
+            <span>お気に入り</span>
+          </label>
+          <label class="inline-flex items-center gap-2 font-medium">食べたい頻度
+            <select name="frequency" class="border rounded px-2 py-1">
+              <% for(let i=1;i<=5;i++){ %>
+                <option value="<%= i %>" <%= (owned && Number(owned.frequency)===i) ? 'selected' : '' %>><%= i %></option>
+              <% } %>
+            </select>
+            <span class="text-xs text-gray-500">（1=低い、5=高い）</span>
+          </label>
+          <label class="inline-flex items-center gap-2 font-medium">
+            <input type="checkbox" name="skill" value="true" class="w-4 h-4" <%= (owned && owned.skill) ? 'checked' : '' %> />
+            <span>得意</span>
+          </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-4 text-[15px]">
+          <label class="inline-flex items-center gap-2 font-medium">
+            <input type="checkbox" name="share" value="true" class="w-4 h-4" <%= (owned && owned.share) ? 'checked' : '' %> />
+            <span>共有する</span>
+          </label>
+          <label class="inline-flex items-center gap-2 font-medium">共有範囲
+            <select name="shareScope" class="border rounded px-2 py-1">
+              <option value="group" <%= (!owned || owned.shareScope==='group') ? 'selected' : '' %>>グループ内</option>
+              <option value="all" <%= (owned && owned.shareScope==='all') ? 'selected' : '' %>>全会員</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
     <div class="border-t pt-4">
       <div class="flex items-center justify-between">
         <h3 class="font-semibold">食材</h3>

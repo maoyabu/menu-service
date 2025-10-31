@@ -89,9 +89,12 @@
   <div id="fav-modal" class="hidden fixed inset-0 z-50 bg-transparent">
     <div id="fav-pop" class="w-80 rounded-xl bg-white p-5 shadow-lg border">
       <h3 class="text-base font-semibold mb-3">マイメニューに登録</h3>
-      <div class="space-y-3 text-sm">
-        <label class="flex items-center justify-between">
-          <span>食べたい頻度</span>
+      <div class="space-y-3 text-[15px]">
+        <label class="flex items-center justify-between gap-3">
+          <span class="flex flex-col leading-tight">
+            <span class="font-medium">食べたい頻度</span>
+            <span class="text-xs text-gray-500">（1=頻度低い、5=頻度高い）</span>
+          </span>
           <select id="fav-frequency" class="border rounded px-2 py-1">
             <option value="1">1</option>
             <option value="2">2</option>
@@ -100,9 +103,9 @@
             <option value="5">5</option>
           </select>
         </label>
-        <label class="flex items-center gap-2">
-          <input id="fav-skill" type="checkbox" class="rounded border-gray-300" />
-          <span>得意料理にする</span>
+        <label class="flex items-center gap-2 font-medium">
+          <input id="fav-skill" type="checkbox" class="rounded border-gray-300 w-4 h-4" />
+          <span>得意</span>
         </label>
       </div>
       <div class="mt-5 flex justify-end gap-2">

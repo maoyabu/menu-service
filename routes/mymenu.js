@@ -596,7 +596,7 @@ router.get('/edit/:menuId', async (req, res, next) => {
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
     ].filter(Boolean)));
-    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits });
+    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned });
   } catch (err) { next(err); }
 });
 
@@ -625,6 +625,11 @@ router.post('/edit/:menuId', async (req, res, next) => {
       people,
       comment,
       yomi,
+      favorite = 'true',
+      frequency = '3',
+      skill = 'false',
+      share = 'false',
+      shareScope = 'group',
       ingredient_ids = [],
       ingredient_amounts = [],
       ingredient_units = [],
@@ -647,6 +652,19 @@ router.post('/edit/:menuId', async (req, res, next) => {
     await Menu.findByIdAndUpdate(menuId, {
       name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1, comment, ingredients, seasoning: seasonings
     });
+
+    // 更新時に自分のマイメニュー設定も反映（存在すれば）
+    await Mymenu.findOneAndUpdate(
+      { user: req.user._id, menu: menuId },
+      {
+        favorite: String(favorite) === 'true',
+        frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
+        skill: String(skill) === 'true',
+        share: String(share) === 'true',
+        shareScope: shareScope === 'all' ? 'all' : 'group'
+      },
+      { upsert: false }
+    );
     req.flash('success', 'レシピを更新しました');
     return res.redirect('/users/my-menu/shared-register?fav=mine');
   } catch (err) { next(err); }
