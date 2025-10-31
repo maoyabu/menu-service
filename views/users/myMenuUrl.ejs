@@ -74,15 +74,15 @@
       </div>
       <div>
         <label class="text-xs text-gray-500">調理時間（分）</label>
-        <input name="time" class="w-full border rounded-lg px-3 py-2" />
+        <input name="time" id="f_time" class="w-full border rounded-lg px-3 py-2" />
       </div>
       <div>
         <label class="text-xs text-gray-500">人数</label>
-        <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" />
+        <input name="people" id="f_people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" />
       </div>
       <div class="md:col-span-2">
         <label class="text-xs text-gray-500">コメント</label>
-        <textarea name="comment" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="メモや補足"></textarea>
+        <textarea name="comment" id="f_comment" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="メモや補足"></textarea>
       </div>
     </div>
 
@@ -170,6 +170,18 @@
         document.getElementById('f_imageUrl').value = data.image;
         const img = document.getElementById('imgPreview');
         if (img) img.src = data.image;
+      }
+      if (typeof data.time === 'number' && !Number.isNaN(data.time)) {
+        const t = document.getElementById('f_time');
+        if (t && !t.value) t.value = String(data.time);
+      }
+      if (typeof data.people === 'number' && data.people > 0) {
+        const p = document.getElementById('f_people');
+        if (p && !p.value) p.value = String(data.people);
+      }
+      if (data.comment) {
+        const c = document.getElementById('f_comment');
+        if (c && !c.value) c.value = data.comment;
       }
     } catch (e) {
       console.error(e);

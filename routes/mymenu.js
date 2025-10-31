@@ -307,6 +307,8 @@ router.post('/from-url/fetch', express.json(), async (req, res) => {
     if (!url || !/^https?:\/\//i.test(url)) {
       return res.status(400).json({ error: 'URLを指定してください' });
     }
+    let host = '';
+    try { host = new URL(url).hostname || ''; } catch (_) { host = ''; }
     const duplicate = await Menu.findOne({ url }).select('_id name').lean();
     if (duplicate) {
       return res.json({ duplicate: true, name: duplicate.name || '' });
@@ -327,10 +329,27 @@ router.post('/from-url/fetch', express.json(), async (req, res) => {
     const title = pickOg('title') || pickTwitter('title') || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
     let image = pickOg('image') || pickTwitter('image') || pickTwitter('image:src') || '';
 
+    // Helpers for structured data
+    const parseISODurationToMinutes = (value) => {
+      if (!value || typeof value !== 'string') return null;
+      // PT1H30M, PT45M, PT2H, P0DT30M, etc.
+      const m = value.match(/P(?:\d+Y)?(?:\d+M)?(?:\d+D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
+      if (!m) return null;
+      const h = parseInt(m[1] || '0', 10);
+      const min = parseInt(m[2] || '0', 10);
+      const s = parseInt(m[3] || '0', 10);
+      const total = h * 60 + min + (s ? Math.round(s / 60) : 0);
+      return total || null;
+    };
+    const toHalfWidth = (str) => str.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+
+    let time = null; // minutes
+    let people = null; // number
+    let comment = '';
+
     // Kurashiru (and similar) fallback: use <video ... poster="...">
     if (!image) {
       try {
-        const host = new URL(url).hostname || '';
         const posterMatch = html.match(/<video[^>]+poster=["']([^"']+)["'][^>]*>/i);
         if (posterMatch && posterMatch[1] && /kurashiru\.com/i.test(host)) {
           image = posterMatch[1];
@@ -343,27 +362,485 @@ router.post('/from-url/fetch', express.json(), async (req, res) => {
       }
     }
 
-    // Another fallback: JSON-LD thumbnailUrl if present
-    if (!image) {
-      const jsonLdMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
-      for (const block of jsonLdMatches) {
-        try {
-          const jsonText = block.replace(/^[\s\S]*?>/,'').replace(/<\/(?:script)>[\s\S]*$/,'');
-          const data = JSON.parse(jsonText);
-          const pickFrom = Array.isArray(data) ? data : [data];
-          for (const obj of pickFrom) {
-            if (obj && typeof obj === 'object') {
-              if (typeof obj.thumbnailUrl === 'string' && obj.thumbnailUrl) { image = obj.thumbnailUrl; break; }
-              if (obj.image && typeof obj.image === 'string') { image = obj.image; break; }
-              if (obj.image && Array.isArray(obj.image) && obj.image.length) { image = obj.image[0]; break; }
+    // Parse JSON-LD blocks for Recipe data (image/time/people/ingredients/instructions)
+    const jsonLdMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+    const parseBlocks = [];
+    for (const block of jsonLdMatches) {
+      try {
+        const jsonText = block.replace(/^[\s\S]*?>/, '').replace(/<\/(?:script)>[\s\S]*$/, '');
+        const data = JSON.parse(jsonText);
+        parseBlocks.push(data);
+      } catch (_) { /* ignore JSON parse error */ }
+    }
+
+    const flatten = (x) => (Array.isArray(x) ? x : [x]).filter(Boolean);
+    const matchType = (obj, typeName) => {
+      const t = obj && obj['@type'];
+      if (!t) return false;
+      return (Array.isArray(t) ? t : [t]).some((v) => String(v).toLowerCase() === typeName.toLowerCase());
+    };
+    let recipe = null;
+    const walk = (node) => {
+      if (!node || recipe) return;
+      if (typeof node !== 'object') return;
+      if (matchType(node, 'Recipe')) { recipe = node; return; }
+      Object.values(node).forEach((v) => {
+        if (recipe) return; if (v && typeof v === 'object') walk(v);
+      });
+    };
+    parseBlocks.forEach((d) => walk(d));
+
+    if (recipe) {
+      // Prefer image from Recipe if still empty
+      if (!image) {
+        if (typeof recipe.image === 'string') image = recipe.image;
+        else if (Array.isArray(recipe.image) && recipe.image.length) image = recipe.image[0];
+        else if (recipe.image && typeof recipe.image === 'object' && recipe.image.url) image = recipe.image.url;
+        else if (typeof recipe.thumbnailUrl === 'string') image = recipe.thumbnailUrl;
+      }
+      // Time
+      time = parseISODurationToMinutes(recipe.totalTime) || parseISODurationToMinutes(recipe.cookTime) || parseISODurationToMinutes(recipe.prepTime) || time;
+      // People
+      const yieldRaw = recipe.recipeYield || recipe.yield || null;
+      if (yieldRaw) {
+        const text = toHalfWidth(String(Array.isArray(yieldRaw) ? yieldRaw[0] : yieldRaw));
+        const m = text.match(/(\d+)/);
+        if (m) people = parseInt(m[1], 10) || null;
+      }
+      // Comment (材料 + 作り方)
+      try {
+        const ingredients = flatten(recipe.recipeIngredient).map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
+        const collectSteps = (ri) => {
+          if (!ri) return [];
+          const arr = flatten(ri);
+          const out = [];
+          for (const step of arr) {
+            if (!step) continue;
+            if (typeof step === 'string') { out.push(step.trim()); continue; }
+            if (Array.isArray(step)) { step.forEach((x) => { if (typeof x === 'string') out.push(x.trim()); }); continue; }
+            if (step['@type'] && String(step['@type']).toLowerCase() === 'howtostep' && step.text) {
+              out.push(String(step.text).trim());
+              continue;
+            }
+            if (step.itemListElement) {
+              flatten(step.itemListElement).forEach((el) => {
+                if (typeof el === 'string') out.push(el.trim());
+                else if (el && el.text) out.push(String(el.text).trim());
+              });
             }
           }
-          if (image) break;
-        } catch (_) { /* ignore */ }
+          return out.filter(Boolean);
+        };
+        const steps = collectSteps(recipe.recipeInstructions);
+        if (ingredients.length || steps.length) {
+          const parts = [];
+          if (ingredients.length) {
+            parts.push('材料');
+            ingredients.forEach((line) => parts.push(`・${line}`));
+          }
+          if (steps.length) {
+            if (parts.length) parts.push('');
+            parts.push('作り方');
+            steps.forEach((line, idx) => parts.push(`${idx + 1}. ${line}`));
+          }
+          comment = parts.join('\n');
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    // If still no image, try JSON-LD generic blocks (thumbnailUrl/image)
+    if (!image) {
+      for (const data of parseBlocks) {
+        const list = Array.isArray(data) ? data : [data];
+        for (const obj of list) {
+          if (obj && typeof obj === 'object') {
+            if (typeof obj.thumbnailUrl === 'string' && obj.thumbnailUrl) { image = obj.thumbnailUrl; break; }
+            if (obj.image && typeof obj.image === 'string') { image = obj.image; break; }
+            if (obj.image && Array.isArray(obj.image) && obj.image.length) { image = obj.image[0]; break; }
+          }
+        }
+        if (image) break;
       }
     }
 
-    return res.json({ title, image, duplicate: false });
+    // Heuristic fallbacks for time & people if still missing
+    if (!time) {
+      const m = html.match(/(?:調理時間|所要時間)[^\d]*(\d+)\s*分/i);
+      const mh = html.match(/(?:調理時間|所要時間)[^\d]*(\d+)\s*時間(?:\s*(\d+)\s*分)?/i);
+      if (mh) {
+        const h = parseInt(mh[1] || '0', 10);
+        const mm = parseInt(mh[2] || '0', 10);
+        time = h * 60 + mm;
+      } else if (m) {
+        time = parseInt(m[1] || '0', 10) || null;
+      }
+    }
+    if (!people) {
+      const mp = html.match(/([0-9０-９]+)\s*人分/i) || html.match(/([0-9０-９]+)\s*人(?![\w一-龥])/i);
+      if (mp) {
+        const n = parseInt(toHalfWidth(mp[1] || ''), 10);
+        if (!Number.isNaN(n)) people = n;
+      }
+    }
+
+    // Site-specific: sirogohan.com — extract 材料/作り方 sections and optional servings
+    if (/sirogohan\.com$/i.test(host)) {
+      const stripTags = (s) => s.replace(/<[^>]*>/g, '').replace(/\s+$/g, '').trim();
+      const pickSection = (titleRx) => {
+        const rx = new RegExp(`<h[1-6][^>]*>\n?\s*([^<]*${titleRx}[^<]*)<\/h[1-6]>`, 'i');
+        const m = html.match(rx);
+        if (!m) return '';
+        const startIdx = m.index + m[0].length;
+        const rest = html.slice(startIdx);
+        const nextHead = rest.search(/<h[1-6][^>]*>/i);
+        const block = nextHead >= 0 ? rest.slice(0, nextHead) : rest;
+        // collect list items first, fallback to paragraphs
+        const lis = Array.from(block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (lis.length) return lis.join('\n');
+        const ps = Array.from(block.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        return ps.join('\n');
+      };
+      // 材料セクション（「材料」含む見出し）
+      const ingText = pickSection('材料');
+      // 作り方セクション
+      const howText = pickSection('作り方');
+      if (!comment && (ingText || howText)) {
+        const parts = [];
+        if (ingText) {
+          parts.push('材料');
+          ingText.split(/\n+/).forEach((line) => { if (line) parts.push(`・${line}`); });
+        }
+        if (howText) {
+          if (parts.length) parts.push('');
+          parts.push('作り方');
+          howText.split(/\n+/).forEach((line, idx) => { if (line) parts.push(`${idx + 1}. ${line}`); });
+        }
+        comment = parts.join('\n');
+      }
+      // 人数の表記が「◯合分」の場合でも拾っておく（人数未取得時のみ）
+      if (!people) {
+        const mg = html.match(/([0-9０-９]+)\s*合分/i);
+        if (mg) {
+          const n = parseInt(toHalfWidth(mg[1] || ''), 10);
+          if (!Number.isNaN(n)) people = n; // 備考: 合→人数の換算はせず、そのまま数値を設定
+        }
+      }
+    }
+
+    // Site-specific: oceans-nadia.com — try to extract time, 材料, 作り方
+    if (/oceans-nadia\.com$/i.test(host)) {
+      const stripTags = (s) => s.replace(/<[^>]*>/g, '').replace(/\s+$/g, '').trim();
+      // Prefer explicit cook time in the main time header
+      try {
+        const cookMain = html.match(/<h2[^>]+class=["'][^"']*RecipeInfo_cookTimeMain[^"']*["'][^>]*>[\s\S]*?<span[^>]*>\s*([0-9０-９]+)[\s\S]*?分\s*<\/span>/i);
+        if (cookMain) {
+          const n = parseInt(toHalfWidth(cookMain[1] || ''), 10);
+          if (!Number.isNaN(n)) time = n; // override with precise minutes shown in header
+        }
+      } catch(_) { /* ignore */ }
+      // time near clock icon
+      if (!time) {
+        // Look around icons like fa-clock/icon-time, capture H/M patterns
+        const m1 = html.match(/<(?:i|svg)[^>]+(?:fa-?clock|icon-?time)[^>]*>[\s\S]{0,400}?([0-9０-９]+)\s*(時間|分)/i);
+        if (m1) {
+          const n = parseInt(toHalfWidth(m1[1] || ''), 10);
+          if (!Number.isNaN(n)) time = m1[2] === '時間' ? (n * 60) : n;
+        } else {
+          // Generic fallback within a time badge
+          const m2 = html.match(/(?:調理時間|所要時間|時間|約)\s*[:：]?\s*([0-9０-９]+)\s*(時間|分)/i);
+          if (m2) {
+            const n = parseInt(toHalfWidth(m2[1] || ''), 10);
+            if (!Number.isNaN(n)) time = m2[2] === '時間' ? (n * 60) : n;
+          } else {
+            // Fallback: pick the first small "NN分" occurrence
+            const m3 = html.match(/([0-9０-９]{1,3})\s*分(?!\w)/i);
+            if (m3) {
+              const n = parseInt(toHalfWidth(m3[1] || ''), 10);
+              if (!Number.isNaN(n) && n > 0 && n <= 300) time = n;
+            }
+          }
+        }
+      }
+      // Build sections by headings
+      const pickSection = (titleRx) => {
+        // Nadia often uses h2/h3 or definition lists around sections
+        const rx = new RegExp(`<h[1-6][^>]*>\n?\s*([^<]*${titleRx}[^<]*)<\/h[1-6]>`, 'i');
+        const m = html.match(rx);
+        if (!m) return '';
+        const startIdx = m.index + m[0].length;
+        const rest = html.slice(startIdx);
+        // stop at next heading
+        const nextHead = rest.search(/<h[1-6][^>]*>/i);
+        const block = nextHead >= 0 ? rest.slice(0, nextHead) : rest;
+        // li list
+        const lis = Array.from(block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (lis.length) return lis.join('\n');
+        // table rows
+        const trs = Array.from(block.matchAll(/<tr[^>]*>[\s\S]*?<\/tr>/gi)).map((tr) => stripTags(tr[0])).filter(Boolean);
+        if (trs.length) return trs.join('\n');
+        // dl list
+        const dds = Array.from(block.matchAll(/<dd[^>]*>([\s\S]*?)<\/dd>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (dds.length) return dds.join('\n');
+        // paragraphs
+        const ps = Array.from(block.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        return ps.join('\n');
+      };
+      let ingText = pickSection('材料');
+      // If not found, look for a UL near any "材料" text (non-heading)
+      if (!ingText) {
+        const near = html.match(/材料[\s\S]{0,800}?<ul[\s\S]*?<\/ul>/i);
+        if (near) {
+          const block = near[0];
+          const lis = Array.from(block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+          if (lis.length) ingText = lis.join('\n');
+        }
+      }
+      // If still not, scan for an ingredients container by class name
+      if (!ingText) {
+        const container = html.match(/<(section|div)[^>]+(?:ingredient|ingredients|\u6750\u6599)[^>]*>[\s\S]*?<\/(?:section|div)>/i);
+        if (container) {
+          const bl = container[0];
+          const lis = Array.from(bl.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+          if (lis.length) ingText = lis.join('\n');
+          else {
+            const dds = Array.from(bl.matchAll(/<dd[^>]*>([\s\S]*?)<\/dd>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+            if (dds.length) ingText = dds.join('\n');
+          }
+        }
+      }
+      const howText = pickSection('作り方');
+      // If not found, attempt to find ordered/unordered lists near "作り方"
+      let howOut = howText;
+      if (!howOut) {
+        const near = html.match(/作り方[\s\S]{0,1200}?(<ol[\s\S]*?<\/ol>|<ul[\s\S]*?<\/ul>)/i);
+        if (near) {
+          const block = near[1] || near[0];
+          const lis = Array.from(block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+          if (lis.length) howOut = lis.join('\n');
+        }
+        if (!howOut) {
+          const ps = Array.from((html.match(/作り方[\s\S]{0,1200}?((?:<p[\s\S]*?<\/p>)+)/i) || [])[1]?.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi) || []).map((x)=> stripTags(x[1])).filter(Boolean);
+          if (ps.length) howOut = ps.join('\n');
+        }
+      }
+      if (!comment && (ingText || howText)) {
+        const parts = [];
+        if (ingText) {
+          parts.push('材料');
+          ingText.split(/\n+/).forEach((line) => { if (line) parts.push(`・${line}`); });
+        }
+        if (howOut) {
+          if (parts.length) parts.push('');
+          parts.push('作り方');
+          howOut.split(/\n+/).forEach((line, idx) => { if (line) parts.push(`${idx + 1}. ${line}`); });
+        }
+        comment = parts.join('\n');
+      }
+      // 人数: 見出しや材料の括弧表記から
+      if (!people) {
+        const mp = html.match(/材料[^<\n]*?\(([0-9０-９]+)\s*人分\)/i) || html.match(/([0-9０-９]+)\s*人分/i);
+        if (mp) {
+          const n = parseInt(toHalfWidth(mp[1] || ''), 10);
+          if (!Number.isNaN(n)) people = n;
+        }
+      }
+    }
+
+    // Site-specific: daidokolog.pal-system.co.jp — extract 材料/作り方 into comment
+    if (/daidokolog\.pal-system\.co\.jp$/i.test(host)) {
+      const stripTags = (s) => s.replace(/<\/?(script|style)[^>]*>[\s\S]*?<\/(?:script|style)>/gi, '')
+                                .replace(/<[^>]*>/g, '')
+                                .replace(/\u00a0/g, ' ')
+                                .replace(/\s+$/g, '')
+                                .trim();
+      const pickSectionByHeading = (titleRx) => {
+        const rx = new RegExp(`<h[1-6][^>]*>\n?\s*([^<]*${titleRx}[^<]*)<\/h[1-6]>`, 'i');
+        const m = html.match(rx);
+        if (!m) return '';
+        const startIdx = m.index + m[0].length;
+        const rest = html.slice(startIdx);
+        const nextHead = rest.search(/<h[1-6][^>]*>/i);
+        const block = nextHead >= 0 ? rest.slice(0, nextHead) : rest;
+        const lis = Array.from(block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (lis.length) return lis.join('\n');
+        const dds = Array.from(block.matchAll(/<dd[^>]*>([\s\S]*?)<\/dd>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (dds.length) return dds.join('\n');
+        const trs = Array.from(block.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (trs.length) return trs.join('\n');
+        const ps = Array.from(block.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        return ps.join('\n');
+      };
+      const pickNearLabel = (labelRx, span = 1200) => {
+        const near = html.match(new RegExp(`${labelRx}[\\s\\S]{0,${span}}?(<ol[\\s\\S]*?<\\/ol>|<ul[\\s\\S]*?<\\/ul>|<table[\\s\\S]*?<\\/table>|((?:<p[\\s\\S]*?<\\/p>)+))`, 'i'));
+        if (!near) return '';
+        const block = near[1] || near[0];
+        const lis = Array.from(block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (lis.length) return lis.join('\n');
+        const cells = Array.from(block.matchAll(/<(?:td|th|dd)[^>]*>([\s\S]*?)<\/(?:td|th|dd)>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (cells.length) return cells.join('\n');
+        const ps = Array.from((near[2] || '').matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (ps.length) return ps.join('\n');
+        return '';
+      };
+
+      let ingText = '';
+      // Strong selector: section.sec.ingredient table rows th + td
+      const secIng = html.match(/<section[^>]+class=["'][^"']*\bsec\b[^"']*\bingredient\b[^"']*["'][^>]*>([\s\S]*?)<\/section>/i);
+      if (secIng) {
+        const tbody = secIng[1];
+        const rows = Array.from(tbody.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi));
+        const lines = [];
+        rows.forEach((r) => {
+          const row = r[1] || '';
+          const th = (row.match(/<th[^>]*>([\s\S]*?)<\/th>/i) || [])[1] || '';
+          const td = (row.match(/<td[^>]*>([\s\S]*?)<\/td>/i) || [])[1] || '';
+          const left = stripTags(th);
+          const right = stripTags(td);
+          const line = [left, right].filter(Boolean).join(' ');
+          if (line) lines.push(line);
+        });
+        if (lines.length) ingText = lines.join('\n');
+      }
+      if (!ingText) ingText = pickSectionByHeading('材料');
+      if (!ingText) ingText = pickNearLabel('材料');
+      if (!ingText) {
+        const ingContainer = html.match(/<(section|div)[^>]+(?:ingredient|ingredients|\u6750\u6599)[^>]*>[\s\S]*?<\/(?:section|div)>/i);
+        if (ingContainer) {
+          const bl = ingContainer[0];
+          const lis = Array.from(bl.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          const dds = Array.from(bl.matchAll(/<dd[^>]*>([\s\S]*?)<\/dd>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          if (lis.length) ingText = lis.join('\n');
+          else if (dds.length) ingText = dds.join('\n');
+        }
+      }
+
+      let howText = '';
+      // Strong selector: section.sec.making then div.text[itemprop=recipeInstructions]
+      const secMak = html.match(/<section[^>]+class=["'][^"']*\bsec\b[^"']*\bmaking\b[^"']*["'][^>]*>([\s\S]*?)<\/section>/i);
+      if (secMak) {
+        const block = secMak[1];
+        const texts = Array.from(block.matchAll(/<div[^>]+class=["'][^"']*text[^"']*["'][^>]*itemprop=["']recipeInstructions["'][^>]*>([\s\S]*?)<\/div>/gi));
+        const steps = [];
+        texts.forEach((m) => {
+          let raw = m[1] || '';
+          raw = raw.replace(/<br\s*\/?>(?:\s*<br\s*\/?>)*/gi, '\n');
+          const txt = stripTags(raw);
+          if (txt) steps.push(txt);
+        });
+        if (steps.length) howText = steps.join('\n');
+      }
+      if (!howText) howText = pickSectionByHeading('作り方');
+      if (!howText) howText = pickNearLabel('作り方');
+      if (!howText) {
+        const howContainer = html.match(/<(section|div)[^>]+(?:instruction|howto|method|\u4f5c\u308a\u65b9)[^>]*>[\s\S]*?<\/(?:section|div)>/i);
+        if (howContainer) {
+          const bl = howContainer[0];
+          const lis = Array.from(bl.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          const ps = Array.from(bl.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          howText = lis.length ? lis.join('\n') : (ps.length ? ps.join('\n') : '');
+        }
+      }
+
+      if (!comment && (ingText || howText)) {
+        const parts = [];
+        if (ingText) {
+          parts.push('材料');
+          ingText.split(/\n+/).forEach((line) => { if (line) parts.push(`・${line}`); });
+        }
+        if (howText) {
+          if (parts.length) parts.push('');
+          parts.push('作り方');
+          howText.split(/\n+/).forEach((line, idx) => { if (line) parts.push(`${idx + 1}. ${line}`); });
+        }
+        comment = parts.join('\n');
+      }
+    }
+
+    // Site-specific: sotorecipe.com — extract 材料/作り方 into comment
+    if (/sotorecipe\.com$/i.test(host)) {
+      const stripTags = (s) => s
+        .replace(/<\/?(script|style)[^>]*>[\s\S]*?<\/(?:script|style)>/gi, '')
+        .replace(/<br\s*\/?>(?:\s*<br\s*\/?>)*/gi, '\n')
+        .replace(/<[^>]*>/g, '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\s+$/g, '')
+        .trim();
+
+      const pickNearLabel = (labelRx, span = 1500) => {
+        const near = html.match(new RegExp(`${labelRx}[\\s\\S]{0,${span}}?(<ol[\\s\\S]*?<\\/ol>|<ul[\\s\\S]*?<\\/ul>|<table[\\s\\S]*?<\\/table>|((?:<p[\\s\\S]*?<\\/p>)+))`, 'i'));
+        if (!near) return '';
+        const block = near[1] || near[0];
+        const lis = Array.from(block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (lis.length) return lis.join('\n');
+        const rows = Array.from(block.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (rows.length) return rows.join('\n');
+        const ps = Array.from((near[2] || '').matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map((x) => stripTags(x[1])).filter(Boolean);
+        if (ps.length) return ps.join('\n');
+        return '';
+      };
+
+      // Ingredients: try itemprop=recipeIngredient first
+      let ingLines = [];
+      const ingByItemprop = Array.from(html.matchAll(/<(?:li|tr|div|span|p)[^>]*itemprop=["']recipeIngredient["'][^>]*>([\s\S]*?)<\/(?:li|tr|div|span|p)>/gi));
+      if (ingByItemprop.length) {
+        ingLines = ingByItemprop.map((m) => stripTags(m[1] || '')).filter(Boolean);
+      }
+      // Also handle table rows with itemprop on <tr>
+      if (!ingLines.length) {
+        const trItemprop = Array.from(html.matchAll(/<tr[^>]*itemprop=["']recipeIngredient["'][^>]*>([\s\S]*?)<\/tr>/gi));
+        if (trItemprop.length) {
+          ingLines = trItemprop.map((m) => stripTags(m[1] || '')).filter(Boolean);
+        }
+      }
+      // Fallback to heading/text-near search
+      let ingText = ingLines.join('\n');
+      if (!ingText) ingText = pickNearLabel('材料');
+      if (!ingText) {
+        const ingContainer = html.match(/<(section|div)[^>]+(?:ingredient|ingredients|\u6750\u6599)[^>]*>[\s\S]*?<\/(?:section|div)>/i);
+        if (ingContainer) {
+          const bl = ingContainer[0];
+          const lis = Array.from(bl.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          const dds = Array.from(bl.matchAll(/<dd[^>]*>([\s\S]*?)<\/dd>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          const trs = Array.from(bl.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          ingText = lis.length ? lis.join('\n') : (dds.length ? dds.join('\n') : (trs.length ? trs.join('\n') : ''));
+        }
+      }
+
+      // Instructions: try itemprop=recipeInstructions first
+      let howLines = [];
+      const instByItemprop = Array.from(html.matchAll(/<(?:li|div|span|p)[^>]*itemprop=["']recipeInstructions["'][^>]*>([\s\S]*?)<\/(?:li|div|span|p)>/gi));
+      if (instByItemprop.length) {
+        howLines = instByItemprop.map((m) => stripTags(m[1] || '')).filter(Boolean);
+      }
+      // Also capture OL/UL near 作り方 label
+      let howText = howLines.join('\n');
+      if (!howText) howText = pickNearLabel('作り方');
+      if (!howText) {
+        const instContainer = html.match(/<(section|div)[^>]+(?:instruction|howto|method|\u4f5c\u308a\u65b9)[^>]*>[\s\S]*?<\/(?:section|div)>/i);
+        if (instContainer) {
+          const bl = instContainer[0];
+          const lis = Array.from(bl.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          const ps = Array.from(bl.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map((x)=>stripTags(x[1])).filter(Boolean);
+          howText = lis.length ? lis.join('\n') : (ps.length ? ps.join('\n') : '');
+        }
+      }
+
+      if (!comment && (ingText || howText)) {
+        const parts = [];
+        if (ingText) {
+          parts.push('材料');
+          ingText.split(/\n+/).forEach((line) => { if (line) parts.push(`・${line}`); });
+        }
+        if (howText) {
+          if (parts.length) parts.push('');
+          parts.push('作り方');
+          howText.split(/\n+/).forEach((line, idx) => { if (line) parts.push(`${idx + 1}. ${line}`); });
+        }
+        comment = parts.join('\n');
+      }
+    }
+
+    return res.json({ title, image, time, people, comment, duplicate: false });
   } catch (e) {
     return res.status(500).json({ error: 'メタ情報の取得に失敗しました' });
   }
