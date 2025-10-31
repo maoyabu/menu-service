@@ -314,13 +314,55 @@ router.post('/from-url/fetch', express.json(), async (req, res) => {
     // Node18+ fetch 前提。ネットワーク不可環境では失敗しうる
     const resp = await fetch(url, { method: 'GET' });
     const html = await resp.text();
-    const pick = (name) => {
-      const rgx = new RegExp(`<meta[^>]+property=["']og:${name}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i');
+    const pickOg = (name) => {
+      const rgx = new RegExp(`<meta[^>]+(?:property|name)=["']og:${name}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i');
       const m = html.match(rgx);
       return m ? m[1] : '';
     };
-    const title = pick('title') || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
-    const image = pick('image') || '';
+    const pickTwitter = (name) => {
+      const rgx = new RegExp(`<meta[^>]+(?:property|name)=["']twitter:${name}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i');
+      const m = html.match(rgx);
+      return m ? m[1] : '';
+    };
+    const title = pickOg('title') || pickTwitter('title') || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
+    let image = pickOg('image') || pickTwitter('image') || pickTwitter('image:src') || '';
+
+    // Kurashiru (and similar) fallback: use <video ... poster="...">
+    if (!image) {
+      try {
+        const host = new URL(url).hostname || '';
+        const posterMatch = html.match(/<video[^>]+poster=["']([^"']+)["'][^>]*>/i);
+        if (posterMatch && posterMatch[1] && /kurashiru\.com/i.test(host)) {
+          image = posterMatch[1];
+        } else if (posterMatch && posterMatch[1]) {
+          // As a general fallback if no OGP found, accept poster
+          image = posterMatch[1];
+        }
+      } catch (_e) {
+        // ignore URL parse errors
+      }
+    }
+
+    // Another fallback: JSON-LD thumbnailUrl if present
+    if (!image) {
+      const jsonLdMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+      for (const block of jsonLdMatches) {
+        try {
+          const jsonText = block.replace(/^[\s\S]*?>/,'').replace(/<\/(?:script)>[\s\S]*$/,'');
+          const data = JSON.parse(jsonText);
+          const pickFrom = Array.isArray(data) ? data : [data];
+          for (const obj of pickFrom) {
+            if (obj && typeof obj === 'object') {
+              if (typeof obj.thumbnailUrl === 'string' && obj.thumbnailUrl) { image = obj.thumbnailUrl; break; }
+              if (obj.image && typeof obj.image === 'string') { image = obj.image; break; }
+              if (obj.image && Array.isArray(obj.image) && obj.image.length) { image = obj.image[0]; break; }
+            }
+          }
+          if (image) break;
+        } catch (_) { /* ignore */ }
+      }
+    }
+
     return res.json({ title, image, duplicate: false });
   } catch (e) {
     return res.status(500).json({ error: 'メタ情報の取得に失敗しました' });
