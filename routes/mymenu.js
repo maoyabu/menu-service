@@ -81,20 +81,22 @@ router.get('/shared-register', async (req, res, next) => {
   try {
     const { keyword = '', kind = '', junle = '', cook = '', fav = 'all' } = req.query;
     const { kinds, junles, cooks } = await getFacetLists();
+    const ignoreFiltersForMine = String(fav) === 'mine';
 
     // 管理者が登録した共有メニュー（share=true を優先、なければ全件）
     const menuFilter = [];
-    if (kind) menuFilter.push({ kind });
-    if (junle) menuFilter.push({ junle });
-    if (cook) menuFilter.push({ cook });
-    if (keyword) {
-      const rx = new RegExp(keyword, 'i');
-      menuFilter.push({
-        $or: [ { name: rx }, { yomi: rx }, { kind: rx }, { junle: rx }, { cook: rx }, { menu: rx } ]
-      });
+    if (!ignoreFiltersForMine) {
+      if (kind) menuFilter.push({ kind });
+      if (junle) menuFilter.push({ junle });
+      if (cook) menuFilter.push({ cook });
+      if (keyword) {
+        const rx = new RegExp(keyword, 'i');
+        menuFilter.push({
+          $or: [ { name: rx }, { yomi: rx }, { kind: rx }, { junle: rx }, { cook: rx }, { menu: rx } ]
+        });
+      }
     }
     const adminShared = await Menu.find(menuFilter.length ? { $and: menuFilter } : {})
-      .limit(50)
       .lean();
 
     // 会員の共有メニュー（Mymenu.share = true）
@@ -105,7 +107,6 @@ router.get('/shared-register', async (req, res, next) => {
     const sharedUserMenus = await Mymenu.find({ share: true })
       .populate('menu')
       .populate('user', 'displayname username email')
-      .limit(50)
       .lean();
 
     const filteredSharedUserMenus = sharedUserMenus.filter((m) => {
@@ -115,6 +116,7 @@ router.get('/shared-register', async (req, res, next) => {
       const g = m.group ? m.group.toString() : '';
       return g && myGroupIds.has(g);
     }).filter((m) => {
+      if (ignoreFiltersForMine) return true;
       // キーワード・絞り込み
       const x = m.menu || {};
       if (kind && x.kind !== kind) return false;
@@ -185,9 +187,14 @@ router.get('/shared-register', async (req, res, next) => {
     const resultCount = list.length;
     const favoritesCount = myMenuIds.length;
 
+    // UI用：fav=mine の場合は種類/ジャンル/調理方法の選択状態を空にして表示
+    const selectedFilters = ignoreFiltersForMine
+      ? { kind: '', junle: '', cook: '', keyword, fav }
+      : { kind, junle, cook, keyword, fav };
+
     res.render('users/myMenuShared', {
       kinds, junles, cooks,
-      selected: { kind, junle, cook, keyword, fav },
+      selected: selectedFilters,
       list,
       resultCount,
       myMenuIds,

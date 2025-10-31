@@ -27,11 +27,14 @@
         <option value="<%= c %>" <%= selected.cook===c ? 'selected' : '' %>><%= c %></option>
       <% }) %>
     </select>
-    <select name="fav" class="border rounded-lg px-3 py-2">
-      <option value="all" <%= (selected.fav||'all')==='all' ? 'selected' : '' %>>すべて</option>
-      <option value="mine" <%= selected.fav==='mine' ? 'selected' : '' %>>マイメニュー</option>
-      <option value="not" <%= selected.fav==='not' ? 'selected' : '' %>>マイメニュー未登録</option>
-    </select>
+    <div class="flex flex-col">
+      <select name="fav" class="border rounded-lg px-3 py-2">
+        <option value="all" <%= (selected.fav||'all')==='all' ? 'selected' : '' %>>すべて</option>
+        <option value="mine" <%= selected.fav==='mine' ? 'selected' : '' %>>マイメニュー</option>
+        <option value="not" <%= selected.fav==='not' ? 'selected' : '' %>>マイメニュー未登録</option>
+      </select>
+      <span class="mt-1 text-xs text-red-600">※マイメニューの絞込み</span>
+    </div>
     <div class="md:col-span-6 flex gap-3">
       <button class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">検索</button>
       <a href="/users/my-menu/shared-register" class="px-4 py-2 rounded-lg border text-sm font-semibold">クリア</a>
