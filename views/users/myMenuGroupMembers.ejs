@@ -1,0 +1,57 @@
+<section class="max-w-6xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold"><%= currentGroup ? currentGroup.group_name : 'グループ' %> のメンバーのマイメニュー</h1>
+      <p class="text-sm text-gray-500">種類やジャンル、調理方法で絞り込み</p>
+    </div>
+    <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold">マイメニュートップへ</a>
+  </header>
+
+  <form method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-5 gap-3">
+    <input type="text" name="keyword" value="<%= selected.keyword || '' %>" placeholder="キーワード" class="border rounded-lg px-3 py-2 md:col-span-2" />
+    <select name="kind" class="border rounded-lg px-3 py-2">
+      <option value="">種類</option>
+      <% kinds.forEach(function(k){ %>
+        <option value="<%= k %>" <%= selected.kind===k ? 'selected' : '' %>><%= k %></option>
+      <% }) %>
+    </select>
+    <select name="junle" class="border rounded-lg px-3 py-2">
+      <option value="">ジャンル</option>
+      <% junles.forEach(function(j){ %>
+        <option value="<%= j %>" <%= selected.junle===j ? 'selected' : '' %>><%= j %></option>
+      <% }) %>
+    </select>
+    <select name="cook" class="border rounded-lg px-3 py-2">
+      <option value="">調理方法</option>
+      <% cooks.forEach(function(c){ %>
+        <option value="<%= c %>" <%= selected.cook===c ? 'selected' : '' %>><%= c %></option>
+      <% }) %>
+    </select>
+    <div class="md:col-span-5 flex gap-3">
+      <button class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">絞り込み</button>
+      <a href="/users/my-menu/group-members" class="px-4 py-2 rounded-lg border text-sm font-semibold">クリア</a>
+    </div>
+  </form>
+
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <% (items || []).forEach(function(mm){ const m = mm.menu || {}; %>
+      <div class="border rounded-xl overflow-hidden relative">
+        <div class="h-32 bg-gray-100">
+          <% if (m.imageUrl) { %>
+            <img src="<%= m.imageUrl %>" alt="<%= m.name %>" class="w-full h-full object-cover"/>
+          <% } else { %>
+            <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>
+          <% } %>
+          <% if (m.kind) { %>
+            <span class="absolute top-2 right-2 text-[10px] bg-white/90 rounded px-2 py-0.5"><%= m.kind %></span>
+          <% } %>
+        </div>
+        <div class="p-2">
+          <p class="text-sm font-semibold truncate" title="<%= m.name %>"><%= m.name %></p>
+          <p class="text-xs text-gray-500 truncate">by <%= (mm.user?.displayname || mm.user?.username || 'member') %></p>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</section>
+

@@ -1,0 +1,203 @@
+<section class="max-w-6xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">共有メニューから登録</h1>
+      <p class="text-sm text-gray-500">キーワード・種類・ジャンル・調理方法で検索</p>
+    </div>
+    <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold">マイメニュートップへ</a>
+  </header>
+
+  <form method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-5 gap-3">
+    <input type="text" name="keyword" value="<%= selected.keyword || '' %>" placeholder="キーワード" class="border rounded-lg px-3 py-2 md:col-span-2" />
+    <select name="kind" class="border rounded-lg px-3 py-2">
+      <option value="">種類</option>
+      <% kinds.forEach(function(k){ %>
+        <option value="<%= k %>" <%= selected.kind===k ? 'selected' : '' %>><%= k %></option>
+      <% }) %>
+    </select>
+    <select name="junle" class="border rounded-lg px-3 py-2">
+      <option value="">ジャンル</option>
+      <% junles.forEach(function(j){ %>
+        <option value="<%= j %>" <%= selected.junle===j ? 'selected' : '' %>><%= j %></option>
+      <% }) %>
+    </select>
+    <select name="cook" class="border rounded-lg px-3 py-2">
+      <option value="">調理方法</option>
+      <% cooks.forEach(function(c){ %>
+        <option value="<%= c %>" <%= selected.cook===c ? 'selected' : '' %>><%= c %></option>
+      <% }) %>
+    </select>
+    <div class="md:col-span-5 flex gap-3">
+      <button class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">検索</button>
+      <a href="/users/my-menu/shared-register" class="px-4 py-2 rounded-lg border text-sm font-semibold">クリア</a>
+    </div>
+  </form>
+
+  <div class="flex items-center justify-between">
+    <h2 class="font-semibold">共有メニュー（検索結果 <%= resultCount || 0 %> 件）</h2>
+    <div class="text-sm text-gray-600">♥ <span data-fav-count><%= (myMenuIds || []).length %></span></div>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <% (list || []).forEach(function(item){ const isFav = (myMenuIds || []).includes(String(item.id)); %>
+      <div class="border rounded-xl overflow-hidden relative">
+        <div class="h-32 bg-gray-100 relative">
+          <% if (item.imageUrl) { %>
+            <img src="<%= item.imageUrl %>" alt="<%= item.name %>" class="w-full h-full object-cover"/>
+          <% } else { %>
+            <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>
+          <% } %>
+          <% if (item.kind) { %>
+            <span class="absolute top-2 left-2 text-[10px] bg-white/90 rounded px-2 py-0.5"><%= item.kind %></span>
+          <% } %>
+          <button type="button" class="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full border text-gray-500 bg-white/90 hover:bg-white favorite-btn <%= isFav ? 'is-active text-rose-500 border-rose-300 bg-rose-50' : '' %>" data-menu-id="<%= item.id %>">
+            <span class="lucide w-4 h-4" data-lucide="heart"></span>
+          </button>
+        </div>
+        <div class="p-2 space-y-1">
+          <p class="text-sm font-semibold truncate" title="<%= item.name %>"><%= item.name %></p>
+          <div class="flex gap-2 text-[10px] text-gray-600">
+            <% if (item.junle) { %>
+              <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5">#<%= item.junle %></span>
+            <% } %>
+            <% if (item.cook) { %>
+              <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5">#<%= item.cook %></span>
+            <% } %>
+          </div>
+          <% if (item.by) { %>
+            <p class="text-xs text-gray-500 truncate">by <%= item.by %></p>
+          <% } %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <!-- Favorite small panel (same as weekMenu style) -->
+  <div id="fav-modal" class="hidden fixed inset-0 z-50 bg-transparent">
+    <div id="fav-pop" class="w-80 rounded-xl bg-white p-5 shadow-lg border">
+      <h3 class="text-base font-semibold mb-3">マイメニューに登録</h3>
+      <div class="space-y-3 text-sm">
+        <label class="flex items-center justify-between">
+          <span>食べたい頻度</span>
+          <select id="fav-frequency" class="border rounded px-2 py-1">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2">
+          <input id="fav-skill" type="checkbox" class="rounded border-gray-300" />
+          <span>得意料理にする</span>
+        </label>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" data-fav-action="cancel" class="px-3 py-1.5 rounded border">キャンセル</button>
+        <button type="button" data-fav-action="submit" class="px-3 py-1.5 rounded bg-blue-600 text-white">登録</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function(){
+    const myMenuIds = new Set(<%- JSON.stringify(myMenuIds || []) %>);
+    let anchorBtn = null;
+    let anchorMenuId = null;
+
+    const openPanel = (btn) => {
+      const overlay = document.getElementById('fav-modal');
+      const pop = document.getElementById('fav-pop');
+      if (!overlay || !pop) return;
+      overlay.classList.remove('hidden');
+      const rect = btn.getBoundingClientRect();
+      const vw = window.innerWidth || document.documentElement.clientWidth;
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      const pw = 320, ph = 160;
+      let left = rect.right + 8;
+      let top = rect.top;
+      if (left + pw + 8 > vw) left = Math.max(8, rect.left - pw - 8);
+      if (top + ph + 8 > vh) top = Math.max(8, vh - ph - 8);
+      pop.style.position = 'fixed';
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+      document.getElementById('fav-frequency').value = '3';
+      document.getElementById('fav-skill').checked = false;
+    };
+    const closePanel = () => {
+      const overlay = document.getElementById('fav-modal');
+      if (overlay) overlay.classList.add('hidden');
+      anchorBtn = null; anchorMenuId = null;
+    };
+
+    const refreshBtn = (btn, active) => {
+      btn.classList.toggle('is-active', !!active);
+      btn.classList.toggle('text-rose-500', !!active);
+      btn.classList.toggle('border-rose-300', !!active);
+      btn.classList.toggle('bg-rose-50', !!active);
+    };
+
+    const updateFavCount = () => {
+      const el = document.querySelector('[data-fav-count]');
+      if (el) el.textContent = String(myMenuIds.size);
+    };
+
+    const upsert = async (menuId, freq, skill) => {
+      const res = await fetch('/users/my-menu/api/upsert', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menuId, favorite: true, frequency: freq, skill })
+      });
+      if (!res.ok) throw new Error('登録に失敗しました');
+      return res.json();
+    };
+    const removeFav = async (menuId) => {
+      const res = await fetch(`/users/my-menu/api/${encodeURIComponent(menuId)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('削除に失敗しました');
+      return res.json();
+    };
+
+    document.addEventListener('click', async (ev) => {
+      const t = ev.target.closest('.favorite-btn');
+      if (t && t.dataset.menuId) {
+        const id = String(t.dataset.menuId);
+        if (myMenuIds.has(id)) {
+          try {
+            await removeFav(id);
+            myMenuIds.delete(id);
+            refreshBtn(t, false);
+            updateFavCount();
+          } catch (e) { alert(e.message || '削除に失敗しました'); }
+        } else {
+          anchorBtn = t; anchorMenuId = id; openPanel(t);
+        }
+        return;
+      }
+      // close overlay
+      if (ev.target && ev.target.id === 'fav-modal') {
+        closePanel();
+      }
+      if (ev.target && ev.target.matches('[data-fav-action="cancel"]')) {
+        ev.preventDefault(); closePanel();
+      }
+      if (ev.target && ev.target.matches('[data-fav-action="submit"]')) {
+        ev.preventDefault();
+        if (!anchorMenuId || !anchorBtn) return closePanel();
+        const freq = Number(document.getElementById('fav-frequency').value) || 3;
+        const skill = !!document.getElementById('fav-skill').checked;
+        try {
+          await upsert(anchorMenuId, freq, skill);
+          myMenuIds.add(anchorMenuId);
+          refreshBtn(anchorBtn, true);
+          updateFavCount();
+          closePanel();
+        } catch (e) {
+          alert(e.message || '登録に失敗しました');
+        }
+      }
+    });
+
+    // Initial icon render
+    window.refreshLucideIcons && window.refreshLucideIcons();
+  })();
+</script>

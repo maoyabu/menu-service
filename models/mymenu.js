@@ -6,17 +6,42 @@ const mymenuSchema = new mongoose.Schema({
         ref: 'Menu',
         required: true
     },
+    // お気に入り（♡）
     favorite: {
-        type: String
+        type: Boolean,
+        default: false
     },
+    // 得意料理(ON/OFF)
     skill: {
-        type: String
+        type: Boolean,
+        default: false
     },
+    // 食べたい頻度（1-5）
     frequency: {
-        type: String
+        type: Number,
+        min: 1,
+        max: 5,
+        default: 3
     },
     myurl: {
         type: String
+    },
+    // 共有設定
+    share: {
+        type: Boolean,
+        default: false
+    },
+    // 共有範囲: 'group' | 'all'
+    shareScope: {
+        type: String,
+        enum: ['group', 'all'],
+        default: 'group'
+    },
+    // 登録元: 'shared'（共有メニューから）| 'url'（レシピサイトから）| 'original'（オリジナル）
+    sourceType: {
+        type: String,
+        enum: ['shared', 'url', 'original'],
+        default: 'shared'
     },
     user: {
         type: mongoose.Schema.Types.ObjectId,

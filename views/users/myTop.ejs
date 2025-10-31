@@ -440,47 +440,64 @@
     </article>
     <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">マイメニュー</h2>
+        <div class="flex items-center gap-2">
+          <h2 class="text-lg font-semibold">マイメニュー</h2>
+          <a href="/users/my-menu" class="text-blue-600 hover:text-blue-700" title="マイメニューを編集">
+            <span class="lucide w-4 h-4" data-lucide="pencil"></span>
+          </a>
+        </div>
         <span class="inline-flex items-center gap-1 text-xs font-medium text-pink-600 bg-pink-50 px-3 py-1 rounded-full">
           <span class="lucide w-3 h-3" data-lucide="heart"></span>
           family pick
         </span>
       </div>
       <div class="grid sm:grid-cols-2 gap-4">
-        <% const favoriteMenus = [
-             { name: 'ママ特製ラザニア', description: '週末リクエストNo.1。チーズたっぷりで子ども達も大喜び。', tags: ['休日', 'ご馳走'], imageUrl: 'https://images.unsplash.com/photo-1604908176912-9e6209a18753?auto=format&fit=crop&w=900&q=60' },
-             { name: '旬野菜のグリル', description: 'おばあちゃんが持ってきてくれた野菜で作るヘルシーメニュー。', tags: ['季節限定', '野菜たっぷり'], imageUrl: 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=900&q=60' },
-             { name: 'ハーブチキンプレート', description: 'パパの得意料理。焼くだけで香りが広がる定番の一皿。', tags: ['定番', '短時間'], imageUrl: 'https://images.unsplash.com/photo-1612874470907-52db3da03447?auto=format&fit=crop&w=900&q=60' },
-             { name: 'さっぱりレモンパスタ', description: '平日ランチの救世主。爽やかな味で午後も軽やかに。', tags: ['10分', 'ランチ'], imageUrl: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=900&q=60' }
-           ]; %>
-        <% favoriteMenus.forEach((fav) => { %>
-          <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
-            <div class="h-36 bg-gray-100">
-              <% if (fav.imageUrl) { %>
-                <img src="<%= fav.imageUrl %>" alt="<%= fav.name %>" class="w-full h-full object-cover my-fav-image" loading="lazy">
-              <% } else { %>
-                <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
-              <% } %>
-            </div>
-            <div class="p-4 space-y-2 flex-1 flex flex-col">
-              <h3 class="text-sm font-semibold text-gray-900"><%= fav.name %></h3>
-              <p class="text-xs text-gray-500 leading-relaxed"><%= fav.description %></p>
-              <div class="flex flex-wrap gap-2 text-[11px] text-pink-600">
-                <% (fav.tags || []).forEach((tag) => { %>
-                  <span class="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5">
-                    <span class="lucide w-3 h-3" data-lucide="sparkle"></span>
-                    <span><%= tag %></span>
-                  </span>
-                <% }) %>
+        <% if ((myOwnMyMenus || []).length) { %>
+          <% (myOwnMyMenus || []).forEach(function(mm){ const m = mm.menu || {}; %>
+            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
+              <div class="h-36 bg-gray-100">
+                <% if (m.imageUrl) { %>
+                  <img src="<%= m.imageUrl %>" alt="<%= m.name %>" class="w-full h-full object-cover" loading="lazy">
+                <% } else { %>
+                  <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
+                <% } %>
+              </div>
+              <div class="p-4 space-y-2 flex-1 flex flex-col">
+                <h3 class="text-sm font-semibold text-gray-900 truncate" title="<%= m.name || '' %>"><%= m.name || '' %></h3>
               </div>
             </div>
-          </div>
-        <% }) %>
+          <% }) %>
+        <% } else { %>
+          <div class="text-sm text-gray-500">まだマイメニューがありません。右上の鉛筆から編集できます。</div>
+        <% } %>
       </div>
-      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+
+      <% if ((groupMemberMyMenus || []).length) { %>
+        <div class="mt-4">
+          <p class="text-xs text-gray-500 mb-2">グループのメンバーのマイメニュー</p>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <% (groupMemberMyMenus || []).forEach(function(mm){ const m = mm.menu || {}; %>
+              <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
+                <div class="h-36 bg-gray-100">
+                  <% if (m.imageUrl) { %>
+                    <img src="<%= m.imageUrl %>" alt="<%= m.name %>" class="w-full h-full object-cover" loading="lazy">
+                  <% } else { %>
+                    <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
+                  <% } %>
+                </div>
+                <div class="p-4 space-y-1 flex-1 flex flex-col">
+                  <h3 class="text-sm font-semibold text-gray-900 truncate" title="<%= m.name || '' %>"><%= m.name || '' %></h3>
+                  <p class="text-xs text-gray-500 truncate">by <%= (mm.user?.displayname || mm.user?.username || '') %></p>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+      <a href="/users/my-menu" class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
         マイメニューを編集
         <span class="lucide w-4 h-4" data-lucide="pencil"></span>
-      </button>
+      </a>
     </article>
 
     <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">

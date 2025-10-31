@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import User from '../models/users.js';
 import Menu from '../models/menu.js';
+import Mymenu from '../models/mymenu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import Group from '../models/groups.js';
 import { isLoggedIn } from '../middleware.js';
@@ -913,6 +914,16 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     // console.log('currentGroupMembers:', currentGroupMembers);
 
 	const weekStartISO = targetWeekStart.toISOString();
+    // MyMenu ids for current user+group to color hearts
+    let myMenuIds = [];
+    if (currentGroupId) {
+      try {
+        const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu').lean();
+        myMenuIds = (mymenus || []).map((m) => (m.menu ? m.menu.toString() : '')).filter(Boolean);
+      } catch (e) {
+        myMenuIds = [];
+      }
+    }
 	res.render('users/weekMenu', {
     categoryConfig: CATEGORY_CONFIG,
     menusByCategory,
@@ -930,7 +941,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     todayISO: today.toISOString(),
     // ここから追加
     currentGroupName,
-    currentGroupMembers
+    currentGroupMembers,
+    myMenuIds
 	});
   
   } catch (err) {
@@ -1378,6 +1390,54 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   currentWeekQueryParts.push(`weekStart=${currentWeekStart.toISOString()}`);
   const currentWeekLink = '/users/week-menu' + (currentWeekQueryParts.length ? `?${currentWeekQueryParts.join('&')}` : '');
 
+  // --- MyMenu stats & previews ---
+  const [sharedCount, urlCount, originalCount] = await Promise.all([
+    Mymenu.countDocuments({ user: req.user._id, sourceType: 'shared' }),
+    Mymenu.countDocuments({ user: req.user._id, sourceType: 'url' }),
+    Mymenu.countDocuments({ user: req.user._id, sourceType: 'original' })
+  ]);
+
+  const mySharedSamples = await Mymenu.find({ user: req.user._id, sourceType: 'shared' })
+    .populate('menu', 'name imageUrl kind')
+    .sort({ update_date: -1, entry_date: -1 })
+    .limit(4)
+    .lean();
+
+  const myOriginalSamples = await Mymenu.find({ user: req.user._id, sourceType: 'original' })
+    .populate('menu', 'name imageUrl kind')
+    .sort({ update_date: -1, entry_date: -1 })
+    .limit(4)
+    .lean();
+
+  let groupMemberItems = [];
+  if (currentGroupId) {
+    groupMemberItems = await Mymenu.find({
+      group: currentGroupId,
+      user: { $ne: req.user._id }
+    })
+      .populate('menu', 'name imageUrl kind junle cook')
+      .populate('user', 'displayname username')
+      .sort({ update_date: -1, entry_date: -1 })
+      .limit(10)
+      .lean();
+  }
+
+  // MyTop 用：自分のマイメニュー 4件、グループメンバーのマイメニュー 2件
+  const myOwnMyMenus = await Mymenu.find({ user: req.user._id })
+    .populate('menu', 'name imageUrl kind')
+    .sort({ update_date: -1, entry_date: -1 })
+    .limit(4)
+    .lean();
+
+  const groupMemberMyMenus = currentGroupId
+    ? await Mymenu.find({ group: currentGroupId, user: { $ne: req.user._id } })
+        .populate('menu', 'name imageUrl kind')
+        .populate('user', 'displayname username')
+        .sort({ update_date: -1, entry_date: -1 })
+        .limit(2)
+        .lean()
+    : [];
+
   res.render('users/myTop', {
     nextWeekPlan,
     nextWeekRangeLabel,
@@ -1388,7 +1448,14 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     weekPlanOverview,
     defaultWeekDayIndex,
     currentWeekLink,
-    headerImageItems
+    headerImageItems,
+    // MyMenu cards
+    mymenuStats: { sharedCount, urlCount, originalCount },
+    mySharedSamples,
+    myOriginalSamples,
+    groupMemberItems,
+    myOwnMyMenus,
+    groupMemberMyMenus
   });
   } catch (err) {
     return next(err);

@@ -548,9 +548,37 @@
     todayISO: <%- serialize(todayISO || '') %>,
     // 換算用のグループ名とメンバー名を保持
     currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
-    currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>
+    currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>,
+    myMenuIds: JSON.parse('<%- serialize(myMenuIds || []) %>')
   };
 </script>
+
+<!-- Favorite registration modal -->
+<div id="fav-modal" class="hidden fixed inset-0 z-50 bg-transparent">
+  <div id="fav-pop" class="w-80 rounded-xl bg-white p-5 shadow-lg border">
+    <h3 class="text-base font-semibold mb-3">マイメニューに登録</h3>
+    <div class="space-y-3 text-sm">
+      <label class="flex items-center justify-between">
+        <span>食べたい頻度</span>
+        <select id="fav-frequency" class="border rounded px-2 py-1">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2">
+        <input id="fav-skill" type="checkbox" class="rounded border-gray-300" />
+        <span>得意料理にする</span>
+      </label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" data-fav-action="cancel" class="px-3 py-1.5 rounded border">キャンセル</button>
+      <button type="button" data-fav-action="submit" class="px-3 py-1.5 rounded bg-blue-600 text-white">登録</button>
+    </div>
+  </div>
+</div>
 
 <script>
   // ===== Robust Inline 7 DAYS PLAN Calendar bootstrap (runs independently) =====
@@ -1386,9 +1414,53 @@
       }
     };
 
+    // Favorite modal helpers
+    let favoriteModalSlot = null;
+    const openFavoriteModal = (slot, anchorEl) => {
+      if (!slot || !slot.menuId) return;
+      favoriteModalSlot = slot;
+      const overlay = document.getElementById('fav-modal');
+      const pop = document.getElementById('fav-pop');
+      if (!overlay || !pop) return;
+      overlay.classList.remove('hidden');
+      // Default values
+      const freq = document.getElementById('fav-frequency');
+      const skill = document.getElementById('fav-skill');
+      if (freq) freq.value = '3';
+      if (skill) skill.checked = false;
+
+      // Position next to the clicked heart
+      const rect = anchorEl && anchorEl.getBoundingClientRect ? anchorEl.getBoundingClientRect() : null;
+      const viewportW = window.innerWidth || document.documentElement.clientWidth;
+      const viewportH = window.innerHeight || document.documentElement.clientHeight;
+      const panelW = 320; // approximate
+      const panelH = 160; // approximate
+      let left = rect ? (rect.right + 8) : (viewportW - panelW) / 2;
+      let top = rect ? (rect.top) : (viewportH - panelH) / 2;
+      if (left + panelW + 8 > viewportW) left = Math.max(8, (rect ? rect.left - panelW - 8 : left));
+      if (top + panelH + 8 > viewportH) top = Math.max(8, viewportH - panelH - 8);
+      pop.style.position = 'fixed';
+      pop.style.left = `${Math.max(8, left)}px`;
+      pop.style.top = `${Math.max(8, top)}px`;
+    };
+    const closeFavoriteModal = () => {
+      const modal = document.getElementById('fav-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      favoriteModalSlot = null;
+    };
+    const upsertMyMenu = async (menuId, frequency, skill) => {
+      const res = await fetch('/users/my-menu/api/upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menuId, favorite: true, frequency, skill })
+      });
+      if (!res.ok) throw new Error('登録に失敗しました');
+      return res.json();
+    };
     const toggleFavorite = (slot) => {
       if (!slot) return;
-      slot.favorite = !slot.favorite;
+      openFavoriteModal(slot);
     };
 
     const toggleDineOut = (slot) => {
@@ -2145,12 +2217,15 @@
       }
       
       if (favoriteBtn) {
+        const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
+        const inMyMenu = !!(slot.menuId && mySet.has(String(slot.menuId)));
+        const isActive = !!(slot.favorite || inMyMenu);
         favoriteBtn.disabled = false;
-        favoriteBtn.setAttribute('aria-pressed', slot.favorite ? 'true' : 'false');
-        favoriteBtn.classList.toggle('is-active', !!slot.favorite);
-        favoriteBtn.classList.toggle('text-rose-500', !!slot.favorite);
-        favoriteBtn.classList.toggle('border-rose-300', !!slot.favorite);
-        favoriteBtn.classList.toggle('bg-rose-50', !!slot.favorite);
+        favoriteBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        favoriteBtn.classList.toggle('is-active', isActive);
+        favoriteBtn.classList.toggle('text-rose-500', isActive);
+        favoriteBtn.classList.toggle('border-rose-300', isActive);
+        favoriteBtn.classList.toggle('bg-rose-50', isActive);
       }
 
       if (dineBtn) {
@@ -2341,7 +2416,24 @@
       }
 
       if (action === 'toggle-favorite') {
-        toggleFavorite(slot);
+        const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
+        const id = slot.menuId ? String(slot.menuId) : '';
+        if (id && mySet.has(id)) {
+          (async () => {
+            try {
+              const res = await fetch(`/users/my-menu/api/${encodeURIComponent(id)}`, { method: 'DELETE' });
+              if (!res.ok) throw new Error('削除に失敗しました');
+              window.weekMenuData.myMenuIds = (window.weekMenuData.myMenuIds || []).filter((x) => x !== id);
+              slot.favorite = false;
+              render();
+              if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+            } catch (e) {
+              alert(e.message || '削除に失敗しました');
+            }
+          })();
+        } else {
+          openFavoriteModal(slot, actionNode);
+        }
       } else if (action === 'toggle-dine') {
         toggleDineOut(slot);
       } else if (action === 'shuffle') {
@@ -2382,6 +2474,42 @@
       render();
       if (typeof window.refreshLucideIcons === 'function') {
         window.refreshLucideIcons();
+      }
+    });
+
+    // Modal actions
+    document.addEventListener('click', async (ev) => {
+      const t = ev.target;
+      const modal = document.getElementById('fav-modal');
+      if (!modal) return;
+      if (!modal.classList.contains('hidden') && t.id === 'fav-modal') {
+        closeFavoriteModal();
+      }
+      if (t.closest('[data-fav-action="cancel"]')) {
+        ev.preventDefault();
+        closeFavoriteModal();
+      }
+      if (t.closest('[data-fav-action="submit"]')) {
+        ev.preventDefault();
+        try {
+          if (!favoriteModalSlot || !favoriteModalSlot.menuId) return closeFavoriteModal();
+          const freq = Number(document.getElementById('fav-frequency').value) || 3;
+          const skill = !!document.getElementById('fav-skill').checked;
+          await upsertMyMenu(favoriteModalSlot.menuId, freq, skill);
+          favoriteModalSlot.favorite = true;
+          // Add to myMenuIds set for coloring immediately
+          (function(){
+            const ids = window.weekMenuData.myMenuIds || [];
+            const id = String(favoriteModalSlot.menuId);
+            if (!ids.includes(id)) ids.push(id);
+            window.weekMenuData.myMenuIds = ids;
+          })();
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          closeFavoriteModal();
+        } catch (e) {
+          alert(e.message || '登録に失敗しました');
+        }
       }
     });
 

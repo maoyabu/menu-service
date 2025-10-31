@@ -1,0 +1,129 @@
+<section class="max-w-5xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">レシピサイトから登録</h1>
+      <p class="text-sm text-gray-500">URLを入力すると候補情報を自動抽出（修正可）</p>
+    </div>
+    <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold">マイメニュートップへ</a>
+  </header>
+
+  <div class="bg-white border rounded-2xl p-4 space-y-4">
+    <form id="fetchForm" class="flex gap-3">
+      <input id="recipeUrl" type="url" placeholder="https://..." class="flex-1 border rounded-lg px-3 py-2" required />
+      <button class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold" type="submit">自動抽出</button>
+    </form>
+    <p class="text-xs text-gray-500">登録済み件数: <%= typeof myUrlCount !== 'undefined' ? myUrlCount : 0 %></p>
+  </div>
+
+  <form method="post" action="/users/my-menu/from-url" class="bg-white border rounded-2xl p-5 space-y-4">
+    <input type="hidden" name="url" id="f_url" />
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-xs text-gray-500">レシピ名</label>
+        <input name="name" id="f_name" class="w-full border rounded-lg px-3 py-2" required />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">よみ</label>
+        <input name="yomi" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">メニュー</label>
+        <input name="menu" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">種類</label>
+        <input list="kindList" name="kind" class="w-full border rounded-lg px-3 py-2" />
+        <datalist id="kindList">
+          <% kinds.forEach(function(k){ %>
+            <option value="<%= k %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">ジャンル</label>
+        <input list="junleList" name="junle" class="w-full border rounded-lg px-3 py-2" />
+        <datalist id="junleList">
+          <% junles.forEach(function(j){ %>
+            <option value="<%= j %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">調理方法</label>
+        <input list="cookList" name="cook" class="w-full border rounded-lg px-3 py-2" />
+        <datalist id="cookList">
+          <% cooks.forEach(function(c){ %>
+            <option value="<%= c %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">画像URL</label>
+        <input name="imageUrl" id="f_imageUrl" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">調理時間（分）</label>
+        <input name="time" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">人数</label>
+        <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+    </div>
+
+    <div class="border-t pt-4 space-y-2">
+      <div class="flex items-center gap-4 text-sm">
+        <label class="flex items-center gap-1"><input type="checkbox" name="favorite" value="true"/> ♡ お気に入り</label>
+        <label class="flex items-center gap-2">食べたい頻度
+          <select name="frequency" class="border rounded px-2 py-1">
+            <% for(let i=1;i<=5;i++){ %>
+              <option value="<%= i %>"><%= i %></option>
+            <% } %>
+          </select>
+        </label>
+        <label class="flex items-center gap-1"><input type="checkbox" name="skill" value="true"/> 得意料理</label>
+      </div>
+      <div class="flex items-center gap-4 text-sm">
+        <label class="flex items-center gap-1"><input type="checkbox" name="share" value="true"/> 共有する</label>
+        <label class="flex items-center gap-2">共有範囲
+          <select name="shareScope" class="border rounded px-2 py-1">
+            <option value="group">グループ内</option>
+            <option value="all">全会員</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <button class="px-5 py-2 rounded-lg bg-emerald-600 text-white font-semibold">登録する</button>
+    </div>
+  </form>
+</section>
+
+<script>
+  const form = document.getElementById('fetchForm');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('recipeUrl').value.trim();
+    if (!url) return;
+    try {
+      const res = await fetch('/users/my-menu/from-url/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      document.getElementById('f_url').value = url;
+      if (data.title && !document.getElementById('f_name').value) {
+        document.getElementById('f_name').value = data.title;
+      }
+      if (data.image && !document.getElementById('f_imageUrl').value) {
+        document.getElementById('f_imageUrl').value = data.image;
+      }
+    } catch (e) {
+      console.error(e);
+      alert('自動抽出に失敗しました');
+    }
+  });
+</script>
+

@@ -16,6 +16,7 @@ import expressLayouts from 'express-ejs-layouts';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import settingsRoutes from './routes/settings.js';
+import mymenuRoutes from './routes/mymenu.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -105,6 +106,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(authRoutes);
 app.use('/settings', settingsRoutes);
+app.use('/users/my-menu', mymenuRoutes);
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');

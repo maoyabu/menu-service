@@ -1,0 +1,129 @@
+<section class="max-w-5xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">オリジナルレシピの登録</h1>
+      <p class="text-sm text-gray-500">画像と作り方を含めて登録できます</p>
+    </div>
+    <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold">マイメニュートップへ</a>
+  </header>
+
+  <p class="text-xs text-gray-500">登録件数: <%= typeof myOriginalCount !== 'undefined' ? myOriginalCount : 0 %></p>
+
+  <form method="post" action="/users/my-menu/original" class="bg-white border rounded-2xl p-5 space-y-4">
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-xs text-gray-500">レシピ名</label>
+        <input name="name" class="w-full border rounded-lg px-3 py-2" required />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">よみ</label>
+        <input name="yomi" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">メニュー</label>
+        <input name="menu" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">種類</label>
+        <input list="kindList" name="kind" class="w-full border rounded-lg px-3 py-2" />
+        <datalist id="kindList">
+          <% kinds.forEach(function(k){ %>
+            <option value="<%= k %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">ジャンル</label>
+        <input list="junleList" name="junle" class="w-full border rounded-lg px-3 py-2" />
+        <datalist id="junleList">
+          <% junles.forEach(function(j){ %>
+            <option value="<%= j %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">調理方法</label>
+        <input list="cookList" name="cook" class="w-full border rounded-lg px-3 py-2" />
+        <datalist id="cookList">
+          <% cooks.forEach(function(c){ %>
+            <option value="<%= c %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">画像URL（Cloudinary など）</label>
+        <div class="flex gap-2">
+          <input id="imageUrlInput" name="imageUrl" class="flex-1 border rounded-lg px-3 py-2" />
+          <label class="px-3 py-2 border rounded-lg cursor-pointer text-sm">画像選択
+            <input id="imageFileInput" type="file" accept="image/*" class="hidden" />
+          </label>
+        </div>
+        <p class="text-[11px] text-gray-500 mt-1">ファイル選択後、自動でCloudinaryへアップロードします</p>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">調理時間（分）</label>
+        <input name="time" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">人数</label>
+        <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" />
+      </div>
+    </div>
+
+    <div>
+      <label class="text-xs text-gray-500">作り方</label>
+      <textarea name="instruction" rows="6" class="w-full border rounded-lg px-3 py-2" placeholder="手順を記入"></textarea>
+    </div>
+
+    <div class="border-t pt-4 space-y-2">
+      <div class="flex items-center gap-4 text-sm">
+        <label class="flex items-center gap-1"><input type="checkbox" name="favorite" value="true"/> ♡ お気に入り</label>
+        <label class="flex items-center gap-2">食べたい頻度
+          <select name="frequency" class="border rounded px-2 py-1">
+            <% for(let i=1;i<=5;i++){ %>
+              <option value="<%= i %>"><%= i %></option>
+            <% } %>
+          </select>
+        </label>
+        <label class="flex items-center gap-1"><input type="checkbox" name="skill" value="true"/> 得意料理</label>
+      </div>
+      <div class="flex items-center gap-4 text-sm">
+        <label class="flex items-center gap-1"><input type="checkbox" name="share" value="true"/> 共有する</label>
+        <label class="flex items-center gap-2">共有範囲
+          <select name="shareScope" class="border rounded px-2 py-1">
+            <option value="group">グループ内</option>
+            <option value="all">全会員</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <button class="px-5 py-2 rounded-lg bg-emerald-600 text-white font-semibold">登録する</button>
+    </div>
+  </form>
+</section>
+
+<script>
+  const fileInput = document.getElementById('imageFileInput');
+  const urlInput = document.getElementById('imageUrlInput');
+  fileInput?.addEventListener('change', async () => {
+    if (!fileInput.files || !fileInput.files[0]) return;
+    const fd = new FormData();
+    fd.append('image', fileInput.files[0]);
+    try {
+      const res = await fetch('/users/my-menu/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.url) {
+        urlInput.value = data.url;
+      } else {
+        alert('アップロードに失敗しました');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('アップロードに失敗しました');
+    } finally {
+      fileInput.value = '';
+    }
+  });
+</script>
