@@ -1136,6 +1136,49 @@ router.post('/upload', upload.single('image'), async (req, res) => {
   }
 });
 
+// 画像差し替え（Cloudinary）：新規アップロード成功後に旧画像を削除
+router.post('/upload-replace', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'ファイルがありません' });
+    const { oldUrl = '' } = req.body || {};
+
+    // まずアップロード
+    const result = await cloudinary.uploader.upload(req.file.path, { folder: 'menu-service' });
+    try { await fs.unlink(req.file.path); } catch (_) {}
+
+    // 旧URLが Cloudinary の場合は削除を試行
+    const deleteOldIfCloudinary = async (url) => {
+      if (!url || typeof url !== 'string') return;
+      try {
+        const u = new URL(url);
+        if (!/cloudinary\.com$/i.test(u.hostname)) return; // cloudinary以外は無視
+        const idx = u.pathname.indexOf('/upload/');
+        if (idx < 0) return;
+        let rest = u.pathname.slice(idx + '/upload/'.length); // v<ver>/<folder>/<name>.<ext>
+        const parts = rest.split('/').filter(Boolean);
+        if (!parts.length) return;
+        // 先頭が v123 形式なら除去
+        if (/^v\d+$/i.test(parts[0])) parts.shift();
+        if (!parts.length) return;
+        const last = parts.pop();
+        const withoutExt = (last || '').replace(/\.[^.]+$/, '');
+        const publicId = [...parts, withoutExt].filter(Boolean).join('/');
+        if (!publicId) return;
+        await cloudinary.uploader.destroy(publicId);
+      } catch (e) {
+        // 解析や削除失敗は致命的ではないのでログのみ
+        console.warn('old cloudinary delete failed:', e?.message || e);
+      }
+    };
+    await deleteOldIfCloudinary(oldUrl);
+
+    return res.json({ url: result.secure_url });
+  } catch (e) {
+    console.error('upload-replace error', e);
+    return res.status(500).json({ error: 'アップロードに失敗しました' });
+  }
+});
+
 // --- 自分が登録したURL/オリジナルのレシピ編集 ---
 router.get('/edit/:menuId', async (req, res, next) => {
   try {

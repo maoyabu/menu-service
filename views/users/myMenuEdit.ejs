@@ -61,8 +61,10 @@
         <label class="text-xs text-gray-500">画像URL（プレビューあり）</label>
         <div class="flex gap-3 items-start">
           <input name="imageUrl" id="f_imageUrl" class="flex-1 border rounded-lg px-3 py-2" value="<%= menuDoc.imageUrl || '' %>" />
-          <img id="imgPreview" src="<%= menuDoc.imageUrl || '' %>" alt="preview" class="w-24 h-24 object-cover rounded border" />
+          <input type="file" id="f_imageFile" accept="image/*" class="hidden" />
+          <img id="imgPreview" src="<%= menuDoc.imageUrl || '' %>" alt="preview" class="w-24 h-24 object-cover rounded border cursor-pointer" title="クリックして画像を変更" />
         </div>
+        <p class="text-[11px] text-gray-500 mt-1">画像をクリックして差し替え（Cloudinaryへアップロード・旧画像は削除）</p>
       </div>
       <div>
         <label class="text-xs text-gray-500">調理時間（分）</label>
@@ -204,9 +206,35 @@
 
 <script>
   const imgInput = document.getElementById('f_imageUrl');
+  const imgFile = document.getElementById('f_imageFile');
+  const imgPreview = document.getElementById('imgPreview');
   imgInput?.addEventListener('input', () => {
-    const img = document.getElementById('imgPreview');
-    if (img) img.src = imgInput.value.trim();
+    if (imgPreview) imgPreview.src = imgInput.value.trim();
+  });
+
+  // 画像クリックでファイル選択 → アップロード（旧Cloudinary画像を削除）
+  imgPreview?.addEventListener('click', () => imgFile?.click());
+  imgFile?.addEventListener('change', async () => {
+    if (!imgFile.files || !imgFile.files[0]) return;
+    const fd = new FormData();
+    fd.append('image', imgFile.files[0]);
+    const currentUrl = imgInput?.value?.trim?.() || '';
+    if (currentUrl) fd.append('oldUrl', currentUrl);
+    try {
+      const res = await fetch('/users/my-menu/upload-replace', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok && data && data.url) {
+        if (imgInput) imgInput.value = data.url;
+        if (imgPreview) imgPreview.src = data.url;
+      } else {
+        alert('画像の差し替えに失敗しました');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('画像の差し替えに失敗しました');
+    } finally {
+      imgFile.value = '';
+    }
   });
 
   function createRow(kind, lists){
