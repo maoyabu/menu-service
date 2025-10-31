@@ -72,10 +72,21 @@
         <label class="text-xs text-gray-500">人数</label>
         <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.people || 1 %>" />
       </div>
-      <div class="md:col-span-2">
-        <label class="text-xs text-gray-500">コメント</label>
-        <textarea name="comment" rows="3" class="w-full border rounded-lg px-3 py-2"><%= menuDoc.comment || '' %></textarea>
-      </div>
+      <% if (owned && owned.sourceType === 'original') { %>
+        <div class="md:col-span-2">
+          <label class="text-xs text-gray-500">作り方</label>
+          <textarea name="instruction" rows="6" class="w-full border rounded-lg px-3 py-2" placeholder="手順を記入"><%= typeof instructionText !== 'undefined' ? instructionText : '' %></textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-gray-500">コメント</label>
+          <textarea name="comment" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="メモや補足"><%= typeof commentText !== 'undefined' ? commentText : '' %></textarea>
+        </div>
+      <% } else { %>
+        <div class="md:col-span-2">
+          <label class="text-xs text-gray-500">コメント</label>
+          <textarea name="comment" rows="3" class="w-full border rounded-lg px-3 py-2"><%= menuDoc.comment || '' %></textarea>
+        </div>
+      <% } %>
     </div>
     <div class="border-t pt-4">
       <div class="rounded-xl border px-4 py-3 bg-gray-50 space-y-3">

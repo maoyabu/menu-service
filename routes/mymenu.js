@@ -1162,7 +1162,22 @@ router.get('/edit/:menuId', async (req, res, next) => {
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
     ].filter(Boolean)));
-    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned });
+    // For original recipes, split combined comment into instruction/comment
+    let instructionText = '';
+    let commentText = menuDoc.comment || '';
+    if (owned && owned.sourceType === 'original') {
+      const raw = String(menuDoc.comment || '');
+      const parts = raw.split(/\n{2,}/); // split by blank line(s)
+      if (parts.length > 1) {
+        instructionText = (parts.shift() || '').trim();
+        commentText = parts.join('\n\n').trim();
+      } else {
+        // If we cannot detect delimiter, assume all is instruction
+        instructionText = raw;
+        commentText = '';
+      }
+    }
+    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned, instructionText, commentText });
   } catch (err) { next(err); }
 });
 
@@ -1190,6 +1205,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       time,
       people,
       comment,
+      instruction = '',
       yomi,
       favorite = 'true',
       frequency = '3',
@@ -1214,9 +1230,12 @@ router.post('/edit/:menuId', async (req, res, next) => {
       amount: Array.isArray(seasoning_amounts) ? seasoning_amounts[i] : seasoning_amounts,
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
+    const finalComment = (owned && owned.sourceType === 'original')
+      ? [instruction, comment].filter(Boolean).join('\n\n')
+      : comment;
 
     await Menu.findByIdAndUpdate(menuId, {
-      name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1, comment, ingredients, seasoning: seasonings
+      name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1, comment: finalComment, ingredients, seasoning: seasonings
     });
 
     // 更新時に自分のマイメニュー設定も反映（存在すれば）
