@@ -32,6 +32,8 @@ async function getFacetLists() {
 router.get('/', async (req, res, next) => {
   try {
     const userId = req.user._id;
+    // Filters for group members section (prefix g_ to avoid collisions)
+    const { g_kind = '', g_junle = '', g_cook = '', g_member = '' } = req.query;
 
     const [sharedCount, urlCount, originalCount] = await Promise.all([
       Mymenu.countDocuments({ user: userId, sourceType: 'shared' }),
@@ -62,16 +64,43 @@ router.get('/', async (req, res, next) => {
     const currentGroup = groups.find((g) => g._id.toString() === defaultGroupId) || groups[0] || null;
 
     let groupMemberItems = [];
+    let groupFacets = { kinds: [], junles: [], cooks: [], members: [] };
+    let groupSelected = { kind: g_kind, junle: g_junle, cook: g_cook, member: g_member };
     if (currentGroup) {
-      groupMemberItems = await Mymenu.find({
+      const rawGroup = await Mymenu.find({
         group: currentGroup._id,
         user: { $ne: userId }
       })
-        .populate('menu', 'name imageUrl kind')
+        .populate('menu', 'name imageUrl kind junle cook')
         .populate('user', 'displayname username')
         .sort({ update_date: -1, entry_date: -1 })
-        .limit(10)
         .lean();
+
+      // Build facets from group data only (only existing values selectable)
+      const kinds = unique(rawGroup.map((mm) => mm?.menu?.kind).filter(Boolean));
+      const junles = unique(rawGroup.map((mm) => mm?.menu?.junle).filter(Boolean));
+      const cooks = unique(rawGroup.map((mm) => mm?.menu?.cook).filter(Boolean));
+      const memberMap = new Map();
+      (rawGroup || []).forEach((mm) => {
+        if (!mm?.user) return;
+        const id = mm.user._id?.toString?.() || '';
+        if (!id) return;
+        if (!memberMap.has(id)) {
+          const name = mm.user.displayname || mm.user.username || '';
+          memberMap.set(id, { id, name });
+        }
+      });
+      groupFacets = { kinds, junles, cooks, members: Array.from(memberMap.values()) };
+
+      // Apply filters
+      groupMemberItems = (rawGroup || []).filter((mm) => {
+        const m = mm.menu || {};
+        if (g_kind && m.kind !== g_kind) return false;
+        if (g_junle && m.junle !== g_junle) return false;
+        if (g_cook && m.cook !== g_cook) return false;
+        if (g_member && (mm.user?._id?.toString?.() !== g_member)) return false;
+        return true;
+      });
     }
 
     res.render('users/myMenu', {
@@ -80,7 +109,9 @@ router.get('/', async (req, res, next) => {
       myOriginalSamples,
       myUrlSamples,
       groupMemberItems,
-      currentGroup
+      currentGroup,
+      groupFacets,
+      groupSelected
     });
   } catch (err) { next(err); }
 });
