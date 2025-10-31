@@ -34,14 +34,15 @@
   <!-- Three columns: shared, url, original -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
     <!-- Shared -->
-    <section class="rounded-2xl border border-blue-200 bg-white p-5 space-y-3">
+    <section class="rounded-2xl border border-blue-200 bg-white p-5 space-y-3 flex flex-col">
       <div class="flex items-center gap-2 text-blue-700">
         <span class="lucide w-5 h-5" data-lucide="search"></span>
         <h2 class="font-semibold">共有メニューから登録</h2>
       </div>
       <p class="text-xs text-gray-500">みんなが登録したメニューを検索</p>
       <p class="text-xs text-gray-500">登録済み（<%= sc %>件）</p>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="flex-1">
+      <div class="grid grid-cols-2 gap-3 min-h-[140px]">
         <% (mySharedSamples || []).forEach(function(mm){ const m = mm.menu || {}; %>
           <div class="overflow-hidden rounded-xl border">
             <div class="h-24 bg-gray-100">
@@ -55,21 +56,23 @@
           </div>
         <% }) %>
       </div>
-      <a href="/users/my-menu/shared-register" class="inline-flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+      </div>
+      <a href="/users/my-menu/shared-register" class="mt-auto inline-flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">
         <span class="inline-flex items-center gap-1"><span class="lucide w-4 h-4" data-lucide="plus"></span> メニューを検索</span>
         <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
       </a>
     </section>
 
     <!-- From URL -->
-    <section class="rounded-2xl border border-emerald-200 bg-white p-5 space-y-3">
+    <section class="rounded-2xl border border-emerald-200 bg-white p-5 space-y-3 flex flex-col">
       <div class="flex items-center gap-2 text-emerald-700">
         <span class="lucide w-5 h-5" data-lucide="link"></span>
         <h2 class="font-semibold">レシピサイトから登録</h2>
       </div>
       <p class="text-xs text-gray-500">お気に入りのレシピサイトのURL</p>
       <p class="text-xs text-gray-500">登録済み（<%= uc %>件）</p>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="flex-1">
+      <div class="grid grid-cols-2 gap-3 min-h-[140px]">
         <% (myUrlSamples || []).forEach(function(mm){ const m = mm.menu || {}; %>
           <div class="overflow-hidden rounded-xl border">
             <div class="h-24 bg-gray-100">
@@ -83,21 +86,23 @@
           </div>
         <% }) %>
       </div>
-      <a href="/users/my-menu/from-url" class="inline-flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold">
+      </div>
+      <a href="/users/my-menu/from-url" class="mt-auto inline-flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold">
         <span class="inline-flex items-center gap-1"><span class="lucide w-4 h-4" data-lucide="plus"></span> URLを登録</span>
         <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
       </a>
     </section>
 
     <!-- Original -->
-    <section class="rounded-2xl border border-purple-200 bg-white p-5 space-y-3">
+    <section class="rounded-2xl border border-purple-200 bg-white p-5 space-y-3 flex flex-col">
       <div class="flex items-center gap-2 text-purple-700">
         <span class="lucide w-5 h-5" data-lucide="sparkles"></span>
         <h2 class="font-semibold">オリジナルレシピ</h2>
       </div>
       <p class="text-xs text-gray-500">自分だけのレシピを作成</p>
       <p class="text-xs text-gray-500">登録済み（<%= oc %>件）</p>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="flex-1">
+      <div class="grid grid-cols-2 gap-3 min-h-[140px]">
         <% (myOriginalSamples || []).forEach(function(mm){ const m = mm.menu || {}; %>
           <div class="overflow-hidden rounded-xl border">
             <div class="h-24 bg-gray-100">
@@ -111,7 +116,8 @@
           </div>
         <% }) %>
       </div>
-      <a href="/users/my-menu/original" class="inline-flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg bg-purple-700 text-white text-sm font-semibold">
+      </div>
+      <a href="/users/my-menu/original" class="mt-auto inline-flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg bg-purple-700 text-white text-sm font-semibold">
         <span class="inline-flex items-center gap-1"><span class="lucide w-4 h-4" data-lucide="plus"></span> レシピを作成</span>
         <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
       </a>
