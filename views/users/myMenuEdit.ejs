@@ -1,0 +1,270 @@
+<section class="max-w-5xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">レシピを編集</h1>
+      <p class="text-sm text-gray-500">URL由来・オリジナルのレシピを編集できます</p>
+    </div>
+    <a href="/users/my-menu/shared-register?fav=mine" class="text-sm text-blue-600 font-semibold">マイメニュー一覧へ</a>
+  </header>
+
+  <form method="post" action="/users/my-menu/edit/<%= menuDoc._id %>" class="bg-white border rounded-2xl p-5 space-y-4">
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-xs text-gray-500">レシピ名</label>
+        <input name="name" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.name || '' %>" required />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">よみ</label>
+        <input name="yomi" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.yomi || '' %>" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">メニュー（自由入力 or 選択）</label>
+        <input name="menu" list="menuList" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.menu || '' %>" />
+        <datalist id="menuList">
+          <% (menuNames || []).forEach(function(m){ if (!m) return; %>
+            <option value="<%= m %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">種類</label>
+        <input list="kindList" name="kind" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.kind || '' %>" />
+        <datalist id="kindList">
+          <% kinds.forEach(function(k){ %>
+            <option value="<%= k %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">ジャンル</label>
+        <input list="junleList" name="junle" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.junle || '' %>" />
+        <datalist id="junleList">
+          <% junles.forEach(function(j){ %>
+            <option value="<%= j %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">調理方法</label>
+        <input list="cookList" name="cook" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.cook || '' %>" />
+        <datalist id="cookList">
+          <% cooks.forEach(function(c){ %>
+            <option value="<%= c %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">レシピURL</label>
+        <input name="url" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.url || '' %>" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">画像URL（プレビューあり）</label>
+        <div class="flex gap-3 items-start">
+          <input name="imageUrl" id="f_imageUrl" class="flex-1 border rounded-lg px-3 py-2" value="<%= menuDoc.imageUrl || '' %>" />
+          <img id="imgPreview" src="<%= menuDoc.imageUrl || '' %>" alt="preview" class="w-24 h-24 object-cover rounded border" />
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">調理時間（分）</label>
+        <input name="time" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.time || '' %>" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">人数</label>
+        <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.people || 1 %>" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-xs text-gray-500">コメント</label>
+        <textarea name="comment" rows="3" class="w-full border rounded-lg px-3 py-2"><%= menuDoc.comment || '' %></textarea>
+      </div>
+    </div>
+
+    <div class="border-t pt-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-semibold">食材</h3>
+        <button type="button" id="openIngModal" class="px-3 py-1.5 rounded border text-sm">＋ 食材を追加</button>
+      </div>
+      <div id="ingredientsList" class="mt-2 space-y-2">
+        <% (menuDoc.ingredients || []).forEach(function(row){
+             const it = (ingredients||[]).find(i=> String(i._id)===String(row.name));
+             const units = Array.isArray(it?.unit)? it.unit: (it?.unit? [it.unit]: []);
+        %>
+          <div class="flex gap-2 items-center">
+            <div class="flex-1 border rounded px-3 py-2 bg-gray-50 flex items-center gap-2">
+              <span class="text-sm font-medium"><%= it ? it.ingredient : '' %></span>
+              <% if (it && it.classification) { %>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700"><%= it.classification %></span>
+              <% } %>
+            </div>
+            <input type="hidden" name="ingredient_ids[]" value="<%= it ? it._id : '' %>" />
+            <input type="number" step="0.1" min="0" name="ingredient_amounts[]" class="w-24 border rounded px-2 py-1" value="<%= row.amount || '' %>" />
+            <% if (units.length) { %>
+              <select name="ingredient_units[]" class="w-28 border rounded px-2 py-1">
+                <% units.forEach(function(u){ %>
+                  <option value="<%= u %>" <%= row.unit===u ? 'selected' : '' %>><%= u %></option>
+                <% }) %>
+              </select>
+            <% } else { %>
+              <input name="ingredient_units[]" list="unitList" class="w-24 border rounded px-2 py-1" value="<%= row.unit || '' %>" />
+            <% } %>
+            <button type="button" class="px-2 py-1 text-xs border rounded" onclick="this.parentElement.remove()">削除</button>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <div class="border-t pt-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-semibold">調味料</h3>
+        <button type="button" id="openSeaModal" class="px-3 py-1.5 rounded border text-sm">＋ 調味料を追加</button>
+      </div>
+      <div id="seasoningsList" class="mt-2 space-y-2">
+        <% (menuDoc.seasoning || []).forEach(function(row){
+             const it = (seasonings||[]).find(s=> String(s._id)===String(row.name));
+             const units = Array.isArray(it?.unit)? it.unit: (it?.unit? [it.unit]: []);
+        %>
+          <div class="flex gap-2 items-center">
+            <div class="flex-1 border rounded px-3 py-2 bg-gray-50 flex items-center gap-2">
+              <span class="text-sm font-medium"><%= it ? it.seasoning : '' %></span>
+              <% if (it && it.classification) { %>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700"><%= it.classification %></span>
+              <% } %>
+            </div>
+            <input type="hidden" name="seasoning_ids[]" value="<%= it ? it._id : '' %>" />
+            <input type="number" step="0.1" min="0" name="seasoning_amounts[]" class="w-24 border rounded px-2 py-1" value="<%= row.amount || '' %>" />
+            <% if (units.length) { %>
+              <select name="seasoning_units[]" class="w-28 border rounded px-2 py-1">
+                <% units.forEach(function(u){ %>
+                  <option value="<%= u %>" <%= row.unit===u ? 'selected' : '' %>><%= u %></option>
+                <% }) %>
+              </select>
+            <% } else { %>
+              <input name="seasoning_units[]" list="unitList" class="w-24 border rounded px-2 py-1" value="<%= row.unit || '' %>" />
+            <% } %>
+            <button type="button" class="px-2 py-1 text-xs border rounded" onclick="this.parentElement.remove()">削除</button>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <button class="px-5 py-2 rounded-lg bg-emerald-600 text-white font-semibold">更新する</button>
+    </div>
+  </form>
+
+  <datalist id="unitList">
+    <% (allUnits || []).forEach(function(u){ %>
+      <option value="<%= u %>"></option>
+    <% }) %>
+  </datalist>
+</section>
+
+<script>
+  const imgInput = document.getElementById('f_imageUrl');
+  imgInput?.addEventListener('input', () => {
+    const img = document.getElementById('imgPreview');
+    if (img) img.src = imgInput.value.trim();
+  });
+
+  function createRow(kind, lists){
+    const wrap = document.createElement('div');
+    wrap.className = 'flex gap-2 items-center';
+    const select = document.createElement('select');
+    select.className = 'border rounded px-2 py-1 flex-1';
+    const list = kind==='ingredient' ? lists.ingredients : lists.seasonings;
+    list.forEach(it=>{
+      const op = document.createElement('option');
+      op.value = it._id; op.textContent = it.ingredient || it.seasoning || ''; select.appendChild(op);
+    });
+    const amount = document.createElement('input'); amount.type='number'; amount.step='0.1'; amount.min='0'; amount.className='w-24 border rounded px-2 py-1';
+    const unit = document.createElement('input'); unit.setAttribute('list','unitList'); unit.className='w-24 border rounded px-2 py-1';
+    const del = document.createElement('button'); del.type='button'; del.textContent='削除'; del.className='px-2 py-1 text-xs border rounded'; del.addEventListener('click', ()=>wrap.remove());
+    if (kind==='ingredient'){ select.name='ingredient_ids[]'; amount.name='ingredient_amounts[]'; unit.name='ingredient_units[]'; }
+    else { select.name='seasoning_ids[]'; amount.name='seasoning_amounts[]'; unit.name='seasoning_units[]'; }
+    wrap.append(select, amount, unit, del); return wrap;
+  }
+  // モーダル検索（URL新規と同仕様）
+  (function(){
+    function buildSearchModal(type){
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 z-50 hidden';
+      modal.innerHTML = `
+        <div class="absolute inset-0 bg-black/40" data-close></div>
+        <div class="relative mx-auto mt-16 w-[720px] max-w-[92vw] rounded-2xl bg-white shadow-xl">
+          <div class="flex items-center justify-between border-b px-5 py-3">
+            <h3 class="font-semibold">${type==='ingredient' ? '食材を追加' : '調味料を追加'}</h3>
+            <button type="button" data-close class="text-gray-500">✕</button>
+          </div>
+          <div class="p-4 space-y-3">
+            <input data-role="kw" placeholder="名前で検索..." class="w-full border rounded px-3 py-2"/>
+            <div class="flex gap-2 items-end">
+              <input data-role="genre" placeholder="ジャンル" class="border rounded px-2 py-1" />
+            </div>
+            <div data-role="results" class="max-h-[50vh] overflow-auto divide-y"></div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      function close(){ modal.classList.add('hidden'); }
+      modal.addEventListener('click', (e)=>{ if (e.target.hasAttribute('data-close')) close(); });
+      async function doSearch(params){
+        const base = type==='ingredient' ? '/users/my-menu/api/ingredients' : '/users/my-menu/api/seasonings';
+        const url = new URL(base, location.origin);
+        Object.entries(params||{}).forEach(([k,v])=>{ if (v) url.searchParams.set(k, v); });
+        const res = await fetch(url.toString());
+        return res.json();
+      }
+      async function run(){
+        const kw = modal.querySelector('[data-role="kw"]').value.trim();
+        const gn = modal.querySelector('[data-role="genre"]').value.trim();
+        const params = { keyword: kw, genre: gn };
+        const data = await doSearch(params);
+        const holder = modal.querySelector('[data-role="results"]'); holder.innerHTML='';
+        (data||[]).forEach(item=>{
+          const name = item.ingredient || item.seasoning || '';
+          const classification = item.classification || '';
+          const units = Array.isArray(item.unit) ? item.unit.join(', ') : (item.unit||'');
+          const row = document.createElement('button'); row.type='button'; row.className='w-full text-left px-3 py-2 hover:bg-gray-50';
+          row.innerHTML = `<div class="text-sm font-semibold">${name} <span class="ml-2 text-xs text-gray-500">${classification}</span></div>
+                           <div class="text-xs text-gray-500">単位: ${units}</div>`;
+          row.addEventListener('click', ()=>{
+            const wrap = (function(){
+              // 使い回し: URL新規の createRow を流用
+              const itemData = { id: String(item._id), name, genre: classification, units: Array.isArray(item.unit)? item.unit: (item.unit? [item.unit]: []) };
+              const containerId = type==='ingredient' ? 'ingredientsList' : 'seasoningsList';
+              const w = (function(){
+                const wrap = document.createElement('div');
+                wrap.className = 'flex gap-2 items-center';
+                const labelBox = document.createElement('div'); labelBox.className='flex-1 border rounded px-3 py-2 bg-gray-50 flex items-center gap-2';
+                const title = document.createElement('span'); title.className='text-sm font-medium'; title.textContent=itemData.name; labelBox.appendChild(title);
+                if (itemData.genre) { const b=document.createElement('span'); b.className='text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700'; b.textContent=itemData.genre; labelBox.appendChild(b);} 
+                const hiddenId=document.createElement('input'); hiddenId.type='hidden'; hiddenId.value=itemData.id;
+                const amount=document.createElement('input'); amount.type='number'; amount.step='0.1'; amount.min='0'; amount.className='w-24 border rounded px-2 py-1';
+                let unitEl; if (itemData.units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; itemData.units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.setAttribute('list','unitList'); unitEl.className='w-24 border rounded px-2 py-1'; }
+                const del=document.createElement('button'); del.type='button'; del.textContent='削除'; del.className='px-2 py-1 text-xs border rounded'; del.addEventListener('click', ()=>wrap.remove());
+                if (type==='ingredient'){ hiddenId.name='ingredient_ids[]'; amount.name='ingredient_amounts[]'; unitEl.name='ingredient_units[]'; } else { hiddenId.name='seasoning_ids[]'; amount.name='seasoning_amounts[]'; unitEl.name='seasoning_units[]'; }
+                wrap.append(labelBox, hiddenId, amount, unitEl, del); return wrap;
+              })();
+              document.getElementById(containerId).appendChild(w);
+              return w;
+            })();
+            close();
+          });
+          holder.appendChild(row);
+        });
+      }
+      const kwInput = modal.querySelector('[data-role="kw"]');
+      const gnInput = modal.querySelector('[data-role="genre"]');
+      const trigger = (e)=>{ if (!e.isComposing) run(); };
+      kwInput.addEventListener('change', trigger);
+      gnInput.addEventListener('change', trigger);
+      kwInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') { e.preventDefault(); run(); }});
+      gnInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') { e.preventDefault(); run(); }});
+      kwInput.addEventListener('compositionend', trigger);
+      gnInput.addEventListener('compositionend', trigger);
+      return { open: ()=>{ modal.classList.remove('hidden'); run(); } };
+    }
+    const ingModal = buildSearchModal('ingredient');
+    const seaModal = buildSearchModal('seasoning');
+    document.getElementById('openIngModal')?.addEventListener('click', ()=>ingModal.open());
+    document.getElementById('openSeaModal')?.addEventListener('click', ()=>seaModal.open());
+  })();
+</script>

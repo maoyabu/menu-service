@@ -6,6 +6,8 @@ import Mymenu from '../models/mymenu.js';
 import Group from '../models/groups.js';
 import multer from 'multer';
 import cloudinary from '../utils/cloudinary.js';
+import Ingredient from '../models/ingredients.js';
+import Seasoning from '../models/seasonings.js';
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -49,6 +51,12 @@ router.get('/', async (req, res, next) => {
       .limit(4)
       .lean();
 
+    const myUrlSamples = await Mymenu.find({ user: userId, sourceType: 'url' })
+      .populate('menu', 'name imageUrl kind')
+      .sort({ update_date: -1, entry_date: -1 })
+      .limit(4)
+      .lean();
+
     const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const currentGroup = groups.find((g) => g._id.toString() === defaultGroupId) || groups[0] || null;
@@ -70,6 +78,7 @@ router.get('/', async (req, res, next) => {
       mymenuStats: { sharedCount, urlCount, originalCount },
       mySharedSamples,
       myOriginalSamples,
+      myUrlSamples,
       groupMemberItems,
       currentGroup
     });
@@ -135,6 +144,13 @@ router.get('/shared-register', async (req, res, next) => {
       myMenuIds = (mymenus || []).map((m) => (m.menu ? m.menu.toString() : '')).filter(Boolean);
     }
 
+    // 自分が作成した（URL/オリジナル）メニューID一覧（編集可）
+    const myEditableMenuIds = new Set(
+      (await Mymenu.find({ user: req.user._id, sourceType: { $in: ['url', 'original'] } })
+        .select('menu sourceType').lean())
+      .map((m) => m.menu?.toString()).filter(Boolean)
+    );
+
     // 管理者メニュー + 会員共有メニューを結合（menu._id でユニーク）
     const combinedMap = new Map();
     (adminShared || []).forEach((m) => {
@@ -147,7 +163,8 @@ router.get('/shared-register', async (req, res, next) => {
         cook: m.cook || '',
         imageUrl: m.imageUrl || '',
         url: m.url || '',
-        by: null
+        by: null,
+        canEdit: myEditableMenuIds.has(m._id.toString())
       });
     });
     (filteredSharedUserMenus || []).forEach((mm) => {
@@ -158,6 +175,7 @@ router.get('/shared-register', async (req, res, next) => {
       const existing = combinedMap.get(id);
       if (existing) {
         if (!existing.by && byName) existing.by = byName;
+        existing.canEdit = existing.canEdit || myEditableMenuIds.has(id);
       } else {
         combinedMap.set(id, {
           id,
@@ -167,7 +185,8 @@ router.get('/shared-register', async (req, res, next) => {
           cook: m.cook || '',
           imageUrl: m.imageUrl || '',
           url: m.url || '',
-          by: byName
+          by: byName,
+          canEdit: myEditableMenuIds.has(id)
         });
       }
     });
@@ -239,7 +258,14 @@ router.get('/from-url', async (req, res, next) => {
     const { kinds, junles, cooks } = await getFacetLists();
     // 現在の登録件数
     const myUrlCount = await Mymenu.countDocuments({ user: req.user._id, sourceType: 'url' });
-    res.render('users/myMenuUrl', { kinds, junles, cooks, myUrlCount });
+    const menuNames = await Menu.find().distinct('menu');
+    const ingredients = await Ingredient.find().select('ingredient classification unit').lean();
+    const seasonings = await Seasoning.find().select('seasoning classification unit').lean();
+    const allUnits = Array.from(new Set([
+      ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
+      ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
+    ].filter(Boolean)));
+    res.render('users/myMenuUrl', { kinds, junles, cooks, myUrlCount, menuNames, ingredients, seasonings, allUnits });
   } catch (err) { next(err); }
 });
 
@@ -249,6 +275,10 @@ router.post('/from-url/fetch', express.json(), async (req, res) => {
     const { url } = req.body;
     if (!url || !/^https?:\/\//i.test(url)) {
       return res.status(400).json({ error: 'URLを指定してください' });
+    }
+    const duplicate = await Menu.findOne({ url }).select('_id name').lean();
+    if (duplicate) {
+      return res.json({ duplicate: true, name: duplicate.name || '' });
     }
     // Node18+ fetch 前提。ネットワーク不可環境では失敗しうる
     const resp = await fetch(url, { method: 'GET' });
@@ -260,7 +290,7 @@ router.post('/from-url/fetch', express.json(), async (req, res) => {
     };
     const title = pick('title') || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
     const image = pick('image') || '';
-    return res.json({ title, image });
+    return res.json({ title, image, duplicate: false });
   } catch (e) {
     return res.status(500).json({ error: 'メタ情報の取得に失敗しました' });
   }
@@ -298,10 +328,20 @@ router.post('/from-url', async (req, res, next) => {
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
 
+    // Duplicate guard by URL
+    if (url) {
+      const exists = await Menu.findOne({ url }).select('_id').lean();
+      if (exists) {
+        req.flash('error', 'このURLは既に登録されています');
+        return res.redirect('/users/my-menu/from-url');
+      }
+    }
+
     const newMenu = await Menu.create({
       name, yomi, menu, kind, junle, cook,
       url, imageUrl, time, people: Number(people) || 1,
       ingredients, seasoning: seasonings,
+      comment: req.body.comment || '',
       share: String(share) === 'true'
     });
 
@@ -321,6 +361,85 @@ router.post('/from-url', async (req, res, next) => {
     req.flash('success', 'レシピサイトから登録しました');
     res.redirect('/users/my-menu');
   } catch (err) { next(err); }
+});
+
+// --- 食材/調味料 検索API（adminと同等のUI用） ---
+router.get('/api/ingredients', async (req, res) => {
+  const { keyword, genre, favorite, recent } = req.query;
+  try {
+    if (recent === 'true') {
+      const recentIngredients = await Ingredient.find({ used_date: { $exists: true } })
+        .sort({ used_date: -1 })
+        .limit(20);
+      return res.json(recentIngredients);
+    }
+
+    const filter = {};
+    if (keyword) {
+      const keywordRegex = new RegExp(keyword, 'i');
+      filter.$or = [
+        { ingredient: keywordRegex },
+        { yomi: keywordRegex },
+        { classification: keywordRegex },
+        { unit: { $in: [keywordRegex] } }
+      ];
+    }
+    if (genre) filter.classification = genre;
+    if (favorite === 'true') filter.favorite = true;
+
+    const results = await Ingredient.find(filter).limit(20);
+    const mappedResults = results.map(item => {
+      const short_nutrition = item.energy
+        ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
+        : '';
+      return {
+        ...item.toObject(),
+        short_nutrition
+      };
+    });
+    return res.json(mappedResults);
+  } catch (e) {
+    return res.status(500).json({ error: '取得に失敗しました' });
+  }
+});
+
+router.get('/api/seasonings', async (req, res) => {
+  const { keyword, genre, favorite, recent } = req.query;
+  try {
+    if (recent === 'true') {
+      const recentSeasonings = await Seasoning.find({ used_date: { $exists: true } })
+        .sort({ used_date: -1 })
+        .limit(20);
+      return res.json(recentSeasonings);
+    }
+
+    const filter = {};
+    if (keyword) {
+      const keywordRegex = new RegExp(keyword, 'i');
+      filter.$or = [
+        { seasoning: keywordRegex },
+        { yomi: keywordRegex },
+        { classification: keywordRegex },
+        { unit: { $in: [keywordRegex] } }
+      ];
+    }
+    if (genre) filter.classification = genre;
+    if (favorite === 'true') filter.favorite = true;
+
+    const results = await Seasoning.find(filter).limit(20);
+    const mappedResults = results.map(item => {
+      const short_nutrition = item.energy
+        ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
+        : '';
+      return {
+        ...item.toObject(),
+        short_nutrition
+      };
+    });
+    return res.json(mappedResults);
+  } catch (e) {
+    return res.status(500).json({ error: '取得に失敗しました' });
+  }
 });
 
 // オリジナルレシピ登録 画面
@@ -449,6 +568,88 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     console.error('upload error', e);
     return res.status(500).json({ error: 'アップロードに失敗しました' });
   }
+});
+
+// --- 自分が登録したURL/オリジナルのレシピ編集 ---
+router.get('/edit/:menuId', async (req, res, next) => {
+  try {
+    const { menuId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(menuId)) {
+      req.flash('error', '不正なIDです');
+      return res.redirect('/users/my-menu/shared-register?fav=mine');
+    }
+    const owned = await Mymenu.findOne({ user: req.user._id, menu: menuId, sourceType: { $in: ['url','original'] } }).lean();
+    if (!owned) {
+      req.flash('error', '編集権限がありません');
+      return res.redirect('/users/my-menu/shared-register?fav=mine');
+    }
+    const menuDoc = await Menu.findById(menuId).lean();
+    if (!menuDoc) {
+      req.flash('error', 'メニューが見つかりません');
+      return res.redirect('/users/my-menu/shared-register?fav=mine');
+    }
+    const { kinds, junles, cooks } = await getFacetLists();
+    const menuNames = await Menu.find().distinct('menu');
+    const ingredients = await Ingredient.find().select('ingredient classification unit').lean();
+    const seasonings = await Seasoning.find().select('seasoning classification unit').lean();
+    const allUnits = Array.from(new Set([
+      ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
+      ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
+    ].filter(Boolean)));
+    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits });
+  } catch (err) { next(err); }
+});
+
+router.post('/edit/:menuId', async (req, res, next) => {
+  try {
+    const { menuId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(menuId)) {
+      req.flash('error', '不正なIDです');
+      return res.redirect('/users/my-menu/shared-register?fav=mine');
+    }
+    const owned = await Mymenu.findOne({ user: req.user._id, menu: menuId, sourceType: { $in: ['url','original'] } }).lean();
+    if (!owned) {
+      req.flash('error', '編集権限がありません');
+      return res.redirect('/users/my-menu/shared-register?fav=mine');
+    }
+
+    const {
+      name,
+      kind,
+      junle,
+      cook,
+      menu,
+      url,
+      imageUrl,
+      time,
+      people,
+      comment,
+      yomi,
+      ingredient_ids = [],
+      ingredient_amounts = [],
+      ingredient_units = [],
+      seasoning_ids = [],
+      seasoning_amounts = [],
+      seasoning_units = []
+    } = req.body;
+
+    const ingredients = (Array.isArray(ingredient_ids) ? ingredient_ids : [ingredient_ids]).filter(Boolean).map((id, i) => ({
+      name: id,
+      amount: Array.isArray(ingredient_amounts) ? ingredient_amounts[i] : ingredient_amounts,
+      unit: Array.isArray(ingredient_units) ? ingredient_units[i] : ingredient_units
+    }));
+    const seasonings = (Array.isArray(seasoning_ids) ? seasoning_ids : [seasoning_ids]).filter(Boolean).map((id, i) => ({
+      name: id,
+      amount: Array.isArray(seasoning_amounts) ? seasoning_amounts[i] : seasoning_amounts,
+      unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
+    }));
+
+    await Menu.findByIdAndUpdate(menuId, {
+      name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1, comment, ingredients, seasoning: seasonings
+    });
+    req.flash('success', 'レシピを更新しました');
+    return res.redirect('/users/my-menu/shared-register?fav=mine');
+  } catch (err) { next(err); }
 });
 
 // MyMenu 登録/更新（weekMenu からの♡用）

@@ -69,10 +69,19 @@
       </div>
       <p class="text-xs text-gray-500">お気に入りのレシピサイトのURL</p>
       <p class="text-xs text-gray-500">登録済み（<%= uc %>件）</p>
-      <div class="rounded-xl border bg-emerald-50 text-emerald-700 p-6 flex items-center justify-center gap-2">
-        <span class="lucide w-6 h-6" data-lucide="link"></span>
-        <span class="text-lg font-bold"><%= uc %></span>
-        <span class="text-sm">レシピを登録中</span>
+      <div class="grid grid-cols-2 gap-3">
+        <% (myUrlSamples || []).forEach(function(mm){ const m = mm.menu || {}; %>
+          <div class="overflow-hidden rounded-xl border">
+            <div class="h-24 bg-gray-100">
+              <% if (m.imageUrl) { %>
+                <img src="<%= m.imageUrl %>" alt="<%= m.name %>" class="w-full h-full object-cover" />
+              <% } else { %>
+                <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>
+              <% } %>
+            </div>
+            <div class="p-2 text-xs font-medium truncate" title="<%= m.name %>"><%= m.name %></div>
+          </div>
+        <% }) %>
       </div>
       <a href="/users/my-menu/from-url" class="inline-flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold">
         <span class="inline-flex items-center gap-1"><span class="lucide w-4 h-4" data-lucide="plus"></span> URLを登録</span>

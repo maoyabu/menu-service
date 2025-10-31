@@ -58,6 +58,11 @@
           <% if (item.kind) { %>
             <span class="absolute top-2 left-2 text-[10px] bg-white/90 rounded px-2 py-0.5"><%= item.kind %></span>
           <% } %>
+          <% if (item.canEdit) { %>
+            <a href="/users/my-menu/edit/<%= item.id %>" class="absolute top-2 right-12 inline-flex h-8 w-8 items-center justify-center rounded-full border text-gray-500 bg-white/90 hover:bg-white" title="編集">
+              <span class="lucide w-4 h-4" data-lucide="pencil"></span>
+            </a>
+          <% } %>
           <button type="button" class="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full border text-gray-500 bg-white/90 hover:bg-white favorite-btn <%= isFav ? 'is-active text-rose-500 border-rose-300 bg-rose-50' : '' %>" data-menu-id="<%= item.id %>">
             <span class="lucide w-4 h-4" data-lucide="heart"></span>
           </button>
