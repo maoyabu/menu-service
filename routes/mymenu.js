@@ -79,7 +79,7 @@ router.get('/', async (req, res, next) => {
 // 共有メニューから登録 画面 + 検索
 router.get('/shared-register', async (req, res, next) => {
   try {
-    const { keyword = '', kind = '', junle = '', cook = '' } = req.query;
+    const { keyword = '', kind = '', junle = '', cook = '', fav = 'all' } = req.query;
     const { kinds, junles, cooks } = await getFacetLists();
 
     // 管理者が登録した共有メニュー（share=true を優先、なければ全件）
@@ -174,19 +174,33 @@ router.get('/shared-register', async (req, res, next) => {
       }
     });
 
-    const list = Array.from(combinedMap.values());
+    let list = Array.from(combinedMap.values());
+    // 絞り込み：fav = all | mine | not
+    const favSet = new Set(myMenuIds || []);
+    if (fav === 'mine') {
+      list = list.filter((it) => favSet.has(String(it.id)));
+    } else if (fav === 'not') {
+      list = list.filter((it) => !favSet.has(String(it.id)));
+    }
     const resultCount = list.length;
     const favoritesCount = myMenuIds.length;
 
     res.render('users/myMenuShared', {
       kinds, junles, cooks,
-      selected: { kind, junle, cook, keyword },
+      selected: { kind, junle, cook, keyword, fav },
       list,
       resultCount,
       myMenuIds,
       favoritesCount
     });
   } catch (err) { next(err); }
+});
+
+// 自分のマイメニュー一覧（myMenuSharedの絞り込みをmineで表示）
+router.get('/mine', (req, res) => {
+  const base = '/users/my-menu/shared-register';
+  const query = new URLSearchParams({ fav: 'mine' });
+  res.redirect(`${base}?${query.toString()}`);
 });
 
 // 共有メニューをマイメニューへ登録
