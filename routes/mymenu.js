@@ -6,6 +6,7 @@ import Mymenu from '../models/mymenu.js';
 import Group from '../models/groups.js';
 import multer from 'multer';
 import cloudinary from '../utils/cloudinary.js';
+import fs from 'fs/promises';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 
@@ -998,7 +999,14 @@ router.get('/original', async (req, res, next) => {
     const { kinds, junles, cooks } = await getFacetLists();
     // 自分の登録件数
     const myOriginalCount = await Mymenu.countDocuments({ user: req.user._id, sourceType: 'original' });
-    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount });
+    // 食材・調味料と単位候補（from-url と同等のUI用）
+    const ingredients = await Ingredient.find().select('ingredient classification unit').lean();
+    const seasonings = await Seasoning.find().select('seasoning classification unit').lean();
+    const allUnits = Array.from(new Set([
+      ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
+      ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
+    ].filter(Boolean)));
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits });
   } catch (err) { next(err); }
 });
 
@@ -1019,6 +1027,7 @@ router.post('/original', async (req, res, next) => {
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
       instruction = '',
+      comment = '',
       favorite = 'false', frequency = '3', skill = 'false',
       share = 'false', shareScope = 'group'
     } = req.body;
@@ -1034,12 +1043,13 @@ router.post('/original', async (req, res, next) => {
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
 
-    // オリジナルはURLは無し、コメントに作り方を格納
+    // オリジナルはURLは無し、コメントに『作り方 + コメント』を格納
+    const combinedComment = [instruction, comment].filter(Boolean).join('\n\n');
     const newMenu = await Menu.create({
       name, yomi, menu, kind, junle, cook,
       url: '', imageUrl, time, people: Number(people) || 1,
       ingredients, seasoning: seasonings,
-      comment: instruction,
+      comment: combinedComment,
       share: String(share) === 'true'
     });
 
@@ -1113,6 +1123,12 @@ router.post('/upload', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'ファイルがありません' });
     const result = await cloudinary.uploader.upload(req.file.path, { folder: 'menu-service' });
+    // アップロード成功時はローカルの一時ファイルを削除
+    try {
+      await fs.unlink(req.file.path);
+    } catch (unlinkErr) {
+      console.warn('temp file unlink failed:', unlinkErr);
+    }
     return res.json({ url: result.secure_url });
   } catch (e) {
     console.error('upload error', e);

@@ -113,11 +113,10 @@
           </label>
           <label class="inline-flex items-center gap-2 font-medium">食べたい頻度
             <select name="frequency" class="border rounded px-2 py-1">
-              <% for(let i=1;i<=5;i++){ %>
-                <option value="<%= i %>"><%= i %></option>
-              <% } %>
+              <% [5,4,3,2,1].forEach(function(i){ %>
+                <option value="<%= i %>"><%= i %><% if (i===5) { %>（高い）<% } else if (i===1) { %>（低い）<% } %></option>
+              <% }) %>
             </select>
-            <span class="text-xs text-gray-500">（1=低い、5=高い）</span>
           </label>
           <label class="inline-flex items-center gap-2 font-medium">
             <input type="checkbox" name="skill" value="true" class="w-4 h-4"/>
@@ -301,13 +300,16 @@
       }
       const kwInput = modal.querySelector('[data-role="kw"]');
       const gnInput = modal.querySelector('[data-role="genre"]');
-      const trigger = (e)=>{ if (!e.isComposing) run(); };
-      kwInput.addEventListener('change', trigger);
-      gnInput.addEventListener('change', trigger);
+      // Avoid blur-triggered rerender that cancels first click
+      function debounce(fn, ms){ let t; return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), ms); }; }
+      const debouncedRun = debounce(run, 200);
+      const trigger = (e)=>{ if (!e.isComposing) debouncedRun(); };
+      kwInput.addEventListener('input', trigger);
+      gnInput.addEventListener('input', trigger);
       kwInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') { e.preventDefault(); run(); }});
       gnInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') { e.preventDefault(); run(); }});
-      kwInput.addEventListener('compositionend', trigger);
-      gnInput.addEventListener('compositionend', trigger);
+      kwInput.addEventListener('compositionend', debouncedRun);
+      gnInput.addEventListener('compositionend', debouncedRun);
       return { open: ()=>{ modal.classList.remove('hidden'); run(); } };
     }
     const ingModal = buildSearchModal('ingredient');
