@@ -44,6 +44,19 @@
   #wm2-req h4{ font-size:13px; color:#f59e0b; font-weight:700; margin:8px 0 6px; }
   #wm2-req ul{ font-size:13px; color:#374151; }
   #wm2-req li{ display:flex; justify-content:space-between; padding:2px 0; }
+  /* When supplies mode is active, ensure any day titles are hidden */
+  #wm2-section[data-mode="supplies"] #wm2-left-title,
+  #wm2-section[data-mode="supplies"] #wm2-right-title { display:none !important; }
+  /* And fully hide the preview and main recipe grid */
+  #wm2-section[data-mode="supplies"] #wm2-preview,
+  #wm2-section[data-mode="supplies"] #wm2-main { display:none !important; }
+
+  /* Weekly supplies panel */
+  #wm2-supplies{ border:1px solid #fde68a; background:#fffdf4; border-radius:16px; padding:12px; }
+  #wm2-supplies h4{ font-size:13px; color:#f59e0b; font-weight:700; margin:6px 0 6px; }
+  #wm2-supplies .row{ display:flex; justify-content:space-between; padding:4px 0; font-size:13px; color:#374151; }
+  #wm2-supplies .tags{ display:flex; flex-wrap:wrap; gap:6px; }
+  #wm2-supplies .tag{ display:inline-flex; align-items:center; gap:4px; background:#d1fae5; color:#065f46; border-radius:9999px; padding:2px 8px; font-size:12px; }
 
   /* Section spacing tuning: allow padding from utility classes */
   #wm2-section{ }
@@ -54,17 +67,27 @@
   .wm2-title{ display:flex; align-items:center; gap:12px; }
   .wm2-title h2{ font-size: 1.125rem; line-height:1.5rem; font-weight:800; letter-spacing:.08em; color:#0f172a; }
   /* Removed decorative underline to match request */
+  /* Supplies range label under title */
+  #wm2-supplies-range{ display:none; font-size:12px; color:#475569; margin-top:4px; }
+  #wm2-section[data-mode="supplies"] #wm2-supplies-range{ display:block; }
 </style>
 
 <!-- Weekly preview + fused layout -->
 <section id="wm2-section" class="relative max-w-6xl mx-auto space-y-4 border border-gray-300 rounded-3xl bg-white p-4 md:p-6 shadow-sm">
   <!-- Title above preview -->
-  <div class="wm2-title">
+  <div class="wm2-title justify-between">
     <h2>7 DAYS PLAN</h2>
+    <button type="button" id="wm2-toggle-supplies" class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">食材・調味料リストを表示</button>
   </div>
+  <p id="wm2-supplies-range" aria-live="polite"></p>
+  <!-- Weekly supplies (collapsed by default) -->
+  <div id="wm2-supplies" class="hidden"></div>
+
   <!-- Weekly preview row -->
   <div id="wm2-preview" class="rounded-3xl bg-white p-4">
-    <p class="text-xs text-gray-500">7 DAYS PREVIEW</p>
+    <div class="flex items-center justify-between">
+      <p class="text-xs text-gray-500">7 DAYS PREVIEW</p>
+    </div>
     <div class="grid grid-cols-7 gap-2 mt-2" id="wm2-days"></div>
   </div>
 
@@ -106,6 +129,27 @@
     const WEEK = Array.isArray(window.weekMenuData?.weekDates) ? window.weekMenuData.weekDates : <%- JSON.stringify(weekDates || []) %>;
     // Unify icon-button styling with weekMenu.ejs
     const ICON_BTN = 'icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40';
+    const groupSize = Number(window.weekMenuData?.groupSize) > 0 ? Number(window.weekMenuData.groupSize) : 1;
+    // Build supplies range text (e.g., 2025年10月27日から11月2日の食材・調味料リスト)
+    (function(){
+      const labelEl = document.getElementById('wm2-supplies-range');
+      try{
+        const data = window.weekMenuData || {};
+        const startISO = data.weekStartISO || (Array.isArray(WEEK) && WEEK[0] && (WEEK[0].dateISO || WEEK[0]));
+        const start = startISO ? new Date(startISO) : null;
+        const endISO = Array.isArray(WEEK) && WEEK[6] ? (WEEK[6].dateISO || WEEK[6]) : (start ? new Date(start.getFullYear(), start.getMonth(), start.getDate()+6).toISOString() : null);
+        const end = endISO ? new Date(endISO) : null;
+        const fmt = (d, withYear=false) => {
+          if (!d || Number.isNaN(d.getTime())) return '';
+          const y = d.getFullYear();
+          const m = d.getMonth()+1;
+          const day = d.getDate();
+          return withYear ? `${y}年${m}月${day}日` : `${m}月${day}日`;
+        };
+        const text = `${fmt(start, true)}から${fmt(end)}の食材・調味料リスト`;
+        if (labelEl) labelEl.textContent = text;
+      }catch(_){ if (labelEl) labelEl.textContent = 'この週の食材・調味料リスト'; }
+    })();
     // pick default selected index = today within week, else 0
     const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
     const todayDateStr = new Date(todayISO).toDateString();
@@ -315,6 +359,123 @@
       e.preventDefault(); e.stopPropagation();
       const original = document.querySelector('section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"]');
       if (original) original.click();
+    });
+  })();
+</script>
+
+<script>
+  // Weekly supplies aggregator and toggle
+  (function(){
+    const specialPrefixUnits = new Set(['大さじ','小さじ']);
+    const formatQty = (val) => {
+      if (typeof val !== 'number' || Number.isNaN(val)) return '';
+      const n = Math.round(val * 100) / 100; return n % 1 ? n.toFixed(2) : String(n);
+    };
+    const formatUnitEntry = ({ amount, unit, missingAmount }) => {
+      if (missingAmount) return '数量未設定';
+      const q = formatQty(amount);
+      if (!unit) return q;
+      if (specialPrefixUnits.has(unit)) return unit + q;
+      const nonAscii = /[^\x00-\x7F]/.test(unit);
+      return nonAscii ? `${q}${unit}` : `${q} ${unit}`;
+    };
+
+    const computeWeekly = () => {
+      const data = window.weekMenuData || {}; const lookup = data.menuLookup || {};
+      const grp = Number(data.groupSize) > 0 ? Number(data.groupSize) : 1;
+      const plan = (data.planSnapshot || data.plan) || [];
+      const items = new Map();
+      const merge = (src, mult, type) => {
+        if (!src || !src.name) return; const name = src.name; const unit = src.unit || '';
+        const entry = items.get(name) || { unitMap:new Map(), types:new Set() };
+        const u = entry.unitMap.get(unit) || { amount:0, missingAmount:false };
+        if (typeof src.amount === 'number' && !Number.isNaN(src.amount)) { u.amount += src.amount * mult; } else { u.missingAmount = true; }
+        entry.unitMap.set(unit, u); if (type) entry.types.add(type); items.set(name, entry);
+      };
+      (plan||[]).forEach((day)=>{
+        const lunch = Array.isArray(day?.lunchSlots)? day.lunchSlots: [];
+        let dinner = Array.isArray(day?.dinnerSlots)? day.dinnerSlots: [];
+        if (!Array.isArray(day?.dinnerSlots)){
+          const base = day?.dinner && typeof day.dinner==='object' ? ['staple','main','side','soup'].map(k=>day.dinner[k]).filter(Boolean): [];
+          const extras = Array.isArray(day?.dinnerExtras)? day.dinnerExtras.filter(Boolean): [];
+          dinner = [...base, ...extras];
+        }
+        [...lunch, ...dinner].forEach((slot)=>{
+          if (!slot || slot.dineOut) return; const menu = slot.menuId ? (lookup[slot.menuId] || slot.menu || null) : (slot.menu || null); if (!menu) return;
+          const base = Number(menu.people); const mult = base && base>0 ? (grp/base) : 1;
+          (Array.isArray(menu.ingredients)? menu.ingredients: []).forEach(it=> merge(it, mult, 'ingredient'));
+          (Array.isArray(menu.seasoning)? menu.seasoning: []).forEach(it=> merge(it, mult, 'seasoning'));
+        });
+      });
+      const all = Array.from(items.entries()).map(([name, entry])=>({
+        name,
+        types: Array.from(entry.types),
+        units: Array.from(entry.unitMap.entries()).map(([unit, u])=>({ unit, amount: u.missingAmount? null : Math.round(u.amount*100)/100, missingAmount: u.missingAmount }))
+      })).sort((a,b)=> a.name.localeCompare(b.name,'ja'));
+      return {
+        ingredients: all.filter(x=> !x.types.length || x.types.includes('ingredient')),
+        seasonings: all.filter(x=> !x.types.length || x.types.includes('seasoning'))
+      };
+    };
+
+    const render = () => {
+      const box = document.getElementById('wm2-supplies'); if (!box) return;
+      const data = window.weekMenuData || {}; const groupName = data.currentGroupName || ''; const members = Array.isArray(data.currentGroupMembers)? data.currentGroupMembers: [];
+      const groupSize = Number(data.groupSize) > 0 ? Number(data.groupSize) : 1;
+      const agg = computeWeekly();
+      const sec = (title, list)=>{
+        const frag = document.createDocumentFragment();
+        const h = document.createElement('h4'); h.textContent = title; frag.appendChild(h);
+        if (!list.length){ const p=document.createElement('p'); p.className='text-sm text-gray-500'; p.textContent='項目はまだありません'; frag.appendChild(p); return frag; }
+        list.forEach(it=>{
+          const row=document.createElement('div'); row.className='row';
+          const left=document.createElement('span'); left.textContent=it.name; row.appendChild(left);
+          const right=document.createElement('span'); right.textContent=(it.units||[]).map(formatUnitEntry).filter(Boolean).join(' + ') || '数量未設定'; row.appendChild(right);
+          frag.appendChild(row);
+        });
+        return frag;
+      };
+
+      box.innerHTML='';
+      const head = document.createElement('div'); head.className='mb-2 text-sm text-gray-700 flex items-center gap-2 flex-wrap';
+      head.innerHTML = `<span><span class="font-semibold">${groupSize}人分</span>の必要量に換算しています。</span>`;
+      const tagWrap = document.createElement('span'); tagWrap.className='tags';
+      if (groupName){ const t=document.createElement('span'); t.className='tag'; t.textContent=groupName; tagWrap.appendChild(t); }
+      members.forEach(n=>{ const t=document.createElement('span'); t.className='tag'; t.textContent=n; tagWrap.appendChild(t); });
+      head.appendChild(tagWrap); box.appendChild(head);
+
+      const grid = document.createElement('div'); grid.className='grid grid-cols-1 md:grid-cols-2 gap-4';
+      const left=document.createElement('div'); left.appendChild(sec('食材', agg.ingredients));
+      const right=document.createElement('div'); right.appendChild(sec('調味料', agg.seasonings));
+      grid.appendChild(left); grid.appendChild(right); box.appendChild(grid);
+    };
+
+    const toggleBtn = document.getElementById('wm2-toggle-supplies');
+    const box = document.getElementById('wm2-supplies');
+    const preview = document.getElementById('wm2-preview');
+    const main = document.getElementById('wm2-main');
+    const section = document.getElementById('wm2-section');
+    const setMode = (mode) => { // 'menu' | 'supplies'
+      const showSupplies = mode === 'supplies';
+      if (box) box.classList.toggle('hidden', !showSupplies);
+      if (preview) preview.classList.toggle('hidden', showSupplies);
+      if (main) main.classList.toggle('hidden', showSupplies);
+      if (toggleBtn) toggleBtn.textContent = showSupplies ? 'メニューの表示' : '食材・調味料リストを表示';
+      if (section) section.dataset.mode = showSupplies ? 'supplies' : 'menu';
+      if (showSupplies) render();
+    };
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const nowShowing = !box?.classList.contains('hidden');
+        setMode(nowShowing ? 'menu' : 'supplies');
+      });
+    }
+
+    // Re-render when plan changes
+    document.addEventListener('weekplan:rendered', ()=>{ if (box && !box.classList.contains('hidden')) render(); });
+    document.addEventListener('click', (e)=>{
+      const needsRefresh = e.target.closest('[data-menu-option]') || e.target.closest('[data-fav-action="submit"]') || e.target.closest('[data-action="toggle-dine"]') || e.target.closest('[data-action="clear-slot"]') || e.target.closest('[data-action="shuffle"]');
+      if (needsRefresh && box && !box.classList.contains('hidden')) setTimeout(render, 50);
     });
   })();
 </script>
