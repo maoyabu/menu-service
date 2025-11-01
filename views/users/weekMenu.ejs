@@ -202,7 +202,7 @@
   </div>
 </div>
 
-<section class="relative max-w-6xl mx-auto py-10 space-y-8">
+<section class="relative max-w-6xl mx-auto py-0 space-y-8">
   <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
     <div class="p-6 md:p-8 lg:p-10">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -2010,9 +2010,13 @@
       };
     };
 
+    let __saving = false;
     const handleSave = async () => {
+      if (__saving) return; // prevent multiple concurrent saves/alerts
+      __saving = true;
       if (!currentGroupId) {
         alert('保存先グループが設定されていません。');
+        __saving = false;
         return;
       }
 
@@ -2055,6 +2059,7 @@
       } finally {
         saveButton.disabled = false;
         saveButton.textContent = originalLabel;
+        __saving = false;
       }
     };
 
@@ -2282,6 +2287,17 @@
       if (typeof window.refreshLucideIcons === 'function') {
         window.refreshLucideIcons();
       }
+
+      // Notify external views (e.g., weekMenu2) that render completed
+      try {
+        if (window && window.weekMenuData) {
+          window.weekMenuData.planSnapshot = JSON.parse(JSON.stringify(state.plan));
+        }
+        const ev = new CustomEvent('weekplan:rendered', {
+          detail: { plan: (window.weekMenuData && window.weekMenuData.planSnapshot) || [] }
+        });
+        document.dispatchEvent(ev);
+      } catch (_) { /* noop */ }
     };
 
     const switchTab = (nextTab) => {

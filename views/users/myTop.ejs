@@ -355,10 +355,12 @@
           <h2 class="text-lg font-semibold">今週の7 DAYS PLAN</h2>
           <p class="text-xs text-gray-500 mt-1 uppercase tracking-wide">7 days preview</p>
         </div>
-        <button class="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        <a href="<%= (typeof currentWeekLink === 'string' ? currentWeekLink : '/users/week-menu')
+              .replace('/users/week-menu', '/users/week-menu2') %>"
+           class="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
           全て表示
           <span class="lucide w-4 h-4" data-lucide="calendar-range"></span>
-        </button>
+        </a>
       </header>
 
       <div class="space-y-4">

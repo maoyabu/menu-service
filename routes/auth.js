@@ -924,7 +924,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         myMenuIds = [];
       }
     }
-	res.render('users/weekMenu', {
+	const viewTemplate = (req.query.view === '2') ? 'users/weekMenu2' : 'users/weekMenu';
+	res.render(viewTemplate, {
     categoryConfig: CATEGORY_CONFIG,
     menusByCategory,
     menuLookup,
@@ -949,6 +950,14 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     console.error('週次メニュー生成エラー:', err);
     return next(err);
   }
+});
+
+// weekMenu2 direct entry (redirects to week-menu with view=2)
+router.get('/users/week-menu2', isLoggedIn, (req, res) => {
+  const url = new URL(req.protocol + '://' + req.get('host') + req.originalUrl);
+  const q = new URLSearchParams(url.search);
+  q.set('view', '2');
+  res.redirect('/users/week-menu' + (q.toString() ? ('?' + q.toString()) : ''));
 });
 
 router.post('/users/week-menu', isLoggedIn, async (req, res) => {

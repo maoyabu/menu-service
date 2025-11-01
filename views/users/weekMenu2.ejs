@@ -1,0 +1,313 @@
+<!-- weekMenu2: Fused view using weekMenu core logic + myTop preview design -->
+
+<!-- Keep core logic and header from weekMenu; hide original body via CSS below -->
+<%- include('weekMenu') %>
+
+<style>
+  /* Hide original content from included weekMenu (not this view's section) */
+  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-requirements-summary],
+  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-plan-tab-buttons],
+  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-main-panel] { display: none !important; }
+  /* Hide original save; we'll place one at very bottom */
+  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"] { display: none !important; }
+  /* Remove drop shadow/lines under the included header */
+  section.relative.max-w-6xl.mx-auto:not(#wm2-section) > header { box-shadow: none !important; }
+
+  /* Weekly preview pill bar */
+  #wm2-preview .day-pill { background:#e8f2ff; border:2px solid #bfdbfe; color:#1d4ed8; border-radius:14px; padding:8px 12px; }
+  #wm2-preview .day-pill[data-active="true"]{ background:#2563eb; color:#fff; border-color:#1d4ed8; }
+  #wm2-preview .day-date{ font-weight:700; }
+
+  /* Two-column layout */
+  #wm2-main { display:grid; grid-template-columns: 1.6fr 1fr; gap:16px; }
+  .wm2-card { border:1px solid #e5e7eb; border-radius:16px; background:#fff; overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .wm2-card .img { height:160px; background:#eef2ff; position:relative; }
+  .wm2-card .img img{ width:100%; height:100%; object-fit:cover; }
+  .wm2-badges{ display:flex; flex-wrap:wrap; gap:8px; }
+  .wm2-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:9999px; font-size:11px; font-weight:600; }
+  .wm2-chip.time{ background:#ecfdf5; color:#065f46; }
+  .wm2-chip.kind{ background:#fff7ed; color:#92400e; }
+  .wm2-actions{ display:flex; gap:8px; justify-content:flex-end; padding:8px 12px 12px; }
+  /* Card list: up to 3 columns */
+  .wm2-list{ display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:14px; }
+  @media (min-width: 768px){ .wm2-list{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1024px){ .wm2-list{ grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .wm2-section-title{ font-size:13px; color:#2563eb; font-weight:700; padding:6px 8px; }
+  .wm2-add{ border:1px dashed #bfdbfe; border-radius:12px; background:#f8fafc; color:#2563eb; padding:10px; display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; }
+
+  /* Right column requirements */
+  #wm2-req { border:1px solid #fde68a; background:#fffdf4; border-radius:16px; padding:10px; }
+  #wm2-req h4{ font-size:13px; color:#f59e0b; font-weight:700; margin:8px 0 6px; }
+  #wm2-req ul{ font-size:13px; color:#374151; }
+  #wm2-req li{ display:flex; justify-content:space-between; padding:2px 0; }
+
+  /* Section spacing tuning */
+  #wm2-section{ padding-top: 0; padding-bottom: 0; }
+  #wm2-preview{ margin-top: 2px; }
+
+  /* Fancy title */
+  .wm2-title{ display:flex; align-items:center; gap:12px; }
+  .wm2-title h2{ font-size: 1.125rem; line-height:1.5rem; font-weight:800; letter-spacing:.08em; color:#0f172a; }
+  /* Removed decorative underline to match request */
+</style>
+
+<!-- Weekly preview + fused layout -->
+<section id="wm2-section" class="relative max-w-6xl mx-auto py-0 space-y-4">
+  <!-- Title above preview -->
+  <div class="wm2-title">
+    <h2>7 DAYS PLAN</h2>
+  </div>
+  <!-- Weekly preview row -->
+  <div id="wm2-preview" class="rounded-3xl border bg-white p-4 shadow">
+    <p class="text-xs text-gray-500">7 DAYS PREVIEW</p>
+    <div class="grid grid-cols-7 gap-2 mt-2" id="wm2-days"></div>
+  </div>
+
+  <!-- Two columns: Left recipes for selected day, Right requirements for selected day -->
+  <div id="wm2-main">
+    <div>
+      <h3 class="text-sm font-semibold mb-2" id="wm2-left-title"></h3>
+      <div class="space-y-6">
+        <!-- Lunch -->
+        <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-lunch" data-day="0" data-meal="lunch">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-semibold text-blue-600">ランチ</div>
+            <button type="button" id="wm2-btn-add-lunch" class="wm2-add" data-action="add-lunch-slot"><span class="lucide w-4 h-4" data-lucide="plus"></span>メニューを追加</button>
+          </div>
+          <div id="wm2-day-lunch" class="wm2-list"></div>
+        </div>
+        <!-- Dinner -->
+        <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-dinner" data-day="0" data-meal="dinner">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-semibold text-blue-600">ディナー</div>
+            <button type="button" id="wm2-btn-add-dinner" class="wm2-add" data-action="add-dinner-slot"><span class="lucide w-4 h-4" data-lucide="plus"></span>メニューを追加</button>
+          </div>
+          <div id="wm2-day-dinner" class="wm2-list"></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold mb-2" id="wm2-right-title"></h3>
+      <div id="wm2-req" class="wm2-req"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function(){
+    const WEEKDAY = ['月','火','水','木','金','土','日'];
+    const lookup = window.weekMenuData && window.weekMenuData.menuLookup || {};
+    const catConfig = window.weekMenuData && window.weekMenuData.categoryConfig || {};
+    const WEEK = Array.isArray(window.weekMenuData?.weekDates) ? window.weekMenuData.weekDates : <%- JSON.stringify(weekDates || []) %>;
+    // pick default selected index = today within week, else 0
+    const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
+    const todayDateStr = new Date(todayISO).toDateString();
+    let sel = Math.max(0, (WEEK || []).findIndex(d => {
+      const iso = d?.dateISO || d; if (!iso) return false; try { return new Date(iso).toDateString() === todayDateStr; } catch(_) { return false; }
+    }));
+
+    function toLabel(d){
+      const display = d && d.display ? d.display : '';
+      const iso = d && d.dateISO ? d.dateISO : d;
+      let dow = '';
+      try { const dt = new Date(iso); dow = WEEKDAY[(dt.getDay()+6)%7] || ''; } catch(_) {}
+      // If display already like MM/DD, use it; else format from iso
+      const disp = display || (function(){ try { const dt=new Date(iso); const m=dt.getMonth()+1, day=dt.getDate(); return `${('0'+m).slice(-2)}/${('0'+day).slice(-2)}`; } catch(_) { return '--/--'; } })();
+      return { disp, dow };
+    }
+
+    function buildPills(){
+      const row = document.getElementById('wm2-days'); if (!row) return; row.innerHTML='';
+      (WEEK||[]).forEach((d,idx)=>{
+        const f=toLabel(d); const b=document.createElement('button'); b.type='button'; b.className='day-pill'; b.dataset.index=String(idx); b.dataset.active= String(idx===sel);
+        b.innerHTML = `<div class="text-xs">${f.dow}</div><div class="day-date">${f.disp}</div>`;
+        row.appendChild(b);
+      });
+      // event delegation for stability across rebuilds
+      row.onclick = (ev)=>{
+        const btn = ev.target.closest('.day-pill');
+        if (!btn) return;
+        const idx = Number(btn.dataset.index);
+        if (!Number.isNaN(idx)) { sel = idx; rebuild(); }
+      };
+    }
+
+    function rowFromSlot(slot){
+      if (!slot) return { hasMenu:false };
+      let m = null;
+      if (slot.menuId && lookup[slot.menuId]) m = lookup[slot.menuId];
+      if (!m && slot.menu) m = slot.menu; // fallback to embedded menu from weekMenu state
+      if (!m) return { hasMenu:false };
+      const detail=m.cook||m.junle||m.kind||m.menu||'';
+      return { hasMenu:true, name:m.name, imageUrl:m.imageUrl||'', url:m.url||'', time: (m.time??'')+'', cook:m.cook||'', junle:m.junle||'', detail };
+    }
+
+    function cardEl(row){
+      const timeLabel = row.time ? (String(row.time).endsWith('分')? row.time: row.time+'分') : '';
+      const wrap = document.createElement('div'); wrap.className='wm2-card';
+      wrap.innerHTML = `
+        <div class=\"img\" data-element=\"dish-image\">${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}</div>
+        <div class=\"p-3 space-y-2\">
+          <div class=\"wm2-title\" data-element=\"dish-name\">${row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\" class=\"hover:underline\">${row.name}</a>`: row.name}</div>
+          <div class=\"wm2-badges\" data-element=\"dish-chips\">
+            ${timeLabel? `<span class=\"wm2-chip time\"><span>調理時間</span><span>${timeLabel}</span></span>`: ''}
+            ${row.junle? `<span class=\"wm2-chip kind\"><span>ジャンル</span><span>${row.junle}</span></span>`: ''}
+            ${row.cook? `<span class=\"wm2-chip kind\"><span>調理方法</span><span>${row.cook}</span></span>`: ''}
+          </div>
+          <p class=\"text-xs text-gray-500 hidden\" data-element=\"dish-detail\"></p>
+        </div>`;
+      return wrap;
+    }
+
+    function renderDay(){
+      const leftTitle = document.getElementById('wm2-left-title');
+      const rightTitle = document.getElementById('wm2-right-title');
+      const d = WEEK[sel] || null; const f = d ? toLabel(d) : { disp: '--/--', dow: '' };
+      const label = `${f.disp}${f.dow ? '（'+f.dow+'）' : ''}`;
+      if (leftTitle) leftTitle.textContent = label + ' のレシピ';
+      if (rightTitle) rightTitle.textContent = label + ' の食材 / 調味料';
+
+      const plan = (window.weekMenuData && (window.weekMenuData.planSnapshot||window.weekMenuData.plan)) || [];
+      const day = plan[sel] || {};
+      const lunchWrap = document.getElementById('wm2-day-lunch'); if (lunchWrap){ lunchWrap.innerHTML=''; }
+      const dinnerWrap = document.getElementById('wm2-day-dinner'); if (dinnerWrap){ dinnerWrap.innerHTML=''; }
+      const lunchBox = document.getElementById('wm2-box-lunch'); if (lunchBox){ lunchBox.dataset.day = String(sel); lunchBox.dataset.meal = 'lunch'; }
+      const dinnerBox = document.getElementById('wm2-box-dinner'); if (dinnerBox){ dinnerBox.dataset.day = String(sel); dinnerBox.dataset.meal = 'dinner'; }
+
+      // Ensure add buttons carry day/meal to satisfy weekMenu event delegation
+      const addLunchBtn = document.getElementById('wm2-btn-add-lunch');
+      if (addLunchBtn){ addLunchBtn.dataset.day = String(sel); addLunchBtn.dataset.meal = 'lunch'; }
+      const addDinnerBtn = document.getElementById('wm2-btn-add-dinner');
+      if (addDinnerBtn){ addDinnerBtn.dataset.day = String(sel); addDinnerBtn.dataset.meal = 'dinner'; addDinnerBtn.dataset.category = 'dinnerFlexible'; }
+
+      const lunchSlots = Array.isArray(day.lunchSlots)? day.lunchSlots: [];
+      lunchSlots.forEach((slot, i)=>{
+        const row = rowFromSlot(slot); if (!row.hasMenu || !lunchWrap) return;
+        const item = document.createElement('div'); item.setAttribute('data-slot-index', String(i)); item.setAttribute('data-category', slot?.categoryKey||'lunchMain'); item.dataset.meal = 'lunch';
+        const actions = document.createElement('div'); actions.className='wm2-actions';
+        const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
+        const favActive = !!(slot?.menuId && mySet.has(String(slot.menuId))) || !!slot?.favorite;
+        const dineHomeHidden = slot?.dineOut ? 'hidden' : '';
+        const dineOutHidden = slot?.dineOut ? '' : 'hidden';
+        actions.innerHTML = `
+          <button type=\"button\" class=\"icon-button ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
+        const card = cardEl(row); item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
+      });
+
+      let dinnerSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
+      if (!Array.isArray(day.dinnerSlots)) {
+        const base = day.dinner && typeof day.dinner === 'object' ? ['staple','main','side','soup'].map(k=>({slot:day.dinner[k], baseKey:k})).filter(x=>x.slot).map(x=>({ ...x.slot, baseKey:x.baseKey })) : [];
+        const extras = Array.isArray(day.dinnerExtras) ? day.dinnerExtras.filter(Boolean).map(s=>({ ...s, baseKey:null })) : [];
+        dinnerSlots = [...base, ...extras];
+        dinnerSlots.forEach((s)=>{ if (!s.categoryKey){ s.categoryKey = s.baseKey==='staple'?'dinnerStaple': s.baseKey==='main'?'dinnerMain': s.baseKey==='side'?'dinnerSide': s.baseKey==='soup'?'dinnerSoup':'dinnerFlexible'; } });
+      }
+      dinnerSlots.forEach((slot, i)=>{
+        const row = rowFromSlot(slot); if (!row.hasMenu || !dinnerWrap) return;
+        const item = document.createElement('div'); item.setAttribute('data-dinner-index', String(i)); const key = slot?.categoryKey||'dinnerFlexible'; item.setAttribute('data-category', key); item.dataset.meal = 'dinner';
+        const label = catConfig[key]?.label || '';
+        if (label){ const t=document.createElement('div'); t.className='wm2-section-title'; t.textContent = label; item.appendChild(t); }
+        const actions = document.createElement('div'); actions.className='wm2-actions';
+        const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
+        const favActive = !!(slot?.menuId && mySet.has(String(slot.menuId))) || !!slot?.favorite;
+        const dineHomeHidden = slot?.dineOut ? 'hidden' : '';
+        const dineOutHidden = slot?.dineOut ? '' : 'hidden';
+        actions.innerHTML = `
+          <button type=\"button\" class=\"icon-button ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
+          <button type=\"button\" class=\"icon-button\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
+        const card = cardEl(row); item.appendChild(card); item.appendChild(actions); dinnerWrap.appendChild(item);
+      });
+
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+
+      renderRequirementsForDay(day);
+    }
+
+    function renderRequirementsForDay(day){
+      const reqEl = document.getElementById('wm2-req'); if (!reqEl) return; reqEl.innerHTML='';
+      const menus = [];
+      (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m) menus.push(m); });
+      let dSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
+      if (!Array.isArray(day.dinnerSlots)) {
+        const base = day.dinner && typeof day.dinner==='object' ? ['staple','main','side','soup'].map(k=>day.dinner[k]).filter(Boolean): [];
+        const extras = Array.isArray(day.dinnerExtras)? day.dinnerExtras.filter(Boolean): [];
+        dSlots = [...base, ...extras];
+      }
+      dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m) menus.push(m); });
+
+      const agg = { ingredients: new Map(), seasonings: new Map() };
+      const add = (map, name, amount, unit)=>{
+        if (!name) return; const key = name + '|' + (unit||''); const prev = map.get(key) || 0; const val = parseFloat(amount); map.set(key, (isNaN(val)? prev: prev + val));
+      };
+      menus.forEach(m=>{
+        (Array.isArray(m.ingredients)? m.ingredients: []).forEach(it=> add(agg.ingredients, it?.name || '', it.amount, it.unit));
+        (Array.isArray(m.seasoning)? m.seasoning: []).forEach(it=> add(agg.seasonings, it?.name || '', it.amount, it.unit));
+      });
+
+      const sec = (title, map)=>{
+        const box = document.createElement('div');
+        const h = document.createElement('h4'); h.textContent = title; box.appendChild(h);
+        const ul = document.createElement('ul');
+        Array.from(map.entries()).forEach(([k,v])=>{ const [name, unit] = k.split('|'); const li=document.createElement('li'); li.innerHTML = `<span>${name}</span><span>${v? v: ''}${unit? unit: ''}</span>`; ul.appendChild(li); });
+        box.appendChild(ul);
+        return box;
+      };
+
+      reqEl.appendChild(sec('食材', agg.ingredients));
+      reqEl.appendChild(sec('調味料', agg.seasonings));
+    }
+
+    function rebuild(){ buildPills(); renderDay(); }
+    document.addEventListener('weekplan:rendered', rebuild);
+    // Refresh after primary interactions from weekMenu (without disturbing anchor navigation)
+    document.addEventListener('click', (e) => {
+      const needsRefresh =
+        e.target.closest('[data-menu-option]') ||
+        e.target.closest('[data-fav-action="submit"]') ||
+        e.target.closest('[data-action="toggle-dine"]') ||
+        e.target.closest('[data-action="clear-slot"]') ||
+        e.target.closest('[data-action="shuffle"]');
+      if (needsRefresh) setTimeout(rebuild, 40);
+    });
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', rebuild); else rebuild();
+  })();
+
+  // Fallback proxy removed to avoid duplicate click handling (caused recursion)
+
+  // Remove original main tab buttons block (plan/supplies) to avoid empty spacing
+  (function(){
+    const removeTabs = () => {
+      const anyTab = document.querySelector('section.relative.max-w-6xl.mx-auto:not(#wm2-section) .main-tab-button');
+      if (!anyTab) return;
+      const container = anyTab.closest('div.w-full.grid');
+      const outer = anyTab.closest('div.px-0.py-0.space-y-0') || container?.parentElement;
+      if (outer && outer.parentElement) outer.parentElement.removeChild(outer);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', removeTabs); else removeTabs();
+  })();
+
+  // (Removed) intrusive mutation observer; rely on explicit events instead
+</script>
+
+<!-- Bottom save button (fixed position in this view) -->
+<div class="mt-10 flex justify-center">
+  <button type="button" id="wm2-save" class="inline-flex w-full md:w-2/5 items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200">保存</button>
+</div>
+
+<script>
+  // Delegate save to original hidden save button wired by weekMenu
+  (function(){
+    const btn = document.getElementById('wm2-save');
+    btn?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const original = document.querySelector('section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"]');
+      if (original) original.click();
+    });
+  })();
+</script>
