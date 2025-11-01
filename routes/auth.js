@@ -924,7 +924,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         myMenuIds = [];
       }
     }
-	const viewTemplate = (req.query.view === '2') ? 'users/weekMenu2' : 'users/weekMenu';
+    const weekMenuView = (targetWeekStart.getTime() === todayWeekStart.getTime()) ? 'current' : 'next';
+
+	const viewTemplate = 'users/weekMenu2';
 	res.render(viewTemplate, {
     categoryConfig: CATEGORY_CONFIG,
     menusByCategory,
@@ -943,7 +945,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     // ここから追加
     currentGroupName,
     currentGroupMembers,
-    myMenuIds
+
+    myMenuIds,
+    weekMenuView
 	});
   
   } catch (err) {

@@ -30,11 +30,14 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
     }
+    /* Ensure icon clicks pass through to parent buttons/links (Chrome hit-area fix) */
+    .lucide { pointer-events: none; }
   </style>
   <!-- Lucide Icons (dynamic fetch) -->
 </head>
 <body class="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans">
     <%- include('../partials/admin-header') %>
+    <%- include('../partials/hamburger-menu') %>
     <main class="flex-grow container mx-auto px-4 py-6">
       <% if (locals.success && locals.success.length) { %>
         <div class="mb-4">

@@ -1,0 +1,164 @@
+<% const pathNow = (typeof currentPath !== 'undefined' ? currentPath : ''); %>
+<% const isActive = (hrefPrefix) => pathNow && hrefPrefix && pathNow.startsWith(hrefPrefix); %>
+<% const wmView = typeof weekMenuView !== 'undefined' ? weekMenuView : null; %>
+<% const isWeekRoute = isActive('/users/week-menu'); %>
+<% const activeCurrent = (isWeekRoute && wmView === 'current'); %>
+<% const activeNext = (isWeekRoute && wmView === 'next'); %>
+
+<div id="app-menu-overlay" class="hidden fixed inset-0 z-[60] bg-black/40 opacity-0 transition-opacity duration-200"></div>
+
+<aside id="app-menu-drawer" class="fixed left-0 top-0 z-[61] h-full w-[88%] sm:w-96 max-w-full -translate-x-full transition-transform duration-300 will-change-transform bg-white shadow-2xl border-r border-gray-200 flex flex-col">
+  <div class="px-5 pt-5 pb-4 border-b border-blue-100 bg-blue-50 flex items-center gap-3">
+    <div class="relative w-12 h-12 shrink-0 rounded-full overflow-hidden bg-gray-100 text-gray-600 flex items-center justify-center font-semibold select-none">
+      <% const avatarUrl = (user && user.avatar) ? user.avatar : ''; %>
+      <% const displayName = (user && (user.displayname || user.username || user.email)) || ''; %>
+      <% const initials = (displayName || '').trim().split(/\s+/).map(s => s[0]).join('').slice(0,2).toUpperCase(); %>
+      <% if (avatarUrl) { %>
+        <img src="<%= avatarUrl %>" alt="avatar" class="absolute inset-0 w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="hidden absolute inset-0 w-full h-full items-center justify-center"><%= initials || 'U' %></div>
+      <% } else { %>
+        <span><%= initials || 'U' %></span>
+      <% } %>
+    </div>
+    <div class="min-w-0">
+      <div class="flex items-center gap-2">
+        <p class="font-semibold text-gray-900 truncate max-w-[18rem]"><%= displayName %></p>
+        <% if (user && user.isAdmin) { %>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">管理者</span>
+        <% } %>
+      </div>
+      <p class="text-xs text-gray-500 truncate"><%= user && user.email ? user.email : '' %></p>
+    </div>
+    <button type="button" data-menu-close class="ml-auto inline-flex items-center justify-center rounded-full p-2 hover:bg-gray-100 text-gray-600" aria-label="メニューを閉じる">
+      <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto">
+    <div class="px-4 py-3">
+      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">メイン</p>
+      <ul class="mt-2 space-y-1">
+        <li>
+          <a href="/users/my-top" class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-top') ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/users/my-top') ? 'page' : 'false' %>">
+            <i data-lucide="home" class="w-5 h-5 <%= isActive('/users/my-top') ? 'text-white' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>トップページ</span>
+          </a>
+        </li>
+        <li>
+          <a href="/users/week-menu?weekStart=<%= new Date().toISOString() %>" class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeCurrent ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= activeCurrent ? 'page' : 'false' %>">
+            <i data-lucide="calendar" class="w-5 h-5 <%= activeCurrent ? 'text-white' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>今週の7 DAYS PLAN</span>
+          </a>
+        </li>
+        <li>
+          <a href="/users/week-menu" class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeNext ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50' %>">
+            <i data-lucide="calendar-plus" class="w-5 h-5 <%= activeNext ? 'text-white' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>来週の7 DAYS PLANを作成</span>
+          </a>
+        </li>
+        <li>
+          <a href="/users/my-menu" class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-menu') ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/users/my-menu') ? 'page' : 'false' %>">
+            <i data-lucide="book-open" class="w-5 h-5 <%= isActive('/users/my-menu') ? 'text-white' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>マイメニュー</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="px-4 py-3">
+      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">設定</p>
+      <ul class="mt-2 space-y-1">
+        <li>
+          <a href="/settings" class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/settings') ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/settings') ? 'page' : 'false' %>">
+            <i data-lucide="settings" class="w-5 h-5 <%= isActive('/settings') ? 'text-white' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>設定</span>
+          </a>
+        </li>
+        <% if (user && user.isAdmin) { %>
+        <li>
+          <a href="/admin/admin-top" class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/admin') ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/admin') ? 'page' : 'false' %>">
+            <i data-lucide="shield" class="w-5 h-5 <%= isActive('/admin') ? 'text-white' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>管理画面</span>
+          </a>
+        </li>
+        <% } %>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="p-4 border-t border-gray-100">
+    <% if (user) { %>
+      <form action="/logout" method="POST">
+        <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          ログアウト
+        </button>
+      </form>
+    <% } else { %>
+      <a href="/user/login" class="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition">
+        <i data-lucide="log-in" class="w-4 h-4"></i>
+        ログイン
+      </a>
+    <% } %>
+  </div>
+</aside>
+
+<script>
+  (function(){
+    const body = document.body;
+    const overlay = document.getElementById('app-menu-overlay');
+    const drawer = document.getElementById('app-menu-drawer');
+
+    const setExpanded = (value) => {
+      document.querySelectorAll('[data-menu-open]').forEach((b)=>{
+        try { b.setAttribute('aria-expanded', value ? 'true' : 'false'); } catch(_) {}
+      });
+    };
+
+    const open = () => {
+      body.dataset.menuOpen = 'true';
+      setExpanded(true);
+      overlay.classList.remove('hidden');
+      // allow one frame for display before opacity transition
+      requestAnimationFrame(() => {
+        overlay.classList.remove('opacity-0');
+        overlay.classList.add('opacity-100');
+        drawer.classList.remove('-translate-x-full');
+      });
+    };
+    const close = () => {
+      delete body.dataset.menuOpen;
+       setExpanded(false);
+      overlay.classList.remove('opacity-100');
+      overlay.classList.add('opacity-0');
+      drawer.classList.add('-translate-x-full');
+      setTimeout(() => overlay.classList.add('hidden'), 200);
+    };
+
+    // Bind explicit open/close buttons to avoid interfering with link clicks
+    const bindToggles = () => {
+      document.querySelectorAll('[data-menu-open]')
+        .forEach((btn) => {
+          btn.addEventListener('click', (e) => { e.preventDefault(); open(); });
+        });
+      document.querySelectorAll('[data-menu-close]')
+        .forEach((btn) => {
+          btn.addEventListener('click', (e) => { e.preventDefault(); close(); });
+        });
+      // Close drawer on any nav link click, but do not prevent navigation
+      drawer.querySelectorAll('a[href]')
+        .forEach((a) => {
+          a.addEventListener('click', () => { close(); });
+        });
+    };
+    // initial bind and after lucide potentially re-renders icons
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindToggles, { once: true });
+    } else {
+      bindToggles();
+    }
+
+    overlay.addEventListener('click', close);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  })();
+</script>

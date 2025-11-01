@@ -29,6 +29,8 @@ app.set('layout', 'layouts/boilerplate');
 
 app.use((req, res, next) => {
   res.locals.isAdminRoute = req.path.startsWith('/admin');
+  // Expose current path for nav highlighting
+  res.locals.currentPath = req.path || '';
   next();
 });
 
