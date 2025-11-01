@@ -12,6 +12,10 @@
   section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"] { display: none !important; }
   /* Remove drop shadow/lines under the included header */
   section.relative.max-w-6xl.mx-auto:not(#wm2-section) > header { box-shadow: none !important; }
+  /* Reduce spacing between included header and its next element to ~5px */
+  section.relative.max-w-6xl.mx-auto:not(#wm2-section) > header + * { margin-top: 5px !important; }
+  /* Hide the empty white container under header (its 1px border shows as a line) */
+  section.relative.max-w-6xl.mx-auto:not(#wm2-section) .bg-white.border.border-gray-100.rounded-3xl.shadow-sm.overflow-hidden { display: none !important; border:0 !important; box-shadow:none !important; }
 
   /* Weekly preview pill bar */
   #wm2-preview .day-pill { background:#e8f2ff; border:2px solid #bfdbfe; color:#1d4ed8; border-radius:14px; padding:8px 12px; }
@@ -41,9 +45,10 @@
   #wm2-req ul{ font-size:13px; color:#374151; }
   #wm2-req li{ display:flex; justify-content:space-between; padding:2px 0; }
 
-  /* Section spacing tuning */
-  #wm2-section{ padding-top: 0; padding-bottom: 0; }
+  /* Section spacing tuning: allow padding from utility classes */
+  #wm2-section{ }
   #wm2-preview{ margin-top: 2px; }
+  #wm2-preview{ border: 0 !important; box-shadow: none !important; }
 
   /* Fancy title */
   .wm2-title{ display:flex; align-items:center; gap:12px; }
@@ -52,13 +57,13 @@
 </style>
 
 <!-- Weekly preview + fused layout -->
-<section id="wm2-section" class="relative max-w-6xl mx-auto py-0 space-y-4">
+<section id="wm2-section" class="relative max-w-6xl mx-auto space-y-4 border border-gray-300 rounded-3xl bg-white p-4 md:p-6 shadow-sm">
   <!-- Title above preview -->
   <div class="wm2-title">
     <h2>7 DAYS PLAN</h2>
   </div>
   <!-- Weekly preview row -->
-  <div id="wm2-preview" class="rounded-3xl border bg-white p-4 shadow">
+  <div id="wm2-preview" class="rounded-3xl bg-white p-4">
     <p class="text-xs text-gray-500">7 DAYS PREVIEW</p>
     <div class="grid grid-cols-7 gap-2 mt-2" id="wm2-days"></div>
   </div>
@@ -99,6 +104,8 @@
     const lookup = window.weekMenuData && window.weekMenuData.menuLookup || {};
     const catConfig = window.weekMenuData && window.weekMenuData.categoryConfig || {};
     const WEEK = Array.isArray(window.weekMenuData?.weekDates) ? window.weekMenuData.weekDates : <%- JSON.stringify(weekDates || []) %>;
+    // Unify icon-button styling with weekMenu.ejs
+    const ICON_BTN = 'icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40';
     // pick default selected index = today within week, else 0
     const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
     const todayDateStr = new Date(todayISO).toDateString();
@@ -190,11 +197,11 @@
         const dineHomeHidden = slot?.dineOut ? 'hidden' : '';
         const dineOutHidden = slot?.dineOut ? '' : 'hidden';
         actions.innerHTML = `
-          <button type=\"button\" class=\"icon-button ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
+          <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
         const card = cardEl(row); item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
       });
 
@@ -216,11 +223,11 @@
         const dineHomeHidden = slot?.dineOut ? 'hidden' : '';
         const dineOutHidden = slot?.dineOut ? '' : 'hidden';
         actions.innerHTML = `
-          <button type=\"button\" class=\"icon-button ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
-          <button type=\"button\" class=\"icon-button\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
+          <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
         const card = cardEl(row); item.appendChild(card); item.appendChild(actions); dinnerWrap.appendChild(item);
       });
 
