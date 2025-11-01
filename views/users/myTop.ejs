@@ -14,7 +14,7 @@
   if (hasNextWeekPlan) {
     queryParts.push(`plan=${nextPlanId}`);
   }
-  const weekMenuLink = '/users/week-menu' + (queryParts.length ? `?${queryParts.join('&')}` : '');
+  const weekMenuLink = '/users/week-menu2' + (queryParts.length ? `?${queryParts.join('&')}` : '');
 %>
 
 <style>
@@ -343,7 +343,7 @@
           </div>
         <% } %>
       </div>
-      <a href="<%= currentWeekLink %>" class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+      <a href="<%= (typeof currentWeekLink === 'string' ? currentWeekLink : '/users/week-menu').replace('/users/week-menu', '/users/week-menu2') %>" class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
         今週の7 DAYS PLANを編集する
         <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
       </a>
@@ -570,7 +570,7 @@
     initialMonth: <%- serialize(initialCalendarMonthISO || '') %>,
     todayISO: <%- serialize(todayISO || '') %>,
     apiBase: '/users/api/week-plans',
-    weekMenuBaseUrl: '/users/week-menu',
+    weekMenuBaseUrl: '/users/week-menu2',
     currentWeekLink: <%- serialize(currentWeekLink || '') %>
   };
 </script>
