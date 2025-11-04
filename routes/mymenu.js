@@ -1058,6 +1058,17 @@ router.get('/original', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// 自分のオリジナルレシピ一覧
+router.get('/original-list', async (req, res, next) => {
+  try {
+    const list = await Mymenu.find({ user: req.user._id, sourceType: 'original' })
+      .populate('menu', 'name imageUrl kind junle cook update_date entry_date')
+      .sort({ update_date: -1, entry_date: -1 })
+      .lean();
+    res.render('users/myMenuOriginalList', { list });
+  } catch (err) { next(err); }
+});
+
 // オリジナルレシピ登録 保存（画像は Cloudinary にアップロード済みの URL を受け取る前提）
 router.post('/original', async (req, res, next) => {
   try {
