@@ -121,7 +121,7 @@ router.get('/', async (req, res, next) => {
 router.get('/shared-register', async (req, res, next) => {
   try {
     const { keyword = '', kind = '', junle = '', cook = '', fav = 'all' } = req.query;
-    const { kinds, junles, cooks } = await getFacetLists();
+  const { kinds, junles, cooks } = await getFacetLists();
 
     // 管理者が登録した共有メニュー（share=true を優先、なければ全件）
     const menuFilter = [];
@@ -291,8 +291,15 @@ router.get('/from-url', async (req, res, next) => {
     // 現在の登録件数
     const myUrlCount = await Mymenu.countDocuments({ user: req.user._id, sourceType: 'url' });
     const menuNames = await Menu.find().distinct('menu');
-    const ingredients = await Ingredient.find().select('ingredient classification unit').lean();
-    const seasonings = await Seasoning.find().select('seasoning classification unit').lean();
+    // グループ表示スコープ: グローバル(=groupなし) + 自分のグループ
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    const groupScope = groupId
+      ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
+      : {};
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
     const allUnits = Array.from(new Set([
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
@@ -916,8 +923,17 @@ router.post('/from-url', async (req, res, next) => {
 
 // --- 食材/調味料 検索API（adminと同等のUI用） ---
 router.get('/api/ingredients', async (req, res) => {
-  const { keyword, genre, favorite, recent } = req.query;
+  const { keyword, genre, favorite, recent, meta, limit } = req.query;
   try {
+    // return genre metadata only
+    if (meta === 'genres') {
+      const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+      const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+      const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+      const scope = groupId ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] } : {};
+      const list = await Ingredient.find(scope).distinct('classification');
+      return res.json({ genres: (list || []).filter(Boolean) });
+    }
     if (recent === 'true') {
       const recentIngredients = await Ingredient.find({ used_date: { $exists: true } })
         .sort({ used_date: -1 })
@@ -925,7 +941,15 @@ router.get('/api/ingredients', async (req, res) => {
       return res.json(recentIngredients);
     }
 
-    const filter = {};
+    // グローバル + 自グループ
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    const baseScope = groupId
+      ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
+      : {};
+
+    const filter = { ...baseScope };
     if (keyword) {
       const keywordRegex = new RegExp(keyword, 'i');
       filter.$or = [
@@ -938,7 +962,8 @@ router.get('/api/ingredients', async (req, res) => {
     if (genre) filter.classification = genre;
     if (favorite === 'true') filter.favorite = true;
 
-    const results = await Ingredient.find(filter).limit(20);
+    const hardLimit = Number(limit) || (keyword ? 50 : 1000);
+    const results = await Ingredient.find(filter).limit(hardLimit);
     const mappedResults = results.map(item => {
       const short_nutrition = item.energy
         ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
@@ -955,8 +980,16 @@ router.get('/api/ingredients', async (req, res) => {
 });
 
 router.get('/api/seasonings', async (req, res) => {
-  const { keyword, genre, favorite, recent } = req.query;
+  const { keyword, genre, favorite, recent, meta, limit } = req.query;
   try {
+    if (meta === 'genres') {
+      const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+      const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+      const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+      const scope = groupId ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] } : {};
+      const list = await Seasoning.find(scope).distinct('classification');
+      return res.json({ genres: (list || []).filter(Boolean) });
+    }
     if (recent === 'true') {
       const recentSeasonings = await Seasoning.find({ used_date: { $exists: true } })
         .sort({ used_date: -1 })
@@ -964,7 +997,15 @@ router.get('/api/seasonings', async (req, res) => {
       return res.json(recentSeasonings);
     }
 
-    const filter = {};
+    // グローバル + 自グループ
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    const baseScope = groupId
+      ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
+      : {};
+
+    const filter = { ...baseScope };
     if (keyword) {
       const keywordRegex = new RegExp(keyword, 'i');
       filter.$or = [
@@ -977,7 +1018,8 @@ router.get('/api/seasonings', async (req, res) => {
     if (genre) filter.classification = genre;
     if (favorite === 'true') filter.favorite = true;
 
-    const results = await Seasoning.find(filter).limit(20);
+    const hardLimit = Number(limit) || (keyword ? 50 : 1000);
+    const results = await Seasoning.find(filter).limit(hardLimit);
     const mappedResults = results.map(item => {
       const short_nutrition = item.energy
         ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
@@ -1000,8 +1042,14 @@ router.get('/original', async (req, res, next) => {
     // 自分の登録件数
     const myOriginalCount = await Mymenu.countDocuments({ user: req.user._id, sourceType: 'original' });
     // 食材・調味料と単位候補（from-url と同等のUI用）
-    const ingredients = await Ingredient.find().select('ingredient classification unit').lean();
-    const seasonings = await Seasoning.find().select('seasoning classification unit').lean();
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    const groupScope = groupId
+      ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
+      : {};
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
     const allUnits = Array.from(new Set([
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
@@ -1136,6 +1184,107 @@ router.post('/upload', upload.single('image'), async (req, res) => {
   }
 });
 
+// オリジナル食材/調味料の作成（グループ内のみ表示）
+router.post('/api/ingredients/custom', express.json(), async (req, res) => {
+  try {
+    const { name, classification = '', units = '' } = req.body || {};
+    if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name is required' });
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    if (!groupId) return res.status(400).json({ error: 'group not found' });
+    const unitArr = String(units || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    // 重複ガード（同名・同グループ）
+    const dup = await Ingredient.findOne({ ingredient: name.trim(), group: groupId }).select('_id').lean();
+    if (dup) return res.status(409).json({ error: 'duplicate' });
+    const created = await Ingredient.create({
+      ingredient: name.trim(),
+      classification: classification || '',
+      unit: unitArr,
+      group: groupId,
+      createdBy: req.user?._id || null
+    });
+    return res.json(created);
+  } catch (e) { return res.status(500).json({ error: 'failed' }); }
+});
+
+router.post('/api/seasonings/custom', express.json(), async (req, res) => {
+  try {
+    const { name, classification = '', units = '' } = req.body || {};
+    if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name is required' });
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    if (!groupId) return res.status(400).json({ error: 'group not found' });
+    const unitArr = String(units || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    // 重複ガード（同名・同グループ）
+    const dup = await Seasoning.findOne({ seasoning: name.trim(), group: groupId }).select('_id').lean();
+    if (dup) return res.status(409).json({ error: 'duplicate' });
+    const created = await Seasoning.create({
+      seasoning: name.trim(),
+      classification: classification || '',
+      unit: unitArr,
+      group: groupId,
+      createdBy: req.user?._id || null
+    });
+    return res.json(created);
+  } catch (e) { return res.status(500).json({ error: 'failed' }); }
+});
+
+// 既存オリジナル食材の単位を追加（自グループ所有のみ）
+router.post('/api/ingredients/:id/units', express.json(), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'invalid id' });
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    if (!groupId) return res.status(400).json({ error: 'group not found' });
+    const item = await Ingredient.findById(id).select('group unit').lean();
+    if (!item) return res.status(404).json({ error: 'not found' });
+    if (!item.group || String(item.group) !== String(groupId)) return res.status(403).json({ error: 'forbidden' });
+    const unitsRaw = (req.body?.units || req.body?.unit || '').toString();
+    const unitArr = unitsRaw.split(',').map(s=>s.trim()).filter(Boolean);
+    if (!unitArr.length) return res.status(400).json({ error: 'units required' });
+    const updated = await Ingredient.findByIdAndUpdate(
+      id,
+      { $addToSet: { unit: { $each: unitArr } }, update_date: new Date() },
+      { new: true }
+    ).select('unit');
+    return res.json({ units: updated.unit || [] });
+  } catch (e) { return res.status(500).json({ error: 'failed' }); }
+});
+
+// 既存オリジナル調味料の単位を追加（自グループ所有のみ）
+router.post('/api/seasonings/:id/units', express.json(), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'invalid id' });
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    if (!groupId) return res.status(400).json({ error: 'group not found' });
+    const item = await Seasoning.findById(id).select('group unit').lean();
+    if (!item) return res.status(404).json({ error: 'not found' });
+    if (!item.group || String(item.group) !== String(groupId)) return res.status(403).json({ error: 'forbidden' });
+    const unitsRaw = (req.body?.units || req.body?.unit || '').toString();
+    const unitArr = unitsRaw.split(',').map(s=>s.trim()).filter(Boolean);
+    if (!unitArr.length) return res.status(400).json({ error: 'units required' });
+    const updated = await Seasoning.findByIdAndUpdate(
+      id,
+      { $addToSet: { unit: { $each: unitArr } }, update_date: new Date() },
+      { new: true }
+    ).select('unit');
+    return res.json({ units: updated.unit || [] });
+  } catch (e) { return res.status(500).json({ error: 'failed' }); }
+});
+
 // 画像差し替え（Cloudinary）：新規アップロード成功後に旧画像を削除
 router.post('/upload-replace', upload.single('image'), async (req, res) => {
   try {
@@ -1199,8 +1348,15 @@ router.get('/edit/:menuId', async (req, res, next) => {
     }
     const { kinds, junles, cooks } = await getFacetLists();
     const menuNames = await Menu.find().distinct('menu');
-    const ingredients = await Ingredient.find().select('ingredient classification unit').lean();
-    const seasonings = await Seasoning.find().select('seasoning classification unit').lean();
+    // グローバル + 自グループの候補を表示
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    const groupScope = groupId
+      ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
+      : {};
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
     const allUnits = Array.from(new Set([
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))

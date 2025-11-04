@@ -125,9 +125,9 @@
       </div>
     </div>
     <div class="border-t pt-4">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-start gap-3">
         <h3 class="font-semibold">食材</h3>
-        <button type="button" id="openIngModal" class="px-3 py-1.5 rounded border text-sm">＋ 食材を追加</button>
+        <button type="button" id="openIngModal" class="px-3 py-1.5 rounded border text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100">＋ 食材を追加</button>
       </div>
       <div id="ingredientsList" class="mt-2 space-y-2">
         <% (menuDoc.ingredients || []).forEach(function(row){
@@ -159,9 +159,9 @@
     </div>
 
     <div class="border-t pt-4">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-start gap-3">
         <h3 class="font-semibold">調味料</h3>
-        <button type="button" id="openSeaModal" class="px-3 py-1.5 rounded border text-sm">＋ 調味料を追加</button>
+        <button type="button" id="openSeaModal" class="px-3 py-1.5 rounded border text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100">＋ 調味料を追加</button>
       </div>
       <div id="seasoningsList" class="mt-2 space-y-2">
         <% (menuDoc.seasoning || []).forEach(function(row){

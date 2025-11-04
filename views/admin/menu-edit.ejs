@@ -116,9 +116,9 @@
     <hr class="my-6">
 
     <div>
-      <div class="flex justify-between items-center">
+      <div class="flex items-center justify-start gap-3">
         <label class="block mb-1 text-sm font-bold">食材</label>
-        <button type="button" class="inline-flex items-center border border-gray-300 rounded px-3 py-1 text-sm text-gray-700 hover:bg-gray-50" onclick="addIngredient()">
+        <button type="button" class="inline-flex items-center border rounded px-3 py-1 text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100" onclick="addIngredient()">
           <span class="text-xl leading-none">＋</span><span class="ml-1">食材を追加</span>
         </button>
       </div>
@@ -163,9 +163,9 @@
     <hr class="my-6">
 
     <div>
-      <div class="flex justify-between items-center">
+      <div class="flex items-center justify-start gap-3">
         <label class="block mb-1 text-sm font-bold">調味料</label>
-        <button type="button" class="inline-flex items-center border border-gray-300 rounded px-3 py-1 text-sm text-gray-700 hover:bg-gray-50" onclick="addSeasoning()">
+        <button type="button" class="inline-flex items-center border rounded px-3 py-1 text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100" onclick="addSeasoning()">
           <span class="text-xl leading-none">＋</span><span class="ml-1">調味料を追加</span>
         </button>
       </div>
@@ -237,7 +237,7 @@
     // 検索ワードとジャンルフィルターの初期化
     if (tab === 'favorite' || tab === 'recent') {
       document.getElementById('ingredient-search').value = '';
-      document.getElementById('ingredient-genre-filter').selectedIndex = 0;
+    // no-op (chips UI)
     }
 
     fetchIngredients();
@@ -245,7 +245,7 @@
 
   async function fetchIngredients() {
     const keyword = document.getElementById('ingredient-search')?.value || '';
-    const genreFilter = document.getElementById('ingredient-genre-filter')?.value || '';
+    const genreFilter = ING_GENRE || '';
     const params = new URLSearchParams();
     params.append('keyword', keyword);
     params.append('tab', currentIngredientTab);
@@ -258,52 +258,13 @@
   }
 
   // 新しい食材リスト描画（お気に入り・詳細・カード全体クリックで追加）
-  function renderIngredientList(ingredients) {
-    const resultsContainer = document.getElementById('ingredient-results');
-    resultsContainer.innerHTML = '';
-    if (!ingredients || ingredients.length === 0) {
-      resultsContainer.innerHTML = '<p class="text-sm text-gray-500">該当する食材が見つかりません</p>';
-      return;
-    }
-
-    ingredients.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'border p-2 rounded-md hover:bg-gray-50 cursor-pointer text-sm space-y-1 ingredient-card';
-
-      const basicInfo = `
-        <div class="flex justify-between items-center">
-          <div>
-            <div class="font-medium">
-              <span class="ingredient-name">${item.ingredient}</span>
-              <span class="text-xs text-gray-500 ml-1">${item.classification}</span>
-            </div>
-            <div class="text-xs text-gray-600">単位: ${item.unit.join(', ')}</div>
-          </div>
-          <div class="flex items-center gap-1">
-            <button onclick="event.stopPropagation(); toggleIngredientDetail(this)" class="text-blue-500 hover:text-blue-700" title="栄養を見る">
-              <span class="inline-block">Info </span> 
-            </button>
-            <button onclick="event.stopPropagation(); toggleFavorite(this, '${item._id}', 'ingredient')" class="${item.favorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-500">${item.favorite ? '★' : '☆'}</button>
-          </div>
-        </div>`;
-
-      const detailInfo = `
-        <div class="mt-2 hidden text-xs text-gray-600 detail-section">
-          <div>水分: ${item.water || '-'}g　タンパク質: ${item.protein || '-'}g</div>
-          <div>脂質: ${item.lipid || '-'}g　炭水化物: ${item.carbohydrate || '-'}g</div>
-        </div>`;
-
-      div.innerHTML = basicInfo + detailInfo;
-      div.addEventListener('click', () => {
-        addIngredientFromSearch(item._id, item.ingredient, item.unit, item.classification, item.short_nutrition || '');
-      });
-      resultsContainer.appendChild(div);
-    });
-  }
+  let ING_GENRE=''; const ING_GENRES=<%- JSON.stringify(genreList||[]) %>;
+  function paintIngGenres(){ const holder=document.getElementById('ingredient-genres'); if(!holder) return; holder.innerHTML=''; const all=['すべて',...ING_GENRES]; all.forEach((label,idx)=>{ const val=idx===0?'':label; const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1 rounded-full text-sm border'; const paint=()=>{ const active=String(ING_GENRE||'')===String(val||''); b.classList.toggle('bg-emerald-700',active); b.classList.toggle('text-white',active); b.classList.toggle('border-emerald-700',active); b.classList.toggle('bg-gray-100',!active); }; b.addEventListener('click',()=>{ ING_GENRE=val; paintIngGenres(); fetchIngredients(); }); paint(); holder.appendChild(b); }); }
+  function renderIngredientList(items){ const tags=document.getElementById('ingredient-tags'); const selected=document.getElementById('ingredient-selected'); tags.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML=''; if(!items||items.length===0){ tags.innerHTML='<p class="text-sm text-gray-500">該当する食材が見つかりません</p>'; return;} items.forEach(item=>{ const label=item.ingredient||''; const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200'; b.addEventListener('click',()=>{ selected.classList.remove('hidden'); selected.innerHTML=''; const row=document.createElement('div'); row.className='flex items-center gap-3'; const info=document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification||''}</div>`; const hiddenId=document.createElement('input'); hiddenId.type='hidden'; hiddenId.value=String(item._id); const amount=document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1'; const units=Array.isArray(item.unit)?item.unit:(item.unit?[item.unit]:[]); let unitEl; if(units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.className='w-24 border rounded px-2 py-1'; } const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm'; addBtn.addEventListener('click',()=>{ addIngredientFromSearch(String(item._id),label,units,item.classification||'',item.short_nutrition||''); const cont=document.getElementById('ingredients-list'); const last=cont.lastElementChild; if(last){ const inputs=last.querySelectorAll('input, select'); if(inputs&&inputs.length>=3){ inputs[1].value=amount.value||''; const unitCtl=inputs[2]; if(unitCtl&&unitCtl.tagName==='SELECT' && unitEl.tagName==='SELECT') unitCtl.value=unitEl.value; else if(unitCtl) unitCtl.value=unitEl.value||''; }} document.getElementById('ingredient-modal').classList.add('hidden'); }); row.append(info,hiddenId,amount,unitEl,addBtn); selected.appendChild(row); }); tags.appendChild(b); }); }
 
   function openIngredientModal() {
     document.getElementById('ingredient-modal').classList.remove('hidden');
-    fetchIngredients();
+    paintIngGenres(); fetchIngredients();
 
     const searchInput = document.getElementById('ingredient-search');
     if (searchInput && !searchInput.dataset.bound) {
@@ -876,20 +837,9 @@ function toggleNutritionInfo(btn) {
       <button type="button" id="tab-btn-recent" class="ingredient-tab-btn px-4 py-1.5 text-sm rounded-full text-gray-700 hover:bg-gray-100" onclick="setIngredientTab('recent')">最近使用</button>
     </div>
 
-    <div class="mb-4">
-      <select id="ingredient-genre-filter" class="w-full px-3 py-2 border rounded-md text-sm" onchange="fetchIngredients()">
-        <option value="">ジャンルを選択</option>
-        <% if (genreList && genreList.length > 0) { %>
-          <% genreList.forEach(genre => { %>
-            <option value="<%= genre %>"><%= genre %></option>
-          <% }) %>
-        <% } %>
-      </select>
-    </div>
-
-    <div id="ingredient-results" class="max-h-60 overflow-y-auto space-y-2">
-      <!-- 食材候補をここに描画 -->
-    </div>
+    <div class="mb-3"><div id="ingredient-genres" class="flex flex-wrap gap-2"></div></div>
+    <div id="ingredient-tags" class="max-h-60 overflow-y-auto border rounded p-3 bg-green-50 flex flex-wrap gap-2"></div>
+    <div id="ingredient-selected" class="hidden border rounded p-3 bg-blue-50 mt-3"></div>
     <div class="text-right mt-4">
       <a href="#" onclick="window.open('/admin/ingredient-list', 'ingredientWindow'); return false;" class="text-sm text-blue-600 hover:underline">見つからない場合はこちらから食材を編集</a>
     </div>
@@ -912,18 +862,9 @@ function toggleNutritionInfo(btn) {
       <button type="button" id="seasoning-tab-btn-recent" class="seasoning-tab-btn px-4 py-1.5 text-sm rounded-full text-gray-700 hover:bg-gray-100" onclick="setSeasoningTab('recent')">最近使用</button>
     </div>
 
-    <div class="mb-4">
-      <select id="seasoning-genre-filter" class="w-full px-3 py-2 border rounded-md text-sm" onchange="fetchSeasonings()">
-        <option value="">ジャンルを選択</option>
-        <% if (seasoningGenreList && seasoningGenreList.length > 0) { %>
-          <% seasoningGenreList.forEach(genre => { %>
-            <option value="<%= genre %>"><%= genre %></option>
-          <% }) %>
-        <% } %>
-      </select>
-    </div>
-
-    <div id="seasoning-results" class="max-h-60 overflow-y-auto space-y-2"></div>
+    <div class="mb-3"><div id="seasoning-genres" class="flex flex-wrap gap-2"></div></div>
+    <div id="seasoning-tags" class="max-h-60 overflow-y-auto border rounded p-3 bg-green-50 flex flex-wrap gap-2"></div>
+    <div id="seasoning-selected" class="hidden border rounded p-3 bg-blue-50 mt-3"></div>
     <div class="text-right mt-4">
       <a href="#" onclick="window.open('/admin/seasoning-list', 'seasoningWindow'); return false;" class="text-sm text-blue-600 hover:underline">見つからない場合はこちらから調味料を編集</a>
     </div>

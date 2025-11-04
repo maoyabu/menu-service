@@ -88,18 +88,18 @@
 
     <!-- 食材登録 -->
     <div class="border-t pt-4">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-start gap-3">
         <h3 class="font-semibold">食材</h3>
-        <button type="button" id="openIngModal" class="px-3 py-1.5 rounded border text-sm">＋ 食材を追加</button>
+        <button type="button" id="openIngModal" class="px-3 py-1.5 rounded border text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100">＋ 食材を追加</button>
       </div>
       <div id="ingredientsList" class="mt-2 space-y-2"></div>
     </div>
 
     <!-- 調味料登録 -->
     <div class="border-t pt-4">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-start gap-3">
         <h3 class="font-semibold">調味料</h3>
-        <button type="button" id="openSeaModal" class="px-3 py-1.5 rounded border text-sm">＋ 調味料を追加</button>
+        <button type="button" id="openSeaModal" class="px-3 py-1.5 rounded border text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100">＋ 調味料を追加</button>
       </div>
       <div id="seasoningsList" class="mt-2 space-y-2"></div>
     </div>
@@ -246,75 +246,212 @@
 </script>
 
 <script>
-  // Modal-based selector (admin風)
+  // モーダル: プリセット選択 or オリジナル追加（タグ/チップUI）
   (function(){
-    function buildSearchModal(type){
+    function buildChipModal(type){
       const modal = document.createElement('div');
       modal.className = 'fixed inset-0 z-50 hidden';
       modal.innerHTML = `
-        <div class="absolute inset-0 bg-black/40" data-close></div>
-        <div class="relative mx-auto mt-16 w-[720px] max-w-[92vw] rounded-2xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b px-5 py-3">
-            <h3 class="font-semibold">${type==='ingredient' ? '食材を追加' : '調味料を追加'}</h3>
-            <button type="button" data-close class="text-gray-500">✕</button>
+        <div class=\"absolute inset-0 bg-black/40\" data-close></div>
+        <div class=\"relative mx-auto mt-10 w-[840px] max-w-[96vw] rounded-2xl bg-white shadow-xl\">
+          <div class=\"flex items-center justify-between border-b px-5 py-3\">
+            <h3 class=\"font-semibold\">${type==='ingredient' ? '食材を追加' : '調味料を追加'}</h3>
+            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>
           </div>
-          <div class="p-4 space-y-3">
-            <input data-role="kw" placeholder="名前で検索..." class="w-full border rounded px-3 py-2"/>
-          <div class="flex gap-2 items-end">
-            <input data-role="genre" placeholder="ジャンル" class="border rounded px-2 py-1" />
-          </div>
-            <div data-role="results" class="max-h-[50vh] overflow-auto divide-y"></div>
+          <div class=\"p-4 space-y-3\">
+            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">
+              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>
+              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>
+            </div>
+            <div data-view=\"preset\" class=\"space-y-3\">
+              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-3 py-2\"/>
+              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>
+              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-[40vh] overflow-auto border rounded p-3 bg-green-50\"></div>
+              <div data-role=\"selected\" class=\"hidden border rounded p-3 bg-blue-50\"></div>
+            </div>
+            <div data-view=\"original\" class=\"hidden space-y-3\">
+              <div class=\"grid grid-cols-3 gap-3\">
+                <div><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-3 py-2\"></div>
+                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください<\/option><\/select></div>
+                <div><label class=\"text-xs text-gray-500\">単位（カンマ区切り）</label><input data-o=\"units\" class=\"w-full border rounded px-3 py-2\" placeholder=\"g, ml, 本\"></div>
+              </div>
+              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>
+            </div>
           </div>
         </div>`;
       document.body.appendChild(modal);
+
+      const presetView = modal.querySelector('[data-view="preset"]');
+      const originalView = modal.querySelector('[data-view="original"]');
+      const tabPreset = modal.querySelector('[data-tab="preset"]');
+      const tabOriginal = modal.querySelector('[data-tab="original"]');
+      function switchTab(tab){
+        if (tab==='preset'){
+          tabPreset.classList.add('bg-white','shadow','text-gray-900'); tabOriginal.classList.remove('bg-white','shadow','text-gray-900');
+          presetView.classList.remove('hidden'); originalView.classList.add('hidden');
+        } else {
+          tabOriginal.classList.add('bg-white','shadow','text-gray-900'); tabPreset.classList.remove('bg-white','shadow','text-gray-900');
+          originalView.classList.remove('hidden'); presetView.classList.add('hidden');
+        }
+      }
+      tabPreset.addEventListener('click', ()=>switchTab('preset'));
+      tabOriginal.addEventListener('click', ()=>switchTab('original'));
+
       function close(){ modal.classList.add('hidden'); }
       modal.addEventListener('click', (e)=>{ if (e.target.hasAttribute('data-close')) close(); });
-      async function doSearch(params){
-        const base = type==='ingredient' ? '/users/my-menu/api/ingredients' : '/users/my-menu/api/seasonings';
-        const url = new URL(base, location.origin);
+
+      const apiBase = type==='ingredient' ? '/users/my-menu/api/ingredients' : '/users/my-menu/api/seasonings';
+      async function fetchList(params){
+        const url = new URL(apiBase, location.origin);
         Object.entries(params||{}).forEach(([k,v])=>{ if (v) url.searchParams.set(k, v); });
         const res = await fetch(url.toString());
         return res.json();
       }
-      async function run(){
-        const kw = modal.querySelector('[data-role="kw"]').value.trim();
-        const gn = modal.querySelector('[data-role="genre"]').value.trim();
-        const params = { keyword: kw, genre: gn };
-        const data = await doSearch(params);
-        const holder = modal.querySelector('[data-role="results"]'); holder.innerHTML='';
-        (data||[]).forEach(item=>{
-          const name = item.ingredient || item.seasoning || '';
-          const classification = item.classification || '';
-          const units = Array.isArray(item.unit) ? item.unit.join(', ') : (item.unit||'');
-          const row = document.createElement('button'); row.type='button'; row.className='w-full text-left px-3 py-2 hover:bg-gray-50';
-          row.innerHTML = `<div class="text-sm font-semibold">${name} <span class="ml-2 text-xs text-gray-500">${classification}</span></div>
-                           <div class="text-xs text-gray-500">単位: ${units}　${item.short_nutrition||''}</div>`;
-          row.addEventListener('click', ()=>{
-            const wrap = createRow(type, { id: String(item._id), name, genre: classification, units: Array.isArray(item.unit)? item.unit: (item.unit? [item.unit]: []) });
-            if (type==='ingredient') document.getElementById('ingredientsList').appendChild(wrap);
-            else document.getElementById('seasoningsList').appendChild(wrap);
-            close();
+      function clearSelectionUI(){
+        state.selectedId = null; state.selected = null; state._tagButtons = [];
+        const box = modal.querySelector('[data-role="selected"]'); if (box){ box.classList.add('hidden'); box.innerHTML=''; }
+      }
+      async function buildGenresPersistent(){
+        const holder = modal.querySelector('[data-role="genres"]');
+        holder.innerHTML = '';
+        state._genreButtons = [];
+        // fetch all genres regardless of keyword/limit
+        try {
+          const metaUrl = new URL(apiBase, location.origin); metaUrl.searchParams.set('meta','genres');
+          const metaRes = await fetch(metaUrl.toString());
+          const meta = await metaRes.json();
+          const cats = Array.isArray(meta?.genres) ? meta.genres : [];
+          // populate category select in Original tab
+          const catSel = modal.querySelector('[data-o="cat"]');
+          if (catSel && catSel.tagName === 'SELECT') {
+            catSel.innerHTML = '<option value="">選択してください</option>';
+            cats.forEach(c=>{ const op=document.createElement('option'); op.value=c; op.textContent=c; catSel.appendChild(op); });
+          }
+          const all = ['すべて', ...cats];
+          all.forEach((label, idx)=>{
+            const val = idx===0 ? '' : label;
+            const b=document.createElement('button'); b.type='button'; b.textContent=label;
+            b.className='px-3 py-1 rounded-full text-sm border';
+            const entry = { val, el: b };
+            const paintEntry = (ent)=>{
+              const active = String(state.genre||'') === String(ent.val||'');
+              ent.el.classList.toggle('bg-emerald-700', active);
+              ent.el.classList.toggle('text-white', active);
+              ent.el.classList.toggle('border-emerald-700', active);
+              ent.el.classList.toggle('bg-gray-100', !active);
+            };
+            b.addEventListener('click', ()=>{ state.genre = val; state._genreButtons.forEach(paintEntry); clearSelectionUI(); run(); });
+            state._genreButtons.push(entry);
+            paintEntry(entry); holder.appendChild(b);
           });
-          holder.appendChild(row);
+        } catch(_) {
+          // fallback: no-op
+        }
+      }
+      function buildTags(items){
+        const tags = modal.querySelector('[data-role="tags"]');
+        tags.innerHTML='';
+        state._tagButtons = [];
+        items.forEach(it=>{
+          const label = it.ingredient || it.seasoning || '';
+          const id = String(it._id || label);
+          const b=document.createElement('button'); b.type='button'; b.className='px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200'; b.textContent=label;
+          const paint=()=>{
+            const active = state.selectedId && state.selectedId===id;
+            b.classList.toggle('bg-gray-900', active);
+            b.classList.toggle('text-white', active);
+            b.classList.toggle('bg-gray-100', !active);
+          };
+          b.addEventListener('click', ()=>{ state.selectedId = id; (state._tagButtons||[]).forEach(x=>{ const a = state.selectedId===x.id; x.el.classList.toggle('bg-gray-900', a); x.el.classList.toggle('text-white', a); x.el.classList.toggle('bg-gray-100', !a); }); selectItem(it); });
+          tags.appendChild(b);
+          state._tagButtons.push({ id, el: b });
+          paint();
         });
       }
-      const kwInput = modal.querySelector('[data-role="kw"]');
-      const gnInput = modal.querySelector('[data-role="genre"]');
-      // Avoid blur-triggered rerender that cancels first click
-      function debounce(fn, ms){ let t; return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), ms); }; }
-      const debouncedRun = debounce(run, 200);
-      const trigger = (e)=>{ if (!e.isComposing) debouncedRun(); };
-      kwInput.addEventListener('input', trigger);
-      gnInput.addEventListener('input', trigger);
-      kwInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') { e.preventDefault(); run(); }});
-      gnInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') { e.preventDefault(); run(); }});
-      kwInput.addEventListener('compositionend', debouncedRun);
-      gnInput.addEventListener('compositionend', debouncedRun);
-      return { open: ()=>{ modal.classList.remove('hidden'); run(); } };
+      function showSelected(it){
+        const box = modal.querySelector('[data-role="selected"]');
+        box.classList.remove('hidden');
+        const name = it.ingredient || it.seasoning || '';
+        const units = Array.isArray(it.unit) ? it.unit : (it.unit? [it.unit] : []);
+        box.innerHTML = '';
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3';
+        const info = document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class="font-semibold">${name}</div><div class="text-xs text-gray-600">カテゴリ: ${it.classification||'-'}</div>`;
+        const hiddenId = document.createElement('input'); hiddenId.type='hidden'; hiddenId.value = String(it._id);
+        const amount = document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1';
+        let unitEl; if (units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.className='w-24 border rounded px-2 py-1'; unitEl.setAttribute('list','unitList'); }
+        // 単位追加（自グループのオリジナルのみ有効）
+        const canAddUnit = !!it.group; // サーバから group が返る
+        const addUnitBtn = document.createElement('button'); addUnitBtn.type='button'; addUnitBtn.textContent='＋単位を追加'; addUnitBtn.className='text-xs text-emerald-700 underline';
+        addUnitBtn.addEventListener('click', async ()=>{
+          const newUnit = (prompt('追加する単位を入力（カンマ可）')||'').trim();
+          if (!newUnit) return;
+          try {
+            const endpoint = type==='ingredient' ? `/users/my-menu/api/ingredients/${String(it._id)}/units` : `/users/my-menu/api/seasonings/${String(it._id)}/units`;
+            const res = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ units: newUnit }) });
+            if (!res.ok) { const m = await res.json().catch(()=>({})); alert(m.error || '追加に失敗しました'); return; }
+            const data = await res.json();
+            const list = Array.isArray(data.units)? data.units: [];
+            if (unitEl.tagName==='SELECT'){
+              unitEl.innerHTML=''; list.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); unitEl.value = newUnit.split(',').slice(-1)[0].trim();
+            }
+          } catch(_) { alert('追加に失敗しました'); }
+        });
+        const addBtn = document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
+        addBtn.addEventListener('click', ()=>{
+          const payload = { id: hiddenId.value, name, units };
+          const wrap = createRow(type, { id: payload.id, name, genre: it.classification||'', units });
+          // preset row already contains inputs; set values from this panel
+          const inputs = wrap.querySelectorAll('input, select');
+          // [hiddenId, amount, unit/select]
+          if (inputs && inputs.length >= 3){
+            const amountEl = inputs[1];
+            const unitEl2 = inputs[2];
+            amountEl.value = amount.value || '';
+            if (unitEl2.tagName === 'SELECT') unitEl2.value = unitEl.value;
+            else unitEl2.value = unitEl.value;
+          }
+          const containerId = type==='ingredient' ? 'ingredientsList' : 'seasoningsList';
+          document.getElementById(containerId).appendChild(wrap);
+          close();
+        });
+        if (canAddUnit) row.append(info, hiddenId, amount, unitEl, addUnitBtn, addBtn);
+        else row.append(info, hiddenId, amount, unitEl, addBtn);
+        box.appendChild(row);
+      }
+      function selectItem(it){ state.selected = it; showSelected(it); }
+      const state = { keyword: '', genre: '', selected: null, selectedId: null };
+      async function run(){
+        const data = await fetchList({ keyword: state.keyword, genre: state.genre });
+        if (!state._genresBuilt){ await buildGenresPersistent(); state._genresBuilt=true; }
+        // Apply genre filter client side too for quick switch
+        const list = state.genre ? data.filter(x=>x.classification===state.genre) : data;
+        buildTags(list);
+      }
+      presetView.querySelector('[data-role="kw"]').addEventListener('input', (e)=>{ state.keyword = e.target.value; run(); });
+      modal.addEventListener('click', (e)=>{ /* no-op to keep modal open on clicks */ });
+
+      // Original create
+      modal.querySelector('[data-role="create"]').addEventListener('click', async ()=>{
+        const name = modal.querySelector('[data-o="name"]').value.trim();
+        const cat = modal.querySelector('[data-o="cat"]').value.trim();
+        const units = modal.querySelector('[data-o="units"]').value.trim();
+        if (!name) { alert('名前を入力してください'); return; }
+        const endpoint = type==='ingredient' ? '/users/my-menu/api/ingredients/custom' : '/users/my-menu/api/seasonings/custom';
+        const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, classification: cat, units }) });
+        if (!res.ok){ const m = await res.json().catch(()=>({})); alert(m.error || '作成に失敗しました'); return; }
+        const created = await res.json();
+        const wrap = createRow(type, { id: String(created._id), name: created.ingredient || created.seasoning || name, genre: created.classification || cat, units: Array.isArray(created.unit)? created.unit: (created.unit? [created.unit]: []) });
+        const containerId = type==='ingredient' ? 'ingredientsList' : 'seasoningsList';
+        document.getElementById(containerId).appendChild(wrap);
+        close();
+      });
+
+      return { open: ()=>{ modal.classList.remove('hidden'); switchTab('preset'); clearSelectionUI(); run(); } };
     }
-    const ingModal = buildSearchModal('ingredient');
-    const seaModal = buildSearchModal('seasoning');
-    document.getElementById('openIngModal')?.addEventListener('click', ()=>ingModal.open());
-    document.getElementById('openSeaModal')?.addEventListener('click', ()=>seaModal.open());
+    const ing = buildChipModal('ingredient');
+    const sea = buildChipModal('seasoning');
+    document.getElementById('openIngModal')?.addEventListener('click', ()=>ing.open());
+    document.getElementById('openSeaModal')?.addEventListener('click', ()=>sea.open());
   })();
 </script>

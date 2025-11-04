@@ -1,0 +1,1133 @@
+<%
+  const serialize = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
+  const currentUserName = (typeof user !== 'undefined' && user)
+    ? (user.displayname || user.username || user.email || 'ユーザー')
+    : 'ユーザー';
+  const hasNextWeekPlan = typeof nextWeekPlan !== 'undefined' && nextWeekPlan && nextWeekPlan._id;
+  const nextPlanId = hasNextWeekPlan ? String(nextWeekPlan._id) : '';
+  const planButtonLabel = hasNextWeekPlan ? '来週の 7 DAYS PLAN を編集' : '来週の 7 DAYS PLAN を作成';
+  const buttonIcon = hasNextWeekPlan ? 'pencil' : 'plus';
+  const queryParts = [];
+  if (typeof currentGroupId !== 'undefined' && currentGroupId) {
+    queryParts.push(`group=${currentGroupId}`);
+  }
+  if (hasNextWeekPlan) {
+    queryParts.push(`plan=${nextPlanId}`);
+  }
+  const weekMenuLink = '/users/week-menu' + (queryParts.length ? `?${queryParts.join('&')}` : '');
+%>
+
+<style>
+  .plan-calendar-header-btn {
+    border-radius: 9999px;
+    border: 1px solid #e2e8f0;
+    padding: 0.35rem;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .plan-calendar-header-btn:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  }
+  .plan-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+  .plan-calendar-cell {
+    border-radius: 0.75rem;
+    padding: 0.75rem 0;
+    text-align: center;
+    font-size: 0.875rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .plan-calendar-cell:hover {
+    border-color: rgba(59, 130, 246, 0.35);
+  }
+  .plan-calendar-cell--outside {
+    opacity: 0.45;
+  }
+  .plan-calendar-cell--planned {
+    background-color: #2563eb; /* blue-600 */
+    color: #ffffff;            /* white text */
+    border-color: #1e3a8a;     /* blue-900 */
+    font-weight: 700;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) inset;
+  }
+  .plan-calendar-cell--future {
+    background-color: #f0f7ff; /* light blue */
+    color: #1d4ed8;            /* blue-700 */
+    border-color: #bfdbfe;     /* blue-200 */
+  }
+  .plan-calendar-cell--past {
+    background-color: #e2e8f0; /* slate-200/300 */
+    color: #475569;            /* slate-600 */
+    border-color: #cbd5e1;     /* slate-300 */
+  }
+  .plan-calendar-cell--selected {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+  }
+  .plan-calendar-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    color: #475569;
+  }
+  .plan-calendar-legend::before {
+    content: '';
+    display: inline-block;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 0.4rem;
+  }
+  .plan-calendar-legend--planned::before {
+    background-color: #2563eb;  /* blue-600 */
+    border: 1px solid #1e3a8a;  /* blue-900 */
+  }
+  .plan-calendar-legend--future::before {
+    background-color: #bfdbfe;  /* blue-200 */
+    border: 1px solid #60a5fa;  /* blue-400 */
+  }
+  .plan-calendar-legend--past::before {
+    background-color: #e2e8f0;  /* slate-200/300 */
+    border: 1px solid #94a3b8;  /* slate-400 */
+  }
+  .weekly-day-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+  }
+  .weekly-day-button .day-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+  }
+  .weekly-day-button .day-date {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .weekly-day-button[data-has-plan="true"] {
+    background-color: #e0f2fe;
+    color: #1d4ed8;
+    border-color: rgba(59,130,246,0.35);
+  }
+  .weekly-day-button[data-is-today="true"] {
+    border-color: rgba(59,130,246,0.45);
+  }
+  .weekly-day-button:hover {
+    border-color: rgba(59,130,246,0.6);
+  }
+  .weekly-day-button.is-selected {
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.45);
+    background-color: #dbeafe;
+  }
+  /* --- hero carousel --- */
+  #hero-carousel { position: relative; overflow: hidden; }
+  #hero-carousel .hero-track { position: absolute; inset: 0; display: flex; width: 100%; height: 100%; transition: transform .8s ease; }
+  #hero-carousel .hero-slide { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; }
+  #hero-carousel .hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.0) 20%, rgba(0,0,0,.25) 100%); pointer-events: none; }
+  #hero-carousel .hero-empty { display:flex; align-items:center; justify-content:center; height:100%; color: rgba(255,255,255,.8); }
+
+  /* --- hero stage (dual image for random transitions) --- */
+  #hero-carousel .hero-stage { position:absolute; inset:0; }
+  #hero-carousel .hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transform:translateZ(0); }
+  #hero-carousel .hero-img.is-visible { opacity:1; }
+  /* transitions are set inline via JS (opacity/transform .8s ease) */
+  /* --- drop shadow utility for watermark --- */
+  .drop-shadow { filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+
+  /* --- watermark outline text --- */
+  .wm-outline {
+    color: #fff;
+    -webkit-text-stroke: 1px rgba(0,0,0,.9);
+    text-shadow:
+      0 0 1px rgba(0,0,0,.9),
+      1px 0 1px rgba(0,0,0,.9),
+      -1px 0 1px rgba(0,0,0,.9),
+      0 1px 1px rgba(0,0,0,.9),
+      0 -1px 1px rgba(0,0,0,.9);
+    paint-order: stroke fill;
+  }
+</style>
+
+<section class="relative max-w-6xl mx-auto py-10 space-y-10">
+  <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
+    <div class="p-8 md:p-12 flex flex-col md:flex-row md:items-start md:justify-between gap-12">
+      <div class="flex flex-col gap-6 max-w-2xl h-48 md:h-56 md:justify-between">
+        <!-- <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] bg-white/20 px-4 py-1 rounded-full w-max">
+          <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+          my top
+        </div> -->
+        <div class="space-y-3">
+          <h1 class="text-3xl md:text-4xl font-bold leading-tight">
+            こんにちは、<span class="text-emerald-200"><%= currentUserName %></span> さん
+          </h1>
+          <p class="text-sm md:text-base text-white/80 leading-relaxed">
+            「今日何食べる」のストレスからの解放！来週1週間のMENUをおすすめします。使えば使うほど自分にぴったりなMENUがおすすめされるようになります。
+          </p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-wrap gap-3">
+            <% const isEditMode = hasNextWeekPlan; %>
+            <a
+              href="<%= weekMenuLink %>"
+              class="inline-flex items-center gap-2 rounded-full text-sm font-semibold px-5 py-2 transition <%= isEditMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-blue-600 hover:bg-blue-50' %>"
+            >
+              <span class="lucide <%= isEditMode ? 'text-white' : 'text-blue-500' %>" data-lucide="<%= buttonIcon %>"></span>
+              <%= planButtonLabel %>
+            </a>
+          </div>
+          <% if (hasNextWeekPlan && typeof nextWeekRangeLabel !== 'undefined') { %>
+            <p class="text-xs text-white/80">保存済み: <%= nextWeekRangeLabel %></p>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div id="hero-carousel" class="w-80 h-48 md:w-96 md:h-56 rounded-xl overflow-hidden border border-white/30 shadow-lg bg-white/10">
+          <div class="hero-empty" data-carousel-empty>
+            <div class="text-center">
+              <span class="text-6xl md:text-7xl font-black text-white/90">7</span>
+              <p class="uppercase text-xs tracking-[0.35em] text-white/60 mt-2">days plan</p>
+            </div>
+          </div>
+          <div class="hero-overlay"></div>
+          <!-- メニュー名チップ（スライドに応じて更新） -->
+          <div class="absolute top-2 left-2 z-20">
+            <span id="hero-name-chip" class="hidden inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-[13px] md:text-sm font-semibold text-blue-700 max-w-[92%] md:max-w-[95%] truncate"></span>
+          </div>
+          <div class="absolute bottom-2 right-2 z-10 select-none pointer-events-none leading-none">
+            <div class="leading-none">
+              <span class="align-baseline font-black tracking-tight wm-outline text-4xl md:text-5xl">7</span>
+              <span class="align-baseline font-semibold wm-outline text-base md:text-lg ml-1">DAYS PLAN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+</section>
+
+<script>
+  // Use server-provided headerImageItems (url+name), excluding today's & this week's images if available
+  (function(){
+    var serverItems = <%- serialize(headerImageItems || []) %>;
+
+    // Exclusion list: today plan
+    var exclude = [];
+    <% if (todayPlan && todayPlan.hasPlan) { %>
+      <% todayPlan.meals.forEach(function(meal){ meal.slots.forEach(function(slot){ %>
+        <% if (slot.menu && slot.menu.imageUrl) { %>
+          exclude.push("<%- (slot.menu.imageUrl || '').replace(/"/g, '\\"') %>");
+        <% } %>
+      <% }) }) %>
+    <% } %>
+
+    // Exclusion list: weekly plan (populated by render)
+    if (Array.isArray(window.weekPlanImageExclusions)) {
+      exclude = exclude.concat(window.weekPlanImageExclusions);
+    }
+
+    var excludeSet = new Set(exclude.filter(Boolean));
+    var candidates = Array.isArray(serverItems)
+      ? serverItems.filter(function(item){ return item && item.imageUrl && !excludeSet.has(item.imageUrl); })
+      : [];
+
+    // Fallback to serverItems if everything got excluded
+    window.headerItems = candidates.length ? candidates : (serverItems || []);
+  })();
+</script>
+    </div>
+  </header>
+
+  <section class="grid lg:grid-cols-[2fr,1fr] gap-6">
+  <div class="flex flex-col gap-6">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">今日のPLAN</h2>
+          <p class="text-xs text-gray-500 mt-1"><%= todayPlan ? todayPlan.dateLabel : '' %> (<%= todayPlan ? todayPlan.weekdayLabel : '' %>)</p>
+        </div>
+        <% if (todayPlan && todayPlan.hasPlan) { %>
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+            <span class="lucide w-3 h-3" data-lucide="sprout"></span>
+            ready
+          </span>
+        <% } else { %>
+          <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            <span class="lucide w-3 h-3" data-lucide="clock"></span>
+            未設定
+          </span>
+        <% } %>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <% if (todayPlan && todayPlan.hasPlan) { %>
+          <% todayPlan.meals.forEach((meal) => { %>
+            <% meal.slots.forEach((slot) => { const menu = slot.menu || null; %>
+              <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
+                <div class="relative h-52 md:h-64 bg-gray-100">
+                  <!-- 画像左上のランチ/ディナー タグ（重ね表示） -->
+                  <span class="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold <%= meal.mealKey === 'lunch' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600' %>">
+                    <span class="lucide w-3 h-3 <%= meal.mealKey === 'lunch' ? 'text-orange-500' : 'text-blue-500' %>" data-lucide="<%= meal.mealKey === 'lunch' ? 'sun' : 'moon' %>"></span>
+                    <%= meal.label %>
+                  </span>
+
+                  <% if (menu && menu.imageUrl) { %>
+                    <% if (menu.url) { %>
+                      <a href="<%= menu.url %>" target="menuWindow" rel="noopener">
+                        <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                      </a>
+                    <% } else { %>
+                      <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                    <% } %>
+                  <% } else { %>
+                    <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
+                  <% } %>
+                </div>
+                <div class="p-4 space-y-2 flex-1 flex flex-col">
+                  <h3 class="text-lg font-semibold text-gray-900">
+                  <% if (menu && menu.url) { %>
+                    <a href="<%= menu.url %>" target="menuWindow" rel="noopener" class="hover:underline">
+                        <%= menu.name %>
+                      </a>
+                    <% } else { %>
+                      <%= menu ? menu.name : 'メニュー候補がありません' %>
+                    <% } %>
+                  </h3>
+                  <% if (menu && (menu.time || menu.junle || menu.cook)) { %>
+                    <div class="flex flex-wrap gap-2 text-[11px] text-gray-500">
+                      <% if (menu.time) { %>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                          <span>時間</span>
+                          <span class="font-medium"><%= String(menu.time).endsWith('分') ? menu.time : menu.time + '分' %></span>
+                        </span>
+                      <% } %>
+                      <% if (menu.junle) { %>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-700">
+                          <span>ジャンル</span>
+                          <span class="font-medium"><%= menu.junle %></span>
+                        </span>
+                      <% } %>
+                      <% if (menu.cook) { %>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-700">
+                          <span>調理方法</span>
+                          <span class="font-medium"><%= menu.cook %></span>
+                        </span>
+                      <% } %>
+                    </div>
+                  <% } %>
+                  <% if (menu && menu.comment) { %>
+                    <p class="text-sm text-gray-500"><%= menu.comment %></p>
+                  <% } %>
+                </div>
+              </div>
+            <% }) %>
+          <% }) %>
+        <% } else { %>
+          <div class="col-span-full rounded-2xl bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 border border-dashed border-gray-200">
+            今日の献立はまだ登録されていません。<br>
+            <span class="text-xs text-gray-400">7 DAYS PLANを開いて、献立を登録しましょう。</span>
+          </div>
+        <% } %>
+      </div>
+      <a href="<%= currentWeekLink %>" class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        今週の7 DAYS PLANを編集する
+        <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
+      </a>
+    </article>
+
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-6">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">今週の7 DAYS PLAN</h2>
+          <p class="text-xs text-gray-500 mt-1 uppercase tracking-wide">7 days preview</p>
+        </div>
+        <button class="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+          全て表示
+          <span class="lucide w-4 h-4" data-lucide="calendar-range"></span>
+        </button>
+      </header>
+
+      <div class="space-y-4">
+        <div id="weekly-plan-day-buttons" class="grid md:grid-cols-7 gap-2">
+          <% weekPlanOverview.forEach((day) => { %>
+            <button
+              type="button"
+              class="weekly-day-button"
+              data-week-day-button
+              data-day-index="<%= day.index %>"
+              data-has-plan="<%= day.hasPlan %>"
+              data-is-today="<%= day.isToday %>"
+            >
+              <span class="day-label"><%= day.weekday %></span>
+              <span class="day-date"><%= day.display %></span>
+            </button>
+          <% }) %>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4" id="weekly-plan-detail">
+          <article id="weekly-plan-recipes" class="rounded-xl border border-blue-100 bg-white p-4 space-y-3" style="min-height: 160px;">
+            <div class="flex items-center justify-between">
+              <h4 id="weekly-plan-recipes-title" class="text-sm font-semibold text-gray-800">レシピ</h4>
+            </div>
+            <div id="weekly-plan-recipes-body" class="text-sm text-gray-600">
+              表示する日を選択してください。
+            </div>
+          </article>
+          <article id="weekly-plan-ingredients" class="rounded-xl border border-amber-100 bg-white p-4 space-y-3" style="min-height: 160px;">
+            <div class="flex items-center justify-between">
+              <h4 id="weekly-plan-ingredients-title" class="text-sm font-semibold text-gray-800">食材 / 調味料</h4>
+            </div>
+            <div id="weekly-plan-ingredients-body" class="text-sm text-gray-600">
+              表示する日を選択してください。
+            </div>
+          </article>
+        </div>
+      </div>
+
+    </article>
+  </div>
+
+  <div class="flex flex-col gap-6">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">7 DAYS PLAN</h2>
+          <p class="text-xs text-gray-500 mt-1">週ごとの設定状況を確認し、編集・登録できます</p>
+        </div>
+        <div class="inline-flex items-center gap-2">
+          <button type="button" class="plan-calendar-header-btn" id="plan-calendar-prev" aria-label="前の月">
+            <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
+          </button>
+          <span class="text-sm font-semibold text-gray-800" id="plan-calendar-month-label">----</span>
+          <button type="button" class="plan-calendar-header-btn" id="plan-calendar-next" aria-label="次の月">
+            <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="grid grid-cols-7 gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <span class="text-center">月</span>
+        <span class="text-center">火</span>
+        <span class="text-center">水</span>
+        <span class="text-center">木</span>
+        <span class="text-center">金</span>
+        <span class="text-center">土</span>
+        <span class="text-center">日</span>
+      </div>
+
+      <div id="plan-calendar-grid" class="plan-calendar-grid text-sm text-gray-600">
+        <div class="text-center text-sm text-gray-400 py-6" style="grid-column: span 7 / span 7;">読み込み中...</div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4">
+        <span class="plan-calendar-legend plan-calendar-legend--planned">プラン登録済み</span>
+        <span class="plan-calendar-legend plan-calendar-legend--future">これから設定</span>
+        <span class="plan-calendar-legend plan-calendar-legend--past">過去を記録</span>
+      </div>
+    </article>
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">マイメニュー</h2>
+        <span class="inline-flex items-center gap-1 text-xs font-medium text-pink-600 bg-pink-50 px-3 py-1 rounded-full">
+          <span class="lucide w-3 h-3" data-lucide="heart"></span>
+          family pick
+        </span>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <% const favoriteMenus = [
+             { name: 'ママ特製ラザニア', description: '週末リクエストNo.1。チーズたっぷりで子ども達も大喜び。', tags: ['休日', 'ご馳走'], imageUrl: 'https://images.unsplash.com/photo-1604908176912-9e6209a18753?auto=format&fit=crop&w=900&q=60' },
+             { name: '旬野菜のグリル', description: 'おばあちゃんが持ってきてくれた野菜で作るヘルシーメニュー。', tags: ['季節限定', '野菜たっぷり'], imageUrl: 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=900&q=60' },
+             { name: 'ハーブチキンプレート', description: 'パパの得意料理。焼くだけで香りが広がる定番の一皿。', tags: ['定番', '短時間'], imageUrl: 'https://images.unsplash.com/photo-1612874470907-52db3da03447?auto=format&fit=crop&w=900&q=60' },
+             { name: 'さっぱりレモンパスタ', description: '平日ランチの救世主。爽やかな味で午後も軽やかに。', tags: ['10分', 'ランチ'], imageUrl: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=900&q=60' }
+           ]; %>
+        <% favoriteMenus.forEach((fav) => { %>
+          <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
+            <div class="h-36 bg-gray-100">
+              <% if (fav.imageUrl) { %>
+                <img src="<%= fav.imageUrl %>" alt="<%= fav.name %>" class="w-full h-full object-cover my-fav-image" loading="lazy">
+              <% } else { %>
+                <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-100 to-gray-200">no image</div>
+              <% } %>
+            </div>
+            <div class="p-4 space-y-2 flex-1 flex flex-col">
+              <h3 class="text-sm font-semibold text-gray-900"><%= fav.name %></h3>
+              <p class="text-xs text-gray-500 leading-relaxed"><%= fav.description %></p>
+              <div class="flex flex-wrap gap-2 text-[11px] text-pink-600">
+                <% (fav.tags || []).forEach((tag) => { %>
+                  <span class="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5">
+                    <span class="lucide w-3 h-3" data-lucide="sparkle"></span>
+                    <span><%= tag %></span>
+                  </span>
+                <% }) %>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+      <button class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+        マイメニューを編集
+        <span class="lucide w-4 h-4" data-lucide="pencil"></span>
+      </button>
+    </article>
+
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">家族のトピックス</h2>
+          <p class="text-xs text-gray-500 mt-1">シェアされたメモ・予定をチェック</p>
+        </div>
+        <button class="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 hover:text-blue-700">
+          すべて
+        </button>
+      </header>
+
+      <div class="space-y-4 text-sm text-gray-700">
+        <div class="p-4 rounded-xl bg-blue-50 border border-blue-100 flex gap-3">
+          <span class="lucide w-5 h-5 text-blue-500" data-lucide="bell-ring"></span>
+          <div>
+            <p class="font-semibold">日曜 11:00 - 家族ランチ</p>
+            <p class="text-xs text-blue-600 mt-1">リマインダーをセットしました</p>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 flex gap-3">
+          <span class="lucide w-5 h-5 text-emerald-500" data-lucide="leaf"></span>
+          <div>
+            <p class="font-semibold">ベジタブルチャレンジ Week 3</p>
+            <p class="text-xs text-emerald-600 mt-1">家族の達成率 85%</p>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-100 flex gap-3">
+          <span class="lucide w-5 h-5 text-amber-500" data-lucide="star"></span>
+          <div>
+            <p class="font-semibold">みんなのお気に入りレシピ</p>
+            <p class="text-xs text-amber-600 mt-1">「焼き野菜のバルサミコグレーズ」</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+
+  <footer class="rounded-2xl border border-dashed border-gray-200 p-6 bg-gray-50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900">次のステップを計画しましょう</h2>
+      <p class="text-sm text-gray-600 mt-2">
+        家族みんなで共有する年間プランを作成。献立、家計、暮らしのメモをまとめて管理できます。
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="#" class="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-blue-500 text-blue-600 font-semibold hover:bg-blue-50 transition">
+        <span class="lucide w-4 h-4" data-lucide="notebook-pen"></span>
+        プランを作成
+      </a>
+      <a href="#" class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-blue-500 text-white font-semibold hover:bg-blue-600 transition">
+        <span class="lucide w-4 h-4" data-lucide="message-circle"></span>
+        家族に共有
+      </a>
+    </div>
+  </footer>
+</section>
+
+<script>
+  window.myTopData = {
+    currentGroupId: <%- serialize(currentGroupId || '') %>,
+    initialMonth: <%- serialize(initialCalendarMonthISO || '') %>,
+    todayISO: <%- serialize(todayISO || '') %>,
+    apiBase: '/users/api/week-plans',
+    weekMenuBaseUrl: '/users/week-menu',
+    currentWeekLink: <%- serialize(currentWeekLink || '') %>
+  };
+</script>
+
+<script>
+  window.myTopWeekPlanData = {
+    days: <%- serialize(weekPlanOverview || []) %>,
+    defaultDayIndex: <%= typeof defaultWeekDayIndex !== 'undefined' ? defaultWeekDayIndex : 0 %>
+  };
+</script>
+
+<script>
+  (function(){
+    var el = document.getElementById('hero-carousel');
+    if (!el) return;
+    var items = Array.isArray(window.headerItems) ? window.headerItems.slice(0, 10) : [];
+    if (!items.length) return; // keep the fallback tile
+    var empty = el.querySelector('[data-carousel-empty]');
+    if (empty) empty.remove();
+
+    // Build a two-layer stage (A/B) for random transitions
+    var stage = document.createElement('div');
+    stage.className = 'hero-stage';
+    el.appendChild(stage);
+
+    var imgA = document.createElement('img');
+    imgA.className = 'hero-img is-visible';
+    var imgB = document.createElement('img');
+    imgB.className = 'hero-img';
+    stage.appendChild(imgA);
+    stage.appendChild(imgB);
+
+    var nameChip = document.getElementById('hero-name-chip');
+    var setName = function(index){
+      if (!nameChip) return;
+      var it = items[index];
+      var label = (it && it.name) ? it.name : '';
+      if (label) {
+        nameChip.textContent = label;
+        nameChip.title = label; // show full name on hover
+        nameChip.classList.remove('hidden');
+      } else {
+        nameChip.textContent = '';
+        nameChip.removeAttribute('title');
+        nameChip.classList.add('hidden');
+      }
+    };
+
+    // Initialize first frame
+    var current = 0;
+    imgA.src = items[0].imageUrl;
+    imgA.alt = items[0].name || 'header image 1';
+    setName(0);
+
+    var useA = true; // which image element is the current visible one
+    var DURATION = 800; // ms
+    var INTERVAL = 6000; // ms
+
+    function applyTransition(type, fromEl, toEl) {
+      // Reset inline styles
+      [fromEl, toEl].forEach(function(elm){
+        elm.style.transition = 'none';
+        elm.style.opacity = '';
+        elm.style.transform = '';
+      });
+
+      // Force reflow to apply initial state before transition
+      void toEl.offsetWidth;
+
+      // Common: ensure toEl is on top and visible before anim
+      toEl.classList.add('is-visible');
+
+      // Set initial states by type
+      if (type === 'fade') {
+        toEl.style.opacity = 0;
+      } else if (type === 'slide-left') {
+        toEl.style.transform = 'translateX(100%)';
+        toEl.style.opacity = 1;
+      } else if (type === 'slide-right') {
+        toEl.style.transform = 'translateX(-100%)';
+        toEl.style.opacity = 1;
+      } else if (type === 'slide-up') {
+        toEl.style.transform = 'translateY(100%)';
+        toEl.style.opacity = 1;
+      } else if (type === 'slide-down') {
+        toEl.style.transform = 'translateY(-100%)';
+        toEl.style.opacity = 1;
+      } else if (type === 'zoom-in') {
+        // New image starts slightly enlarged and scales down to 1
+        toEl.style.transform = 'scale(1.15)';
+        toEl.style.opacity = 1;
+      } else if (type === 'zoom-out') {
+        // New image starts slightly smaller and scales up to 1
+        toEl.style.transform = 'scale(0.85)';
+        toEl.style.opacity = 1;
+      }
+
+      // Enable transition
+      var t = 'transform .8s ease, opacity .8s ease';
+      fromEl.style.transition = t;
+      toEl.style.transition = t;
+
+      requestAnimationFrame(function(){
+        if (type === 'fade') {
+          fromEl.style.opacity = 0;
+          toEl.style.opacity = 1;
+        } else if (type === 'slide-left') {
+          fromEl.style.transform = 'translateX(-100%)';
+          toEl.style.transform = 'translateX(0)';
+        } else if (type === 'slide-right') {
+          fromEl.style.transform = 'translateX(100%)';
+          toEl.style.transform = 'translateX(0)';
+        } else if (type === 'slide-up') {
+          fromEl.style.transform = 'translateY(-100%)';
+          toEl.style.transform = 'translateY(0)';
+        } else if (type === 'slide-down') {
+          fromEl.style.transform = 'translateY(100%)';
+          toEl.style.transform = 'translateY(0)';
+        } else if (type === 'zoom-in') {
+          fromEl.style.opacity = 0;
+          fromEl.style.transform = 'scale(1.02)';
+          toEl.style.transform = 'scale(1)';
+        } else if (type === 'zoom-out') {
+          fromEl.style.opacity = 0;
+          fromEl.style.transform = 'scale(0.98)';
+          toEl.style.transform = 'scale(1)';
+        }
+
+        // Cleanup after animation
+        setTimeout(function(){
+          fromEl.classList.remove('is-visible');
+          fromEl.style.opacity = 0;
+          fromEl.style.transform = '';
+        }, DURATION + 50);
+      });
+    }
+
+    function nextFrame(){
+      var next = (current + 1) % items.length;
+      var active = useA ? imgA : imgB;
+      var idle  = useA ? imgB : imgA;
+
+      // Prepare next image content
+      idle.src = items[next].imageUrl;
+      idle.alt = items[next].name || ('header image ' + (next+1));
+
+      // Pick a random transition type
+      var modes = ['fade','slide-left','slide-right','slide-up','slide-down','zoom-in','zoom-out'];
+      var type = modes[Math.floor(Math.random() * modes.length)];
+
+      applyTransition(type, active, idle);
+      setName(next);
+
+      // Flip buffers
+      useA = !useA;
+      current = next;
+    }
+
+    setInterval(nextFrame, INTERVAL);
+  })();
+</script>
+
+<script>
+  (function () {
+    const weekPlanData = window.myTopWeekPlanData;
+    const dayButtons = Array.from(document.querySelectorAll('[data-week-day-button]'));
+    const recipesTitleEl = document.getElementById('weekly-plan-recipes-title');
+    const recipesBodyEl = document.getElementById('weekly-plan-recipes-body');
+    const ingredientsTitleEl = document.getElementById('weekly-plan-ingredients-title');
+    const ingredientsBodyEl = document.getElementById('weekly-plan-ingredients-body');
+
+    if (!weekPlanData || !Array.isArray(weekPlanData.days)) {
+      if (recipesBodyEl) {
+        recipesBodyEl.textContent = '今週の7 DAYS PLANはまだ登録されていません。';
+      }
+      if (ingredientsBodyEl) {
+        ingredientsBodyEl.textContent = '必要な食材・調味料はまだありません。';
+      }
+      return;
+    }
+
+    const formatQuantity = (value) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) return '';
+      const rounded = Math.round(value * 100) / 100;
+      const text = rounded.toFixed(2).replace(/\.?0+$/, '');
+      return text;
+    };
+
+    const formatAmount = (entry) => {
+      if (!entry || !Array.isArray(entry.units) || !entry.units.length) {
+        return '数量未設定';
+      }
+      const parts = entry.units.map((unitEntry) => {
+        if (!unitEntry) return '';
+        const { amount, unit } = unitEntry;
+        if (amount === null || typeof amount === 'undefined') {
+          return unit || '数量未設定';
+        }
+        const quantityText = formatQuantity(amount);
+        if (!unit) return quantityText;
+        const hasNonAscii = /[^\x00-\x7F]/.test(unit);
+        return hasNonAscii ? `${unit}${quantityText}` : `${quantityText}${unit}`;
+      }).filter(Boolean);
+      return parts.length ? parts.join(' + ') : '数量未設定';
+    };
+
+    const renderDayDetails = (day) => {
+      if (!recipesTitleEl || !recipesBodyEl || !ingredientsTitleEl || !ingredientsBodyEl) {
+        return;
+      }
+
+      recipesTitleEl.textContent = `${day.display} (${day.weekday}) のレシピ`;
+      recipesBodyEl.innerHTML = '';
+
+      if (!day.hasPlan) {
+        const message = document.createElement('div');
+        message.className = 'rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-500';
+        message.textContent = 'この日の献立はまだ登録されていません。';
+        recipesBodyEl.appendChild(message);
+      } else {
+        day.meals.forEach((meal) => {
+          const mealCard = document.createElement('div');
+          mealCard.className = 'space-y-2 rounded-lg border border-blue-100 bg-white p-3';
+
+          const header = document.createElement('div');
+          header.className = 'flex items-center justify-between';
+          const label = document.createElement('p');
+          label.className = 'text-xs font-semibold text-blue-600 uppercase tracking-wide';
+          label.textContent = meal.label;
+          header.appendChild(label);
+          mealCard.appendChild(header);
+
+        const list = document.createElement('div');
+          list.className = 'space-y-2';
+
+          meal.slots.forEach((slot) => {
+            const slotWrap = document.createElement('div');
+            slotWrap.className = 'space-y-1';
+
+
+            const nameRow = document.createElement('div');
+            nameRow.className = 'flex items-center justify-between gap-3';
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'text-sm font-semibold text-gray-900';
+            if (slot.menu && slot.menu.url) {
+              const link = document.createElement('a');
+              link.href = slot.menu.url;
+              link.target = 'menuWindow';
+              link.rel = 'noopener';
+              link.className = 'hover:underline';
+              link.textContent = slot.menu.name;
+              nameSpan.appendChild(link);
+            } else {
+              nameSpan.textContent = slot.menu ? slot.menu.name : 'メニュー候補がありません';
+            }
+            nameRow.appendChild(nameSpan);
+            // Remove old time text here, will add as tag below
+            slotWrap.appendChild(nameRow);
+
+            // タグ表示 (調理時間, ジャンル, 調理方法)
+            if (slot.menu && (slot.menu.time || slot.menu.junle || slot.menu.cook)) {
+              const chipWrap = document.createElement('div');
+              chipWrap.className = 'flex flex-wrap gap-2 text-[11px] text-gray-500';
+
+              // 調理時間タグを最初に追加
+              if (slot.menu && slot.menu.time) {
+                const timeChip = document.createElement('span');
+                timeChip.className = 'inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700';
+                timeChip.innerHTML = `<span>時間</span><span class="font-medium">${String(slot.menu.time).endsWith('分') ? slot.menu.time : slot.menu.time + '分'}</span>`;
+                chipWrap.appendChild(timeChip);
+              }
+              if (slot.menu.junle) {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5';
+                chip.innerHTML = `<span>ジャンル</span><span class="font-medium text-amber-700">${slot.menu.junle}</span>`;
+                chipWrap.appendChild(chip);
+              }
+              if (slot.menu.cook) {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5';
+                chip.innerHTML = `<span>調理方法</span><span class="font-medium text-amber-700">${slot.menu.cook}</span>`;
+                chipWrap.appendChild(chip);
+              }
+              slotWrap.appendChild(chipWrap);
+            }
+
+            // 画像とメインタグオーバーレイ
+            if (slot.menu && slot.menu.url && slot.menu.imageUrl) {
+              const imageLinkWrap = document.createElement('a');
+              imageLinkWrap.href = slot.menu.url;
+              imageLinkWrap.target = 'menuWindow';
+              imageLinkWrap.rel = 'noopener';
+              imageLinkWrap.className = 'block overflow-hidden rounded-lg border border-blue-100 bg-blue-100/60 relative';
+
+              const img = document.createElement('img');
+              img.src = slot.menu.imageUrl;
+              img.alt = slot.menu.name;
+              img.className = 'w-full h-32 object-cover';
+
+              if (slot.categoryLabel) {
+                const overlayTag = document.createElement('span');
+                overlayTag.className = 'absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2 py-1 text-xs font-semibold';
+                overlayTag.textContent = slot.categoryLabel;
+                const overlayWrap = document.createElement('div');
+                overlayWrap.className = 'relative';
+                overlayWrap.appendChild(img);
+                overlayWrap.appendChild(overlayTag);
+                imageLinkWrap.appendChild(overlayWrap);
+              } else {
+                imageLinkWrap.appendChild(img);
+              }
+              slotWrap.prepend(imageLinkWrap);
+              // 週のプランで使用している画像を除外候補に追加
+              if (slot.menu && slot.menu.imageUrl) {
+                window.weekPlanImageExclusions = window.weekPlanImageExclusions || [];
+                if (!window.weekPlanImageExclusions.includes(slot.menu.imageUrl)) {
+                  window.weekPlanImageExclusions.push(slot.menu.imageUrl);
+                }
+              }
+            }
+
+            list.appendChild(slotWrap);
+          });
+
+          mealCard.appendChild(list);
+          recipesBodyEl.appendChild(mealCard);
+        });
+      }
+
+      ingredientsTitleEl.textContent = `${day.display} の食材 / 調味料`;
+      ingredientsBodyEl.innerHTML = '';
+
+      const sections = [
+        { title: '食材', items: day.ingredientsSummary },
+        { title: '調味料', items: day.seasoningSummary }
+      ];
+
+      sections.forEach((section) => {
+        const card = document.createElement('div');
+        card.className = 'space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2';
+
+        const heading = document.createElement('p');
+        heading.className = 'text-xs font-semibold text-amber-600 uppercase tracking-wide';
+        heading.textContent = section.title;
+        card.appendChild(heading);
+
+        if (!section.items || !section.items.length) {
+          const empty = document.createElement('p');
+          empty.className = 'text-xs text-gray-400';
+          empty.textContent = '項目はありません。';
+          card.appendChild(empty);
+        } else {
+          const list = document.createElement('ul');
+          list.className = 'space-y-1 text-sm text-gray-700';
+          section.items.forEach((item) => {
+            const li = document.createElement('li');
+            li.className = 'flex items-center justify-between gap-3';
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = item.name;
+            const amountSpan = document.createElement('span');
+            amountSpan.className = 'text-xs text-gray-500';
+            amountSpan.textContent = formatAmount(item);
+            li.append(nameSpan, amountSpan);
+            list.appendChild(li);
+          });
+          card.appendChild(list);
+        }
+
+        ingredientsBodyEl.appendChild(card);
+      });
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    const selectDay = (index) => {
+      const day = weekPlanData.days[index];
+      if (!day) return;
+      dayButtons.forEach((button) => {
+        const isActive = Number(button.dataset.dayIndex) === index;
+        if (isActive) {
+          button.classList.add('is-selected');
+        } else {
+          button.classList.remove('is-selected');
+        }
+      });
+      renderDayDetails(day);
+    };
+
+    if (dayButtons.length && weekPlanData.days.length) {
+      dayButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          selectDay(Number(button.dataset.dayIndex));
+        });
+      });
+      const defaultIndex = Math.min(
+        Math.max(weekPlanData.defaultDayIndex || 0, 0),
+        weekPlanData.days.length - 1
+      );
+      selectDay(defaultIndex);
+    } else {
+      if (recipesBodyEl) {
+        recipesBodyEl.textContent = '今週の7 DAYS PLANはまだ登録されていません。';
+      }
+      if (ingredientsBodyEl) {
+        ingredientsBodyEl.textContent = '必要な食材・調味料はまだありません。';
+      }
+    }
+  })();
+</script>
+
+<script>
+  (function () {
+    const config = window.myTopData;
+    if (!config) return;
+
+    const monthLabelEl = document.getElementById('plan-calendar-month-label');
+    const gridEl = document.getElementById('plan-calendar-grid');
+    const prevBtn = document.getElementById('plan-calendar-prev');
+    const nextBtn = document.getElementById('plan-calendar-next');
+
+    if (!monthLabelEl || !gridEl || !prevBtn || !nextBtn) return;
+
+    const baseParams = new URLSearchParams();
+    if (config.currentGroupId) {
+      baseParams.set('group', config.currentGroupId);
+    }
+
+    const startOfDay = (value) => {
+      const date = value instanceof Date ? new Date(value) : new Date(value);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
+
+    const startOfWeek = (value) => {
+      const date = startOfDay(value);
+      const day = date.getDay();
+      const diff = (day + 6) % 7;
+      date.setDate(date.getDate() - diff);
+      return date;
+    };
+
+    const addDays = (value, days) => {
+      const date = new Date(value);
+      date.setDate(date.getDate() + days);
+      return date;
+    };
+
+    const formatMonthLabel = (date) => `${date.getFullYear()}年 ${date.getMonth() + 1}月`;
+
+    let currentMonth = config.initialMonth ? new Date(config.initialMonth) : (config.todayISO ? new Date(config.todayISO) : new Date());
+    if (Number.isNaN(currentMonth.getTime())) currentMonth = new Date();
+    currentMonth.setDate(1);
+
+    let selectedButton = null;
+
+    const fetchCalendarData = async (monthDate) => {
+      const monthParam = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+      const params = new URLSearchParams(baseParams);
+      params.set('month', monthParam);
+      const response = await fetch(`${config.apiBase}?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('カレンダーデータを取得できませんでした');
+      }
+      return response.json();
+    };
+
+    const buildCalendar = (calendarData) => {
+      if (!calendarData || !calendarData.calendarStart || !calendarData.calendarEnd) {
+        showStatusMessage('カレンダーを表示できません', 'text-gray-400');
+        return;
+      }
+
+      const planMap = new Map((calendarData.weeks || []).map((week) => [startOfWeek(new Date(week.weekStart)).toISOString(), week]));
+      const todayWeekStartISO = calendarData.todayWeekStart || startOfWeek(new Date()).toISOString();
+      const calendarStart = new Date(calendarData.calendarStart);
+      const calendarEnd = new Date(calendarData.calendarEnd);
+      const totalDays = Math.round((calendarEnd.getTime() - calendarStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const displayMonth = currentMonth.getMonth();
+      const displayYear = currentMonth.getFullYear();
+
+      gridEl.innerHTML = '';
+      selectedButton = null;
+
+      for (let i = 0; i < totalDays; i += 1) {
+        const dayDate = addDays(calendarStart, i);
+        const button = document.createElement('button');
+        button.type = 'button';
+        const isOutsideMonth = dayDate.getMonth() !== displayMonth || dayDate.getFullYear() !== displayYear;
+        const weekStartISO = startOfWeek(dayDate).toISOString();
+        const planInfo = planMap.get(weekStartISO);
+        const hasPlan = !!(planInfo && planInfo.planId);
+        const weekStartTime = new Date(weekStartISO).getTime();
+        const isPastWeek = weekStartTime < new Date(todayWeekStartISO).getTime();
+        const status = hasPlan ? 'planned' : (isPastWeek ? 'past' : 'future');
+
+        button.className = `plan-calendar-cell plan-calendar-cell--${status}${isOutsideMonth ? ' plan-calendar-cell--outside' : ''}`;
+        button.dataset.weekStartIso = weekStartISO;
+        button.dataset.status = status;
+        button.dataset.planId = hasPlan ? planInfo.planId : '';
+        button.textContent = String(dayDate.getDate());
+        button.setAttribute('aria-label', `${dayDate.getMonth() + 1}月${dayDate.getDate()}日を含む週`);
+
+        if (hasPlan) {
+          const indicator = document.createElement('span');
+          indicator.className = 'block mx-auto mt-1 h-1.5 w-1.5 rounded-full bg-blue-500';
+          button.appendChild(indicator);
+        }
+
+        gridEl.appendChild(button);
+      }
+    };
+
+    const navigateToWeek = (button) => {
+      if (!button) return;
+      if (selectedButton) {
+        selectedButton.classList.remove('plan-calendar-cell--selected');
+      }
+      selectedButton = button;
+      button.classList.add('plan-calendar-cell--selected');
+
+      const weekStartISO = button.dataset.weekStartIso;
+      const planId = button.dataset.planId;
+      const params = new URLSearchParams();
+      if (config.currentGroupId) params.set('group', config.currentGroupId);
+      if (planId) {
+        params.set('plan', planId);
+        if (weekStartISO) params.set('weekStart', weekStartISO);
+      } else if (weekStartISO) {
+        params.set('weekStart', weekStartISO);
+      }
+
+      const url = `${config.weekMenuBaseUrl}?${params.toString()}`;
+      window.location.href = url;
+    };
+
+    gridEl.addEventListener('click', (event) => {
+      const button = event.target.closest('.plan-calendar-cell');
+      if (!button) return;
+      navigateToWeek(button);
+    });
+
+    prevBtn.addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() - 1);
+      renderCalendar();
+    });
+
+    nextBtn.addEventListener('click', () => {
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
+      renderCalendar();
+    });
+
+    const showStatusMessage = (message, className = 'text-gray-400') => {
+      gridEl.innerHTML = '';
+      const placeholder = document.createElement('div');
+      placeholder.className = `text-center text-sm py-6 ${className}`;
+      placeholder.style.gridColumn = 'span 7 / span 7';
+      placeholder.textContent = message;
+      gridEl.appendChild(placeholder);
+    };
+
+    const renderCalendar = async () => {
+      monthLabelEl.textContent = formatMonthLabel(currentMonth);
+      showStatusMessage('読み込み中...', 'text-gray-400');
+      try {
+        const calendarData = await fetchCalendarData(currentMonth);
+        buildCalendar(calendarData);
+      } catch (error) {
+        console.error(error);
+        showStatusMessage('カレンダーを表示できませんでした', 'text-red-500');
+      }
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    renderCalendar();
+  })();
+</script>

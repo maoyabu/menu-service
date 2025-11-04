@@ -8,6 +8,18 @@ const ingredientsSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    // グループ専用のオリジナル食材の場合に設定
+    group: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Group',
+        default: null
+    },
+    // 登録者（任意）
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
     yomi: {
         type: String
     },
