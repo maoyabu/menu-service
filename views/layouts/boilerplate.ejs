@@ -33,6 +33,11 @@
     /* Ensure icon clicks pass through to parent buttons/links (Chrome hit-area fix) */
     .lucide { pointer-events: none; }
     /* Remove aggressive pointer-events overrides to keep links/buttons clickable */
+
+    /* Responsive header adjustments for <= 890px */
+    @media (max-width: 890px) {
+      .hide-under-890 { display: none !important; }
+    }
   </style>
   <!-- Lucide Icons (dynamic fetch) -->
 </head>

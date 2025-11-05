@@ -19,13 +19,13 @@
       <% const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
       <% const effectiveGroupId = currentGroupId || defaultGroupId; %>
       <% if (user.isAdmin) { %>
-        <a href="/admin/admin-top" class="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition">
+        <a href="/admin/admin-top" class="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition hide-under-890">
           <i data-lucide="shield-check" class="w-5 h-5"></i>
           <span class="hidden sm:inline text-sm font-semibold text-gray-700">管理者</span>
         </a>
       <% } %>
 
-      <div class="flex items-center gap-2 text-gray-600">
+      <div class="flex items-center gap-2 text-gray-600 hide-under-890">
         <i data-lucide="users" class="w-5 h-5"></i>
         <% if (groups.length > 1) { %>
           <label class="text-sm">
@@ -51,17 +51,17 @@
         <% } %>
       </div>
 
-      <div class="flex items-center gap-2 text-gray-700">
+      <div class="flex items-center gap-2 text-gray-700 hide-under-890">
         <i data-lucide="user" class="w-5 h-5"></i>
         <span class="hidden sm:inline bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded"><%= (user.displayname || user.username || user.email || '') %></span>
       </div>
 
       <div class="flex items-center gap-2 border border-gray-300 rounded px-3 py-1">
-        <a href="/settings?view=profile" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition">
+        <a href="/settings?view=profile" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition hide-under-890">
           <i data-lucide="settings" class="w-4 h-4"></i>
           <span class="hidden sm:inline text-sm font-medium">設定</span>
         </a>
-        <span class="text-gray-300 mx-1 hidden sm:inline">|</span>
+        <span class="text-gray-300 mx-1 hidden sm:inline hide-under-890">|</span>
         <form action="/logout" method="POST">
           <button type="submit" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition">
             <i data-lucide="log-out" class="w-4 h-4"></i>

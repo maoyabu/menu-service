@@ -8,7 +8,12 @@
 <div id="app-menu-overlay" class="hidden fixed inset-0 z-[60] bg-black/40 opacity-0 transition-opacity duration-200"></div>
 
 <aside id="app-menu-drawer" class="fixed left-0 top-0 z-[61] h-full w-[80%] sm:w-80 max-w-full -translate-x-full transition-transform duration-300 will-change-transform bg-white shadow-2xl border-r border-gray-200 flex flex-col">
-  <div class="px-5 py-3 bg-blue-600 text-white text-sm font-semibold tracking-wide">7 DAYS PLAN</div>
+  <div class="px-5 py-3 bg-blue-600 text-white text-sm font-semibold tracking-wide flex items-center justify-between">
+    <div>7 DAYS PLAN</div>
+    <button type="button" data-menu-close class="inline-flex items-center justify-center rounded p-2 hover:bg-white/10 text-white" aria-label="メニューを閉じる">
+      <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+  </div>
   <div class="px-5 pt-5 pb-4 border-b border-gray-100 bg-white flex items-center gap-3">
     <div class="relative w-12 h-12 shrink-0 rounded-full overflow-hidden bg-gray-100 text-gray-600 flex items-center justify-center font-semibold select-none">
       <% const avatarUrl = (user && user.avatar) ? user.avatar : ''; %>
@@ -30,9 +35,43 @@
       </div>
       <p class="text-xs text-gray-500 truncate"><%= user && user.email ? user.email : '' %></p>
     </div>
-    <button type="button" data-menu-close class="ml-auto inline-flex items-center justify-center rounded-full p-2 hover:bg-gray-100 text-gray-600" aria-label="メニューを閉じる">
-      <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
-    </button>
+    
+  </div>
+
+  <% /* グループ選択（モバイル）: ヘッダから移動 */ %>
+  <div class="px-4 pt-4 pb-3 border-b border-gray-100 bg-white">
+    <% if (typeof user !== 'undefined' && user) { %>
+      <% const groups = Array.isArray(userGroups) ? userGroups : []; %>
+      <% const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; %>
+      <% const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
+      <% const effectiveGroupId = currentGroupId || defaultGroupId; %>
+      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">グループ</p>
+      <div class="mt-2 flex items-center gap-2 text-gray-700">
+        <i data-lucide="users" class="w-5 h-5 text-gray-500"></i>
+        <% if (groups.length > 1) { %>
+          <label class="text-sm w-full">
+            <span class="sr-only">グループを選択</span>
+            <select class="w-full border border-gray-300 rounded px-2 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              onchange="if (this.value) { window.location.href = '/settings?group=' + this.value; }">
+              <option value="" <%= effectiveGroupId === '' ? 'selected' : '' %>>グループ一覧</option>
+              <% groups.forEach((group) => { %>
+                <%
+                  const optionLabel = (defaultGroupId === String(group._id) ? '★ ' : '') + group.group_name;
+                  const isSelected = effectiveGroupId === String(group._id);
+                %>
+                <option value="<%= group._id %>" <%= isSelected ? 'selected' : '' %>><%= optionLabel %></option>
+              <% }) %>
+            </select>
+          </label>
+        <% } else if (groups.length === 1) { %>
+          <span class="text-sm px-2 py-1 bg-gray-100 rounded">
+            <%= (defaultGroupId === String(groups[0]._id || '') ? '★ ' : '') + groups[0].group_name %>
+          </span>
+        <% } else { %>
+          <span class="text-sm text-gray-400">グループ未所属</span>
+        <% } %>
+      </div>
+    <% } %>
   </div>
 
   <nav class="flex-1 overflow-y-auto">
