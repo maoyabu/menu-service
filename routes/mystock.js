@@ -17,11 +17,13 @@ function getGroupId(res){
 router.get('/', async (req, res, next) => {
   try {
     const groupId = getGroupId(res);
-    if (!groupId) return res.render('users/myStock', { grouped: { ingredient: {}, seasoning: {} }, places: [] });
-    const [stocks, places] = await Promise.all([
+    if (!groupId) return res.render('users/myStock', { grouped: { ingredient: {}, seasoning: {} }, places: [], placeGrouped: {}, onlyStockpile: false });
+    const onlyStockpile = String(req.query.stockpile || '') === 'true';
+    let [stocks, places] = await Promise.all([
       Stock.find({ group: groupId, user: req.user._id }).lean(),
       StoragePlace.find({ group: groupId }).lean()
     ]);
+    if (onlyStockpile) stocks = stocks.filter(s=> !!s.stockpile);
     const ingIds = stocks.filter(s=> s.type==='ingredient').map(s=> s.item);
     const seaIds = stocks.filter(s=> s.type==='seasoning').map(s=> s.item);
     const [ings, seas] = await Promise.all([
@@ -52,7 +54,7 @@ router.get('/', async (req, res, next) => {
         placeGrouped[pname].seasoning.push({ stock:s, meta: it });
       }
     });
-    res.render('users/myStock', { grouped, places, placeGrouped });
+    res.render('users/myStock', { grouped, places, placeGrouped, onlyStockpile });
   } catch (e) { next(e); }
 });
 
@@ -89,10 +91,10 @@ router.get('/api/stocks', async (req, res) => {
 router.post('/api/stocks', express.json(), async (req, res) => {
   try {
     const groupId = getGroupId(res); if(!groupId) return res.status(400).json({ error: 'no group' });
-    const { type, id, amount, unit, placeId, expiryDate } = req.body || {};
+    const { type, id, amount, unit, placeId, expiryDate, stockpile, comment } = req.body || {};
     const typeRef = type==='ingredient' ? 'Ingredient' : 'Seasoning';
     if (!type || !id) return res.status(400).json({ error: 'bad request' });
-    const created = await Stock.create({ type, typeRef, item: id, amount: Number(amount)||0, unit: unit||'', place: placeId||null, expiryDate: expiryDate? new Date(expiryDate): null, user: req.user._id, group: groupId });
+    const created = await Stock.create({ type, typeRef, item: id, amount: Number(amount)||0, unit: unit||'', place: placeId||null, expiryDate: expiryDate? new Date(expiryDate): null, stockpile: !!stockpile, comment: String(comment||'').trim(), user: req.user._id, group: groupId });
     res.json(created);
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
@@ -109,13 +111,15 @@ router.delete('/api/stocks/:id', async (req, res) => {
 router.put('/api/stocks/:id', express.json(), async (req, res) => {
   try {
     const groupId = getGroupId(res); if(!groupId) return res.status(400).json({ error: 'no group' });
-    const { amount, unit, placeId, expiryDate } = req.body || {};
+    const { amount, unit, placeId, expiryDate, stockpile, comment } = req.body || {};
     const update = {
       amount: typeof amount === 'number' ? amount : Number(amount)||0,
       unit: unit || '',
       place: placeId || null,
       expiryDate: expiryDate ? new Date(expiryDate) : null,
+      ...(typeof stockpile !== 'undefined' ? { stockpile: !!stockpile } : {})
     };
+    if (typeof comment !== 'undefined') update.comment = String(comment||'').trim();
     const updated = await Stock.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id, group: groupId },
       { $set: update },
