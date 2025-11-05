@@ -31,20 +31,28 @@ router.get('/', async (req, res, next) => {
     const ingMap = new Map(ings.map(x=> [String(x._id), x]));
     const seaMap = new Map(seas.map(x=> [String(x._id), x]));
     const grouped = { ingredient: {}, seasoning: {} };
+    const placeGrouped = {};
+    const placeNameById = new Map((places||[]).map(p=> [String(p._id), p.name]));
     stocks.forEach(s=>{
       if (s.type==='ingredient'){
         const it = ingMap.get(String(s.item)); if(!it) return;
         const cls = it.classification || '未分類';
         grouped.ingredient[cls] = grouped.ingredient[cls] || [];
         grouped.ingredient[cls].push({ stock:s, meta: it });
+        const pname = placeNameById.get(String(s.place||'')) || '未設定';
+        placeGrouped[pname] = placeGrouped[pname] || { ingredient: [], seasoning: [] };
+        placeGrouped[pname].ingredient.push({ stock:s, meta: it });
       } else {
         const it = seaMap.get(String(s.item)); if(!it) return;
         const cls = it.classification || '未分類';
         grouped.seasoning[cls] = grouped.seasoning[cls] || [];
         grouped.seasoning[cls].push({ stock:s, meta: it });
+        const pname = placeNameById.get(String(s.place||'')) || '未設定';
+        placeGrouped[pname] = placeGrouped[pname] || { ingredient: [], seasoning: [] };
+        placeGrouped[pname].seasoning.push({ stock:s, meta: it });
       }
     });
-    res.render('users/myStock', { grouped, places });
+    res.render('users/myStock', { grouped, places, placeGrouped });
   } catch (e) { next(e); }
 });
 

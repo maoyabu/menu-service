@@ -508,7 +508,7 @@
     </article>
 
     <!-- マイストック（マイメニューの下に配置） -->
-    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <h2 class="text-lg font-semibold">マイストック</h2>
@@ -519,16 +519,17 @@
           開く
         </a>
       </div>
-      <p class="text-xs text-gray-500">分類ごとの在庫や賞味期限を確認・編集できます。新しい在庫の追加もこちらから。</p>
-      <div class="grid sm:grid-cols-2 gap-4">
-        <a href="/users/my-stock" class="block border border-dashed border-gray-300 rounded-xl p-5 text-center hover:border-purple-300 hover:bg-purple-50/40 transition-colors">
-          <div class="mx-auto mb-2 w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
-            <span class="lucide w-5 h-5" data-lucide="boxes"></span>
-          </div>
-          <div class="text-sm font-semibold text-gray-900">ストックを開く</div>
-          <div class="text-xs text-gray-500 mt-1">追加・編集・削除ができます</div>
-        </a>
+      <div class="flex items-center gap-3 text-sm">
+        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">
+          <span class="lucide w-3 h-3" data-lucide="leaf"></span>
+          食材: <span class="font-semibold"><%= (mystockCounts && mystockCounts.ingredient) || 0 %></span> 件
+        </span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-3 py-1">
+          <span class="lucide w-3 h-3" data-lucide="beaker"></span>
+          調味料: <span class="font-semibold"><%= (mystockCounts && mystockCounts.seasoning) || 0 %></span> 件
+        </span>
       </div>
+      <p class="text-xs text-gray-500">分類ごとの在庫や賞味期限を確認・編集できます。</p>
     </article>
 
     <!-- 家族のトピックス（コメントアウト） -->

@@ -5,6 +5,7 @@ import Menu from '../models/menu.js';
 import Mymenu from '../models/mymenu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import Group from '../models/groups.js';
+import Stock from '../models/stock.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
@@ -1451,6 +1452,18 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
         .lean()
     : [];
 
+  // MyStock counts (ingredient / seasoning) for current user + group
+  let mystockCounts = { ingredient: 0, seasoning: 0 };
+  if (currentGroupId) {
+    try {
+      const agg = await Stock.aggregate([
+        { $match: { group: new mongoose.Types.ObjectId(String(currentGroupId)), user: req.user._id } },
+        { $group: { _id: '$type', count: { $sum: 1 } } }
+      ]);
+      (agg||[]).forEach(row=>{ if(row._id==='ingredient') mystockCounts.ingredient=row.count; if(row._id==='seasoning') mystockCounts.seasoning=row.count; });
+    } catch(_){ /* ignore */ }
+  }
+
   res.render('users/myTop', {
     nextWeekPlan,
     nextWeekRangeLabel,
@@ -1468,7 +1481,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     myOriginalSamples,
     groupMemberItems,
     myOwnMyMenus,
-    groupMemberMyMenus
+    groupMemberMyMenus,
+    mystockCounts
   });
   } catch (err) {
     return next(err);

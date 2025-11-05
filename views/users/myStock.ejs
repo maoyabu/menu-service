@@ -4,9 +4,13 @@
       <h1 class="text-2xl font-bold">マイストック</h1>
       <p class="text-sm text-gray-500">自宅にストックしている食材・調味料を管理</p>
     </div>
+    <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
+      <button type="button" data-view-tab="class" class="px-4 py-1 rounded-full bg-white shadow text-gray-900">分類で見る</button>
+      <button type="button" data-view-tab="place" class="px-4 py-1 rounded-full text-gray-600">保管場所で見る</button>
+    </div>
   </header>
 
-  <div class="grid md:grid-cols-2 gap-6">
+  <div data-view="class" class="grid md:grid-cols-2 gap-6">
     <!-- 食材 -->
     <section class="rounded-2xl border bg-white">
       <div class="p-4 flex items-center justify-between">
@@ -22,15 +26,15 @@
             </summary>
             <div class="px-4 pb-3 pt-1 flex flex-wrap gap-2">
               <% rows.forEach(function(r){ const it = r.meta || {}; const s = r.stock || {}; var _p=((places||[]).find(function(p){return String(p._id)===String(s.place||'')})); const placeName=_p?_p.name:''; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-                <div class="inline-flex items-center gap-2 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>">
-                  <span class="font-medium text-gray-900"><%= it.ingredient || '' %></span>
-                  <% if (s.amount) { %><span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700"><%= s.amount %><%= s.unit || '' %></span><% } %>
-                  <% if (placeName) { %><span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">保管: <%= placeName %></span><% } %>
-                  <% if (expStr) { %><span class="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700">期限: <%= expStr %></span><% } %>
-                  <span class="ml-2 inline-flex items-center gap-1">
-                    <button type="button" class="text-blue-700 text-xs underline" data-stock-edit="<%= s._id %>">編集</button>
-                    <button type="button" class="text-red-600 text-xs underline" data-stock-del="<%= s._id %>">削除</button>
-                  </span>
+                <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></span>
+                    <span class="inline-flex items-center gap-1 ml-2">
+                      <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                      <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-600 mt-1"><%= s.amount || '' %><%= s.unit || '' %></div>
                 </div>
               <% }) %>
             </div>
@@ -54,15 +58,15 @@
             </summary>
             <div class="px-4 pb-3 pt-1 flex flex-wrap gap-2">
               <% rows.forEach(function(r){ const it = r.meta || {}; const s = r.stock || {}; var _p=((places||[]).find(function(p){return String(p._id)===String(s.place||'')})); const placeName=_p?_p.name:''; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-                <div class="inline-flex items-center gap-2 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>">
-                  <span class="font-medium text-gray-900"><%= it.seasoning || '' %></span>
-                  <% if (s.amount) { %><span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700"><%= s.amount %><%= s.unit || '' %></span><% } %>
-                  <% if (placeName) { %><span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">保管: <%= placeName %></span><% } %>
-                  <% if (expStr) { %><span class="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700">期限: <%= expStr %></span><% } %>
-                  <span class="ml-2 inline-flex items-center gap-1">
-                    <button type="button" class="text-blue-700 text-xs underline" data-stock-edit="<%= s._id %>">編集</button>
-                    <button type="button" class="text-red-600 text-xs underline" data-stock-del="<%= s._id %>">削除</button>
-                  </span>
+                <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></span>
+                    <span class="inline-flex items-center gap-1 ml-2">
+                      <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                      <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-600 mt-1"><%= s.amount || '' %><%= s.unit || '' %></div>
                 </div>
               <% }) %>
             </div>
@@ -70,6 +74,53 @@
         <% }) %>
       </div>
     </section>
+  </div>
+
+  <div data-view="place" class="hidden space-y-6">
+    <% const _pg = (typeof placeGrouped !== 'undefined' && placeGrouped) ? placeGrouped : {}; Object.keys(_pg).forEach(function(pname){ const sec=_pg[pname]||{}; %>
+    <section class="rounded-2xl border bg-white">
+      <div class="p-4 flex items-center justify-between">
+        <h2 class="font-semibold"><%= pname %></h2>
+        <span class="text-xs text-gray-500">食材 <%= (sec.ingredient||[]).length %> 件・調味料 <%= (sec.seasoning||[]).length %> 件</span>
+      </div>
+      <div class="px-4 pb-4 space-y-2">
+        <% if ((sec.ingredient||[]).length){ %>
+          <div class="text-xs text-gray-500 mb-1">食材</div>
+          <div class="flex flex-wrap gap-2">
+            <% (sec.ingredient||[]).forEach(function(r){ const it=r.meta||{}; const s=r.stock||{}; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
+              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></span>
+                  <span class="inline-flex items-center gap-1 ml-2">
+                    <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                    <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                  </span>
+                </div>
+                <div class="text-xs text-gray-600 mt-1"><%= s.amount || '' %><%= s.unit || '' %></div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+        <% if ((sec.seasoning||[]).length){ %>
+          <div class="text-xs text-gray-500 mt-3 mb-1">調味料</div>
+          <div class="flex flex-wrap gap-2">
+            <% (sec.seasoning||[]).forEach(function(r){ const it=r.meta||{}; const s=r.stock||{}; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
+              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></span>
+                  <span class="inline-flex items-center gap-1 ml-2">
+                    <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                    <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                  </span>
+                </div>
+                <div class="text-xs text-gray-600 mt-1"><%= s.amount || '' %><%= s.unit || '' %></div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </section>
+    <% }) %>
   </div>
 </section>
 
@@ -211,6 +262,24 @@
     const addIng = buildModal('ingredient'); const addSea = buildModal('seasoning');
     document.getElementById('addIng')?.addEventListener('click', ()=>addIng.open());
     document.getElementById('addSea')?.addEventListener('click', ()=>addSea.open());
+    // View toggle
+    const tabClass = document.querySelector('[data-view-tab="class"]');
+    const tabPlace = document.querySelector('[data-view-tab="place"]');
+    const viewClass = document.querySelector('[data-view="class"]');
+    const viewPlace = document.querySelector('[data-view="place"]');
+    function switchView(which){
+      if (which==='place'){
+        tabPlace.classList.add('bg-white','shadow','text-gray-900');
+        tabClass.classList.remove('bg-white','shadow','text-gray-900');
+        viewPlace.classList.remove('hidden'); viewClass.classList.add('hidden');
+      } else {
+        tabClass.classList.add('bg-white','shadow','text-gray-900');
+        tabPlace.classList.remove('bg-white','shadow','text-gray-900');
+        viewClass.classList.remove('hidden'); viewPlace.classList.add('hidden');
+      }
+    }
+    tabClass?.addEventListener('click', ()=>switchView('class'));
+    tabPlace?.addEventListener('click', ()=>switchView('place'));
     // 既存ストックの編集用モーダル
     function buildEditModal(data){
       const modal=document.createElement('div'); modal.className='fixed inset-0 z-50 hidden overflow-y-auto';
