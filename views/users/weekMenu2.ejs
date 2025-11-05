@@ -269,7 +269,6 @@
           <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
         const card = cardEl(row);
-        if (slot?.dineOut) { card.classList.add('opacity-60'); }
         item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
       });
 
@@ -298,7 +297,6 @@
           <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
         const card = cardEl(row);
-        if (slot?.dineOut) { card.classList.add('opacity-60'); }
         item.appendChild(card); item.appendChild(actions); dinnerWrap.appendChild(item);
       });
 
@@ -310,14 +308,14 @@
     function renderRequirementsForDay(day){
       const reqEl = document.getElementById('wm2-req'); if (!reqEl) return; reqEl.innerHTML='';
       const menus = [];
-      (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m) menus.push(m); });
+      (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menus.push(m); });
       let dSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
       if (!Array.isArray(day.dinnerSlots)) {
         const base = day.dinner && typeof day.dinner==='object' ? ['staple','main','side','soup'].map(k=>day.dinner[k]).filter(Boolean): [];
         const extras = Array.isArray(day.dinnerExtras)? day.dinnerExtras.filter(Boolean): [];
         dSlots = [...base, ...extras];
       }
-      dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m) menus.push(m); });
+      dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menus.push(m); });
 
       const agg = { ingredients: new Map(), seasonings: new Map() };
       const add = (map, name, amount, unit)=>{
