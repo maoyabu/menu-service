@@ -158,15 +158,13 @@
   const ING_GENRES = <%- JSON.stringify(genreList || []) %>;
   function paintIngGenres(){
     const holder = document.getElementById('ingredient-genres'); if (!holder) return;
-    holder.innerHTML='';
+    holder.innerHTML=''; holder.className = 'flex items-center gap-2';
+    const label = document.createElement('span'); label.textContent='分類：'; label.className='text-sm text-gray-700';
+    const sel = document.createElement('select'); sel.className='border rounded px-3 py-2'; sel.id='ingredient-genre-filter';
     const all=['すべて',...ING_GENRES];
-    all.forEach((label,idx)=>{
-      const val = idx===0? '' : label;
-      const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1 rounded-full text-sm border';
-      const paint=()=>{ const active = String(ING_GENRE||'')===String(val||''); b.classList.toggle('bg-emerald-700', active); b.classList.toggle('text-white', active); b.classList.toggle('border-emerald-700', active); b.classList.toggle('bg-gray-100', !active); };
-      b.addEventListener('click', ()=>{ ING_GENRE = val; paintIngGenres(); fetchIngredients(); });
-      paint(); holder.appendChild(b);
-    });
+    all.forEach((lb,idx)=>{ const val=idx===0?'':lb; const op=document.createElement('option'); op.value=val; op.textContent=lb; if(String(ING_GENRE||'')===String(val||'')) op.selected=true; sel.appendChild(op); });
+    sel.addEventListener('change', ()=>{ ING_GENRE = sel.value; fetchIngredients(); });
+    holder.appendChild(label); holder.appendChild(sel);
   }
 
   async function fetchIngredients() {
@@ -352,9 +350,13 @@
   const SEAS_GENRES = <%- JSON.stringify(seasoningGenreList || []) %>;
   function paintSeaGenres(){
     const holder = document.getElementById('seasoning-genres'); if (!holder) return;
-    holder.innerHTML='';
+    holder.innerHTML=''; holder.className='flex items-center gap-2';
+    const label=document.createElement('span'); label.textContent='分類：'; label.className='text-sm text-gray-700';
+    const sel=document.createElement('select'); sel.className='border rounded px-3 py-2'; sel.id='seasoning-genre-filter';
     const all=['すべて',...SEAS_GENRES];
-    all.forEach((label,idx)=>{ const val = idx===0? '' : label; const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1 rounded-full text-sm border'; const paint=()=>{ const active=String(SEAS_GENRE||'')===String(val||''); b.classList.toggle('bg-emerald-700', active); b.classList.toggle('text-white', active); b.classList.toggle('border-emerald-700', active); b.classList.toggle('bg-gray-100', !active); }; b.addEventListener('click', ()=>{ SEAS_GENRE=val; paintSeaGenres(); fetchSeasonings(); }); paint(); holder.appendChild(b); });
+    all.forEach((lb,idx)=>{ const val=idx===0?'':lb; const op=document.createElement('option'); op.value=val; op.textContent=lb; if(String(SEAS_GENRE||'')===String(val||'')) op.selected=true; sel.appendChild(op); });
+    sel.addEventListener('change', ()=>{ SEAS_GENRE = sel.value; fetchSeasonings(); });
+    holder.appendChild(label); holder.appendChild(sel);
   }
 
   async function fetchSeasonings() {

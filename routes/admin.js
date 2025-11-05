@@ -215,7 +215,10 @@ router.get('/api/ingredients', async (req, res) => {
     filter.favorite = true;
   }
 
-  const results = await Ingredient.find(filter).limit(20);
+  const applyLimit = (keyword && keyword.length>0) || (genre && genre.length>0) || favorite === 'true' || req.query.recent === 'true';
+  let query = Ingredient.find(filter);
+  if (applyLimit) query = query.limit(200);
+  const results = await query;
   const mappedResults = results.map(item => {
     const short_nutrition = item.energy
       ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
@@ -258,7 +261,10 @@ router.get('/api/seasonings', async (req, res) => {
     filter.favorite = true;
   }
 
-  const results = await Seasoning.find(filter).limit(20);
+  const applyLimit = (keyword && keyword.length>0) || (genre && genre.length>0) || favorite === 'true' || req.query.recent === 'true';
+  let query = Seasoning.find(filter);
+  if (applyLimit) query = query.limit(200);
+  const results = await query;
   const mappedResults = results.map(item => {
     const short_nutrition = item.energy
       ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`

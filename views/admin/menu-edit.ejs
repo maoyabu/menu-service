@@ -259,7 +259,7 @@
 
   // 新しい食材リスト描画（お気に入り・詳細・カード全体クリックで追加）
   let ING_GENRE=''; const ING_GENRES=<%- JSON.stringify(genreList||[]) %>;
-  function paintIngGenres(){ const holder=document.getElementById('ingredient-genres'); if(!holder) return; holder.innerHTML=''; const all=['すべて',...ING_GENRES]; all.forEach((label,idx)=>{ const val=idx===0?'':label; const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1 rounded-full text-sm border'; const paint=()=>{ const active=String(ING_GENRE||'')===String(val||''); b.classList.toggle('bg-emerald-700',active); b.classList.toggle('text-white',active); b.classList.toggle('border-emerald-700',active); b.classList.toggle('bg-gray-100',!active); }; b.addEventListener('click',()=>{ ING_GENRE=val; paintIngGenres(); fetchIngredients(); }); paint(); holder.appendChild(b); }); }
+  function paintIngGenres(){ const holder=document.getElementById('ingredient-genres'); if(!holder) return; holder.innerHTML=''; holder.className='flex items-center gap-2'; const label=document.createElement('span'); label.textContent='分類：'; label.className='text-sm text-gray-700'; const sel=document.createElement('select'); sel.className='border rounded px-3 py-2'; sel.id='ingredient-genre-filter'; const all=['すべて',...ING_GENRES]; all.forEach((lb,idx)=>{ const val=idx===0?'':lb; const op=document.createElement('option'); op.value=val; op.textContent=lb; if(String(ING_GENRE||'')===String(val||'')) op.selected=true; sel.appendChild(op); }); sel.addEventListener('change',()=>{ ING_GENRE=sel.value; fetchIngredients(); }); holder.appendChild(label); holder.appendChild(sel); }
   function renderIngredientList(items){ const tags=document.getElementById('ingredient-tags'); const selected=document.getElementById('ingredient-selected'); tags.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML=''; if(!items||items.length===0){ tags.innerHTML='<p class="text-sm text-gray-500">該当する食材が見つかりません</p>'; return;} items.forEach(item=>{ const label=item.ingredient||''; const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200'; b.addEventListener('click',()=>{ selected.classList.remove('hidden'); selected.innerHTML=''; const row=document.createElement('div'); row.className='flex items-center gap-3'; const info=document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification||''}</div>`; const hiddenId=document.createElement('input'); hiddenId.type='hidden'; hiddenId.value=String(item._id); const amount=document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1'; const units=Array.isArray(item.unit)?item.unit:(item.unit?[item.unit]:[]); let unitEl; if(units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.className='w-24 border rounded px-2 py-1'; } const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm'; addBtn.addEventListener('click',()=>{ addIngredientFromSearch(String(item._id),label,units,item.classification||'',item.short_nutrition||''); const cont=document.getElementById('ingredients-list'); const last=cont.lastElementChild; if(last){ const inputs=last.querySelectorAll('input, select'); if(inputs&&inputs.length>=3){ inputs[1].value=amount.value||''; const unitCtl=inputs[2]; if(unitCtl&&unitCtl.tagName==='SELECT' && unitEl.tagName==='SELECT') unitCtl.value=unitEl.value; else if(unitCtl) unitCtl.value=unitEl.value||''; }} document.getElementById('ingredient-modal').classList.add('hidden'); }); row.append(info,hiddenId,amount,unitEl,addBtn); selected.appendChild(row); }); tags.appendChild(b); }); }
 
   function openIngredientModal() {
@@ -443,7 +443,7 @@
 
   function openSeasoningModal() {
     document.getElementById('seasoning-modal').classList.remove('hidden');
-    fetchSeasonings();
+    paintSeaGenres(); fetchSeasonings();
 
     const searchInput = document.getElementById('seasoning-search');
     if (searchInput && !searchInput.dataset.bound) {
@@ -462,6 +462,26 @@
   }
 
   let seasoningSearchTimer;
+
+  // 分類プルダウン生成（調味料）
+  function paintSeaGenres(){
+    const holder = document.getElementById('seasoning-genres'); if(!holder) return; holder.innerHTML=''; holder.className='flex items-center gap-2';
+    // サーバからの分類一覧はメニュー新規と違い変数を持っていないため、初回fetchで取得
+    // 簡易にAPIへメタリクエスト
+    (async()=>{
+      try {
+        const metaUrl = new URL('/admin/api/seasonings', location.origin); metaUrl.searchParams.set('meta','genres');
+        const meta = await (await fetch(metaUrl.toString())).json();
+        const cats = Array.isArray(meta?.genres) ? meta.genres : [];
+        const label=document.createElement('span'); label.textContent='分類：'; label.className='text-sm text-gray-700';
+        const sel=document.createElement('select'); sel.className='border rounded px-3 py-2'; sel.id='seasoning-genre-filter';
+        const all=['すべて', ...cats];
+        all.forEach((lb,idx)=>{ const val=idx===0?'':lb; const op=document.createElement('option'); op.value=val; op.textContent=lb; sel.appendChild(op); });
+        sel.addEventListener('change', ()=>{ fetchSeasonings(); });
+        holder.appendChild(label); holder.appendChild(sel);
+      } catch(_) {}
+    })();
+  }
 
   function addSeasoningFromSearch(id, name, units, classification = '', nutrition = '') {
     const container = document.getElementById('seasonings-list');
