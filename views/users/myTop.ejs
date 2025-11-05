@@ -349,6 +349,8 @@
       </a>
     </article>
 
+    
+
     <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-6">
       <header class="flex items-center justify-between">
         <div>
@@ -448,10 +450,12 @@
             <span class="lucide w-4 h-4" data-lucide="pencil"></span>
           </a>
         </div>
-        <a href="/users/my-menu/mine" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100">
-          <span class="lucide w-3 h-3" data-lucide="list"></span>
-          マイメニューを見る
-        </a>
+        <div class="flex items-center gap-2">
+          <a href="/users/my-menu/mine" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100">
+            <span class="lucide w-3 h-3" data-lucide="list"></span>
+            マイメニューを見る
+          </a>
+        </div>
       </div>
       <p class="text-xs text-gray-500">あなたのレシピコレクションを編集</p>
       <div class="grid sm:grid-cols-2 gap-4">
@@ -503,6 +507,32 @@
       </a>
     </article>
 
+    <!-- マイストック（マイメニューの下に配置） -->
+    <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <h2 class="text-lg font-semibold">マイストック</h2>
+          <span class="text-xs text-gray-500">家にある食材・調味料を管理</span>
+        </div>
+        <a href="/users/my-stock" class="inline-flex items-center gap-2 text-sm font-semibold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-full hover:bg-purple-100">
+          <span class="lucide w-4 h-4" data-lucide="package"></span>
+          開く
+        </a>
+      </div>
+      <p class="text-xs text-gray-500">分類ごとの在庫や賞味期限を確認・編集できます。新しい在庫の追加もこちらから。</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <a href="/users/my-stock" class="block border border-dashed border-gray-300 rounded-xl p-5 text-center hover:border-purple-300 hover:bg-purple-50/40 transition-colors">
+          <div class="mx-auto mb-2 w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
+            <span class="lucide w-5 h-5" data-lucide="boxes"></span>
+          </div>
+          <div class="text-sm font-semibold text-gray-900">ストックを開く</div>
+          <div class="text-xs text-gray-500 mt-1">追加・編集・削除ができます</div>
+        </a>
+      </div>
+    </article>
+
+    <!-- 家族のトピックス（コメントアウト） -->
+    <!--
     <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-5">
       <header class="flex items-center justify-between">
         <div>
@@ -540,10 +570,13 @@
         </div>
       </div>
     </article>
+    -->
   </div>
 </section>
 
 
+  <!-- 次のステップを計画しましょう（コメントアウト） -->
+  <!--
   <footer class="rounded-2xl border border-dashed border-gray-200 p-6 bg-gray-50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
     <div>
       <h2 class="text-lg font-semibold text-gray-900">次のステップを計画しましょう</h2>
@@ -562,6 +595,7 @@
       </a>
     </div>
   </footer>
+  -->
 </section>
 
 <script>
