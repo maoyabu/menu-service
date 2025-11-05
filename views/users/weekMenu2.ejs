@@ -348,8 +348,16 @@
         e.target.closest('[data-fav-action="submit"]') ||
         e.target.closest('[data-action="toggle-dine"]') ||
         e.target.closest('[data-action="clear-slot"]') ||
-        e.target.closest('[data-action="shuffle"]');
-      if (needsRefresh) setTimeout(rebuild, 40);
+        e.target.closest('[data-action="shuffle"]') ||
+        e.target.closest('[data-action="add-lunch-slot"]') ||
+        e.target.closest('[data-action="add-dinner-slot"]') ||
+        e.target.closest('[data-action="toggle-favorite"]') ||
+        e.target.closest('[data-action="change"]');
+      if (needsRefresh) {
+        setTimeout(rebuild, 40);
+        // Request auto-save shortly after state/render settles
+        setTimeout(function(){ if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); }, 120);
+      }
     });
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', rebuild); else rebuild();
   })();
@@ -483,6 +491,8 @@
         if (window.weekMenuAPI && window.weekMenuAPI.setDineInfo) {
           window.weekMenuAPI.setDineInfo(ctx.day, ctx.meal, ctx.index, { dineOut: true, dineOutName: name, dineOutUrl: url });
         }
+        // Auto-save after editing dine info
+        try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch(_) {}
         close();
       }
     });

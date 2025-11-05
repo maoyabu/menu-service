@@ -2106,6 +2106,73 @@
       }
     };
 
+    // Silent auto-save API for fused views (weekMenu2)
+    let __autoSaveToastTimer = null;
+    const ensureAutoSaveToast = () => {
+      let host = document.getElementById('auto-save-toast');
+      if (host) return host;
+      host = document.createElement('div');
+      host.id = 'auto-save-toast';
+      host.className = 'fixed inset-0 z-[80] pointer-events-none flex items-center justify-center';
+      const box = document.createElement('div');
+      box.id = 'auto-save-toast-box';
+      box.className = 'rounded-2xl bg-red-100 text-red-800 px-8 py-4 shadow-lg transition-opacity transition-transform duration-200 opacity-0 scale-95';
+      box.textContent = '保存しました';
+      host.appendChild(box);
+      document.body.appendChild(host);
+      return host;
+    };
+    const showAutoSaveToast = () => {
+      ensureAutoSaveToast();
+      const box = document.getElementById('auto-save-toast-box');
+      if (!box) return;
+      // show
+      box.classList.remove('opacity-0', 'scale-95');
+      box.classList.add('opacity-100', 'scale-100');
+      if (__autoSaveToastTimer) { try { clearTimeout(__autoSaveToastTimer); } catch(_) {} }
+      __autoSaveToastTimer = setTimeout(() => {
+        box.classList.add('opacity-0', 'scale-95');
+        box.classList.remove('opacity-100', 'scale-100');
+      }, 1000);
+    };
+    let __autoSaving = false;
+    let __autoSaveTimer = null;
+    const saveWeekPlanSilently = async () => {
+      if (__autoSaving) return;
+      if (!currentGroupId) return;
+      const payload = buildPayload();
+      if (!payload.weekStart || !payload.dayPlans.length) return;
+      __autoSaving = true;
+      try {
+        const response = await fetch('/users/week-menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok && result && result.planId) {
+          state.planId = result.planId;
+          if (window.weekMenuData) window.weekMenuData.planId = result.planId;
+          // show gentle centered toast for auto-save
+          showAutoSaveToast();
+        }
+      } catch (e) {
+        console.warn('auto-save failed', e);
+      } finally {
+        __autoSaving = false;
+      }
+    };
+
+    try {
+      window.weekMenuAPI = window.weekMenuAPI || {};
+      window.weekMenuAPI.saveWeekPlanSilently = saveWeekPlanSilently;
+      window.weekMenuAPI.requestAutoSave = function(){
+        if (__autoSaveTimer) { try { clearTimeout(__autoSaveTimer); } catch(_) {} }
+        __autoSaveTimer = setTimeout(saveWeekPlanSilently, 400);
+      };
+      window.weekMenuAPI.showSavedToast = showAutoSaveToast;
+    } catch(_) { /* noop */ }
+
     const renderSlot = (wrapper, slot) => {
       if (!wrapper) return;
 
