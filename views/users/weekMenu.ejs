@@ -928,6 +928,8 @@
       categoryKey,
       favorite: false,
       dineOut: false,
+      dineOutName: '',
+      dineOutUrl: '',
       locked: false
     });
 
@@ -1416,6 +1418,34 @@
       }
     };
 
+    // Expose minimal API for fused views (weekMenu2) to update dine-out info
+    try {
+      window.weekMenuAPI = window.weekMenuAPI || {};
+      window.weekMenuAPI.setDineInfo = (dayIndex, mealKey, index, info = {}) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return false;
+          if (Object.prototype.hasOwnProperty.call(info, 'dineOut')) slot.dineOut = !!info.dineOut;
+          if (Object.prototype.hasOwnProperty.call(info, 'dineOutName')) slot.dineOutName = info.dineOutName || '';
+          if (Object.prototype.hasOwnProperty.call(info, 'dineOutUrl')) slot.dineOutUrl = info.dineOutUrl || '';
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          return true;
+        } catch(_) { return false; }
+      };
+      window.weekMenuAPI.getDineInfo = (dayIndex, mealKey, index) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return { dineOut: false, dineOutName: '', dineOutUrl: '' };
+          return {
+            dineOut: !!slot.dineOut,
+            dineOutName: slot.dineOutName || '',
+            dineOutUrl: slot.dineOutUrl || ''
+          };
+        } catch(_) { return { dineOut: false, dineOutName: '', dineOutUrl: '' }; }
+      };
+    } catch(_) { /* noop */ }
+
     // Favorite modal helpers
     let favoriteModalSlot = null;
     const openFavoriteModal = (slot, anchorEl) => {
@@ -1467,7 +1497,16 @@
 
     const toggleDineOut = (slot) => {
       if (!slot) return;
-      slot.dineOut = !slot.dineOut;
+      const next = !slot.dineOut;
+      slot.dineOut = next;
+      if (next) {
+        try {
+          const name = (window.prompt('お店の名前を入力してください', slot.dineOutName || '') || '').trim();
+          const url = (window.prompt('グルメサイトのURLを入力してください（任意）', slot.dineOutUrl || '') || '').trim();
+          slot.dineOutName = name;
+          slot.dineOutUrl = url;
+        } catch (_) { /* noop */ }
+      }
     };
 
     const pickRandomMenu = (categoryKey, excludeMenuId) => {
@@ -1959,6 +1998,8 @@
               categoryKey: slot.categoryKey || 'lunchMain',
               menuId: slot.menuId,
               dineOut: !!slot.dineOut,
+              dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+              dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
               favorite: !!slot.favorite,
               locked: !!slot.locked
             }))
@@ -1982,6 +2023,8 @@
               categoryKey,
               menuId: slot.menuId,
               dineOut: !!slot.dineOut,
+              dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+              dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
               favorite: !!slot.favorite,
               locked: !!slot.locked
             };
@@ -2170,7 +2213,19 @@
 
       if (nameEl) {
         nameEl.innerHTML = '';
-        if (menu.url) {
+        if (slot.dineOut && slot.dineOutName) {
+          if (slot.dineOutUrl) {
+            const link = document.createElement('a');
+            link.href = slot.dineOutUrl;
+            link.target = 'menuWindow';
+            link.rel = 'noopener';
+            link.className = 'hover:underline';
+            link.textContent = slot.dineOutName;
+            nameEl.appendChild(link);
+          } else {
+            nameEl.textContent = slot.dineOutName;
+          }
+        } else if (menu.url) {
           const link = document.createElement('a');
           link.href = menu.url;
           link.target = 'menuWindow';
@@ -2195,7 +2250,22 @@
         }
       }
 
-      updateChips(chipsEl, menu, mealType);
+      if (chipsEl) {
+        chipsEl.innerHTML = '';
+        if (slot.dineOut) {
+          const dineChip = document.createElement('span');
+          dineChip.className = 'inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-indigo-800';
+          const icon = document.createElement('span');
+          icon.className = 'lucide w-4 h-4';
+          icon.setAttribute('data-lucide', 'utensils');
+          const label = document.createElement('span');
+          label.textContent = '外食';
+          dineChip.append(icon, label);
+          chipsEl.appendChild(dineChip);
+        } else {
+          updateChips(chipsEl, menu, mealType);
+        }
+      }
       updateImage(imageEl, menu.imageUrl, menu.name, menu.url || '');
       // Add/Update badge on image
       if (imageEl) {

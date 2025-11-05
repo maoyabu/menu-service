@@ -26,6 +26,14 @@ const menuSlotSchema = new Schema({
     type: Boolean,
     default: false
   },
+  dineOutName: {
+    type: String,
+    default: ''
+  },
+  dineOutUrl: {
+    type: String,
+    default: ''
+  },
   favorite: {
     type: Boolean,
     default: false

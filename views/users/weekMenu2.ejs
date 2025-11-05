@@ -189,22 +189,43 @@
       if (slot.menuId && lookup[slot.menuId]) m = lookup[slot.menuId];
       if (!m && slot.menu) m = slot.menu; // fallback to embedded menu from weekMenu state
       if (!m) return { hasMenu:false };
-      const detail=m.cook||m.junle||m.kind||m.menu||'';
-      return { hasMenu:true, name:m.name, imageUrl:m.imageUrl||'', url:m.url||'', time: (m.time??'')+'', cook:m.cook||'', junle:m.junle||'', detail };
+      const isDineOut = !!slot.dineOut;
+      const shopName = (slot.dineOutName || '').trim();
+      const shopUrl = (slot.dineOutUrl || '').trim();
+      const detail = m.cook || m.junle || m.kind || m.menu || '';
+      // Always keep menu name and image; only chips area changes for dine-out
+      return {
+        hasMenu:true,
+        isDineOut,
+        name: m.name,
+        imageUrl: m.imageUrl || '',
+        url: m.url || '',
+        time: (m.time ?? '') + '',
+        cook: m.cook || '',
+        junle: m.junle || '',
+        shopName,
+        shopUrl,
+        detail
+      };
     }
 
     function cardEl(row){
       const timeLabel = row.time ? (String(row.time).endsWith('分')? row.time: row.time+'分') : '';
       const wrap = document.createElement('div'); wrap.className='wm2-card';
+      const chipsHtml = row.isDineOut
+        ? `
+            ${row.shopName || row.shopUrl ? `<span class=\"wm2-chip kind\">${row.shopUrl ? `<a href=\"${row.shopUrl}\" target=\"_blank\" rel=\"noopener\" class=\"hover:underline\">${row.shopName || row.shopUrl}</a>` : `${row.shopName}`}</span>` : ''}
+            <span class=\"wm2-chip kind\"><span class=\"lucide w-4 h-4\" data-lucide=\"utensils\"></span><span>外食</span></span>
+          ` : `
+            ${timeLabel? `<span class=\"wm2-chip time\"><span>調理時間</span><span>${timeLabel}</span></span>`: ''}
+            ${row.junle? `<span class=\"wm2-chip kind\"><span>ジャンル</span><span>${row.junle}</span></span>`: ''}
+            ${row.cook? `<span class=\"wm2-chip kind\"><span>調理方法</span><span>${row.cook}</span></span>`: ''}
+          `;
       wrap.innerHTML = `
         <div class=\"img\" data-element=\"dish-image\">${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}</div>
         <div class=\"p-3 space-y-2\">
           <div class=\"wm2-title\" data-element=\"dish-name\">${row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\" class=\"hover:underline\">${row.name}</a>`: row.name}</div>
-          <div class=\"wm2-badges\" data-element=\"dish-chips\">
-            ${timeLabel? `<span class=\"wm2-chip time\"><span>調理時間</span><span>${timeLabel}</span></span>`: ''}
-            ${row.junle? `<span class=\"wm2-chip kind\"><span>ジャンル</span><span>${row.junle}</span></span>`: ''}
-            ${row.cook? `<span class=\"wm2-chip kind\"><span>調理方法</span><span>${row.cook}</span></span>`: ''}
-          </div>
+          <div class=\"wm2-badges\" data-element=\"dish-chips\">${chipsHtml}</div>
           <p class=\"text-xs text-gray-500 hidden\" data-element=\"dish-detail\"></p>
         </div>`;
       return wrap;
@@ -243,10 +264,13 @@
         actions.innerHTML = `
           <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
+          ${slot?.dineOut ? `<button type=\"button\" class=\"${ICON_BTN}\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"sr-only\">外食情報を編集</span><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button>` : ''}
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
-        const card = cardEl(row); item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
+        const card = cardEl(row);
+        if (slot?.dineOut) { card.classList.add('opacity-60'); }
+        item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
       });
 
       let dinnerSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
@@ -269,10 +293,13 @@
         actions.innerHTML = `
           <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
+          ${slot?.dineOut ? `<button type=\"button\" class=\"${ICON_BTN}\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"sr-only\">外食情報を編集</span><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button>` : ''}
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
-        const card = cardEl(row); item.appendChild(card); item.appendChild(actions); dinnerWrap.appendChild(item);
+        const card = cardEl(row);
+        if (slot?.dineOut) { card.classList.add('opacity-60'); }
+        item.appendChild(card); item.appendChild(actions); dinnerWrap.appendChild(item);
       });
 
       if (window.refreshLucideIcons) window.refreshLucideIcons();
@@ -352,14 +379,136 @@
 </div>
 
 <script>
-  // Delegate save to original hidden save button wired by weekMenu
+  // weekMenu2 dine-out edit modal (capture clicks before weekMenu handlers)
   (function(){
-    const btn = document.getElementById('wm2-save');
-    btn?.addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const original = document.querySelector('section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"]');
-      if (original) original.click();
+    let ctx = null; // { day, meal, index }
+    const ensureModal = () => {
+      let modal = document.getElementById('wm2-dine-modal');
+      if (modal) return modal;
+      const tpl = document.createElement('div');
+      tpl.id = 'wm2-dine-modal';
+      tpl.className = 'hidden fixed inset-0 z-50';
+      tpl.innerHTML = `
+        <div class="absolute inset-0 bg-black/40" data-role="backdrop"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div class="w-full max-w-sm rounded-xl bg-white p-5 shadow-lg border">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-semibold">外食情報を編集</h3>
+              <button type="button" class="inline-flex items-center justify-center rounded hover:bg-gray-100 p-2" data-role="close"><span class="lucide w-4 h-4" data-lucide="x"></span></button>
+            </div>
+            <div class="space-y-3 text-[15px]">
+              <label class="block">
+                <span class="text-sm text-gray-700">お店の名前</span>
+                <input type="text" id="wm2-dine-name" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="店名を入力" />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">グルメサイトのURL（任意）</span>
+                <input type="url" id="wm2-dine-url" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="https://..." />
+              </label>
+            </div>
+            <div class="mt-5 flex justify-end gap-2">
+              <button type="button" data-role="cancel" class="px-3 py-1.5 rounded border">キャンセル</button>
+              <button type="button" data-role="save" class="px-3 py-1.5 rounded bg-blue-600 text-white">保存</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(tpl);
+      if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+      return tpl;
+    };
+
+    const open = (day, meal, index) => {
+      const modal = ensureModal();
+      ctx = { day, meal, index };
+      const info = (window.weekMenuAPI && window.weekMenuAPI.getDineInfo) ? window.weekMenuAPI.getDineInfo(day, meal, index) : { dineOut:false, dineOutName:'', dineOutUrl:'' };
+      const nameEl = document.getElementById('wm2-dine-name');
+      const urlEl = document.getElementById('wm2-dine-url');
+      if (nameEl) nameEl.value = info.dineOutName || '';
+      if (urlEl) urlEl.value = info.dineOutUrl || '';
+      modal.classList.remove('hidden');
+    };
+    const close = () => {
+      const modal = document.getElementById('wm2-dine-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      ctx = null;
+    };
+
+    // Capture click on toggle-dine inside this section to replace prompt with modal
+    document.addEventListener('click', (ev) => {
+      const t = ev.target;
+      const btn = t && t.closest && t.closest('#wm2-section [data-action="toggle-dine"]');
+      const editBtn = t && t.closest && t.closest('#wm2-section [data-action="edit-dine"]');
+      if (!btn && !editBtn) return;
+      ev.preventDefault(); ev.stopPropagation();
+
+      let container = t.closest('[data-slot-index]') || t.closest('[data-dinner-index]');
+      const mealBox = t.closest('#wm2-box-lunch, #wm2-box-dinner');
+      if (!container || !mealBox) return;
+      const isDinner = !!container.getAttribute('data-dinner-index');
+      const meal = isDinner ? 'dinner' : 'lunch';
+      const index = Number(isDinner ? container.getAttribute('data-dinner-index') : container.getAttribute('data-slot-index'));
+      const day = Number(mealBox.getAttribute('data-day'));
+      if (Number.isNaN(index) || Number.isNaN(day)) return;
+
+      const api = window.weekMenuAPI || {};
+      const current = api.getDineInfo ? api.getDineInfo(day, meal, index) : { dineOut:false };
+      if (editBtn) {
+        // Always open modal for editing
+        open(day, meal, index);
+        return;
+      }
+      if (!current.dineOut) {
+        // Turn on dineOut and open modal to edit name/url
+        if (api.setDineInfo) api.setDineInfo(day, meal, index, { dineOut: true });
+        open(day, meal, index);
+      } else {
+        // Turn off dineOut
+        if (api.setDineInfo) api.setDineInfo(day, meal, index, { dineOut: false, dineOutName: '', dineOutUrl: '' });
+      }
+    }, true);
+
+    document.addEventListener('click', (ev) => {
+      const t = ev.target;
+      const modal = document.getElementById('wm2-dine-modal');
+      if (!modal || modal.classList.contains('hidden')) return;
+      if (t.closest('[data-role="close"]') || t.closest('[data-role="cancel"]') || t.closest('[data-role="backdrop"]')) {
+        ev.preventDefault(); close(); return;
+      }
+      if (t.closest('[data-role="save"]')) {
+        ev.preventDefault();
+        if (!ctx) { close(); return; }
+        const nameEl = document.getElementById('wm2-dine-name');
+        const urlEl = document.getElementById('wm2-dine-url');
+        const name = (nameEl && nameEl.value || '').trim();
+        const url = (urlEl && urlEl.value || '').trim();
+        if (window.weekMenuAPI && window.weekMenuAPI.setDineInfo) {
+          window.weekMenuAPI.setDineInfo(ctx.day, ctx.meal, ctx.index, { dineOut: true, dineOutName: name, dineOutUrl: url });
+        }
+        close();
+      }
     });
+  })();
+</script>
+<script>
+  // Delegate save to original hidden save button wired by weekMenu (compat without optional chaining)
+  (function(){
+    function wire(){
+      var btn = document.getElementById('wm2-save');
+      if (!btn) return;
+      btn.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        try {
+          var original = document.querySelector('section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"]');
+          if (original && typeof original.click === 'function') original.click();
+        } catch(_) { /* noop */ }
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', wire, { once: true });
+    } else {
+      wire();
+    }
   })();
 </script>
 

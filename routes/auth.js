@@ -799,6 +799,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
             menuId: slot.menu.toString(),
             categoryKey: map.categoryKey,
             dineOut: !!slot.dineOut,
+            dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+            dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
             favorite: !!slot.favorite,
             locked: !!slot.locked
           };
@@ -847,8 +849,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           categoryKey,
           favorite: false,
           dineOut: false,
+          dineOutName: '',
+          dineOutUrl: '',
           locked: false,
-          ...(slot && { ...slot, menuId: null, favorite: false, dineOut: false, locked: false })
+          ...(slot && { ...slot, menuId: null, favorite: false, dineOut: false, dineOutName: '', dineOutUrl: '', locked: false })
         });
 
         plan = plan.map((day) => ({
@@ -1034,6 +1038,8 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
               slotType,
               menu: slot.menuId,
               dineOut: !!slot.dineOut,
+              dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+              dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
               favorite: !!slot.favorite,
               locked: !!slot.locked
             };
@@ -1260,15 +1266,17 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       }
     }
 
-    const slotPayload = {
-      categoryKey: map.categoryKey,
-      slotType,
-      menuId,
-      dineOut: !!slotSource.dineOut,
-      favorite: !!slotSource.favorite,
-      locked: !!slotSource.locked,
-      menu: menuId && currentWeekMenuLookup[menuId] ? currentWeekMenuLookup[menuId] : null
-    };
+        const slotPayload = {
+          categoryKey: map.categoryKey,
+          slotType,
+          menuId,
+          dineOut: !!slotSource.dineOut,
+          dineOutName: typeof slotSource.dineOutName === 'string' ? slotSource.dineOutName : '',
+          dineOutUrl: typeof slotSource.dineOutUrl === 'string' ? slotSource.dineOutUrl : '',
+          favorite: !!slotSource.favorite,
+          locked: !!slotSource.locked,
+          menu: menuId && currentWeekMenuLookup[menuId] ? currentWeekMenuLookup[menuId] : null
+        };
 
     if (map.meal === 'lunch') {
       dayEntry.lunchSlots = dayEntry.lunchSlots || [];
