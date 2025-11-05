@@ -1,7 +1,8 @@
 <section class="max-w-6xl mx-auto py-8 space-y-6">
   <header class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold">共有メニューからマイメニューを登録</h1>
+      <% const __isMyMenu = (selected && selected.fav === 'mine'); %>
+      <h1 class="text-2xl font-bold"><%= __isMyMenu ? 'マイメニューリスト' : 'メニューリスト' %></h1>
       <p class="text-sm text-gray-500">キーワード・種類・ジャンル・調理方法で検索</p>
     </div>
     <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold">マイメニュートップへ</a>
@@ -67,9 +68,17 @@
             <span class="lucide w-4 h-4" data-lucide="heart"></span>
           </button>
         </div>
-        <div class="p-2 space-y-1">
-          <p class="text-sm font-semibold truncate" title="<%= item.name %>"><%= item.name %></p>
-          <div class="flex gap-2 text-[10px] text-gray-600">
+          <div class="p-2 space-y-1">
+            <% const st = (myOwnTypes && myOwnTypes[String(item.id)]) || ''; %>
+            <% if (st === 'url') { %>
+              <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">レシピサイト</span>
+            <% } else if (st === 'original') { %>
+              <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-purple-50 text-purple-700">オリジナル</span>
+            <% } else { %>
+              <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700">共有メニュー</span>
+            <% } %>
+            <p class="text-sm font-semibold truncate" title="<%= item.name %>"><%= item.name %></p>
+            <div class="flex gap-2 text-[10px] text-gray-600">
             <% if (item.junle) { %>
               <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5">#<%= item.junle %></span>
             <% } %>
