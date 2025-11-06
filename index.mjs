@@ -20,6 +20,7 @@ import mymenuRoutes from './routes/mymenu.js';
 import mystockRoutes from './routes/mystock.js';
 import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
+import WeeklyAnnouncement from './models/weeklyAnnouncement.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -168,4 +169,73 @@ app.listen(PORT, () => {
     }
   };
   setInterval(tick, 60 * 1000);
+
+  // Weekly announcement scheduler: every Friday 08:00, announce week after next (Mon start)
+  const tickWeekly = async () => {
+    try {
+      const now = new Date();
+      const dow = now.getDay(); // 0=Sun, 5=Fri
+      // Only run on Friday after 08:00 local time
+      const after8 = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() >= 0);
+      if (dow !== 5 || !after8) return;
+
+      // Compute Monday of current week
+      const local00 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const day = (local00.getDay() + 6) % 7; // Mon=0
+      const mondayThis = new Date(local00); mondayThis.setDate(mondayThis.getDate() - day);
+      // Week after next Monday
+      const mondayAfterNext = new Date(mondayThis); mondayAfterNext.setDate(mondayAfterNext.getDate() + 14);
+      mondayAfterNext.setHours(0,0,0,0);
+
+      // Range label
+      const end = new Date(mondayAfterNext); end.setDate(end.getDate() + 6);
+      const fmt = (d) => `${d.getMonth()+1}月${d.getDate()}日`;
+      const rangeLabel = `${fmt(mondayAfterNext)}〜${fmt(end)}`;
+
+      // Link base
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+
+      // For each group, send if not yet sent for this weekStart
+      const groups = await Group.find({}).select('_id group_name createdBy members').lean();
+      for (const g of groups) {
+        try {
+          const exists = await WeeklyAnnouncement.findOne({ group: g._id, weekStart: mondayAfterNext }).lean();
+          if (exists) continue;
+
+          // Recipients: owner + members (email + isMail)
+          const userIds = [];
+          if (g.createdBy) userIds.push(g.createdBy);
+          if (Array.isArray(g.members)) userIds.push(...g.members);
+          const uniqIds = Array.from(new Set(userIds.map((x) => String(x))));
+          const users = await User.find({ _id: { $in: uniqIds }, isMail: true }).select('email displayname username').lean();
+          const validUsers = users.filter(u => !!u.email);
+          if (!validUsers.length) {
+            await WeeklyAnnouncement.create({ group: g._id, weekStart: mondayAfterNext, sentAt: new Date(), recipients: [] });
+            continue;
+          }
+
+          // Send per-user personalized
+          for (const u of validUsers) {
+            const recipientName = u.displayname || u.username || u.email;
+            const linkUrl = `${baseUrl}/users/week-menu?group=${encodeURIComponent(String(g._id))}&weekStart=${encodeURIComponent(mondayAfterNext.toISOString())}`;
+            const html = await renderTemplate('weeklyPlanReady', {
+              groupName: g.group_name || '',
+              recipientName,
+              rangeLabel,
+              linkUrl
+            });
+            const subject = `${g.group_name || 'グループ'}の7 DAYS PLAN準備のお知らせ`;
+            await sendMail({ to: u.email, subject, html });
+          }
+
+          await WeeklyAnnouncement.create({ group: g._id, weekStart: mondayAfterNext, sentAt: new Date(), recipients: validUsers.map(u => u._id) });
+        } catch (err) {
+          console.error('weekly announce error (group):', g?._id, err);
+        }
+      }
+    } catch (err) {
+      console.error('weekly announce scheduler error:', err);
+    }
+  };
+  setInterval(tickWeekly, 60 * 1000);
 });
