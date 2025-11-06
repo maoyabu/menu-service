@@ -1,0 +1,97 @@
+<section class="max-w-3xl mx-auto py-6 space-y-6">
+  <header class="flex items-start justify-between gap-4">
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold break-words"><%= menu.name %></h1>
+      <% const timeText = (function(t){ if (t===undefined||t===null||t==='') return ''; var n=Number(t); if(!Number.isNaN(n) && n>0) return n+"分"; return String(t); })(menu.time); %>
+      <div class="mt-2 flex flex-wrap gap-2 text-xs">
+        <% if (menu.kind) { %>
+          <span class="inline-flex items-center gap-1 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 px-2 py-0.5">種類：<%= menu.kind %></span>
+        <% } %>
+        <% if (menu.junle) { %>
+          <span class="inline-flex items-center gap-1 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 px-2 py-0.5">ジャンル：<%= menu.junle %></span>
+        <% } %>
+        <% if (menu.cook) { %>
+          <span class="inline-flex items-center gap-1 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 px-2 py-0.5">調理方法：<%= menu.cook %></span>
+        <% } %>
+        <% if (timeText) { %>
+          <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5">調理時間：<%= timeText %></span>
+        <% } %>
+        <% if (typeof menu.people === 'number' && menu.people > 0) { %>
+          <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5">人数：<%= menu.people %>人分</span>
+        <% } %>
+      </div>
+    </div>
+    <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold whitespace-nowrap">マイメニューへ戻る</a>
+  </header>
+
+  <% if (menu.imageUrl) { %>
+    <div class="rounded-xl overflow-hidden border">
+      <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-64 object-cover" />
+    </div>
+  <% } %>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="space-y-3">
+      <h2 class="text-lg font-semibold">食材</h2>
+      <ul class="space-y-2">
+        <% (menu.ingredients || []).forEach(function(it){ %>
+          <li class="border-b pb-2">
+            <div class="flex items-center justify-between">
+              <span><%= it.name?.ingredient || it.name || '' %></span>
+              <span class="text-gray-700 text-sm">
+                <% if (typeof it.amount === 'number') { %>
+                  <%= it.amount %>
+                <% } %>
+                <%= it.unit || (Array.isArray(it.name?.unit) ? it.name.unit[0] : '') || '' %>
+              </span>
+            </div>
+            <% if (it.name && it.name.comment) { %>
+              <div class="mt-1 text-xs text-gray-600 whitespace-pre-wrap"><%= it.name.comment %></div>
+            <% } %>
+          </li>
+        <% }) %>
+        <% if (!(menu.ingredients||[]).length) { %>
+          <li class="text-sm text-gray-500">食材は未登録です</li>
+        <% } %>
+      </ul>
+    </div>
+    <div class="space-y-3">
+      <h2 class="text-lg font-semibold">調味料</h2>
+      <ul class="space-y-2">
+        <% (menu.seasoning || []).forEach(function(it){ %>
+          <li class="border-b pb-2">
+            <div class="flex items-center justify-between">
+              <span><%= it.name?.seasoning || it.name || '' %></span>
+              <span class="text-gray-700 text-sm">
+                <% if (typeof it.amount === 'number') { %>
+                  <%= it.amount %>
+                <% } %>
+                <%= it.unit || (Array.isArray(it.name?.unit) ? it.name.unit[0] : '') || '' %>
+              </span>
+            </div>
+            <% if (it.name && it.name.comment) { %>
+              <div class="mt-1 text-xs text-gray-600 whitespace-pre-wrap"><%= it.name.comment %></div>
+            <% } %>
+          </li>
+        <% }) %>
+        <% if (!(menu.seasoning||[]).length) { %>
+          <li class="text-sm text-gray-500">調味料は未登録です</li>
+        <% } %>
+      </ul>
+    </div>
+  </div>
+
+  <% if (typeof instructionText === 'string' && instructionText.trim()) { %>
+    <div class="space-y-2">
+      <h2 class="text-lg font-semibold">作り方</h2>
+      <pre class="whitespace-pre-wrap text-sm leading-relaxed border rounded-xl p-3 bg-white"><%= instructionText %></pre>
+    </div>
+  <% } %>
+
+  <% if (typeof commentText === 'string' && commentText.trim()) { %>
+    <div class="space-y-2">
+      <h2 class="text-lg font-semibold">コメント</h2>
+      <pre class="whitespace-pre-wrap text-sm leading-relaxed border rounded-xl p-3 bg-white"><%= commentText %></pre>
+    </div>
+  <% } %>
+</section>

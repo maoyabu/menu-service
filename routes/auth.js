@@ -204,7 +204,7 @@ const formatMenuDocument = (doc) => ({
   cook: doc.cook,
   people: doc.people,
   material: !!doc.material,
-  url: doc.url,
+  url: doc.url || (`/users/menu/${doc._id.toString()}`),
   imageUrl: doc.imageUrl || '',
   menu: doc.menu,
   junle: doc.junle,
@@ -996,6 +996,42 @@ router.get('/users/week-menu2', isLoggedIn, (req, res) => {
   const q = new URLSearchParams(url.search);
   q.set('view', '2');
   res.redirect('/users/week-menu' + (q.toString() ? ('?' + q.toString()) : ''));
+});
+
+// Menu recipe detail (for original or any menu without external URL)
+router.get('/users/menu/:id', isLoggedIn, async (req, res, next) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      req.flash('error', 'メニューが見つかりません');
+      return res.redirect('/users/my-top');
+    }
+    const menu = await Menu.findById(id)
+      .populate({ path: 'ingredients.name', select: 'ingredient unit' })
+      .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+      .lean();
+    if (!menu) {
+      req.flash('error', 'メニューが見つかりません');
+      return res.redirect('/users/my-top');
+    }
+    // Derive instruction/comment display
+    let instructionText = String(menu.instructionText || '');
+    let commentText = String(menu.comment || '');
+    if (!instructionText && commentText) {
+      const raw = commentText;
+      const parts = raw.split(/\n{2,}/);
+      if (parts.length > 1) {
+        instructionText = (parts.shift() || '').trim();
+        commentText = parts.join('\n\n').trim();
+      } else {
+        instructionText = raw;
+        commentText = '';
+      }
+    }
+    return res.render('users/menuRecipe', { menu, instructionText, commentText });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 router.post('/users/week-menu', isLoggedIn, async (req, res) => {

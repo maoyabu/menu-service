@@ -1109,13 +1109,13 @@ router.post('/original', async (req, res, next) => {
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
 
-    // オリジナルはURLは無し、コメントに『作り方 + コメント』を格納
-    const combinedComment = [instruction, comment].filter(Boolean).join('\n\n');
+    // オリジナルは URL なし。作り方とコメントを別々に保存
     const newMenu = await Menu.create({
       name, yomi, menu, kind, junle, cook,
       url: '', imageUrl, time, people: Number(people) || 1,
       ingredients, seasoning: seasonings,
-      comment: combinedComment,
+      instructionText: String(instruction || ''),
+      comment: String(comment || ''),
       share: String(share) === 'true'
     });
 
@@ -1448,13 +1448,15 @@ router.post('/edit/:menuId', async (req, res, next) => {
       amount: Array.isArray(seasoning_amounts) ? seasoning_amounts[i] : seasoning_amounts,
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
-    const finalComment = (owned && owned.sourceType === 'original')
-      ? [instruction, comment].filter(Boolean).join('\n\n')
-      : comment;
-
-    await Menu.findByIdAndUpdate(menuId, {
-      name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1, comment: finalComment, ingredients, seasoning: seasonings
-    });
+    const updatePayload = {
+      name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1,
+      comment,
+      ingredients, seasoning: seasonings
+    };
+    if (owned && owned.sourceType === 'original') {
+      updatePayload.instructionText = String(instruction || '');
+    }
+    await Menu.findByIdAndUpdate(menuId, updatePayload);
 
     // 更新時に自分のマイメニュー設定も反映（存在すれば）
     await Mymenu.findOneAndUpdate(

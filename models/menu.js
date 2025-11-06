@@ -65,6 +65,10 @@ const menuSchema = new mongoose.Schema({
     comment: {
         type: String
     },
+    instructionText: {
+        type: String,
+        default: ''
+    },
     share: {
         type: Boolean,
         default: false
