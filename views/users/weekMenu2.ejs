@@ -57,6 +57,8 @@
   #wm2-supplies .row{ display:flex; justify-content:space-between; padding:4px 0; font-size:13px; color:#374151; }
   #wm2-supplies .tags{ display:flex; flex-wrap:wrap; gap:6px; }
   #wm2-supplies .tag{ display:inline-flex; align-items:center; gap:4px; background:#d1fae5; color:#065f46; border-radius:9999px; padding:2px 8px; font-size:12px; }
+  /* メンバー名タグをブルー系に */
+  #wm2-supplies .tag-member{ background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; }
 
   /* Section spacing tuning: allow padding from utility classes */
   #wm2-section{ }
@@ -70,6 +72,13 @@
   /* Supplies range label under title */
   #wm2-supplies-range{ display:none; font-size:12px; color:#475569; margin-top:4px; }
   #wm2-section[data-mode="supplies"] #wm2-supplies-range{ display:block; }
+
+  /* Attendees tags */
+  .attendees { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .attendee-tag { display:inline-flex; align-items:center; gap:6px; background:#e0f2fe; color:#075985; border:1px solid #bae6fd; border-radius:9999px; padding:2px 8px; font-size:11px; font-weight:600; }
+  .attendee-tag button { border:none; background:transparent; color:#075985; cursor:pointer; padding:0; line-height:1; }
+  .attendee-addme { display:inline-flex; align-items:center; gap:6px; background:#fef3c7; color:#92400e; border:1px dashed #fcd34d; border-radius:9999px; padding:2px 8px; font-size:11px; font-weight:700; }
+  .attendee-reset { display:inline-flex; align-items:center; gap:6px; background:#ecfccb; color:#3f6212; border:1px solid #bef264; border-radius:9999px; padding:2px 8px; font-size:11px; font-weight:700; }
 </style>
 
 <!-- Weekly preview + fused layout -->
@@ -99,7 +108,10 @@
         <!-- Lunch -->
         <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-lunch" data-day="0" data-meal="lunch">
           <div class="flex items-center justify-between mb-2">
-            <div class="text-xs font-semibold text-blue-600">ランチ</div>
+            <div class="flex items-center gap-3">
+              <div class="text-xs font-semibold text-blue-600">ランチ</div>
+              <div class="attendees" id="wm2-attendees-lunch"></div>
+            </div>
             <button type="button" id="wm2-btn-add-lunch" class="wm2-add" data-action="add-lunch-slot"><span class="lucide w-4 h-4" data-lucide="plus"></span>メニューを追加</button>
           </div>
           <div id="wm2-day-lunch" class="wm2-list"></div>
@@ -107,7 +119,10 @@
         <!-- Dinner -->
         <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-dinner" data-day="0" data-meal="dinner">
           <div class="flex items-center justify-between mb-2">
-            <div class="text-xs font-semibold text-blue-600">ディナー</div>
+            <div class="flex items-center gap-3">
+              <div class="text-xs font-semibold text-blue-600">ディナー</div>
+              <div class="attendees" id="wm2-attendees-dinner"></div>
+            </div>
             <button type="button" id="wm2-btn-add-dinner" class="wm2-add" data-action="add-dinner-slot"><span class="lucide w-4 h-4" data-lucide="plus"></span>メニューを追加</button>
           </div>
           <div id="wm2-day-dinner" class="wm2-list"></div>
@@ -130,6 +145,123 @@
     // Unify icon-button styling with weekMenu.ejs
     const ICON_BTN = 'icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40';
     const groupSize = Number(window.weekMenuData?.groupSize) > 0 ? Number(window.weekMenuData.groupSize) : 1;
+    const planId = (window.weekMenuData && window.weekMenuData.planId) || '';
+    const currentUserId = (window.weekMenuData && window.weekMenuData.currentUserId) || '';
+    const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
+    const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
+
+    const keyFor = (dayIndex, meal) => `${dayIndex}:${meal}`;
+    const defaultIds = () => groupUsers.map((u) => String(u.id));
+    const getIds = (dayIndex, meal) => {
+      const ids = participantsByMeal[keyFor(dayIndex, meal)];
+      if (Array.isArray(ids)) return ids.map(String); // 空配列は「誰も参加しない」を意味する
+      return defaultIds(); // 未設定のときのみ全員
+    };
+    const setIds = (dayIndex, meal, ids) => { participantsByMeal[keyFor(dayIndex, meal)] = Array.from(new Set(ids.map(String))); };
+    function renderAttendees(dayIndex){
+      ['lunch','dinner'].forEach((meal) => {
+        const wrapId = meal === 'lunch' ? 'wm2-attendees-lunch' : 'wm2-attendees-dinner';
+        const wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        const ids = getIds(dayIndex, meal);
+        const idSet = new Set(ids.map(String));
+        groupUsers.forEach((u) => {
+          if (!idSet.has(String(u.id))) return; // only render participants
+          const tag = document.createElement('span');
+          tag.className = 'attendee-tag';
+          // show x for myself
+          if (String(u.id) === String(currentUserId)) {
+            tag.innerHTML = `<span>${u.name}</span><button type="button" title="参加しない" data-action="attendee-remove" data-meal="${meal}" data-day="${dayIndex}">×</button>`;
+          } else {
+            tag.textContent = u.name;
+          }
+          wrap.appendChild(tag);
+        });
+        // If I am NOT in list, show add button
+        if (!idSet.has(String(currentUserId))) {
+          const add = document.createElement('button');
+          add.type = 'button';
+          add.className = 'attendee-addme';
+          add.dataset.action = 'attendee-add';
+          add.dataset.meal = meal;
+          add.dataset.day = String(dayIndex);
+          add.textContent = '+ 自分も食べる';
+          wrap.appendChild(add);
+        }
+        // 管理者向け: 全員に戻す
+        if (window.weekMenuData && window.weekMenuData.currentUserIsGroupOwner) {
+          const reset = document.createElement('button');
+          reset.type = 'button';
+          reset.className = 'attendee-reset';
+          reset.dataset.action = 'attendee-reset-all';
+          reset.dataset.meal = meal;
+          reset.dataset.day = String(dayIndex);
+          reset.textContent = '全員に戻す';
+          wrap.appendChild(reset);
+        }
+      });
+    }
+
+    // global click handler for attendee buttons
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action="attendee-add"], [data-action="attendee-remove"], [data-action="attendee-reset-all"]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const meal = btn.dataset.meal;
+      const day = Number(btn.dataset.day);
+      if (!meal || Number.isNaN(day)) return;
+      try {
+        if (!planId) {
+          // 先に自動保存してplanIdを確定させる
+          if (window.weekMenuAPI && window.weekMenuAPI.saveWeekPlanSilently) {
+            await window.weekMenuAPI.saveWeekPlanSilently();
+          }
+        }
+        const latestPlanId = (window.weekMenuData && window.weekMenuData.planId) || planId;
+        if (!latestPlanId) throw new Error('プランIDが未確定のため保存できません');
+        let endpoint = '/users/week-menu/participants';
+        let body = null;
+        if (action === 'attendee-reset-all') {
+          endpoint = '/users/week-menu/participants/reset';
+          body = { planId: latestPlanId, dayIndex: day, mealType: meal };
+        } else {
+          const participate = action === 'attendee-add';
+          body = { planId: latestPlanId, dayIndex: day, mealType: meal, participate };
+        }
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error('更新に失敗しました');
+        const json = await res.json();
+        if (json && json.success && json.key) {
+          if (action === 'attendee-reset-all') {
+            // 全員に戻す
+            participantsByMeal[json.key] = Array.isArray(json.users) && json.users.length
+              ? json.users.map(String)
+              : defaultIds();
+          } else {
+            // クライアント側で前回の状態からトグルした結果を確実に反映
+            const prev = getIds(day, meal);
+            const me = String(currentUserId);
+            const participate = btn.dataset.action === 'attendee-add';
+            const next = participate
+              ? Array.from(new Set([...prev.map(String), me]))
+              : prev.map(String).filter((id) => id !== me);
+            participantsByMeal[json.key] = next;
+          }
+          renderAttendees(day);
+          // 更新後の人数で右側の必要量も再計算
+          const plan = (window.weekMenuData && (window.weekMenuData.planSnapshot||window.weekMenuData.plan)) || [];
+          const dayObj = plan[day] || {};
+          renderRequirementsForDay(dayObj);
+        }
+      } catch (err) {
+        alert(err.message || '更新に失敗しました');
+      }
+    });
     // Build supplies range text (e.g., 2025年10月27日から11月2日の食材・調味料リスト)
     (function(){
       const labelEl = document.getElementById('wm2-supplies-range');
@@ -252,6 +384,9 @@
       const addDinnerBtn = document.getElementById('wm2-btn-add-dinner');
       if (addDinnerBtn){ addDinnerBtn.dataset.day = String(sel); addDinnerBtn.dataset.meal = 'dinner'; addDinnerBtn.dataset.category = 'dinnerFlexible'; }
 
+      // Render attendees for selected day
+      renderAttendees(sel);
+
       const lunchSlots = Array.isArray(day.lunchSlots)? day.lunchSlots: [];
       lunchSlots.forEach((slot, i)=>{
         const row = rowFromSlot(slot); if (!row.hasMenu || !lunchWrap) return;
@@ -307,24 +442,34 @@
 
     function renderRequirementsForDay(day){
       const reqEl = document.getElementById('wm2-req'); if (!reqEl) return; reqEl.innerHTML='';
-      const menus = [];
-      (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menus.push(m); });
+      const menusLunch = [];
+      const menusDinner = [];
+      (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusLunch.push(m); });
       let dSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
       if (!Array.isArray(day.dinnerSlots)) {
         const base = day.dinner && typeof day.dinner==='object' ? ['staple','main','side','soup'].map(k=>day.dinner[k]).filter(Boolean): [];
         const extras = Array.isArray(day.dinnerExtras)? day.dinnerExtras.filter(Boolean): [];
         dSlots = [...base, ...extras];
       }
-      dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menus.push(m); });
+      dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusDinner.push(m); });
 
       const agg = { ingredients: new Map(), seasonings: new Map() };
       const add = (map, name, amount, unit)=>{
         if (!name) return; const key = name + '|' + (unit||''); const prev = map.get(key) || 0; const val = parseFloat(amount); map.set(key, (isNaN(val)? prev: prev + val));
       };
-      menus.forEach(m=>{
-        (Array.isArray(m.ingredients)? m.ingredients: []).forEach(it=> add(agg.ingredients, it?.name || '', it.amount, it.unit));
-        (Array.isArray(m.seasoning)? m.seasoning: []).forEach(it=> add(agg.seasonings, it?.name || '', it.amount, it.unit));
-      });
+      const dayIndex = sel;
+      const countLunch = getIds(dayIndex, 'lunch').length;
+      const countDinner = getIds(dayIndex, 'dinner').length;
+      const applyMenus = (menus, people) => {
+        (menus||[]).forEach((m) => {
+          const basePeople = Number(m.people) > 0 ? Number(m.people) : 1;
+          const multiplier = people > 0 ? (people / basePeople) : 1;
+          (Array.isArray(m.ingredients)? m.ingredients: []).forEach(it=> add(agg.ingredients, it?.name || '', Number(it.amount) * multiplier, it.unit));
+          (Array.isArray(m.seasoning)? m.seasoning: []).forEach(it=> add(agg.seasonings, it?.name || '', Number(it.amount) * multiplier, it.unit));
+        });
+      };
+      applyMenus(menusLunch, countLunch);
+      applyMenus(menusDinner, countDinner);
 
       const sec = (title, map)=>{
         const box = document.createElement('div');
@@ -598,7 +743,7 @@
       head.innerHTML = `<span><span class="font-semibold">${groupSize}人分</span>の必要量に換算しています。</span>`;
       const tagWrap = document.createElement('span'); tagWrap.className='tags';
       if (groupName){ const t=document.createElement('span'); t.className='tag'; t.textContent=groupName; tagWrap.appendChild(t); }
-      members.forEach(n=>{ const t=document.createElement('span'); t.className='tag'; t.textContent=n; tagWrap.appendChild(t); });
+      members.forEach(n=>{ const t=document.createElement('span'); t.className='tag tag-member'; t.textContent=n; tagWrap.appendChild(t); });
       head.appendChild(tagWrap); box.appendChild(head);
 
       const grid = document.createElement('div'); grid.className='grid grid-cols-1 md:grid-cols-2 gap-4';

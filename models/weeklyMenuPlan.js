@@ -70,6 +70,25 @@ const dayPlanSchema = new Schema({
   }
 }, { _id: false });
 
+// 参加者情報を日付・食事単位で保持（スロットとは独立して管理する）
+const participantEntrySchema = new Schema({
+  dayIndex: {
+    type: Number,
+    min: 0,
+    max: 6,
+    required: true
+  },
+  mealType: {
+    type: String,
+    enum: ['lunch', 'dinner'],
+    required: true
+  },
+  users: [{
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  }]
+}, { _id: false });
+
 const weeklyMenuPlanSchema = new Schema({
   group: {
     type: Schema.Types.ObjectId,
@@ -104,6 +123,11 @@ const weeklyMenuPlanSchema = new Schema({
       message: '少なくとも1日のメニューを含めてください'
     },
     required: true
+  },
+  // 参加者（任意）：各日×昼/夜の参加ユーザー
+  participants: {
+    type: [participantEntrySchema],
+    default: []
   },
   isPublished: {
     type: Boolean,

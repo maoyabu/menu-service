@@ -549,7 +549,12 @@
     // 換算用のグループ名とメンバー名を保持
     currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
     currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>,
-    myMenuIds: JSON.parse('<%- serialize(myMenuIds || []) %>')
+    myMenuIds: JSON.parse('<%- serialize(myMenuIds || []) %>'),
+    // 参加者・ユーザー情報
+    currentUserId: <%- serialize(typeof currentUserId !== 'undefined' ? currentUserId : '') %>,
+    currentGroupUsers: JSON.parse('<%- serialize(typeof currentGroupUsers !== "undefined" ? currentGroupUsers : []) %>'),
+    currentUserIsGroupOwner: <%- serialize(typeof currentUserIsGroupOwner !== 'undefined' ? currentUserIsGroupOwner : false) %>,
+    participantsByMeal: JSON.parse('<%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>')
   };
 </script>
 
@@ -735,6 +740,16 @@
     const currentGroupId = data.currentGroupId || '';
     const weekRangeLabel = data.weekRangeLabel || '';
     const groupSize = Number(data.groupSize) > 0 ? Number(data.groupSize) : 1;
+    const currentUserId = data.currentUserId || '';
+    const groupUsers = Array.isArray(data.currentGroupUsers) ? data.currentGroupUsers : [];
+    const participantsByMeal = data.participantsByMeal || {};
+    const keyFor = (dayIndex, meal) => `${dayIndex}:${meal}`;
+    const defaultIds = () => groupUsers.map((u) => String(u.id));
+    const getParticipantIds = (dayIndex, meal) => {
+      const ids = participantsByMeal[keyFor(dayIndex, meal)];
+      if (Array.isArray(ids)) return ids.map(String); // 空配列は0人
+      return defaultIds();
+    };
     const mainTabButtons = Array.from(document.querySelectorAll('[data-main-tab]'));
     const mainPanels = Array.from(document.querySelectorAll('[data-main-panel]'));
     const planTabButtonsContainer = document.querySelector('[data-plan-tab-buttons]');
@@ -1010,18 +1025,32 @@
         itemsMap.set(name, entry);
       };
 
-      state.plan.forEach((day) => {
+      state.plan.forEach((day, dayIndex) => {
         if (!day) return;
         const lunchSlots = ensureLunchSlots(day).filter(Boolean);
         const dinnerSlots = ensureDinnerSlots(day).filter(Boolean);
-        const slots = [...lunchSlots, ...dinnerSlots];
-
-        slots.forEach((slot) => {
+        // 昼・夜で人数を分けて計算
+        lunchSlots.forEach((slot) => {
           if (!slot || slot.dineOut || (!slot.menuId && !slot.menu)) return;
           const menu = slot.menuId ? (menuLookup[slot.menuId] || slot.menu || null) : slot.menu || null;
           if (!menu) return;
           const basePeople = Number(menu.people);
-          const rawMultiplier = basePeople && basePeople > 0 ? groupSize / basePeople : 1;
+          const lunchCount = getParticipantIds(dayIndex, 'lunch').length;
+          const rawMultiplier = basePeople && basePeople > 0 ? lunchCount / basePeople : 1;
+          const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
+          const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
+          const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
+          ingredients.forEach((item) => mergeEntry(item, multiplier, 'ingredient'));
+          seasonings.forEach((item) => mergeEntry(item, multiplier, 'seasoning'));
+        });
+
+        dinnerSlots.forEach((slot) => {
+          if (!slot || slot.dineOut || (!slot.menuId && !slot.menu)) return;
+          const menu = slot.menuId ? (menuLookup[slot.menuId] || slot.menu || null) : slot.menu || null;
+          if (!menu) return;
+          const basePeople = Number(menu.people);
+          const dinnerCount = getParticipantIds(dayIndex, 'dinner').length;
+          const rawMultiplier = basePeople && basePeople > 0 ? dinnerCount / basePeople : 1;
           const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
           const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
           const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];

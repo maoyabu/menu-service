@@ -719,6 +719,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     let groupSize = 1;
     let groupDocPopulated = null;
+    let currentUserIsGroupOwner = false;
     if (currentGroupId) {
       groupDocPopulated = await Group.findById(currentGroupId)
         .populate({ path: 'createdBy', select: '_id displayname username email' })
@@ -877,39 +878,50 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     let currentGroupName = '';
     let currentGroupMembers = [];
+    let currentGroupUsers = [];
 
     if (currentGroupId) {
       if (groupDocPopulated) {
         // Prefer populated document: only existing users are present; nulls are filtered out
         currentGroupName = groupDocPopulated.group_name || '';
         const members = [];
+        const usersList = [];
         const owner = groupDocPopulated.createdBy || null;
+        currentUserIsGroupOwner = owner && String(owner._id) === String(req.user._id);
         if (owner && owner._id) {
           members.push(owner.displayname || owner.username || owner.email || '');
+          usersList.push({ id: String(owner._id), name: owner.displayname || owner.username || owner.email || '' });
         }
         (groupDocPopulated.members || []).filter(Boolean).forEach((member) => {
           if (!owner || String(member._id) !== String(owner._id)) {
             members.push(member.displayname || member.username || member.email || '');
+            usersList.push({ id: String(member._id), name: member.displayname || member.username || member.email || '' });
           }
         });
         currentGroupMembers = members;
+        currentGroupUsers = usersList;
       } else {
         // Fallback: use res.locals.userGroups (filter to truthy/populated entries only)
         const targetGroup = userGroups.find((g) => String(g._id) === String(currentGroupId));
         if (targetGroup) {
           currentGroupName = targetGroup.group_name || '';
           const members = [];
+          const usersList = [];
           const owner = targetGroup.createdBy;
           if (owner && (owner.displayname || owner.username || owner.email)) {
             members.push(owner.displayname || owner.username || owner.email || '');
+            usersList.push({ id: String(owner._id || owner), name: owner.displayname || owner.username || owner.email || '' });
           }
+          currentUserIsGroupOwner = owner && String(owner._id || owner) === String(req.user._id);
           (targetGroup.members || []).filter(Boolean).forEach((member) => {
             const memberId = member._id || member;
             if (owner && String(memberId) === String(owner._id || owner)) return;
             const name = member.displayname || member.username || member.email || '';
             if (name) members.push(name);
+            usersList.push({ id: String(memberId), name });
           });
           currentGroupMembers = members;
+          currentGroupUsers = usersList;
         }
       }
     }
@@ -919,6 +931,17 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     // console.log('currentGroupMembers:', currentGroupMembers);
 
 	const weekStartISO = targetWeekStart.toISOString();
+    // participants map for this plan
+    let participantsMap = {};
+    if (existingPlan && Array.isArray(existingPlan.participants)) {
+      participantsMap = existingPlan.participants.reduce((acc, entry) => {
+        if (!entry) return acc;
+        const key = `${entry.dayIndex}:${entry.mealType}`;
+        const users = Array.isArray(entry.users) ? entry.users.map((u) => String(u)) : [];
+        acc[key] = users;
+        return acc;
+      }, {});
+    }
     // MyMenu ids for current user+group to color hearts
     let myMenuIds = [];
     if (currentGroupId) {
@@ -950,6 +973,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     // ここから追加
     currentGroupName,
     currentGroupMembers,
+    currentGroupUsers,
+    currentUserId: req.user?._id ? String(req.user._id) : '',
+    currentUserIsGroupOwner,
+    participantsMap,
 
     myMenuIds,
     weekMenuView
@@ -1082,7 +1109,7 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
     if (planId) {
       weeklyPlan = await WeeklyMenuPlan.findOneAndUpdate(
         { _id: planId, group: groupId },
-        updatePayload,
+        { $set: updatePayload },
         updateOptions
       );
     }
@@ -1096,7 +1123,7 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
       if (existingForWeek) {
         weeklyPlan = await WeeklyMenuPlan.findOneAndUpdate(
           { _id: existingForWeek._id },
-          updatePayload,
+          { $set: updatePayload },
           updateOptions
         );
       } else {
@@ -1121,6 +1148,113 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
   } catch (err) {
     console.error('週次メニュー保存エラー:', err);
     return res.status(500).json({ error: '週次メニューを保存できませんでした。' });
+  }
+});
+
+// 参加メンバーの切り替えAPI（自分のみ追加/削除）
+router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
+  try {
+    const { planId, dayIndex, mealType, participate } = req.body || {};
+    if (!planId || !mongoose.Types.ObjectId.isValid(planId)) {
+      return res.status(400).json({ error: 'planId が不正です。' });
+    }
+    const di = Number(dayIndex);
+    if (!Number.isInteger(di) || di < 0 || di > 6) {
+      return res.status(400).json({ error: 'dayIndex が不正です。' });
+    }
+    const meal = (mealType === 'dinner') ? 'dinner' : (mealType === 'lunch' ? 'lunch' : '');
+    if (!meal) {
+      return res.status(400).json({ error: 'mealType が不正です。' });
+    }
+    const userId = req.user._id;
+
+    const planDoc = await WeeklyMenuPlan.findById(planId).populate('group').exec();
+    if (!planDoc) return res.status(404).json({ error: '対象の週次メニューが見つかりません。' });
+
+    // 権限: 対象グループのメンバー（または作成者）であること
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const belongs = groups.some((g) => String(g._id) === String(planDoc.group._id));
+    if (!belongs) return res.status(403).json({ error: '権限がありません。' });
+
+    // 該当エントリを取得/作成
+    const keyMatch = (p) => p && p.dayIndex === di && p.mealType === meal;
+    let entry = (planDoc.participants || []).find(keyMatch);
+    let wasNew = false;
+    if (!entry) {
+      entry = { dayIndex: di, mealType: meal, users: [] };
+      planDoc.participants.push(entry);
+      wasNew = true;
+    }
+
+    const wantParticipate = !!participate;
+    // 新規作成、または既存だが未初期化（空配列）の場合は「全員参加」で初期化
+    if (wasNew || !Array.isArray(entry.users) || entry.users.length === 0) {
+      const g = planDoc.group;
+      const allIds = [];
+      if (g && g.createdBy) allIds.push(g.createdBy);
+      if (g && Array.isArray(g.members)) allIds.push(...g.members);
+      // ユニーク化
+      const uniq = Array.from(new Set(allIds.map((x) => String(x))));
+      entry.users = uniq;
+    }
+    const idx = entry.users.findIndex((u) => String(u) === String(userId));
+    if (wantParticipate) {
+      if (idx === -1) entry.users.push(userId);
+    } else {
+      if (idx !== -1) entry.users.splice(idx, 1);
+    }
+
+    await planDoc.save();
+
+    const users = entry.users.map((u) => String(u));
+    return res.json({ success: true, key: `${di}:${meal}`, users });
+  } catch (err) {
+    console.error('参加者更新エラー:', err);
+    return res.status(500).json({ error: '参加者を更新できませんでした。' });
+  }
+});
+
+// 管理者専用: 参加者を全員に戻す
+router.post('/users/week-menu/participants/reset', isLoggedIn, async (req, res) => {
+  try {
+    const { planId, dayIndex, mealType } = req.body || {};
+    if (!planId || !mongoose.Types.ObjectId.isValid(planId)) {
+      return res.status(400).json({ error: 'planId が不正です。' });
+    }
+    const di = Number(dayIndex);
+    if (!Number.isInteger(di) || di < 0 || di > 6) {
+      return res.status(400).json({ error: 'dayIndex が不正です。' });
+    }
+    const meal = (mealType === 'dinner') ? 'dinner' : (mealType === 'lunch' ? 'lunch' : '');
+    if (!meal) {
+      return res.status(400).json({ error: 'mealType が不正です。' });
+    }
+
+    const planDoc = await WeeklyMenuPlan.findById(planId).populate('group').exec();
+    if (!planDoc) return res.status(404).json({ error: '対象の週次メニューが見つかりません。' });
+
+    // グループ管理者のみ許可
+    const group = planDoc.group;
+    const isOwner = group && String(group.createdBy) === String(req.user._id);
+    if (!isOwner) return res.status(403).json({ error: '管理者のみ実行可能です。' });
+
+    const keyMatch = (p) => p && p.dayIndex === di && p.mealType === meal;
+    let entry = (planDoc.participants || []).find(keyMatch);
+    if (!entry) {
+      entry = { dayIndex: di, mealType: meal, users: [] };
+      planDoc.participants.push(entry);
+    }
+
+    const allIds = [];
+    if (group && group.createdBy) allIds.push(group.createdBy);
+    if (group && Array.isArray(group.members)) allIds.push(...group.members);
+    entry.users = Array.from(new Set(allIds.map((x) => String(x))));
+
+    await planDoc.save();
+    return res.json({ success: true, key: `${di}:${meal}`, users: entry.users });
+  } catch (err) {
+    console.error('参加者全員復元エラー:', err);
+    return res.status(500).json({ error: '参加者を復元できませんでした。' });
   }
 });
 
