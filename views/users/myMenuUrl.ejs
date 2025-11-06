@@ -409,8 +409,11 @@
       }
       function selectItem(it){ state.selected = it; showSelected(it); }
       const state = { keyword: '', genre: '', selected: null, selectedId: null };
+      let __reqSeq = 0;
       async function run(){
+        const mySeq = ++__reqSeq;
         const data = await fetchList({ keyword: state.keyword, genre: state.genre });
+        if (mySeq !== __reqSeq) return; // ignore stale response
         if (!state._genresBuilt){ await buildGenresPersistent(); state._genresBuilt=true; }
         // Apply genre filter client side too for quick switch
         const list = state.genre ? data.filter(x=>x.classification===state.genre) : data;

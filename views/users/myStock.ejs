@@ -234,7 +234,14 @@
         }catch(_){}
       }
       function renderTags(data){ const tags=modal.querySelector('[data-role="tags"]'); const selected=modal.querySelector('[data-role="selected"]'); const unitDL = modal.querySelector('#stockUnitList'); if(unitDL) unitDL.innerHTML=''; tags.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML=''; (data||[]).forEach(it=>{ const name=it.ingredient||it.seasoning||''; const units=Array.isArray(it.unit)? it.unit: (it.unit?[it.unit]:[]); const b=document.createElement('button'); b.type='button'; b.className='px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200'; b.textContent=name; b.addEventListener('click', ()=>{ state.selectedId=String(it._id); selected.classList.remove('hidden'); selected.innerHTML=`<div class=\"text-sm\"><span class=\"font-semibold\">選択:</span> ${name} <span class=\"text-xs text-gray-600\">${it.classification||''}</span></div>`; const box=modal.querySelector('div.grid.grid-cols-3'); if(box) box.classList.remove('hidden'); if(unitDL){ unitDL.innerHTML=''; (units||[]).forEach(u=>{ const op=document.createElement('option'); op.value=u; unitDL.appendChild(op); }); } }); tags.appendChild(b); }); }
-      async function run(){ const kw=modal.querySelector('[data-role="kw"]').value.trim(); const data=await fetchList({ keyword: kw, genre: state.genre }); renderTags(data); }
+      let __reqSeq = 0;
+      async function run(){
+        const mySeq = ++__reqSeq;
+        const kw=modal.querySelector('[data-role="kw"]').value.trim();
+        const data=await fetchList({ keyword: kw, genre: state.genre });
+        if (mySeq !== __reqSeq) return;
+        renderTags(data);
+      }
       const state={ genre:'', selectedId: null };
       modal.querySelector('[data-role="kw"]').addEventListener('input', ()=>run());
       modal.querySelector('[data-x="placeAdd"]').addEventListener('click', async ()=>{

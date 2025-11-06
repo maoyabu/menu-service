@@ -248,11 +248,14 @@
         const res = await fetch(url.toString());
         return res.json();
       }
+      let __searchSeq = 0;
       async function run(){
+        const mySeq = ++__searchSeq;
         const kw = modal.querySelector('[data-role="kw"]').value.trim();
         const gn = modal.querySelector('[data-role="genre"]').value.trim();
         const params = { keyword: kw, genre: gn };
         const data = await doSearch(params);
+        if (mySeq !== __searchSeq) return; // ignore stale response
         const holder = modal.querySelector('[data-role="results"]'); holder.innerHTML='';
         (data||[]).forEach(item=>{
           const name = item.ingredient || item.seasoning || '';
@@ -420,8 +423,11 @@
       }
       function selectItem(it){ state.selected = it; showSelected(it); }
       const state = { keyword: '', genre: '', selected: null, selectedId: null };
+      let __presetSeq = 0;
       async function run(){
+        const mySeq = ++__presetSeq;
         const data = await fetchList({ keyword: state.keyword, genre: state.genre });
+        if (mySeq !== __presetSeq) return;
         if (!state._genresBuilt){ await buildGenresPersistent(); state._genresBuilt=true; }
         const list = state.genre ? data.filter(x=>x.classification===state.genre) : data;
         buildTags(list);
