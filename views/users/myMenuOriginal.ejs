@@ -110,9 +110,11 @@
           </label>
           <label class="inline-flex items-center gap-2 font-medium">食べたい頻度
             <select name="frequency" class="border rounded px-2 py-1">
-              <% [5,4,3,2,1].forEach(function(i){ %>
-                <option value="<%= i %>"><%= i %><% if (i===5) { %>（高い）<% } else if (i===1) { %>（低い）<% } %></option>
-              <% }) %>
+              <option value="5">5 … 週に2回</option>
+              <option value="4">4 … 週に1回</option>
+              <option value="3" selected>3 … 隔週に1回</option>
+              <option value="2">2 … 月に1回</option>
+              <option value="1">1 … 3ヶ月に1回</option>
             </select>
           </label>
           <label class="inline-flex items-center gap-2 font-medium">

@@ -568,17 +568,14 @@
           <span class="font-medium">食べたい頻度</span>
         </span>
         <select id="fav-frequency" class="border rounded px-2 py-1">
-          <option value="5">5（高い）</option>
-          <option value="4">4</option>
-          <option value="3" selected>3</option>
-          <option value="2">2</option>
-          <option value="1">1（低い）</option>
+          <option value="5">5 … 週に2回</option>
+          <option value="4">4 … 週に1回</option>
+          <option value="3" selected>3 … 隔週に1回</option>
+          <option value="2">2 … 月に1回</option>
+          <option value="1">1 … 3ヶ月に1回</option>
         </select>
       </label>
-      <label class="flex items-center gap-2 font-medium">
-        <input id="fav-skill" type="checkbox" class="rounded border-gray-300 w-4 h-4" />
-        <span>得意</span>
-      </label>
+      
     </div>
     <div class="mt-5 flex justify-end gap-2">
       <button type="button" data-fav-action="cancel" class="px-3 py-1.5 rounded border">キャンセル</button>
@@ -1486,9 +1483,7 @@
       overlay.classList.remove('hidden');
       // Default values
       const freq = document.getElementById('fav-frequency');
-      const skill = document.getElementById('fav-skill');
       if (freq) freq.value = '3';
-      if (skill) skill.checked = false;
 
       // Position next to the clicked heart
       const rect = anchorEl && anchorEl.getBoundingClientRect ? anchorEl.getBoundingClientRect() : null;
@@ -2678,8 +2673,7 @@
         try {
           if (!favoriteModalSlot || !favoriteModalSlot.menuId) return closeFavoriteModal();
           const freq = Number(document.getElementById('fav-frequency').value) || 3;
-          const skill = !!document.getElementById('fav-skill').checked;
-          await upsertMyMenu(favoriteModalSlot.menuId, freq, skill);
+          await upsertMyMenu(favoriteModalSlot.menuId, freq, false);
           favoriteModalSlot.favorite = true;
           // Add to myMenuIds set for coloring immediately
           (function(){
