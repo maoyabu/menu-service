@@ -471,11 +471,15 @@
       applyMenus(menusLunch, countLunch);
       applyMenus(menusDinner, countDinner);
 
+      const formatQty1 = (val) => {
+        if (typeof val !== 'number' || Number.isNaN(val)) return '';
+        const n = Math.round(val * 10) / 10; return n % 1 ? n.toFixed(1) : String(n);
+      };
       const sec = (title, map)=>{
         const box = document.createElement('div');
         const h = document.createElement('h4'); h.textContent = title; box.appendChild(h);
         const ul = document.createElement('ul');
-        Array.from(map.entries()).forEach(([k,v])=>{ const [name, unit] = k.split('|'); const li=document.createElement('li'); li.innerHTML = `<span>${name}</span><span>${v? v: ''}${unit? unit: ''}</span>`; ul.appendChild(li); });
+        Array.from(map.entries()).forEach(([k,v])=>{ const [name, unit] = k.split('|'); const li=document.createElement('li'); const valStr = (typeof v === 'number' && !Number.isNaN(v)) ? formatQty1(v) : ''; li.innerHTML = `<span>${name}</span><span>${valStr}${unit? unit: ''}</span>`; ul.appendChild(li); });
         box.appendChild(ul);
         return box;
       };
@@ -671,7 +675,7 @@
     const specialPrefixUnits = new Set(['大さじ','小さじ']);
     const formatQty = (val) => {
       if (typeof val !== 'number' || Number.isNaN(val)) return '';
-      const n = Math.round(val * 100) / 100; return n % 1 ? n.toFixed(2) : String(n);
+      const n = Math.round(val * 10) / 10; return n % 1 ? n.toFixed(1) : String(n);
     };
     const formatUnitEntry = ({ amount, unit, missingAmount }) => {
       if (missingAmount) return '数量未設定';
@@ -712,7 +716,7 @@
       const all = Array.from(items.entries()).map(([name, entry])=>({
         name,
         types: Array.from(entry.types),
-        units: Array.from(entry.unitMap.entries()).map(([unit, u])=>({ unit, amount: u.missingAmount? null : Math.round(u.amount*100)/100, missingAmount: u.missingAmount }))
+        units: Array.from(entry.unitMap.entries()).map(([unit, u])=>({ unit, amount: u.missingAmount? null : Math.round(u.amount*10)/10, missingAmount: u.missingAmount }))
       })).sort((a,b)=> a.name.localeCompare(b.name,'ja'));
       return {
         ingredients: all.filter(x=> !x.types.length || x.types.includes('ingredient')),
