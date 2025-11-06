@@ -365,6 +365,7 @@ router.post('/menu-new', async (req, res) => {
       comment,
       yomi,
       material: material === 'true',
+      isPrivate: req.body.isPrivate === 'true',
       ingredients,
       seasoning: seasonings,
       share: false,
@@ -502,6 +503,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       comment,
       yomi,
       material: material === 'true',
+      isPrivate: req.body.isPrivate === 'true',
       ingredients,
       seasoning: seasonings
     });

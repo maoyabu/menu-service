@@ -135,7 +135,7 @@ router.get('/shared-register', async (req, res, next) => {
         $or: [ { name: rx }, { yomi: rx }, { kind: rx }, { junle: rx }, { cook: rx }, { menu: rx } ]
       });
     }
-    const adminShared = await Menu.find(menuFilter.length ? { $and: menuFilter } : {})
+    const adminShared = await Menu.find(menuFilter.length ? { $and: [...menuFilter, { isPrivate: { $ne: true } }] } : { isPrivate: { $ne: true } })
       .lean();
 
     // 会員の共有メニュー（Mymenu.share = true）

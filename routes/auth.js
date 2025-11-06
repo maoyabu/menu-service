@@ -629,7 +629,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     await Promise.all(
       Array.from(kindSet).map(async (kind) => {
-        const docs = await Menu.find({ kind })
+        const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
           .populate({ path: 'ingredients.name', select: 'ingredient unit' })
           .populate({ path: 'seasoning.name', select: 'seasoning unit' })
           .lean();

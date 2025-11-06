@@ -62,6 +62,10 @@ const menuSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    isPrivate: {
+        type: Boolean,
+        default: false
+    },
     comment: {
         type: String
     },
