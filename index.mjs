@@ -150,14 +150,29 @@ app.listen(PORT, () => {
             continue;
           }
           const actorName = (actor?.displayname || actor?.username || actor?.email || '');
-          const items = (n.items || []).map((it) => {
-            const d = new Date(it.date);
-            const mealLabel = it.mealType === 'dinner' ? 'ディナー' : 'ランチ';
-            return { dateLabel: `${d.getMonth()+1}月${d.getDate()}日`, mealLabel, reason: it.reason || '' };
-          });
-          const tpl = n.type === 'eatingAgain' ? 'eatingAgain' : 'notEating';
-          const html = await renderTemplate(tpl, { actorName, items });
-          const subject = `${actorName}からの連絡`;
+          let subject = `${actorName}からの連絡`;
+          let html = '';
+          if (n.type === 'myMenuAdded') {
+            const group = await Group.findById(n.group).select('group_name').lean();
+            const recipientNameUser = await User.findById(n.recipient).select('displayname username email').lean();
+            const recipientName = (recipientNameUser?.displayname || recipientNameUser?.username || recipientNameUser?.email || '');
+            const items = (n.items || []).map((it) => ({ name: it.name || '' })).filter(it => it.name);
+            html = await renderTemplate('myMenuAdded', {
+              groupName: group?.group_name || '',
+              recipientName,
+              actorName,
+              items
+            });
+            subject = `${actorName}さんがマイメニューを追加しました`;
+          } else {
+            const items = (n.items || []).map((it) => {
+              const d = new Date(it.date);
+              const mealLabel = it.mealType === 'dinner' ? 'ディナー' : 'ランチ';
+              return { dateLabel: `${d.getMonth()+1}月${d.getDate()}日`, mealLabel, reason: it.reason || '' };
+            });
+            const tpl = n.type === 'eatingAgain' ? 'eatingAgain' : 'notEating';
+            html = await renderTemplate(tpl, { actorName, items });
+          }
           await sendMail({ to: recipient.email, subject, html });
           await Notification.updateOne({ _id: n._id }, { $set: { status: 'sent', sentAt: new Date() } });
         } catch (err) {

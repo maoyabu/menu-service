@@ -1,0 +1,18 @@
+<%- include('_mailHeader') %>
+
+<div class="email-container">
+  <p><%= groupName %>の<%= recipientName %>さん</p>
+  <p><%= actorName %>さんがお気に入りのメニューを追加しました。</p>
+  <% if (Array.isArray(items) && items.length) { %>
+    <p>追加したメニューは</p>
+    <ul>
+      <% items.forEach(function(it){ %>
+        <li><%= it.name %></li>
+      <% }) %>
+    </ul>
+    <p>です。</p>
+  <% } %>
+</div>
+
+<%- include('_mailFooter') %>
+

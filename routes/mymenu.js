@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { isLoggedIn } from '../middleware.js';
 import Menu from '../models/menu.js';
+import Notification from '../models/notification.js';
 import Mymenu from '../models/mymenu.js';
 import Group from '../models/groups.js';
 import multer from 'multer';
@@ -282,6 +283,8 @@ router.post('/shared-register', async (req, res, next) => {
       user: req.user._id,
       group: groupId
     });
+    // 通知に積む
+    await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [menu.name || ''] });
     req.flash('success', 'マイメニューに登録しました');
     res.redirect('/users/my-menu');
   } catch (err) { next(err); }
@@ -918,6 +921,7 @@ router.post('/from-url', async (req, res, next) => {
       user: req.user._id,
       group: groupId
     });
+    await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [newMenu.name || ''] });
 
     req.flash('success', 'レシピサイトから登録しました');
     res.redirect('/users/my-menu');
@@ -1126,6 +1130,7 @@ router.post('/original', async (req, res, next) => {
       user: req.user._id,
       group: groupId
     });
+    await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [newMenu.name || ''] });
 
     req.flash('success', 'オリジナルレシピを登録しました');
     res.redirect('/users/my-menu');
@@ -1503,6 +1508,9 @@ router.post('/api/upsert', express.json(), async (req, res) => {
       sourceType: 'shared',
       ...update
     });
+    // 新規作成の場合のみ通知に積む
+    const menuDoc = await Menu.findById(menu._id).select('name').lean();
+    await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [menuDoc?.name || ''] });
     return res.json({ success: true, status: 'created' });
   } catch (e) {
     console.error('mymenu upsert error', e);
@@ -1533,3 +1541,38 @@ router.delete('/api/:menuId', async (req, res) => {
     return res.status(500).json({ error: '削除に失敗しました' });
   }
 });
+// 共通: 翌朝8時通知にメニュー追加を積む
+async function scheduleMyMenuAdded({ actorId, groupId, menuNames = [] }) {
+  try {
+    if (!groupId || !actorId) return;
+    // 翌朝8時
+    const now = new Date();
+    const scheduledAt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 8, 0, 0);
+
+    // 宛先: グループ作成者 + メンバー（email有り、isMail=true、自分以外）
+    const groupFull = await Group.findById(groupId)
+      .populate({ path: 'createdBy', select: 'email displayname username isMail' })
+      .populate({ path: 'members', select: 'email displayname username isMail' })
+      .lean();
+    const rawUsers = [];
+    if (groupFull?.createdBy) rawUsers.push(groupFull.createdBy);
+    if (Array.isArray(groupFull?.members)) rawUsers.push(...groupFull.members);
+    const recipients = rawUsers
+      .filter(u => u && String(u._id) !== String(actorId))
+      .filter(u => !!u.email && (u.isMail === undefined || u.isMail === true))
+      .map(u => ({ id: String(u._id), email: String(u.email).trim().toLowerCase() }))
+      .filter((u, idx, arr) => idx === arr.findIndex(v => v.email === u.email));
+
+    const items = (menuNames || []).filter(Boolean).map((name) => ({ name }));
+    if (!items.length || !recipients.length) return;
+
+    // 受信者ごとに upsert で蓄積
+    await Promise.all(recipients.map((r) => (
+      Notification.findOneAndUpdate(
+        { group: groupId, recipient: r.id, actor: actorId, type: 'myMenuAdded', scheduledAt },
+        { $setOnInsert: { group: groupId, recipient: r.id, actor: actorId, type: 'myMenuAdded', scheduledAt }, $push: { items: { $each: items } } },
+        { upsert: true }
+      )
+    )));
+  } catch (e) { console.error('scheduleMyMenuAdded error:', e); }
+}

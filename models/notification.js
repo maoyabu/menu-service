@@ -3,10 +3,13 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const notificationItemSchema = new Schema({
-  date: { type: Date, required: true },
-  mealType: { type: String, enum: ['lunch', 'dinner'], required: true },
-  reason: { type: String, default: '' }
-}, { _id: false });
+  // for not-eating/eatingAgain
+  date: { type: Date },
+  mealType: { type: String, enum: ['lunch', 'dinner'] },
+  reason: { type: String, default: '' },
+  // for myMenuAdded
+  name: { type: String, default: '' }
+}, { _id: false, strict: true });
 
 const notificationSchema = new Schema({
   group: { type: Schema.Types.ObjectId, ref: 'Group', required: true, index: true },
@@ -21,4 +24,3 @@ const notificationSchema = new Schema({
 
 const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
 export default Notification;
-
