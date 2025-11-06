@@ -18,6 +18,8 @@ import adminRoutes from './routes/admin.js';
 import settingsRoutes from './routes/settings.js';
 import mymenuRoutes from './routes/mymenu.js';
 import mystockRoutes from './routes/mystock.js';
+import Notification from './models/notification.js';
+import { renderTemplate, sendMail } from './utils/mailer.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -133,4 +135,37 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Menu Service running on port ${PORT}`);
+  // Start notification scheduler (simple interval)
+  const tick = async () => {
+    try {
+      const now = new Date();
+      const pendings = await Notification.find({ status: 'pending', scheduledAt: { $lte: now } }).limit(50).lean();
+      for (const n of pendings) {
+        try {
+          const recipient = await User.findById(n.recipient).select('email').lean();
+          const actor = await User.findById(n.actor).select('displayname username email').lean();
+          if (!recipient || !recipient.email) {
+            await Notification.updateOne({ _id: n._id }, { $set: { status: 'sent', sentAt: new Date() } });
+            continue;
+          }
+          const actorName = (actor?.displayname || actor?.username || actor?.email || '');
+          const items = (n.items || []).map((it) => {
+            const d = new Date(it.date);
+            const mealLabel = it.mealType === 'dinner' ? 'ディナー' : 'ランチ';
+            return { dateLabel: `${d.getMonth()+1}月${d.getDate()}日`, mealLabel, reason: it.reason || '' };
+          });
+          const tpl = n.type === 'eatingAgain' ? 'eatingAgain' : 'notEating';
+          const html = await renderTemplate(tpl, { actorName, items });
+          const subject = `${actorName}からの連絡`;
+          await sendMail({ to: recipient.email, subject, html });
+          await Notification.updateOne({ _id: n._id }, { $set: { status: 'sent', sentAt: new Date() } });
+        } catch (err) {
+          console.error('notification send error:', err);
+        }
+      }
+    } catch (err) {
+      console.error('notification scheduler error:', err);
+    }
+  };
+  setInterval(tick, 60 * 1000);
 });

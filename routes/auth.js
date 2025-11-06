@@ -5,6 +5,8 @@ import Menu from '../models/menu.js';
 import Mymenu from '../models/mymenu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import Group from '../models/groups.js';
+import Notification from '../models/notification.js';
+import { renderTemplate, sendMail } from '../utils/mailer.js';
 import Stock from '../models/stock.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
@@ -1217,6 +1219,67 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
     }
 
     await planDoc.save();
+
+    // ---- メール通知ロジック ----
+    try {
+      const groupId = planDoc.group._id || planDoc.group;
+      // 送信対象はグループ作成者 + メンバーをフル取得してから抽出（メール可の全員、自分除外）
+      const groupFull = await Group.findById(groupId)
+        .populate({ path: 'createdBy', select: 'email displayname username isMail' })
+        .populate({ path: 'members', select: 'email displayname username isMail' })
+        .lean();
+      const rawUsers = [];
+      if (groupFull?.createdBy) rawUsers.push(groupFull.createdBy);
+      if (Array.isArray(groupFull?.members)) rawUsers.push(...groupFull.members);
+      // 逆引き（User 側の groups にこの groupId を持つユーザーも対象）
+      const userSideMembers = await User.find({ groups: groupId })
+        .select('email displayname username isMail')
+        .lean();
+      rawUsers.push(...(userSideMembers || []));
+      const toList = rawUsers
+        .filter(u => u && String(u._id) !== String(userId))
+        .filter(u => !!u.email && (u.isMail === undefined || u.isMail === true))
+        .map(u => ({ id: String(u._id), email: String(u.email).trim().toLowerCase() }))
+        .filter((u, idx, arr) => idx === arr.findIndex(v => v.email === u.email));
+      const baseDate = new Date(planDoc.weekStart); baseDate.setHours(0,0,0,0);
+      const targetDate = new Date(baseDate); targetDate.setDate(baseDate.getDate() + di); targetDate.setHours(0,0,0,0);
+      const today = new Date(); const today00 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const diffDays = Math.round((targetDate.getTime() - today00.getTime()) / (24*60*60*1000));
+      const actorName = req.user.displayname || req.user.username || req.user.email;
+      const dateLabel = `${targetDate.getMonth() + 1}月${targetDate.getDate()}日`;
+      const mealLabel = meal === 'dinner' ? 'ディナー' : 'ランチ';
+
+      const scheduleFor = (immediate) => {
+        if (immediate) return new Date();
+        return new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 8, 0, 0);
+      };
+
+      if (toList.length) {
+        if (!wantParticipate) {
+          const immediate = diffDays <= 1;
+          if (immediate) {
+            const html = await renderTemplate('notEating', { actorName, items: [{ dateLabel, mealLabel, reason: (typeof reason === 'string' ? reason.trim() : '') }] });
+            const subject = `${actorName}からの連絡`;
+            const to = toList.map((r) => r.email);
+            if (to.length) await sendMail({ to, subject, html });
+          } else {
+            const scheduledAt = scheduleFor(false);
+            for (const r of toList) {
+              await Notification.findOneAndUpdate(
+                { group: groupId, recipient: r.id, actor: req.user._id, type: 'notEating', scheduledAt },
+                { $setOnInsert: { group: groupId, recipient: r.id, actor: req.user._id, type: 'notEating', scheduledAt }, $push: { items: { date: targetDate, mealType: meal, reason: (typeof reason === 'string' ? reason.trim() : '') } } },
+                { upsert: true }
+              );
+            }
+          }
+        } else {
+          const html = await renderTemplate('eatingAgain', { actorName, items: [{ dateLabel, mealLabel }] });
+          const subject = `${actorName}からの連絡`;
+          const to = toList.map((r) => r.email);
+          if (to.length) await sendMail({ to, subject, html });
+        }
+      }
+    } catch (mailErr) { console.error('notify mail error:', mailErr); }
 
     const users = entry.users.map((u) => String(u));
     return res.json({ success: true, key: `${di}:${meal}`, users });

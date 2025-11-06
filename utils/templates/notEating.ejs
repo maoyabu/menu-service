@@ -1,0 +1,16 @@
+<%- include('_mailHeader') %>
+
+<div class="email-container">
+  <p><%= actorName %>です</p>
+  <% if (Array.isArray(items) && items.length) { %>
+    <% items.forEach(function(it){ %>
+      <p><%= it.dateLabel %>「この日の<%= it.mealLabel %>は食べません」</p>
+      <% if (it.reason) { %>
+        <p>理由: <%= it.reason %></p>
+      <% } %>
+    <% }) %>
+  <% } %>
+</div>
+
+<%- include('_mailFooter') %>
+
