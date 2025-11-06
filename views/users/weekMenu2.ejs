@@ -227,6 +227,14 @@
           body = { planId: latestPlanId, dayIndex: day, mealType: meal };
         } else {
           const participate = action === 'attendee-add';
+          // attendee-remove の場合は理由モーダルを先に開く
+          if (!participate) {
+            if (typeof window.__wm2_openReasonModal === 'function') {
+              // 後続送信はモーダル側から行う
+              window.__wm2_openReasonModal(day, meal);
+              return;
+            }
+          }
           body = { planId: latestPlanId, dayIndex: day, mealType: meal, participate };
         }
         const res = await fetch(endpoint, {
@@ -262,6 +270,33 @@
         alert(err.message || '更新に失敗しました');
       }
     });
+
+    // モーダルからの送信（理由付きの自分削除）を受け付ける
+    window.__wm2_submitRemove = async (day, meal, reasonText) => {
+      try {
+        const latestPlanId = (window.weekMenuData && window.weekMenuData.planId) || planId;
+        if (!latestPlanId) throw new Error('プランIDが未確定のため保存できません');
+        const res = await fetch('/users/week-menu/participants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planId: latestPlanId, dayIndex: day, mealType: meal, participate: false, reason: reasonText || '' })
+        });
+        if (!res.ok) throw new Error('更新に失敗しました');
+        const json = await res.json();
+        if (json && json.success && json.key) {
+          const prev = getIds(day, meal);
+          const me = String(currentUserId);
+          const next = prev.map(String).filter((id) => id !== me);
+          participantsByMeal[json.key] = next;
+          renderAttendees(day);
+          const plan = (window.weekMenuData && (window.weekMenuData.planSnapshot||window.weekMenuData.plan)) || [];
+          const dayObj = plan[day] || {};
+          renderRequirementsForDay(dayObj);
+        }
+      } catch (err) {
+        alert(err.message || '更新に失敗しました');
+      }
+    };
     // Build supplies range text (e.g., 2025年10月27日から11月2日の食材・調味料リスト)
     (function(){
       const labelEl = document.getElementById('wm2-supplies-range');
@@ -647,6 +682,85 @@
     });
   })();
 </script>
+
+<!-- Not-eating reason modal -->
+<div id="wm2-reason-modal" class="hidden fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
+  <div class="w-[92%] max-w-md rounded-xl bg-white p-4 shadow-lg">
+    <h3 class="text-base font-semibold mb-2">食べない理由（任意）</h3>
+    <div class="space-y-3">
+      <label class="block text-sm text-gray-700">過去の理由から選択（任意）</label>
+      <select id="wm2-reason-select" class="w-full border rounded px-2 py-1 text-sm">
+        <option value="">選択しない</option>
+      </select>
+      <label class="block text-sm text-gray-700">自由入力（任意）</label>
+      <textarea id="wm2-reason-input" class="w-full border rounded px-2 py-1 text-sm" rows="3" placeholder="例：外出のため、ダイエット中 など"></textarea>
+    </div>
+    <div class="mt-4 flex justify-end gap-2">
+      <button type="button" data-reason-action="cancel" class="px-3 py-1.5 rounded border">キャンセル</button>
+      <button type="button" data-reason-action="skip" class="px-3 py-1.5 rounded border">理由なしで確定</button>
+      <button type="button" data-reason-action="submit" class="px-3 py-1.5 rounded bg-blue-600 text-white">確定</button>
+    </div>
+  </div>
+  <script>
+    (function(){
+      let ctx = null; // { day, meal }
+      const modal = document.getElementById('wm2-reason-modal');
+      const sel = document.getElementById('wm2-reason-select');
+      const input = document.getElementById('wm2-reason-input');
+
+      async function open(day, meal){
+        ctx = { day, meal };
+        input.value = '';
+        sel.innerHTML = '<option value="">選択しない</option>';
+        // fetch past reasons
+        try {
+          const gid = (window.weekMenuData && window.weekMenuData.currentGroupId) || '';
+          if (gid) {
+            const res = await fetch(`/users/week-menu/participant-reasons?group=${encodeURIComponent(gid)}`);
+            if (res.ok) {
+              const json = await res.json();
+              const list = Array.isArray(json?.reasons) ? json.reasons : [];
+              list.forEach((r) => {
+                const opt = document.createElement('option');
+                opt.value = r; opt.textContent = r; sel.appendChild(opt);
+              });
+            }
+          }
+        } catch(_) {}
+        modal.classList.remove('hidden');
+      }
+      function close(){ modal.classList.add('hidden'); ctx = null; }
+
+      // expose to attendee handler
+      window.__wm2_openReasonModal = open;
+
+      document.addEventListener('click', async (ev) => {
+        const t = ev.target;
+        if (!modal || modal.classList.contains('hidden')) return;
+        if (t.closest('[data-reason-action="cancel"]')) { ev.preventDefault(); close(); return; }
+        if (t.closest('[data-reason-action="skip"]')) {
+          ev.preventDefault();
+          if (ctx) {
+            // trigger original removal without reason
+            window.__wm2_submitRemove(ctx.day, ctx.meal, '');
+          }
+          close();
+          return;
+        }
+        if (t.closest('[data-reason-action="submit"]')) {
+          ev.preventDefault();
+          const reason = (input.value || sel.value || '').trim();
+          if (ctx) {
+            window.__wm2_submitRemove(ctx.day, ctx.meal, reason);
+          }
+          close();
+          return;
+        }
+        if (t.id === 'wm2-reason-modal') { close(); }
+      });
+    })();
+  </script>
+</div>
 <script>
   // Delegate save to original hidden save button wired by weekMenu (compat without optional chaining)
   (function(){

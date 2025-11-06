@@ -1154,7 +1154,7 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
 // 参加メンバーの切り替えAPI（自分のみ追加/削除）
 router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
   try {
-    const { planId, dayIndex, mealType, participate } = req.body || {};
+    const { planId, dayIndex, mealType, participate, reason } = req.body || {};
     if (!planId || !mongoose.Types.ObjectId.isValid(planId)) {
       return res.status(400).json({ error: 'planId が不正です。' });
     }
@@ -1202,6 +1202,18 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
       if (idx === -1) entry.users.push(userId);
     } else {
       if (idx !== -1) entry.users.splice(idx, 1);
+    }
+
+    // 参加しない理由（任意）を保存
+    if (!wantParticipate && typeof reason === 'string' && reason.trim()) {
+      planDoc.participantReasons = Array.isArray(planDoc.participantReasons) ? planDoc.participantReasons : [];
+      planDoc.participantReasons.push({
+        dayIndex: di,
+        mealType: meal,
+        user: userId,
+        reason: reason.trim(),
+        createdAt: new Date()
+      });
     }
 
     await planDoc.save();
@@ -1871,3 +1883,46 @@ router.get('/user/register', (req, res) => {
 });
 
 export default router;
+// 自分の過去理由を取得（グループ単位、最新順）
+router.get('/users/week-menu/participant-reasons', isLoggedIn, async (req, res) => {
+  try {
+    const groupId = String(req.query.group || '');
+    if (!groupId || !mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ error: 'group が不正です。' });
+    }
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const belongs = groups.some((g) => String(g._id) === String(groupId));
+    if (!belongs) return res.status(403).json({ error: '権限がありません。' });
+
+    const docs = await WeeklyMenuPlan.find({ group: groupId, 'participantReasons.user': req.user._id })
+      .select('participantReasons')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const list = [];
+    (docs || []).forEach((d) => {
+      (d.participantReasons || []).forEach((r) => {
+        if (String(r.user) === String(req.user._id) && r.reason) {
+          list.push({ reason: r.reason, createdAt: r.createdAt || d.updatedAt || d.createdAt });
+        }
+      });
+    });
+
+    // ユニーク化 + 最新順
+    const seen = new Set();
+    const uniq = [];
+    list
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .forEach((x) => {
+        const key = x.reason.trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        uniq.push(key);
+      });
+
+    return res.json({ success: true, reasons: uniq.slice(0, 20) });
+  } catch (err) {
+    console.error('過去理由取得エラー:', err);
+    return res.status(500).json({ error: '理由を取得できませんでした。' });
+  }
+});

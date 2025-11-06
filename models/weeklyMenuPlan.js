@@ -129,6 +129,14 @@ const weeklyMenuPlanSchema = new Schema({
     type: [participantEntrySchema],
     default: []
   },
+  // 任意: 参加しない理由の履歴（ユーザーごと / 日×食事単位）
+  participantReasons: [{
+    dayIndex: { type: Number, min: 0, max: 6 },
+    mealType: { type: String, enum: ['lunch', 'dinner'] },
+    user: { type: Schema.Types.ObjectId, ref: 'User' },
+    reason: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+  }],
   isPublished: {
     type: Boolean,
     default: false
