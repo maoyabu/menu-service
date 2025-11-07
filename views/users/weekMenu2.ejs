@@ -1,7 +1,14 @@
 <!-- weekMenu2: Fused view using weekMenu core logic + myTop preview design -->
 
-<!-- Keep core logic and header from weekMenu; hide original body via CSS below -->
-<%- include('weekMenu') %>
+<!-- Load weekMenu logic without rendering its markup (hide the included HTML) -->
+<div aria-hidden="true" style="display:none">
+  <%- include('weekMenu') %>
+  <!-- Scripts inside weekMenu run, but markup stays hidden to avoid flicker -->
+  <style>/* ensure nothing from included view leaks visually */[data-requirements-summary],[data-plan-tab-buttons],[data-main-panel]{display:none!important}</style>
+  
+  
+  
+</div>
 
 <style>
   /* Hide original content from included weekMenu (not this view's section) */
@@ -21,9 +28,18 @@
   #wm2-preview .day-pill { background:#e8f2ff; border:2px solid #bfdbfe; color:#1d4ed8; border-radius:14px; padding:8px 12px; }
   #wm2-preview .day-pill[data-active="true"]{ background:#2563eb; color:#fff; border-color:#1d4ed8; }
   #wm2-preview .day-date{ font-weight:700; }
+  #wm2-preview .day-pill{ min-width:0; }
+  #wm2-preview .day-date{ white-space:nowrap; }
+  @media (max-width: 420px){
+    #wm2-preview .day-pill{ padding:4px 6px; }
+    #wm2-preview .day-date{ font-size:11px; }
+  }
 
   /* Two-column layout */
   #wm2-main { display:grid; grid-template-columns: 1.6fr 1fr; gap:16px; }
+  @media (max-width: 768px){
+    #wm2-main { grid-template-columns: 1fr; }
+  }
   .wm2-card { border:1px solid #e5e7eb; border-radius:16px; background:#fff; overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
   .wm2-card .img { height:160px; background:#eef2ff; position:relative; }
   .wm2-card .img img{ width:100%; height:100%; object-fit:cover; }
