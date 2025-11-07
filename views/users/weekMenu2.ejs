@@ -20,8 +20,8 @@
   #wm2-include [data-requirements-summary],
   #wm2-include [data-plan-tab-buttons],
   #wm2-include [data-main-panel] { display: none !important; }
-  /* Hide the plan/supplies tab container under the hero header */
-  #wm2-include div.w-full.grid.grid-cols-1.sm\:grid-cols-2.gap-2.text-sm.font-semibold { display: none !important; }
+  /* Hide the plan/supplies tab buttons (robust: target by attribute) */
+  #wm2-include [data-main-tab] { display: none !important; }
   /* Hide original save; we'll place one at very bottom */
   #wm2-include [data-action="save-week-plan"] { display: none !important; }
   /* Remove drop shadow/lines under the included header */

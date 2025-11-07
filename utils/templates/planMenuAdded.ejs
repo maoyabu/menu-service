@@ -1,0 +1,20 @@
+<%- include('_mailHeader') %>
+
+<div class="email-container">
+  <p><%= actorName %>です</p>
+  <% if (Array.isArray(items) && items.length) { %>
+    <% items.forEach(function(it){ %>
+      <div style="display:flex; align-items:center; gap:12px; margin:8px 0;">
+        <% if (it.imageUrl) { %>
+          <img src="<%= it.imageUrl %>" alt="thumb" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #eee;" />
+        <% } %>
+        <div>
+          <div><%= it.dateLabel %>「この日の<%= it.mealLabel %>に<%= it.menuName %>を追加しました！」</div>
+        </div>
+      </div>
+    <% }) %>
+  <% } %>
+  <p>これを食べたいです！</p>
+</div>
+
+<%- include('_mailFooter') %>

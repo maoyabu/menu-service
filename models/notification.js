@@ -7,8 +7,9 @@ const notificationItemSchema = new Schema({
   date: { type: Date },
   mealType: { type: String, enum: ['lunch', 'dinner'] },
   reason: { type: String, default: '' },
-  // for myMenuAdded
-  name: { type: String, default: '' }
+  // for myMenuAdded / planMenuAdded
+  name: { type: String, default: '' },
+  imageUrl: { type: String, default: '' }
 }, { _id: false, strict: true });
 
 const notificationSchema = new Schema({

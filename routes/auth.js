@@ -1151,6 +1151,35 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
     let weeklyPlan = null;
     let statusCode = 200;
 
+    // --- diff for notifications (menu added) ---
+    const prevPlanDoc = planId
+      ? await WeeklyMenuPlan.findOne({ _id: planId, group: groupId }).lean()
+      : await WeeklyMenuPlan.findOne({ group: groupId, weekStart: parsedWeekStart }).lean();
+
+    const slotKey = (dp, s) => `${dp.dayIndex}:${s.slotType}`;
+    const toMap = (doc) => {
+      const map = new Map();
+      if (!doc) return map;
+      (doc.dayPlans || []).forEach((dp) => {
+        (dp.slots || []).forEach((s) => { map.set(`${dp.dayIndex}:${s.slotType}`, String(s.menu || '')); });
+      });
+      return map;
+    };
+    const prevMap = toMap(prevPlanDoc);
+    const nextMap = (() => { const m=new Map(); parsedDayPlans.forEach((dp)=>{ (dp.slots||[]).forEach((s)=>{ m.set(slotKey(dp,s), String(s.menu)); }); }); return m; })();
+
+    const addedItems = [];
+    parsedDayPlans.forEach((dp) => {
+      (dp.slots || []).forEach((s) => {
+        const k = slotKey(dp, s);
+        const after = nextMap.get(k) || '';
+        // 新規追加のみ: 以前にそのスロット自体が存在していなかった場合に限定
+        if (after && !prevMap.has(k)) {
+          addedItems.push({ dayIndex: dp.dayIndex, mealType: dp.mealType, slotType: s.slotType, menuId: String(s.menu) });
+        }
+      });
+    });
+
     if (planId) {
       weeklyPlan = await WeeklyMenuPlan.findOneAndUpdate(
         { _id: planId, group: groupId },
@@ -1187,6 +1216,79 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
 
     if (!weeklyPlan) {
       return res.status(500).json({ error: '週次メニューを保存できませんでした。' });
+    }
+
+    // ---- notify group members about menu additions ----
+    if (addedItems.length) {
+      try {
+        const group = await Group.findById(groupId)
+          .populate({ path: 'createdBy', select: 'email displayname username isMail' })
+          .populate({ path: 'members', select: 'email displayname username isMail' })
+          .lean();
+        const rawUsers = [];
+        if (group?.createdBy) rawUsers.push(group.createdBy);
+        if (Array.isArray(group?.members)) rawUsers.push(...group.members);
+        const recipients = rawUsers
+          .filter(u => u && String(u._id) !== String(req.user._id))
+          .filter(u => !!u.email && (u.isMail === undefined || u.isMail === true))
+          .map(u => ({ id: String(u._id), email: String(u.email).trim().toLowerCase() }))
+          .filter((u, idx, arr) => idx === arr.findIndex(v => v.email === u.email));
+
+        if (recipients.length) {
+          // build items with labels
+          const menuIds = Array.from(new Set(addedItems.map(a => a.menuId)));
+          const menus = await Menu.find({ _id: { $in: menuIds } }).select('name imageUrl').lean();
+          const menuInfoMap = new Map(menus.map(m => [String(m._id), { name: m.name || '', imageUrl: m.imageUrl || '' }]));
+          const today = new Date();
+          const today00 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const actorName = req.user.displayname || req.user.username || req.user.email;
+          const mealLabel = (mt) => mt === 'dinner' ? 'ディナー' : 'ランチ';
+
+          // group all added items into immediate/batch
+          const immediateItems = [];
+          const scheduledByRecipient = new Map();
+
+          addedItems.forEach((a) => {
+            const targetDate = new Date(parsedWeekStart); targetDate.setDate(targetDate.getDate() + a.dayIndex); targetDate.setHours(0,0,0,0);
+            const diffDays = Math.round((targetDate.getTime() - today00.getTime()) / (24*60*60*1000));
+            const dateLabel = `${targetDate.getMonth()+1}月${targetDate.getDate()}日`;
+            const info = menuInfoMap.get(a.menuId) || { name: '', imageUrl: '' };
+            const entry = { dateLabel, mealLabel: mealLabel(a.mealType), menuName: info.name, imageUrl: info.imageUrl };
+            if (diffDays <= 1) {
+              immediateItems.push(entry);
+            } else {
+              recipients.forEach((r) => {
+                const key = String(r.id);
+                const arr = scheduledByRecipient.get(key) || [];
+                arr.push({ date: targetDate, mealType: a.mealType, name: entry.menuName, imageUrl: entry.imageUrl });
+                scheduledByRecipient.set(key, arr);
+              });
+            }
+          });
+
+          // immediate: one mail to all recipients with aggregated items
+          if (immediateItems.length) {
+            const subject = '7 DAYS PLAN 【これ食べたい！】';
+            const html = await renderTemplate('planMenuAdded', { actorName, items: immediateItems });
+            const to = recipients.map(r => r.email);
+            if (to.length) await sendMail({ to, subject, html });
+          }
+
+          // scheduled: queue per recipient for next day 08:00
+          if (scheduledByRecipient.size) {
+            const schedAt = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 8, 0, 0);
+            for (const [rid, items] of scheduledByRecipient.entries()) {
+              await Notification.findOneAndUpdate(
+                { group: groupId, recipient: rid, actor: req.user._id, type: 'planMenuAdded', scheduledAt: schedAt },
+                { $setOnInsert: { group: groupId, recipient: rid, actor: req.user._id, type: 'planMenuAdded', scheduledAt: schedAt }, $push: { items: { $each: items } } },
+                { upsert: true }
+              );
+            }
+          }
+        }
+      } catch (e) {
+        console.error('plan menu added notify error:', e);
+      }
     }
 
     return res.status(statusCode).json({ success: true, planId: weeklyPlan._id });

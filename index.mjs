@@ -168,10 +168,18 @@ app.listen(PORT, () => {
             const items = (n.items || []).map((it) => {
               const d = new Date(it.date);
               const mealLabel = it.mealType === 'dinner' ? 'ディナー' : 'ランチ';
-              return { dateLabel: `${d.getMonth()+1}月${d.getDate()}日`, mealLabel, reason: it.reason || '' };
+              return { dateLabel: `${d.getMonth()+1}月${d.getDate()}日`, mealLabel, reason: it.reason || '', menuName: it.name || '' };
             });
-            const tpl = n.type === 'eatingAgain' ? 'eatingAgain' : 'notEating';
-            html = await renderTemplate(tpl, { actorName, items });
+            if (n.type === 'eatingAgain' || n.type === 'notEating') {
+              const tpl = n.type === 'eatingAgain' ? 'eatingAgain' : 'notEating';
+              html = await renderTemplate(tpl, { actorName, items });
+              subject = `${actorName}からの連絡`;
+            } else if (n.type === 'planMenuAdded') {
+              html = await renderTemplate('planMenuAdded', { actorName, items: items.map(i => ({ dateLabel: i.dateLabel, mealLabel: i.mealLabel, menuName: i.menuName, imageUrl: i.imageUrl })) });
+              subject = '7 DAYS PLAN 【これ食べたい！】';
+            } else {
+              html = await renderTemplate('notEating', { actorName, items });
+            }
           }
           await sendMail({ to: recipient.email, subject, html });
           await Notification.updateOne({ _id: n._id }, { $set: { status: 'sent', sentAt: new Date() } });
