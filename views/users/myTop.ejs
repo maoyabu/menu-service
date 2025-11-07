@@ -390,12 +390,12 @@
             </button>
           <% }) %>
         </div>
-        <div class="grid md:grid-cols-2 gap-4" id="weekly-plan-detail">
+        <div class="grid gap-4" id="weekly-plan-detail">
           <article id="weekly-plan-recipes" class="rounded-xl border border-blue-100 bg-white p-4 space-y-3" style="min-height: 160px;">
             <div class="flex items-center justify-between">
               <h4 id="weekly-plan-recipes-title" class="text-sm font-semibold text-gray-800">レシピ</h4>
             </div>
-            <div id="weekly-plan-recipes-body" class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+            <div id="weekly-plan-recipes-body" class="text-sm text-gray-600 space-y-3">
               表示する日を選択してください。
             </div>
           </article>
@@ -847,8 +847,8 @@
           header.appendChild(label);
           mealCard.appendChild(header);
 
-        const list = document.createElement('div');
-          list.className = 'space-y-2';
+          const list = document.createElement('div');
+          list.className = 'grid grid-cols-2 gap-2';
 
           meal.slots.forEach((slot) => {
             const slotWrap = document.createElement('div');
