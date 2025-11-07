@@ -47,10 +47,14 @@
     <div class="text-sm text-gray-600">♥ <span data-fav-count><%= (myMenuIds || []).length %></span></div>
   </div>
 
-  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+  <style>
+    /* Make tags content-width and bigger font (like attachment) */
+    .list-chip{ font-size:13px; }
+  </style>
+  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
     <% (list || []).forEach(function(item){ const isFav = (myMenuIds || []).includes(String(item.id)); %>
-      <div class="border rounded-xl overflow-hidden relative">
-        <div class="h-32 bg-gray-100 relative">
+      <div class="border rounded-xl overflow-hidden relative flex flex-col min-h-[320px]">
+        <div class="h-44 bg-gray-100 relative">
           <% if (item.imageUrl) { %>
             <img src="<%= item.imageUrl %>" alt="<%= item.name %>" class="w-full h-full object-cover"/>
           <% } else { %>
@@ -68,24 +72,42 @@
             <span class="lucide w-4 h-4" data-lucide="heart"></span>
           </button>
         </div>
-          <div class="p-2 space-y-1">
+          <div class="p-3 space-y-2 flex-1 flex flex-col">
             <% const st = (myOwnTypes && myOwnTypes[String(item.id)]) || ''; %>
             <% if (st === 'url') { %>
-              <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">レシピサイト</span>
+              <span class="inline-flex self-start px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[13px]">レシピサイト</span>
             <% } else if (st === 'original') { %>
-              <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-purple-50 text-purple-700">オリジナル</span>
+              <span class="inline-flex self-start px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[13px]">オリジナル</span>
             <% } else { %>
-              <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700">共有メニュー</span>
+              <span class="inline-flex self-start px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[13px]">共有メニュー</span>
             <% } %>
-            <p class="text-sm font-semibold truncate" title="<%= item.name %>"><%= item.name %></p>
-            <div class="flex gap-2 text-[10px] text-gray-600">
-            <% if (item.junle) { %>
-              <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5">#<%= item.junle %></span>
-            <% } %>
-            <% if (item.cook) { %>
-              <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5">#<%= item.cook %></span>
-            <% } %>
-          </div>
+            <p class="text-base font-semibold truncate" title="<%= item.name %>"><%= item.name %></p>
+            <div class="flex flex-col gap-1 items-start">
+              <% if (item.time) { %>
+                <span class="list-chip inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-0.5 self-start">
+                  調理時間 <%= String(item.time).endsWith('分') ? item.time : (item.time + '分') %>
+                </span>
+              <% } %>
+              <% if (item.junle) { %>
+                <span class="list-chip inline-flex items-center rounded-full border border-amber-200 bg-amber-50 text-amber-800 px-2 py-0.5 self-start">
+                  ジャンル <%= item.junle %>
+                </span>
+              <% } %>
+              <% if (item.cook) { %>
+                <span class="list-chip inline-flex items-center rounded-full border border-amber-200 bg-amber-50 text-amber-800 px-2 py-0.5 self-start">
+                  調理方法 <%= item.cook %>
+                </span>
+              <% } %>
+              <% const __freq = (myMenuFreq && myMenuFreq[String(item.id)]) || null; %>
+              <% if (__freq) { %>
+                <% const __freqText = (__freq==5? '週に2回以上' : __freq==4? '週に1回程度' : __freq==3? '隔週に1回程度' : __freq==2? '月に1回程度' : '3ヶ月に1回以下'); %>
+                <button type="button" class="list-chip inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-2 py-0.5 self-start"
+                        data-action="edit-frequency" data-menu-id="<%= item.id %>">
+                  <span class="lucide w-4 h-4" data-lucide="calendar"></span>
+                  <span data-role="freq-label"><%= __freqText %></span>
+                </button>
+              <% } %>
+            </div>
           <% if (item.by) { %>
             <p class="text-xs text-gray-500 truncate">by <%= item.by %></p>
           <% } %>
@@ -125,6 +147,7 @@
 <script>
   (function(){
     const myMenuIds = new Set(<%- JSON.stringify(myMenuIds || []) %>);
+    const myMenuFreqMap = Object.assign({}, <%- JSON.stringify(myMenuFreq || {}) %>);
     let anchorBtn = null;
     let anchorMenuId = null;
 
@@ -194,6 +217,19 @@
         }
         return;
       }
+      // Open frequency editor when clicking the frequency chip
+      const freqBtn = ev.target.closest('[data-action="edit-frequency"]');
+      if (freqBtn && freqBtn.dataset.menuId) {
+        ev.preventDefault();
+        const id = String(freqBtn.dataset.menuId);
+        anchorBtn = freqBtn; anchorMenuId = id; openPanel(freqBtn);
+        const sel = document.getElementById('fav-frequency');
+        if (sel) sel.value = String(myMenuFreqMap[id] || 3);
+        // Change modal title temporarily
+        const title = document.querySelector('#fav-pop h3');
+        if (title) title.textContent = '頻度を変更';
+        return;
+      }
       // close overlay
       if (ev.target && ev.target.id === 'fav-modal') {
         closePanel();
@@ -208,9 +244,18 @@
         try {
           await upsert(anchorMenuId, freq, false);
           myMenuIds.add(anchorMenuId);
-          refreshBtn(anchorBtn, true);
-          updateFavCount();
+          // If editing frequency chip, update its label inline
+          if (anchorBtn && anchorBtn.matches('[data-action="edit-frequency"]')) {
+            const label = anchorBtn.querySelector('[data-role="freq-label"]');
+            const text = (freq===5? '週に2回以上' : freq===4? '週に1回程度' : freq===3? '隔週に1回程度' : freq===2? '月に1回程度' : '3ヶ月に1回以下');
+            if (label) label.textContent = text;
+            myMenuFreqMap[anchorMenuId] = freq;
+          } else if (anchorBtn) {
+            refreshBtn(anchorBtn, true);
+            updateFavCount();
+          }
           closePanel();
+          window.refreshLucideIcons && window.refreshLucideIcons();
         } catch (e) {
           alert(e.message || '登録に失敗しました');
         }

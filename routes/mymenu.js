@@ -173,10 +173,12 @@ router.get('/shared-register', async (req, res, next) => {
       || (groups[0]?._id?.toString() ?? '');
     let myMenuIds = [];
     let myOwnTypes = {};
+    let myMenuFreq = {};
     if (groupId) {
-      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu sourceType').lean();
+      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu sourceType frequency').lean();
       myMenuIds = (mymenus || []).map((m) => (m.menu ? m.menu.toString() : '')).filter(Boolean);
       myOwnTypes = (mymenus || []).reduce((acc, m) => { const id = m.menu ? m.menu.toString() : ''; if (id) acc[id] = m.sourceType || ''; return acc; }, {});
+      myMenuFreq = (mymenus || []).reduce((acc, m) => { const id = m.menu ? m.menu.toString() : ''; if (id && typeof m.frequency === 'number') acc[id] = m.frequency; return acc; }, {});
     }
 
     // 自分が作成した（URL/オリジナル）メニューID一覧（編集可）
@@ -196,6 +198,7 @@ router.get('/shared-register', async (req, res, next) => {
         kind: m.kind || '',
         junle: m.junle || '',
         cook: m.cook || '',
+        time: m.time || '',
         imageUrl: m.imageUrl || '',
         url: m.url || '',
         by: null,
@@ -218,6 +221,7 @@ router.get('/shared-register', async (req, res, next) => {
           kind: m.kind || '',
           junle: m.junle || '',
           cook: m.cook || '',
+          time: m.time || '',
           imageUrl: m.imageUrl || '',
           url: m.url || '',
           by: byName,
@@ -245,7 +249,8 @@ router.get('/shared-register', async (req, res, next) => {
       resultCount,
       myMenuIds,
       favoritesCount,
-      myOwnTypes
+      myOwnTypes,
+      myMenuFreq
     });
   } catch (err) { next(err); }
 });
