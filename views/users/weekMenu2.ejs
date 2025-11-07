@@ -1,14 +1,7 @@
 <!-- weekMenu2: Fused view using weekMenu core logic + myTop preview design -->
 
-<!-- Load weekMenu logic without rendering its markup (hide the included HTML) -->
-<div aria-hidden="true" style="display:none">
-  <%- include('weekMenu') %>
-  <!-- Scripts inside weekMenu run, but markup stays hidden to avoid flicker -->
-  <style>/* ensure nothing from included view leaks visually */[data-requirements-summary],[data-plan-tab-buttons],[data-main-panel]{display:none!important}</style>
-  
-  
-  
-</div>
+<!-- Keep core logic and header from weekMenu; hide original body via CSS below -->
+<%- include('weekMenu') %>
 
 <style>
   /* Hide original content from included weekMenu (not this view's section) */
