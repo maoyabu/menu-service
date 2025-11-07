@@ -21,6 +21,7 @@ import mystockRoutes from './routes/mystock.js';
 import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
 import WeeklyAnnouncement from './models/weeklyAnnouncement.js';
+import MonthlyStockReminder from './models/monthlyStockReminder.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -261,4 +262,58 @@ app.listen(PORT, () => {
     }
   };
   setInterval(tickWeekly, 60 * 1000);
+
+  // Monthly stock reminder: on the last day of month after 08:00, notify all group members
+  const tickMonthly = async () => {
+    try {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const isLastDay = now.getDate() === lastDay;
+      const after8 = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() >= 0);
+      if (!isLastDay || !after8) return;
+
+      const monthStart = new Date(y, m, 1); monthStart.setHours(0,0,0,0);
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const linkUrl = `${baseUrl}/users/my-stock`;
+
+      const groups = await Group.find({}).select('_id group_name createdBy members').lean();
+      for (const g of groups) {
+        try {
+          const exists = await MonthlyStockReminder.findOne({ group: g._id, monthStart }).lean();
+          if (exists) continue;
+
+          const userIds = [];
+          if (g.createdBy) userIds.push(g.createdBy);
+          if (Array.isArray(g.members)) userIds.push(...g.members);
+          const uniqIds = Array.from(new Set(userIds.map((x) => String(x))));
+          const users = await User.find({ _id: { $in: uniqIds }, isMail: true }).select('email displayname username').lean();
+          const validUsers = users.filter(u => !!u.email);
+          if (!validUsers.length) {
+            await MonthlyStockReminder.create({ group: g._id, monthStart, sentAt: new Date(), recipients: [] });
+            continue;
+          }
+
+          const subject = '7 DAYS PLAN　【マイストックの定期点検をしましょう！】';
+          for (const u of validUsers) {
+            const recipientName = u.displayname || u.username || u.email;
+            const html = await renderTemplate('monthlyStockReminder', {
+              groupName: g.group_name || '',
+              recipientName,
+              linkUrl
+            });
+            await sendMail({ to: u.email, subject, html });
+          }
+
+          await MonthlyStockReminder.create({ group: g._id, monthStart, sentAt: new Date(), recipients: validUsers.map(u => u._id) });
+        } catch (err) {
+          console.error('monthly stock reminder error (group):', g?._id, err);
+        }
+      }
+    } catch (err) {
+      console.error('monthly stock reminder scheduler error:', err);
+    }
+  };
+  setInterval(tickMonthly, 60 * 1000);
 });
