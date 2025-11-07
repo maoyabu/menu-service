@@ -52,11 +52,23 @@
   .wm2-card { border:1px solid #e5e7eb; border-radius:16px; background:#fff; overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
   .wm2-card .img { height:160px; background:#eef2ff; position:relative; }
   .wm2-card .img img{ width:100%; height:100%; object-fit:cover; }
+  /* Favorite overlay over image */
+  .wm2-card .img .fav-overlay{ position:absolute; top:8px; right:8px; z-index:2; }
+  .wm2-card .img .fav-overlay .icon-button{ background:rgba(255,255,255,0.92); }
+  .wm2-card .img .fav-overlay .icon-button[aria-pressed="true"]{ color:#e11d48; border-color:#fecdd3; background:#fff1f2; }
   .wm2-badges{ display:flex; flex-wrap:wrap; gap:8px; }
   .wm2-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:9999px; font-size:11px; font-weight:600; }
   .wm2-chip.time{ background:#ecfdf5; color:#065f46; }
   .wm2-chip.kind{ background:#fff7ed; color:#92400e; }
   .wm2-chip.prep{ background:#ffe4e6; color:#be123c; }
+  /* Small inline icon chips placed under cooking method */
+  .wm2-mini-icons{ display:inline-flex; align-items:center; gap:8px; margin-left:4px; }
+  .wm2-mini-icons .mini{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#374151; cursor:pointer; }
+  .wm2-mini-icons .mini.is-home{ color:#2563eb; border-color:#bfdbfe; background:#eff6ff; }
+  .wm2-mini-icons .mini.is-out{ color:#f97316; border-color:#fed7aa; background:#fff7ed; }
+  /* 作り置きはブルー系 */
+  .wm2-mini-icons .mini.is-prep{ color:#2563eb; border-color:#bfdbfe; background:#eff6ff; }
+  .wm2-mini-icons .mini.is-edit{ color:#334155; border-color:#e5e7eb; background:#ffffff; }
   .wm2-actions{ display:flex; gap:8px; justify-content:flex-end; padding:8px 12px 12px; }
   /* Card list: up to 3 columns */
   .wm2-list{ display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:14px; }
@@ -407,23 +419,36 @@
     function cardEl(row){
       const timeLabel = row.time ? (String(row.time).endsWith('分')? row.time: row.time+'分') : '';
       const wrap = document.createElement('div'); wrap.className='wm2-card';
+      const cookChip = row.cook? `<span class=\"wm2-chip kind\"><span>調理方法</span><span>${row.cook}</span></span>`: '';
+      const homeOrOutIcon = row.isDineOut
+        ? '' // 外食時はチップ自体で切替できるためミニアイコンは表示しない
+        : `<button type=\"button\" class=\"mini ${row.prepExtra>0?'is-home':''}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"lucide w-4 h-4\" data-lucide=\"home\"></span></button>`;
+      const prepIcon = (!row.isDineOut)
+        ? `<button type=\"button\" class=\"mini is-prep\" data-action=\"set-prep\" title=\"作り置きを設定\"><span class=\"lucide w-4 h-4\" data-lucide=\"user-plus\"></span></button>`
+        : '';
       const chipsHtml = row.isDineOut
         ? `
             ${row.shopName || row.shopUrl ? `<span class=\"wm2-chip kind\">${row.shopUrl ? `<a href=\"${row.shopUrl}\" target=\"_blank\" rel=\"noopener\" class=\"hover:underline\">${row.shopName || row.shopUrl}</a>` : `${row.shopName}`}</span>` : ''}
-            <span class=\"wm2-chip kind\"><span class=\"lucide w-4 h-4\" data-lucide=\"utensils\"></span><span>外食</span></span>
+            <button type=\"button\" class=\"wm2-chip kind\" data-action=\"toggle-dine\" title=\"家に切り替え\"><span class=\"lucide w-4 h-4\" data-lucide=\"utensils\"></span><span>外食</span></button>
+            <span class=\"wm2-mini-icons\"><button type=\"button\" class=\"mini is-edit\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button></span>
           ` : `
             ${timeLabel? `<span class=\"wm2-chip time\"><span>調理時間</span><span>${timeLabel}</span></span>`: ''}
             ${row.junle? `<span class=\"wm2-chip kind\"><span>ジャンル</span><span>${row.junle}</span></span>`: ''}
-            ${row.cook? `<span class=\"wm2-chip kind\"><span>調理方法</span><span>${row.cook}</span></span>`: ''}
-            ${row.prepExtra>0? `<span class=\"wm2-chip prep\"><span class=\"lucide w-4 h-4\" data-lucide=\"user-plus\"></span><span>つくり置</span><span class=\"ml-1\">+${row.prepExtra}</span></span>`: ''}
+            ${cookChip}
+            ${cookChip ? `<span class=\"wm2-mini-icons\">${homeOrOutIcon}${prepIcon}</span>` : `<span class=\"wm2-mini-icons\">${homeOrOutIcon}${prepIcon}</span>`}
           `;
       wrap.innerHTML = `
-        <div class=\"img\" data-element=\"dish-image\">${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}</div>
+        <div class=\"img\" data-element=\"dish-image\">${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}
+          <div class=\"fav-overlay\">
+            <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-favorite\" aria-pressed=\"false\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
+          </div>
+        </div>
         <div class=\"p-3 space-y-2\">
           <div class=\"wm2-title\" data-element=\"dish-name\">${row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\" class=\"hover:underline\">${row.name}</a>`: row.name}</div>
           <div class=\"wm2-badges\" data-element=\"dish-chips\">${chipsHtml}</div>
           <p class=\"text-xs text-gray-500 hidden\" data-element=\"dish-detail\"></p>
         </div>`;
+      // Mark fav overlay active when favorited later by caller
       return wrap;
     }
 
@@ -461,15 +486,16 @@
         const dineHomeHidden = slot?.dineOut ? 'hidden' : '';
         const dineOutHidden = slot?.dineOut ? '' : 'hidden';
         actions.innerHTML = `
-          <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
-          ${slot?.dineOut ? `<button type=\"button\" class=\"${ICON_BTN}\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"sr-only\">外食情報を編集</span><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button>` : ''}
-          <button type=\"button\" class=\"${ICON_BTN} ${ (Number(slot?.prepExtra)||0) > 0 ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"set-prep\" title=\"作り置き人数を設定\"><span class=\"sr-only\">作り置きを設定</span><span class=\"lucide w-4 h-4\" data-lucide=\"user-plus\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
         const card = cardEl(row);
         item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
+        // Sync fav overlay active state
+        try {
+          const favBtn = item.querySelector('.fav-overlay [data-action="toggle-favorite"]');
+          if (favBtn) favBtn.setAttribute('aria-pressed', favActive ? 'true' : 'false');
+        } catch(_) {}
       });
 
       let dinnerSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
@@ -490,15 +516,16 @@
         const dineHomeHidden = slot?.dineOut ? 'hidden' : '';
         const dineOutHidden = slot?.dineOut ? '' : 'hidden';
         actions.innerHTML = `
-          <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
-          ${slot?.dineOut ? `<button type=\"button\" class=\"${ICON_BTN}\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"sr-only\">外食情報を編集</span><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button>` : ''}
-          <button type=\"button\" class=\"${ICON_BTN} ${ (Number(slot?.prepExtra)||0) > 0 ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"set-prep\" title=\"作り置き人数を設定\"><span class=\"sr-only\">作り置きを設定</span><span class=\"lucide w-4 h-4\" data-lucide=\"user-plus\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
+          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
+          <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
         const card = cardEl(row);
         item.appendChild(card); item.appendChild(actions); dinnerWrap.appendChild(item);
+        // Sync fav overlay active state
+        try {
+          const favBtn = item.querySelector('.fav-overlay [data-action="toggle-favorite"]');
+          if (favBtn) favBtn.setAttribute('aria-pressed', favActive ? 'true' : 'false');
+        } catch(_) {}
       });
 
       if (window.refreshLucideIcons) window.refreshLucideIcons();
@@ -713,6 +740,19 @@
         close();
       }
     });
+  })();
+</script>
+
+<!-- Confirm before delete and keep delete at far right -->
+<script>
+  (function(){
+    // Intercept clear-slot to show confirm dialog
+    document.addEventListener('click', function(ev){
+      const btn = ev.target.closest('#wm2-section [data-action="clear-slot"]');
+      if (!btn) return;
+      const ok = confirm('このメニューを削除しますか？');
+      if (!ok) { ev.preventDefault(); ev.stopPropagation(); }
+    }, true);
   })();
 </script>
 
