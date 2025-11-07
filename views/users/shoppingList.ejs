@@ -1,0 +1,108 @@
+<section class="max-w-5xl mx-auto space-y-4 p-4 md:p-6">
+  <header class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="lucide w-5 h-5" data-lucide="shopping-cart"></span>
+      <h1 class="text-xl font-bold">来週のお買い物リスト</h1>
+    </div>
+    <p class="text-sm text-gray-500"><%= weekRangeLabel %></p>
+  </header>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <section class="rounded-2xl border bg-white p-4">
+      <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+        <span class="lucide w-4 h-4" data-lucide="list-checks"></span>
+        買うもの
+      </h2>
+      <ul id="to-buy" class="mt-3 space-y-2"></ul>
+    </section>
+
+    <section class="rounded-2xl border bg-white p-4">
+      <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+        <span class="lucide w-4 h-4" data-lucide="check"></span>
+        在庫あり / 購入済み
+      </h2>
+      <ul id="purchased" class="mt-3 space-y-2"></ul>
+    </section>
+  </div>
+</section>
+
+<script>
+  (function(){
+    const KEY = `shopping:<%= groupId %>:<%= weekStartISO %>`;
+    const dataTop = <%- JSON.stringify(topItems || []) %>;
+    const dataStock = <%- JSON.stringify(bottomStockItems || []) %>;
+
+    const loadState = () => {
+      try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(_) { return {}; }
+    };
+    const saveState = (st) => { try { localStorage.setItem(KEY, JSON.stringify(st||{})); } catch(_){} };
+    const fmtAmount = (item) => {
+      if (item.missingAmount) return '数量未設定';
+      if (item.amount == null) return '';
+      const a = Math.round(Number(item.amount||0)*10)/10;
+      return item.unit ? `${a}${/[^\x00-\x7F]/.test(item.unit)? item.unit: ' ' + item.unit}` : String(a);
+    };
+    const makeLi = (item, checked) => {
+      const li = document.createElement('li');
+      li.className = checked ? 'rounded-lg border bg-blue-50/40 border-blue-100 px-3 py-2 flex items-start gap-2' : 'rounded-lg border px-3 py-2 flex items-start gap-2';
+      const id = `${item.type}:${item.name}:${item.unit||''}`;
+      li.dataset.key = id;
+      li.innerHTML = `
+        <label class="flex items-start gap-2 w-full">
+          <input type="checkbox" class="mt-1" ${checked ? 'checked' : ''} />
+          <span class="flex-1">
+            <span class="text-sm font-medium text-gray-800">${item.name}</span>
+            ${item.unit || item.amount ? `<span class="ml-2 text-xs text-gray-600">${fmtAmount(item)}</span>`: ''}
+          </span>
+          <span class="text-[10px] rounded-full px-2 py-0.5 border ${item.type==='ingredient' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}">${item.type==='ingredient' ? '食材' : '調味料'}</span>
+        </label>`;
+      return li;
+    };
+    const render = () => {
+      const st = loadState();
+      const toBuy = document.getElementById('to-buy');
+      const purchased = document.getElementById('purchased');
+      toBuy.innerHTML = ''; purchased.innerHTML='';
+      // initial: top items unchecked (unless state), stock items checked and placed below
+      const combinedTop = dataTop.slice();
+      const combinedBottom = dataStock.slice();
+      // apply state reclassification
+      combinedTop.forEach((it)=>{
+        const k = `${it.type}:${it.name}:${it.unit||''}`;
+        const isChecked = !!st[k];
+        const li = makeLi(it, isChecked);
+        (isChecked ? purchased : toBuy).appendChild(li);
+      });
+      combinedBottom.forEach((it)=>{
+        const k = `${it.type}:${it.name}:${it.unit||''}`;
+        const isChecked = st.hasOwnProperty(k) ? !!st[k] : true; // stock items default to checked (購入不要扱い)
+        const li = makeLi(it, isChecked);
+        (isChecked ? purchased : toBuy).appendChild(li);
+      });
+    };
+
+    document.addEventListener('change', (ev)=>{
+      const cb = ev.target.closest('input[type="checkbox"]');
+      if (!cb) return;
+      const li = ev.target.closest('li[data-key]'); if (!li) return;
+      const key = li.dataset.key;
+      const st = loadState();
+      st[key] = !!cb.checked;
+      saveState(st);
+      // move element between lists
+      const purchased = document.getElementById('purchased');
+      const toBuy = document.getElementById('to-buy');
+      if (cb.checked) {
+        purchased.appendChild(li);
+        li.classList.add('bg-blue-50/40','border-blue-100');
+      } else {
+        toBuy.appendChild(li);
+        li.classList.remove('bg-blue-50/40','border-blue-100');
+      }
+    });
+
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render();
+    window.refreshLucideIcons && window.refreshLucideIcons();
+  })();
+</script>
+

@@ -6,6 +6,8 @@ import Mymenu from '../models/mymenu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import Group from '../models/groups.js';
 import Notification from '../models/notification.js';
+import Ingredient from '../models/ingredients.js';
+import Seasoning from '../models/seasonings.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
 import Stock from '../models/stock.js';
 import { isLoggedIn } from '../middleware.js';
@@ -1000,6 +1002,113 @@ router.get('/users/week-menu2', isLoggedIn, (req, res) => {
   const q = new URLSearchParams(url.search);
   q.set('view', '2');
   res.redirect('/users/week-menu' + (q.toString() ? ('?' + q.toString()) : ''));
+});
+
+// Shopping list (next week by default): aggregate ingredients/seasonings and split by MyStock
+router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const requestedGroupId = req.query.group ? String(req.query.group) : '';
+    const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+    let currentGroupId = requestedGroupId || defaultGroupId || fallbackGroupId || '';
+    if (currentGroupId && !userGroups.some((g)=> g._id.toString() === currentGroupId)) currentGroupId = fallbackGroupId || '';
+
+    // Decide target week (next week by default)
+    const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
+    let targetWeekStart = weekStartParam ? startOfWeek(weekStartParam) : getNextWeekStart();
+    let baseWeekDates = getWeekDatesFromStart(targetWeekStart);
+
+    // Build menus by category (for lookup/aggregation)
+    const kindSet = new Set();
+    Object.values(CATEGORY_CONFIG).forEach((config) => (config.kinds||[]).forEach((k)=> k && kindSet.add(k)));
+    const menusByKind = {};
+    await Promise.all(Array.from(kindSet).map(async (kind) => {
+      const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
+        .populate({ path: 'ingredients.name', select: 'ingredient unit' })
+        .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+        .lean();
+      menusByKind[kind] = docs.map(formatMenuDocument);
+    }));
+    const combineMenusByKinds = (kinds) => {
+      const combined = new Map();
+      (kinds||[]).forEach((kind)=>{
+        (menusByKind[kind]||[]).forEach((menu)=>{ if(!menu.material && !combined.has(menu.id)) combined.set(menu.id, menu); });
+      });
+      return Array.from(combined.values());
+    };
+    const menusByCategory = Object.entries(CATEGORY_CONFIG).reduce((acc, [key, config])=>{ acc[key] = combineMenusByKinds(config.kinds); return acc; }, {});
+
+    // Find existing plan for the target week if any
+    let existingPlan = null;
+    if (currentGroupId) {
+      existingPlan = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
+    }
+    let plan = [];
+    let menuLookup = {};
+    if (existingPlan) {
+      const basePlan = baseWeekDates.map((date, index) => ({
+        index, dateISO: date.toISOString(), lunchSlots: [], dinner: { staple: null, main: null, side: null, soup: null }, dinnerExtras: []
+      }));
+      menuLookup = {};
+      Object.values(menusByCategory).forEach((list)=> list.forEach((m)=> { menuLookup[m.id] = m; }));
+      const ids = new Set();
+      (existingPlan.dayPlans||[]).forEach((dp)=> (dp.slots||[]).forEach((s)=> s?.menu && ids.add(s.menu.toString())));
+      if (ids.size) {
+        const docs = await Menu.find({ _id: { $in: Array.from(ids) } })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .lean();
+        docs.forEach((d)=>{ const f=formatMenuDocument(d); menuLookup[f.id]=f; });
+      }
+      (existingPlan.dayPlans||[]).forEach((dp)=>{
+        const target = basePlan[dp.dayIndex]; if(!target) return;
+        (dp.slots||[]).forEach((slot)=>{
+          const map = SLOT_TYPE_DETAILS[slot?.slotType]; if(!map) return;
+          const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra)||0 };
+          if (map.meal === 'lunch') { target.lunchSlots.push(data); }
+          else if (map.key === 'extras') { target.dinnerExtras.push(data); }
+          else if (!target.dinner[map.key]) { target.dinner[map.key] = data; } else { target.dinnerExtras.push(data); }
+        });
+      });
+      plan = basePlan;
+    } else {
+      const generated = buildWeekPlanPayload(menusByCategory, { startDate: targetWeekStart });
+      plan = generated.plan; menuLookup = generated.menuLookup; baseWeekDates = generated.weekDates.map(w=> new Date(w.dateISO));
+      targetWeekStart = startOfWeek(new Date(generated.weekStartISO));
+    }
+
+    // Aggregate
+    const ingredients = aggregateSummary(plan, menuLookup, 'ingredients');
+    const seasonings = aggregateSummary(plan, menuLookup, 'seasoning');
+
+    // Load my stock names to split
+    const stocks = await Stock.find({ group: currentGroupId, user: req.user._id }).lean();
+    const ingIds = stocks.filter(s=> s.type==='ingredient').map(s=> s.item);
+    const seaIds = stocks.filter(s=> s.type==='seasoning').map(s=> s.item);
+    const [ings, seas] = await Promise.all([
+      Ingredient.find({ _id: { $in: ingIds } }).select('ingredient').lean(),
+      Seasoning.find({ _id: { $in: seaIds } }).select('seasoning').lean()
+    ]);
+    const ingNameSet = new Set(ings.map(x=> x.ingredient).filter(Boolean));
+    const seaNameSet = new Set(seas.map(x=> x.seasoning).filter(Boolean));
+
+    const topItems = [];
+    const bottomStockItems = [];
+    const toEntry = (x, type)=> ({ type, name: x.name, unit: x.unit, amount: x.amount, missingAmount: x.missingAmount });
+    ingredients.forEach((x)=> (ingNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'ingredient')));
+    seasonings.forEach((x)=> (seaNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'seasoning')));
+
+    const weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(baseWeekDates[6])}`;
+    const weekStartISO = targetWeekStart.toISOString();
+    return res.render('users/shoppingList', {
+      weekRangeLabel,
+      weekStartISO,
+      groupId: currentGroupId,
+      topItems,
+      bottomStockItems
+    });
+  } catch (err) { return next(err); }
 });
 
 // Menu recipe detail (for original or any menu without external URL)

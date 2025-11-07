@@ -106,6 +106,15 @@
           </a>
         </li>
         <li>
+          <a href="/users/shopping-list" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/shopping-list') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+            <i data-lucide="shopping-cart" class="w-5 h-5 <%= isActive('/users/shopping-list') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>来週のお買い物リスト</span>
+            <% if (isActive('/users/shopping-list')) { %>
+              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+            <% } %>
+          </a>
+        </li>
+        <li>
           <a href="/users/my-menu" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-menu') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/users/my-menu') ? 'page' : 'false' %>">
             <i data-lucide="book-open" class="w-5 h-5 <%= isActive('/users/my-menu') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
             <span>マイメニュー</span>

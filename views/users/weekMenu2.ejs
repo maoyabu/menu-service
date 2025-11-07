@@ -89,14 +89,19 @@
   #wm2-section[data-mode="supplies"] #wm2-preview,
   #wm2-section[data-mode="supplies"] #wm2-main { display:none !important; }
 
-  /* Weekly supplies panel */
-  #wm2-supplies{ border:1px solid #fde68a; background:#fffdf4; border-radius:16px; padding:12px; }
-  #wm2-supplies h4{ font-size:13px; color:#f59e0b; font-weight:700; margin:6px 0 6px; }
-  #wm2-supplies .row{ display:flex; justify-content:space-between; padding:4px 0; font-size:13px; color:#374151; }
-  #wm2-supplies .tags{ display:flex; flex-wrap:wrap; gap:6px; }
-  #wm2-supplies .tag{ display:inline-flex; align-items:center; gap:4px; background:#d1fae5; color:#065f46; border-radius:9999px; padding:2px 8px; font-size:12px; }
-  /* メンバー名タグをブルー系に */
-  #wm2-supplies .tag-member{ background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; }
+  /* Weekly supplies panel (shopping list style) */
+  #wm2-supplies{ border:1px solid #e5e7eb; background:#fff; border-radius:16px; padding:12px; }
+  #wm2-supplies h4{ font-size:13px; color:#334155; font-weight:700; margin:6px 0 6px; }
+  #wm2-supplies .sup-note{ font-size:12px; color:#475569; }
+  #wm2-supplies .list{ list-style:none; margin:0; padding:0; }
+  #wm2-supplies .li{ display:flex; align-items:flex-start; gap:8px; padding:6px 8px; border:1px solid #e5e7eb; border-radius:10px; }
+  #wm2-supplies .li.checked{ background:#eff6ff; border-color:#bfdbfe; }
+  #wm2-supplies .pill{ font-size:10px; border-radius:9999px; padding:2px 6px; border:1px solid #e5e7eb; }
+  #wm2-supplies .pill.ing{ background:#ecfdf5; border-color:#bbf7d0; color:#065f46; }
+  #wm2-supplies .pill.sea{ background:#fff7ed; border-color:#fed7aa; color:#92400e; }
+  #wm2-supplies .pill.state{ font-size:10px; }
+  #wm2-supplies .pill.state.stock{ background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
+  #wm2-supplies .pill.state.purchased{ background:#dcfce7; border-color:#bbf7d0; color:#14532d; }
 
   /* Section spacing tuning: allow padding from utility classes */
   #wm2-section{ }
@@ -623,11 +628,6 @@
   // (Removed) intrusive mutation observer; rely on explicit events instead
 </script>
 
-<!-- Bottom save button (fixed position in this view) -->
-<div class="mt-10 flex justify-center">
-  <button type="button" id="wm2-save" class="inline-flex w-full md:w-2/5 items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200">保存</button>
-</div>
-
 <script>
   // weekMenu2 dine-out edit modal (capture clicks before weekMenu handlers)
   (function(){
@@ -907,28 +907,6 @@
   <!-- weekMenu is already included near the top (pre-hidden) -->
 </div>
 <script>
-  // Delegate save to original hidden save button wired by weekMenu (compat without optional chaining)
-  (function(){
-    function wire(){
-      var btn = document.getElementById('wm2-save');
-      if (!btn) return;
-      btn.addEventListener('click', function(e){
-        e.preventDefault(); e.stopPropagation();
-        try {
-          var original = document.querySelector('section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"]');
-          if (original && typeof original.click === 'function') original.click();
-        } catch(_) { /* noop */ }
-      });
-    }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', wire, { once: true });
-    } else {
-      wire();
-    }
-  })();
-</script>
-
-<script>
   // Weekly supplies aggregator and toggle
   (function(){
     const specialPrefixUnits = new Set(['大さじ','小さじ']);
@@ -983,36 +961,122 @@
       };
     };
 
-    const render = () => {
+    // Shopping list renderer inside weekMenu2
+    const render = async () => {
       const box = document.getElementById('wm2-supplies'); if (!box) return;
-      const data = window.weekMenuData || {}; const groupName = data.currentGroupName || ''; const members = Array.isArray(data.currentGroupMembers)? data.currentGroupMembers: [];
-      const groupSize = Number(data.groupSize) > 0 ? Number(data.groupSize) : 1;
+      const data = window.weekMenuData || {}; const groupId = data.currentGroupId || '';
+      const weekISO = data.weekStartISO || (Array.isArray(data.weekDates) && data.weekDates[0] && data.weekDates[0].dateISO) || '';
+      const KEY = `shopping:${groupId}:${weekISO}`;
+      const state = (()=>{ try { return JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(_) { return {}; } })();
+
       const agg = computeWeekly();
-      const sec = (title, list)=>{
-        const frag = document.createDocumentFragment();
-        const h = document.createElement('h4'); h.textContent = title; frag.appendChild(h);
-        if (!list.length){ const p=document.createElement('p'); p.className='text-sm text-gray-500'; p.textContent='項目はまだありません'; frag.appendChild(p); return frag; }
-        list.forEach(it=>{
-          const row=document.createElement('div'); row.className='row';
-          const left=document.createElement('span'); left.textContent=it.name; row.appendChild(left);
-          const right=document.createElement('span'); right.textContent=(it.units||[]).map(formatUnitEntry).filter(Boolean).join(' + ') || '数量未設定'; row.appendChild(right);
-          frag.appendChild(row);
+      // Build my-stock name sets (cached)
+      async function getStockNameSets(){
+        if (window.__wm2_stockNameSets) return window.__wm2_stockNameSets;
+        try{
+          const [stocksRes, ingRes, seaRes] = await Promise.all([
+            fetch('/users/my-stock/api/stocks'),
+            fetch('/users/my-menu/api/ingredients?limit=1000'),
+            fetch('/users/my-menu/api/seasonings?limit=1000')
+          ]);
+          const [stocks, ings, seas] = await Promise.all([stocksRes.json(), ingRes.json(), seaRes.json()]);
+          const ingMap = new Map((ings||[]).map(x=> [String(x._id||x.id), x.ingredient || x.name]));
+          const seaMap = new Map((seas||[]).map(x=> [String(x._id||x.id), x.seasoning || x.name]));
+          const ingNameSet = new Set(); const seaNameSet = new Set();
+          (stocks||[]).forEach(s=>{ if (s.type==='ingredient'){ const n=ingMap.get(String(s.item)); if(n) ingNameSet.add(n); } else if (s.type==='seasoning'){ const n=seaMap.get(String(s.item)); if(n) seaNameSet.add(n); } });
+          window.__wm2_stockNameSets = { ingNameSet, seaNameSet };
+          return window.__wm2_stockNameSets;
+        }catch(_){ return { ingNameSet: new Set(), seaNameSet: new Set() }; }
+      }
+
+      const { ingNameSet, seaNameSet } = await getStockNameSets();
+
+      const entries = [];
+      const makeKey = (type, name) => `${type}:${name}`; // stable key across renders
+      // Build entries from aggregated items
+      (agg.ingredients||[]).forEach((it)=>{
+        const entry = { type:'ingredient', name: it.name, amountText: (it.units||[]).map(formatUnitEntry).filter(Boolean).join(' + ') || '数量未設定' };
+        entry.key = makeKey('ingredient', entry.name);
+        entry.fromStock = ingNameSet.has(it.name);
+        entries.push(entry);
+      });
+      (agg.seasonings||[]).forEach((it)=>{
+        const entry = { type:'seasoning', name: it.name, amountText: (it.units||[]).map(formatUnitEntry).filter(Boolean).join(' + ') || '数量未設定' };
+        entry.key = makeKey('seasoning', entry.name);
+        entry.fromStock = seaNameSet.has(it.name);
+        entries.push(entry);
+      });
+
+      // Partition by effective checked state
+      const buyItems = []; // unchecked
+      const doneItems = []; // checked
+      entries.forEach((it)=>{
+        const legacyKey = `${it.type}:${it.name}:${it.amountText}`; // backward compatibility
+        const hasNew = Object.prototype.hasOwnProperty.call(state, it.key);
+        const hasOld = Object.prototype.hasOwnProperty.call(state, legacyKey);
+        const checked = hasNew ? !!state[it.key] : (hasOld ? !!state[legacyKey] : it.fromStock);
+        const x = { ...it, checked };
+        (checked ? doneItems : buyItems).push(x);
+      });
+
+      const listTpl = (id, items)=>{
+        const ul = document.createElement('ul'); ul.id=id; ul.className='list space-y-2';
+        (items||[]).forEach((it)=>{
+          const checked = !!it.checked;
+          const li = document.createElement('li'); li.className = 'li ' + (checked ? 'checked' : ''); li.dataset.key = it.key; li.dataset.fromStock = it.fromStock ? 'true' : 'false';
+          const stateLabel = checked ? (it.fromStock ? '在庫あり' : '購入済み') : '';
+          const stateClass = checked ? (it.fromStock ? 'stock' : 'purchased') : '';
+          li.innerHTML = `
+            <label class="flex items-start gap-2 w-full">
+              <input type="checkbox" class="mt-1" ${checked ? 'checked' : ''} />
+              <span class="flex-1">
+                <span class="text-sm font-medium text-gray-800">${it.name}</span>
+                <span class="ml-2 text-xs text-gray-600">${it.amountText}</span>
+              </span>
+              <span class="pill ${it.type==='ingredient'?'ing':'sea'}">${it.type==='ingredient'?'食材':'調味料'}</span>
+              ${checked ? `<span class="pill state ${stateClass}" data-role="state">${stateLabel}</span>` : `<span class="pill state hidden" data-role="state"></span>`}
+            </label>`;
+          ul.appendChild(li);
         });
-        return frag;
+        return ul;
       };
 
       box.innerHTML='';
-      const head = document.createElement('div'); head.className='mb-2 text-sm text-gray-700 flex items-center gap-2 flex-wrap';
-      head.innerHTML = `<span><span class="font-semibold">${groupSize}人分</span>の必要量に換算しています。</span>`;
-      const tagWrap = document.createElement('span'); tagWrap.className='tags';
-      if (groupName){ const t=document.createElement('span'); t.className='tag'; t.textContent=groupName; tagWrap.appendChild(t); }
-      members.forEach(n=>{ const t=document.createElement('span'); t.className='tag tag-member'; t.textContent=n; tagWrap.appendChild(t); });
-      head.appendChild(tagWrap); box.appendChild(head);
-
+      const note = document.createElement('div'); note.className='sup-note mb-2'; note.textContent='チェックを入れると購入済みに移動します。'; box.appendChild(note);
       const grid = document.createElement('div'); grid.className='grid grid-cols-1 md:grid-cols-2 gap-4';
-      const left=document.createElement('div'); left.appendChild(sec('食材', agg.ingredients));
-      const right=document.createElement('div'); right.appendChild(sec('調味料', agg.seasonings));
+      const left = document.createElement('div');
+      const h1 = document.createElement('h4'); h1.textContent = '買うもの'; left.appendChild(h1);
+      left.appendChild(listTpl('wm2-sup-buy', buyItems));
+      const right = document.createElement('div');
+      const h2 = document.createElement('h4'); h2.textContent = '在庫あり / 購入済み'; right.appendChild(h2);
+      right.appendChild(listTpl('wm2-sup-done', doneItems));
       grid.appendChild(left); grid.appendChild(right); box.appendChild(grid);
+
+      // bind change handler once (delegated)
+      if (!window.__wm2_bindSuppliesChange){
+        document.addEventListener('change', (ev)=>{
+          const cb = ev.target && ev.target.closest && ev.target.closest('#wm2-supplies input[type="checkbox"]');
+          if (!cb) return;
+          const li = cb.closest('li'); if (!li) return;
+          const key = li.dataset.key; const checked = !!cb.checked; state[key] = checked; try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(_){ }
+          const buy = document.getElementById('wm2-sup-buy'); const done = document.getElementById('wm2-sup-done');
+          const fromStock = li.dataset.fromStock === 'true';
+          const stateTag = li.querySelector('[data-role="state"]');
+          if (checked){
+            done.appendChild(li); li.classList.add('checked');
+            if (stateTag){
+              stateTag.classList.remove('hidden');
+              stateTag.textContent = fromStock ? '在庫あり' : '購入済み';
+              stateTag.classList.toggle('stock', fromStock);
+              stateTag.classList.toggle('purchased', !fromStock);
+            }
+          } else {
+            buy.appendChild(li); li.classList.remove('checked');
+            if (stateTag){ stateTag.textContent=''; stateTag.classList.add('hidden'); stateTag.classList.remove('stock','purchased'); }
+          }
+        });
+        window.__wm2_bindSuppliesChange = true;
+      }
     };
 
     const toggleBtn = document.getElementById('wm2-toggle-supplies');
