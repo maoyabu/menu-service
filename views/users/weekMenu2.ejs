@@ -1,21 +1,35 @@
 <!-- weekMenu2: Fused view using weekMenu core logic + myTop preview design -->
 
-<!-- Keep core logic and header from weekMenu; hide original body via CSS below -->
-<%- include('weekMenu') %>
+<!-- Pre-hide original weekMenu markup (scoped) before including it -->
+<style>
+  /* Hide only inner parts of included weekMenu (keep its header visible) */
+  #wm2-include [data-requirements-summary],
+  #wm2-include [data-plan-tab-buttons],
+  #wm2-include [data-main-panel],
+  #wm2-include [data-action="save-week-plan"],
+  #wm2-include .bg-white.border.border-gray-100.rounded-3xl.shadow-sm.overflow-hidden { display: none !important; }
+</style>
+<!-- Include weekMenu early so its scripts and data are available; pre-hidden wrapper prevents flash -->
+<div id="wm2-include" aria-hidden="true">
+  <%- include('weekMenu') %>
+  
+</div>
 
 <style>
-  /* Hide original content from included weekMenu (not this view's section) */
-  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-requirements-summary],
-  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-plan-tab-buttons],
-  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-main-panel] { display: none !important; }
+  /* Hide original content from included weekMenu (scoped) */
+  #wm2-include [data-requirements-summary],
+  #wm2-include [data-plan-tab-buttons],
+  #wm2-include [data-main-panel] { display: none !important; }
   /* Hide original save; we'll place one at very bottom */
-  section.relative.max-w-6xl.mx-auto:not(#wm2-section) [data-action="save-week-plan"] { display: none !important; }
+  #wm2-include [data-action="save-week-plan"] { display: none !important; }
   /* Remove drop shadow/lines under the included header */
-  section.relative.max-w-6xl.mx-auto:not(#wm2-section) > header { box-shadow: none !important; }
+  #wm2-include > section > header { box-shadow: none !important; }
   /* Reduce spacing between included header and its next element to ~5px */
-  section.relative.max-w-6xl.mx-auto:not(#wm2-section) > header + * { margin-top: 5px !important; }
+  #wm2-include > section > header + * { margin-top: 5px !important; }
   /* Hide the empty white container under header (its 1px border shows as a line) */
-  section.relative.max-w-6xl.mx-auto:not(#wm2-section) .bg-white.border.border-gray-100.rounded-3xl.shadow-sm.overflow-hidden { display: none !important; border:0 !important; box-shadow:none !important; }
+  #wm2-include .bg-white.border.border-gray-100.rounded-3xl.shadow-sm.overflow-hidden { display: none !important; border:0 !important; box-shadow:none !important; }
+  /* Make the plan/supplies tab buttons white to avoid color flash */
+  #wm2-include .main-tab-button { background: #fff !important; color: #fff !important; border-color: #fff !important; box-shadow: none !important; }
 
   /* Weekly preview pill bar */
   #wm2-preview .day-pill { background:#e8f2ff; border:2px solid #bfdbfe; color:#1d4ed8; border-radius:14px; padding:8px 12px; }
@@ -847,6 +861,8 @@
       });
     })();
   </script>
+
+  <!-- weekMenu is already included near the top (pre-hidden) -->
 </div>
 <script>
   // Delegate save to original hidden save button wired by weekMenu (compat without optional chaining)
