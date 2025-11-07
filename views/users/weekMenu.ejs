@@ -1033,7 +1033,8 @@
           if (!menu) return;
           const basePeople = Number(menu.people);
           const lunchCount = getParticipantIds(dayIndex, 'lunch').length;
-          const rawMultiplier = basePeople && basePeople > 0 ? lunchCount / basePeople : 1;
+          const extra = Math.max(0, Number(slot.prepExtra) || 0);
+          const rawMultiplier = basePeople && basePeople > 0 ? (lunchCount + extra) / basePeople : 1;
           const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
           const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
           const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
@@ -1047,7 +1048,8 @@
           if (!menu) return;
           const basePeople = Number(menu.people);
           const dinnerCount = getParticipantIds(dayIndex, 'dinner').length;
-          const rawMultiplier = basePeople && basePeople > 0 ? dinnerCount / basePeople : 1;
+          const extra = Math.max(0, Number(slot.prepExtra) || 0);
+          const rawMultiplier = basePeople && basePeople > 0 ? (dinnerCount + extra) / basePeople : 1;
           const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
           const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
           const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
@@ -1469,6 +1471,25 @@
             dineOutUrl: slot.dineOutUrl || ''
           };
         } catch(_) { return { dineOut: false, dineOutName: '', dineOutUrl: '' }; }
+      };
+      // set/get 作り置き人数
+      window.weekMenuAPI.setPrepExtra = (dayIndex, mealKey, index, n) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return false;
+          const v = Math.max(0, Math.floor(Number(n) || 0));
+          slot.prepExtra = v;
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          return true;
+        } catch(_) { return false; }
+      };
+      window.weekMenuAPI.getPrepExtra = (dayIndex, mealKey, index) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return 0;
+          return Math.max(0, Number(slot.prepExtra) || 0);
+        } catch(_) { return 0; }
       };
     } catch(_) { /* noop */ }
 
@@ -2025,7 +2046,8 @@
               dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
               dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
               favorite: !!slot.favorite,
-              locked: !!slot.locked
+              locked: !!slot.locked,
+              prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
             }))
           });
         }
@@ -2050,7 +2072,8 @@
               dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
               dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
               favorite: !!slot.favorite,
-              locked: !!slot.locked
+              locked: !!slot.locked,
+              prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
             };
           });
 
@@ -2629,6 +2652,15 @@
         }
       } else if (action === 'change') {
         openMenuModal(categoryKey, slot);
+      } else if (action === 'set-prep') {
+        let current = Math.max(0, Number(slot.prepExtra) || 0);
+        const input = prompt('作り置きの人数（0=なし）', String(current));
+        if (input !== null) {
+          const n = Math.max(0, Math.floor(Number(input) || 0));
+          slot.prepExtra = n;
+          // 自動保存をトリガー
+          try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch(_) {}
+        }
       } else if (action === 'clear-slot') {
         slot.menuId = null;
         slot.favorite = false;

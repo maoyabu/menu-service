@@ -805,7 +805,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
             dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
             dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
             favorite: !!slot.favorite,
-            locked: !!slot.locked
+            locked: !!slot.locked,
+            prepExtra: Number.isFinite(Number(slot?.prepExtra)) && Number(slot.prepExtra) > 0
+              ? Math.floor(Number(slot.prepExtra))
+              : 0
           };
 
           if (map.meal === 'lunch') {
@@ -855,6 +858,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           dineOutName: '',
           dineOutUrl: '',
           locked: false,
+          prepExtra: 0,
           ...(slot && { ...slot, menuId: null, favorite: false, dineOut: false, dineOutName: '', dineOutUrl: '', locked: false })
         });
 
@@ -1106,7 +1110,10 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
               dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
               dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
               favorite: !!slot.favorite,
-              locked: !!slot.locked
+              locked: !!slot.locked,
+              prepExtra: Number.isFinite(Number(slot.prepExtra)) && Number(slot.prepExtra) > 0
+                ? Math.floor(Number(slot.prepExtra))
+                : 0
             };
           })
           .filter(Boolean);

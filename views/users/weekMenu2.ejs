@@ -40,6 +40,7 @@
   .wm2-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:9999px; font-size:11px; font-weight:600; }
   .wm2-chip.time{ background:#ecfdf5; color:#065f46; }
   .wm2-chip.kind{ background:#fff7ed; color:#92400e; }
+  .wm2-chip.prep{ background:#ffe4e6; color:#be123c; }
   .wm2-actions{ display:flex; gap:8px; justify-content:flex-end; padding:8px 12px 12px; }
   /* Card list: up to 3 columns */
   .wm2-list{ display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:14px; }
@@ -198,6 +199,7 @@
           add.textContent = '+ 自分も食べる';
           wrap.appendChild(add);
         }
+        // つくり置き合計タグはタイトル横には表示しない
         // 管理者向け: 全員に戻す
         if (window.weekMenuData && window.weekMenuData.currentUserIsGroupOwner) {
           const reset = document.createElement('button');
@@ -379,6 +381,7 @@
         time: (m.time ?? '') + '',
         cook: m.cook || '',
         junle: m.junle || '',
+        prepExtra: Math.max(0, Number(slot?.prepExtra) || 0),
         shopName,
         shopUrl,
         detail
@@ -396,6 +399,7 @@
             ${timeLabel? `<span class=\"wm2-chip time\"><span>調理時間</span><span>${timeLabel}</span></span>`: ''}
             ${row.junle? `<span class=\"wm2-chip kind\"><span>ジャンル</span><span>${row.junle}</span></span>`: ''}
             ${row.cook? `<span class=\"wm2-chip kind\"><span>調理方法</span><span>${row.cook}</span></span>`: ''}
+            ${row.prepExtra>0? `<span class=\"wm2-chip prep\"><span class=\"lucide w-4 h-4\" data-lucide=\"user-plus\"></span><span>つくり置</span><span class=\"ml-1\">+${row.prepExtra}</span></span>`: ''}
           `;
       wrap.innerHTML = `
         <div class=\"img\" data-element=\"dish-image\">${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}</div>
@@ -444,6 +448,7 @@
           <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
           ${slot?.dineOut ? `<button type=\"button\" class=\"${ICON_BTN}\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"sr-only\">外食情報を編集</span><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button>` : ''}
+          <button type=\"button\" class=\"${ICON_BTN} ${ (Number(slot?.prepExtra)||0) > 0 ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"set-prep\" title=\"作り置き人数を設定\"><span class=\"sr-only\">作り置きを設定</span><span class=\"lucide w-4 h-4\" data-lucide=\"user-plus\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
@@ -472,6 +477,7 @@
           <button type=\"button\" class=\"${ICON_BTN} ${favActive ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"toggle-favorite\" aria-pressed=\"${favActive?'true':'false'}\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"sr-only\">家と外食を切り替え</span><span data-role=\"dine-home\" class=\"lucide w-4 h-4 ${dineHomeHidden}\" data-lucide=\"home\"></span><span data-role=\"dine-out\" class=\"lucide w-4 h-4 ${dineOutHidden}\" data-lucide=\"utensils\"></span></button>
           ${slot?.dineOut ? `<button type=\"button\" class=\"${ICON_BTN}\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"sr-only\">外食情報を編集</span><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button>` : ''}
+          <button type=\"button\" class=\"${ICON_BTN} ${ (Number(slot?.prepExtra)||0) > 0 ? 'text-rose-500 border-rose-300 bg-rose-50' : ''}\" data-action=\"set-prep\" title=\"作り置き人数を設定\"><span class=\"sr-only\">作り置きを設定</span><span class=\"lucide w-4 h-4\" data-lucide=\"user-plus\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN} hover:border-red-300 hover:text-red-600 focus:ring-red-100\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>`;
@@ -488,14 +494,14 @@
       const reqEl = document.getElementById('wm2-req'); if (!reqEl) return; reqEl.innerHTML='';
       const menusLunch = [];
       const menusDinner = [];
-      (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusLunch.push(m); });
+      (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusLunch.push({ menu: m, extra: Math.max(0, Number(s?.prepExtra)||0) }); });
       let dSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
       if (!Array.isArray(day.dinnerSlots)) {
         const base = day.dinner && typeof day.dinner==='object' ? ['staple','main','side','soup'].map(k=>day.dinner[k]).filter(Boolean): [];
         const extras = Array.isArray(day.dinnerExtras)? day.dinnerExtras.filter(Boolean): [];
         dSlots = [...base, ...extras];
       }
-      dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusDinner.push(m); });
+      dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusDinner.push({ menu: m, extra: Math.max(0, Number(s?.prepExtra)||0) }); });
 
       const agg = { ingredients: new Map(), seasonings: new Map() };
       const add = (map, name, amount, unit)=>{
@@ -504,10 +510,12 @@
       const dayIndex = sel;
       const countLunch = getIds(dayIndex, 'lunch').length;
       const countDinner = getIds(dayIndex, 'dinner').length;
-      const applyMenus = (menus, people) => {
-        (menus||[]).forEach((m) => {
+      const applyMenus = (entries, people) => {
+        (entries||[]).forEach((entry) => {
+          const m = entry && entry.menu ? entry.menu : entry;
+          const extra = Math.max(0, Number(entry && entry.extra) || 0);
           const basePeople = Number(m.people) > 0 ? Number(m.people) : 1;
-          const multiplier = people > 0 ? (people / basePeople) : 1;
+          const multiplier = (people + extra) > 0 ? ((people + extra) / basePeople) : 1;
           (Array.isArray(m.ingredients)? m.ingredients: []).forEach(it=> add(agg.ingredients, it?.name || '', Number(it.amount) * multiplier, it.unit));
           (Array.isArray(m.seasoning)? m.seasoning: []).forEach(it=> add(agg.seasonings, it?.name || '', Number(it.amount) * multiplier, it.unit));
         });
@@ -766,6 +774,76 @@
           return;
         }
         if (t.id === 'wm2-reason-modal') { close(); }
+      });
+    })();
+  </script>
+
+  <!-- weekMenu2 prep-extra small popover -->
+  <script>
+    (function(){
+      let ctx = null; // { day, meal, index, anchorRect }
+      let pop = null;
+      function ensure(){
+        if (pop) return pop;
+        pop = document.createElement('div');
+        pop.id = 'wm2-prep-pop';
+        pop.className = 'hidden fixed z-50 bg-white border rounded-xl shadow p-3 w-44';
+        pop.innerHTML = `
+          <div class="text-sm font-semibold mb-2">作り置き人数</div>
+          <div class="flex items-center gap-2">
+            <input type="number" min="0" step="1" id="wm2-prep-input" class="w-20 border rounded px-2 py-1" />
+            <span class="text-sm">名分</span>
+          </div>
+          <div class="mt-3 flex justify-end gap-2">
+            <button type="button" data-prep-action="cancel" class="px-2 py-1 border rounded text-sm">キャンセル</button>
+            <button type="button" data-prep-action="submit" class="px-2 py-1 bg-blue-600 text-white rounded text-sm">設定</button>
+          </div>`;
+        document.body.appendChild(pop);
+        return pop;
+      }
+      function openAt(x, y){ const el=ensure(); el.style.left=`${x}px`; el.style.top=`${y}px`; el.classList.remove('hidden'); }
+      function close(){ if (pop) pop.classList.add('hidden'); ctx=null; }
+
+      // Intercept clicks on set-prep icon and open popover
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="set-prep"]');
+        if (!btn) return;
+        // find day/meal and slot index
+        const box = btn.closest('[data-day][data-meal]');
+        const day = Number(box?.dataset?.day || '0');
+        const meal = box?.dataset?.meal || 'lunch';
+        const index = meal==='lunch' ? Number(btn.closest('[data-slot-index]')?.dataset?.slotIndex || '-1') : Number(btn.closest('[data-dinner-index]')?.dataset?.dinnerIndex || '-1');
+        if (Number.isNaN(day) || Number.isNaN(index) || index < 0) return;
+        e.stopPropagation(); e.preventDefault();
+        const r = btn.getBoundingClientRect();
+        ctx = { day, meal, index };
+        // set current value
+        try {
+          const n = (window.weekMenuAPI && window.weekMenuAPI.getPrepExtra) ? window.weekMenuAPI.getPrepExtra(day, meal, index) : 0;
+          ensure();
+          document.getElementById('wm2-prep-input').value = String(n||0);
+        } catch(_) {}
+        openAt(Math.min(window.innerWidth-200, r.left), Math.min(window.innerHeight-140, r.bottom+6));
+      }, true);
+
+      // submit/cancel handlers
+      document.addEventListener('click', (e) => {
+        if (!pop || pop.classList.contains('hidden')) return;
+        if (e.target.closest('[data-prep-action="cancel"]')) { e.preventDefault(); close(); return; }
+        if (e.target.closest('[data-prep-action="submit"]')) {
+          e.preventDefault();
+          const val = Math.max(0, Math.floor(Number(document.getElementById('wm2-prep-input').value)||0));
+          if (ctx && window.weekMenuAPI && window.weekMenuAPI.setPrepExtra) {
+            window.weekMenuAPI.setPrepExtra(ctx.day, ctx.meal, ctx.index, val);
+            // request auto-save and rebuild
+            try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch(_) {}
+            try { if (typeof rebuild==='function') rebuild(); } catch(_) {}
+          }
+          close();
+          return;
+        }
+        // click outside popover closes it
+        if (!e.target.closest('#wm2-prep-pop')) close();
       });
     })();
   </script>

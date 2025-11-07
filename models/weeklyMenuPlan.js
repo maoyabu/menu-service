@@ -41,6 +41,12 @@ const menuSlotSchema = new Schema({
   locked: {
     type: Boolean,
     default: false
+  },
+  // 追加作り置き人数（デフォルト0人）
+  prepExtra: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, { _id: false });
 
