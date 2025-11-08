@@ -10,6 +10,10 @@ const stockSchema = new mongoose.Schema({
   expiryDate: { type: Date, default: null },
   stockpile: { type: Boolean, default: false },
   comment: { type: String, default: '' },
+  // MyStock checklist
+  lastCheckedAt: { type: Date, default: null },
+  lastCheckedNote: { type: String, default: '' },
+  lastCheckedBy: { type: String, default: '' },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true }
 }, { timestamps: true });

@@ -130,4 +130,61 @@ router.put('/api/stocks/:id', express.json(), async (req, res) => {
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
+// Checklist: mark checked with optional note
+router.post('/api/check/:id', express.json(), async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if(!groupId) return res.status(400).json({ error: 'no group' });
+    const note = String(req.body?.note || '').trim();
+    const amountRaw = req.body?.amount;
+    const update = { lastCheckedAt: new Date(), lastCheckedNote: note, lastCheckedBy: (req.user?.displayname || req.user?.username || req.user?.email || '').toString() };
+    if (typeof amountRaw !== 'undefined' && amountRaw !== null && amountRaw !== '') {
+      const n = Math.max(0, Number(amountRaw) || 0);
+      update.amount = n;
+    }
+    const updated = await Stock.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id, group: groupId },
+      { $set: update },
+      { new: true }
+    ).lean();
+    if (!updated) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true, item: updated });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+// Checklist page
+router.get('/checklist', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.render('users/myStockChecklist', { places: [], items: [] });
+    const [stocks, places] = await Promise.all([
+      Stock.find({ group: groupId, user: req.user._id }).lean(),
+      StoragePlace.find({ group: groupId }).lean()
+    ]);
+    const placeNameById = new Map((places||[]).map(p=> [String(p._id), p.name]));
+    // Resolve names for ingredients/seasonings
+    const ingIds = stocks.filter(s=> s.type==='ingredient').map(s=> s.item);
+    const seaIds = stocks.filter(s=> s.type==='seasoning').map(s=> s.item);
+    const [ings, seas] = await Promise.all([
+      Ingredient.find({ _id: { $in: ingIds } }).select('ingredient').lean(),
+      Seasoning.find({ _id: { $in: seaIds } }).select('seasoning').lean()
+    ]);
+    const ingName = new Map((ings||[]).map(x=>[String(x._id), x.ingredient]));
+    const seaName = new Map((seas||[]).map(x=>[String(x._id), x.seasoning]));
+    const now = new Date(); const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const items = (stocks||[]).map(s=>({
+      id: String(s._id),
+      type: s.type,
+      name: s.type==='ingredient' ? (ingName.get(String(s.item)) || '') : (seaName.get(String(s.item)) || ''),
+      placeId: String(s.place||''),
+      place: placeNameById.get(String(s.place||'')) || '未設定',
+      amount: s.amount || 0,
+      unit: s.unit || '',
+      lastCheckedAt: s.lastCheckedAt ? new Date(s.lastCheckedAt) : null,
+      lastCheckedNote: s.lastCheckedNote || '',
+      lastCheckedBy: s.lastCheckedBy || ''
+    }));
+    res.render('users/myStockChecklist', { places, items, monthLabel: `${now.getFullYear()}年${now.getMonth()+1}月`, monthStartISO: start.toISOString() });
+  } catch(e) { next(e); }
+});
+
 export default router;
