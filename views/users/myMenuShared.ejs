@@ -2,8 +2,10 @@
   <header class="flex items-center justify-between">
     <div>
       <% const __isMyMenu = (selected && selected.fav === 'mine'); %>
-      <h1 class="text-2xl font-bold"><%= __isMyMenu ? 'マイメニューリスト' : 'メニューリスト' %></h1>
-      <p class="text-sm text-gray-500">キーワード・種類・ジャンル・調理方法で検索</p>
+      <div class="rounded-xl border px-4 py-2 <%= __isMyMenu ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-blue-50 border-blue-200 text-blue-800' %>">
+        <h1 class="text-xl font-extrabold"><%= __isMyMenu ? 'マイメニューリスト' : 'メニューリスト' %></h1>
+        <p class="text-sm opacity-80">キーワード・種類・ジャンル・調理方法で検索</p>
+      </div>
     </div>
     <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold">マイメニュートップへ</a>
   </header>
@@ -43,7 +45,7 @@
   </form>
 
   <div class="flex items-center justify-between">
-    <h2 class="font-semibold">共有メニュー（検索結果 <%= resultCount || 0 %> 件）</h2>
+    <h2 class="font-semibold rounded-full px-3 py-1 border border-blue-200 bg-blue-50 text-blue-800">共有メニュー（検索結果 <%= resultCount || 0 %> 件）</h2>
     <div class="text-sm text-gray-600">♥ <span data-fav-count><%= (myMenuIds || []).length %></span></div>
   </div>
 

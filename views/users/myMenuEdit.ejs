@@ -1,8 +1,17 @@
 <section class="max-w-5xl mx-auto py-8 space-y-6">
   <header class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold">レシピを編集</h1>
-      <p class="text-sm text-gray-500">URL由来・オリジナルのレシピを編集できます</p>
+      <% if (owned && owned.sourceType === 'original') { %>
+        <div class="rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-purple-800">
+          <h1 class="text-xl font-extrabold">オリジナルレシピを編集</h1>
+          <p class="text-sm opacity-80">URL由来・オリジナルのレシピを編集できます</p>
+        </div>
+      <% } else { %>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-blue-800">
+          <h1 class="text-xl font-extrabold">レシピを編集</h1>
+          <p class="text-sm opacity-80">URL由来・オリジナルのレシピを編集できます</p>
+        </div>
+      <% } %>
     </div>
     <a href="/users/my-menu/shared-register?fav=mine" class="text-sm text-blue-600 font-semibold">マイメニュー一覧へ</a>
   </header>
@@ -106,10 +115,12 @@
               <option value="1" <%= (owned && Number(owned.frequency)===1) ? 'selected' : '' %>>1 … 3ヶ月に1回</option>
             </select>
           </label>
+          <% if (owned && owned.sourceType === 'original') { %>
           <label class="inline-flex items-center gap-2 font-medium">
-            <input type="checkbox" name="skill" value="true" class="w-4 h-4" <%= (owned && owned.skill) ? 'checked' : '' %> />
-            <span>得意</span>
+            <input type="checkbox" name="hidden" value="true" class="w-4 h-4" <%= (owned && owned.hidden) ? 'checked' : '' %> />
+            <span>非表示にする</span>
           </label>
+          <% } %>
         </div>
         <div class="flex flex-wrap items-center gap-4 text-[15px]">
           <label class="inline-flex items-center gap-2 font-medium">

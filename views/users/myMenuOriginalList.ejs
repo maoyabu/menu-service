@@ -1,11 +1,22 @@
 <section class="max-w-5xl mx-auto py-8 space-y-6">
   <header class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold">オリジナルレシピ一覧</h1>
-      <p class="text-sm text-gray-500">自分が登録したオリジナルレシピ</p>
+    <div class="rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-purple-800">
+      <h1 class="text-xl font-extrabold">オリジナルレシピ一覧</h1>
+      <p class="text-sm opacity-80">自分が登録したオリジナルレシピ</p>
     </div>
-    <a href="/users/my-menu/original" class="text-sm text-blue-600 font-semibold">新規作成へ</a>
+    <a href="/users/my-menu/original" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-purple-700 text-white text-sm font-semibold hover:bg-purple-800">
+      新規作成
+    </a>
   </header>
+
+  <form method="get" class="bg-white border rounded-xl p-3 flex items-center gap-3 text-sm">
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="show_hidden" value="true" <%= showHidden ? 'checked' : '' %> />
+      <span>非表示のレシピも表示</span>
+    </label>
+    <button class="px-3 py-1.5 rounded border">更新</button>
+    <a href="/users/my-menu/original-list" class="px-3 py-1.5 rounded border">クリア</a>
+  </form>
 
   <% if (!list || !list.length) { %>
     <p class="text-gray-500">オリジナルレシピはまだありません</p>
@@ -24,6 +35,9 @@
           </div>
           <div class="p-3 space-y-1">
             <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-purple-50 text-purple-700">オリジナル</span>
+            <% if (mm.hidden) { %>
+              <span class="inline-block text-[10px] px-2 py-0.5 rounded bg-gray-200 text-gray-700">非表示</span>
+            <% } %>
             <h3 class="font-semibold text-sm truncate" title="<%= m.name || '' %>"><%= m.name || '' %></h3>
             <div class="text-xs text-gray-500"><span><%= m.kind || '' %></span> · <span><%= m.junle || '' %></span> · <span><%= m.cook || '' %></span></div>
             <div class="pt-2 flex items-center gap-2">

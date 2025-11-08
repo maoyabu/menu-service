@@ -265,7 +265,7 @@ router.get('/mine', (req, res) => {
 // 共有メニューをマイメニューへ登録
 router.post('/shared-register', async (req, res, next) => {
   try {
-    const { menuId, favorite = 'false', frequency = '3', skill = 'false' } = req.body;
+    const { menuId, favorite = 'false', frequency = '3' } = req.body;
     const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
@@ -283,7 +283,6 @@ router.post('/shared-register', async (req, res, next) => {
       menu: menu._id,
       favorite: String(favorite) === 'true',
       frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
-      skill: String(skill) === 'true',
       sourceType: 'shared',
       user: req.user._id,
       group: groupId
@@ -882,7 +881,7 @@ router.post('/from-url', async (req, res, next) => {
       // 食材・調味料: id配列/数量/単位（adminに準拠）
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
-      favorite = 'false', frequency = '3', skill = 'false',
+      favorite = 'false', frequency = '3',
       share = 'false', shareScope = 'group'
     } = req.body;
 
@@ -918,7 +917,6 @@ router.post('/from-url', async (req, res, next) => {
       menu: newMenu._id,
       favorite: String(favorite) === 'true',
       frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
-      skill: String(skill) === 'true',
       myurl: url || '',
       share: String(share) === 'true',
       shareScope: shareScope === 'all' ? 'all' : 'group',
@@ -1073,11 +1071,16 @@ router.get('/original', async (req, res, next) => {
 // 自分のオリジナルレシピ一覧
 router.get('/original-list', async (req, res, next) => {
   try {
-    const list = await Mymenu.find({ user: req.user._id, sourceType: 'original' })
+    const showHidden = String(req.query.show_hidden || '') === 'true';
+    const criteria = { user: req.user._id, sourceType: 'original' };
+    if (!showHidden) {
+      criteria.$or = [ { hidden: { $exists: false } }, { hidden: false } ];
+    }
+    const list = await Mymenu.find(criteria)
       .populate('menu', 'name imageUrl kind junle cook update_date entry_date')
       .sort({ update_date: -1, entry_date: -1 })
       .lean();
-    res.render('users/myMenuOriginalList', { list });
+    res.render('users/myMenuOriginalList', { list, showHidden });
   } catch (err) { next(err); }
 });
 
@@ -1099,7 +1102,8 @@ router.post('/original', async (req, res, next) => {
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
       instruction = '',
       comment = '',
-      favorite = 'false', frequency = '3', skill = 'false',
+      favorite = 'false', frequency = '3',
+      hidden = 'false',
       share = 'false', shareScope = 'group'
     } = req.body;
 
@@ -1128,7 +1132,7 @@ router.post('/original', async (req, res, next) => {
       menu: newMenu._id,
       favorite: String(favorite) === 'true',
       frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
-      skill: String(skill) === 'true',
+      hidden: String(hidden) === 'true',
       share: String(share) === 'true',
       shareScope: shareScope === 'all' ? 'all' : 'group',
       sourceType: 'original',
@@ -1138,7 +1142,7 @@ router.post('/original', async (req, res, next) => {
     await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [newMenu.name || ''] });
 
     req.flash('success', 'オリジナルレシピを登録しました');
-    res.redirect('/users/my-menu');
+    res.redirect('/users/my-menu/original-list');
   } catch (err) { next(err); }
 });
 
@@ -1432,7 +1436,6 @@ router.post('/edit/:menuId', async (req, res, next) => {
       yomi,
       favorite = 'true',
       frequency = '3',
-      skill = 'false',
       share = 'false',
       shareScope = 'group',
       ingredient_ids = [],
@@ -1469,13 +1472,16 @@ router.post('/edit/:menuId', async (req, res, next) => {
       {
         favorite: String(favorite) === 'true',
         frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
-        skill: String(skill) === 'true',
         share: String(share) === 'true',
-        shareScope: shareScope === 'all' ? 'all' : 'group'
+        shareScope: shareScope === 'all' ? 'all' : 'group',
+        ...(owned && owned.sourceType === 'original' ? { hidden: String(req.body.hidden) === 'true' } : {})
       },
       { upsert: false }
     );
     req.flash('success', 'レシピを更新しました');
+    if (owned && owned.sourceType === 'original') {
+      return res.redirect('/users/my-menu/original-list');
+    }
     return res.redirect('/users/my-menu/shared-register?fav=mine');
   } catch (err) { next(err); }
 });
@@ -1483,7 +1489,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
 // MyMenu 登録/更新（weekMenu からの♡用）
 router.post('/api/upsert', express.json(), async (req, res) => {
   try {
-    const { menuId, favorite = true, frequency = 3, skill = false } = req.body || {};
+    const { menuId, favorite = true, frequency = 3 } = req.body || {};
     if (!menuId || !mongoose.Types.ObjectId.isValid(menuId)) {
       return res.status(400).json({ error: 'menuIdが不正です' });
     }
@@ -1498,7 +1504,6 @@ router.post('/api/upsert', express.json(), async (req, res) => {
     const update = {
       favorite: !!favorite,
       frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
-      skill: !!skill,
       update_date: new Date()
     };
 

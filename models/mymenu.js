@@ -23,6 +23,11 @@ const mymenuSchema = new mongoose.Schema({
         max: 5,
         default: 3
     },
+    // オリジナル用: 一覧で非表示にするか（デフォルト表示）
+    hidden: {
+        type: Boolean,
+        default: false
+    },
     myurl: {
         type: String
     },
