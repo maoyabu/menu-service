@@ -22,6 +22,7 @@ import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
 import WeeklyAnnouncement from './models/weeklyAnnouncement.js';
 import MonthlyStockReminder from './models/monthlyStockReminder.js';
+import Stock from './models/stock.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -339,4 +340,104 @@ app.listen(PORT, () => {
     }
   };
   setInterval(tickMonthly, 60 * 1000);
+
+  // Follow-up alert: if no checklist activity within windowDays after scheduled day
+  const tickInventoryFollowUp = async () => {
+    try {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const monthStart = new Date(y, m, 1); monthStart.setHours(0,0,0,0);
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const linkUrl = `${baseUrl}/users/my-stock/checklist`;
+
+      const groups = await Group.find({}).select('_id group_name createdBy members stockInventory').lean();
+      for (const g of groups) {
+        try {
+          const cfg = g.stockInventory || {};
+          const enabled = cfg.enabled !== false;
+          if (!enabled) continue;
+          const sendHour = (typeof cfg.sendHour === 'number') ? cfg.sendHour : 8;
+          const windowDays = (typeof cfg.windowDays === 'number') ? cfg.windowDays : 7;
+
+          // compute scheduled day for this month
+          let scheduledDay;
+          if ((cfg.mode || 'monthlyDay') === 'monthlyDay') {
+            const d = Math.max(1, Math.min(31, Number(cfg.day) || 28));
+            const last = new Date(y, m + 1, 0).getDate();
+            scheduledDay = Math.min(d, last);
+          } else {
+            const nth = Math.max(1, Math.min(5, Number(cfg.nth) || 4));
+            const weekday = Math.max(0, Math.min(6, Number(cfg.weekday) || 0));
+            const first = new Date(y, m, 1);
+            const firstWeekday = first.getDay();
+            let day1 = 1 + ((7 + weekday - firstWeekday) % 7);
+            const candidate = day1 + (nth - 1) * 7;
+            const last = new Date(y, m + 1, 0).getDate();
+            scheduledDay = Math.min(candidate, last);
+          }
+          const scheduledAt = new Date(y, m, scheduledDay, sendHour, 0, 0, 0);
+          const followUpDate = new Date(scheduledAt.getTime() + windowDays * 24 * 60 * 60 * 1000);
+
+          // only run on the follow-up day, after sendHour
+          const isToday = now.getFullYear() === followUpDate.getFullYear() && now.getMonth() === followUpDate.getMonth() && now.getDate() === followUpDate.getDate();
+          const afterHour = now.getHours() > sendHour || (now.getHours() === sendHour && now.getMinutes() >= 0);
+          if (!isToday || !afterHour) continue;
+
+          // avoid duplicate follow-up for month
+          const rec = await MonthlyStockReminder.findOne({ group: g._id, monthStart }).lean();
+          if (rec && rec.followUpSentAt) continue;
+
+          // Has there been any checklist activity since scheduledAt?
+          const anyChecked = await Stock.exists({ group: g._id, lastCheckedAt: { $gte: scheduledAt } });
+          if (anyChecked) {
+            // if there was activity, mark followUpSentAt to prevent processing again
+            if (!rec) {
+              await MonthlyStockReminder.create({ group: g._id, monthStart, sentAt: new Date(0), recipients: [], followUpSentAt: new Date(), followUpRecipients: [] });
+            } else {
+              await MonthlyStockReminder.updateOne({ _id: rec._id }, { $set: { followUpSentAt: new Date() } });
+            }
+            continue;
+          }
+
+          const userIds = [];
+          if (g.createdBy) userIds.push(g.createdBy);
+          if (Array.isArray(g.members)) userIds.push(...g.members);
+          const uniqIds = Array.from(new Set(userIds.map((x) => String(x))));
+          const users = await User.find({ _id: { $in: uniqIds }, isMail: true }).select('email displayname username').lean();
+          const validUsers = users.filter(u => !!u.email);
+          if (!validUsers.length) {
+            if (!rec) {
+              await MonthlyStockReminder.create({ group: g._id, monthStart, sentAt: new Date(0), recipients: [], followUpSentAt: new Date(), followUpRecipients: [] });
+            } else {
+              await MonthlyStockReminder.updateOne({ _id: rec._id }, { $set: { followUpSentAt: new Date(), followUpRecipients: [] } });
+            }
+            continue;
+          }
+
+          const subject = `7 DAYS PLAN　【${g.group_name || 'グループ'}のマイストック点検が未実施です】`;
+          for (const u of validUsers) {
+            const recipientName = u.displayname || u.username || u.email;
+            const html = await renderTemplate('monthlyStockReminderFollowup', {
+              groupName: g.group_name || '',
+              recipientName,
+              linkUrl
+            });
+            await sendMail({ to: u.email, subject, html });
+          }
+
+          if (!rec) {
+            await MonthlyStockReminder.create({ group: g._id, monthStart, sentAt: new Date(0), recipients: [], followUpSentAt: new Date(), followUpRecipients: validUsers.map(u=>u._id) });
+          } else {
+            await MonthlyStockReminder.updateOne({ _id: rec._id }, { $set: { followUpSentAt: new Date(), followUpRecipients: validUsers.map(u=>u._id) } });
+          }
+        } catch (err) {
+          console.error('monthly stock follow-up error (group):', g?._id, err);
+        }
+      }
+    } catch (err) {
+      console.error('monthly stock follow-up scheduler error:', err);
+    }
+  };
+  setInterval(tickInventoryFollowUp, 60 * 1000);
 });
