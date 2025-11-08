@@ -263,26 +263,49 @@ app.listen(PORT, () => {
   };
   setInterval(tickWeekly, 60 * 1000);
 
-  // Monthly stock reminder: on the last day of month after 08:00, notify all group members
+  // Monthly stock reminder: per-group schedule (monthly day or nth weekday) at configured hour
   const tickMonthly = async () => {
     try {
       const now = new Date();
       const y = now.getFullYear();
       const m = now.getMonth();
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      const isLastDay = now.getDate() === lastDay;
-      const after8 = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() >= 0);
-      if (!isLastDay || !after8) return;
-
       const monthStart = new Date(y, m, 1); monthStart.setHours(0,0,0,0);
       const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
       const linkUrl = `${baseUrl}/users/my-stock`;
 
-      const groups = await Group.find({}).select('_id group_name createdBy members').lean();
+      const groups = await Group.find({}).select('_id group_name createdBy members stockInventory').lean();
       for (const g of groups) {
         try {
+          // compute scheduled day for this group in this month
+          const cfg = g.stockInventory || {};
+          const enabled = cfg.enabled !== false;
+          if (!enabled) continue;
+          const sendHour = (typeof cfg.sendHour === 'number') ? cfg.sendHour : 8;
+          const afterHour = now.getHours() > sendHour || (now.getHours() === sendHour && now.getMinutes() >= 0);
+          if (!afterHour) continue;
+
+          let scheduledDay = null; // date number 1..31
+          if ((cfg.mode || 'monthlyDay') === 'monthlyDay') {
+            const d = Math.max(1, Math.min(31, Number(cfg.day) || 28));
+            const last = new Date(y, m + 1, 0).getDate();
+            scheduledDay = Math.min(d, last);
+          } else {
+            // nth weekday
+            const nth = Math.max(1, Math.min(5, Number(cfg.nth) || 4));
+            const weekday = Math.max(0, Math.min(6, Number(cfg.weekday) || 0));
+            const first = new Date(y, m, 1);
+            const firstWeekday = first.getDay();
+            let day1 = 1 + ((7 + weekday - firstWeekday) % 7); // first occurrence
+            const candidate = day1 + (nth - 1) * 7;
+            const last = new Date(y, m + 1, 0).getDate();
+            scheduledDay = Math.min(candidate, last);
+          }
+
+          const isToday = now.getDate() === scheduledDay;
+          if (!isToday) continue;
+
           const exists = await MonthlyStockReminder.findOne({ group: g._id, monthStart }).lean();
-          if (exists) continue;
+          if (exists) continue; // already sent for this month
 
           const userIds = [];
           if (g.createdBy) userIds.push(g.createdBy);
@@ -295,7 +318,7 @@ app.listen(PORT, () => {
             continue;
           }
 
-          const subject = '7 DAYS PLAN　【マイストックの定期点検をしましょう！】';
+          const subject = `7 DAYS PLAN　【${g.group_name || 'グループ'}のマイストックの定期点検の日が来ました】`;
           for (const u of validUsers) {
             const recipientName = u.displayname || u.username || u.email;
             const html = await renderTemplate('monthlyStockReminder', {

@@ -738,4 +738,47 @@ router.post('/groups/:groupId/default', async (req, res, next) => {
   }
 });
 
+// グループ基本設定：マイストック棚卸し設定の保存
+router.post('/groups/:groupId/inventory', async (req, res, next) => {
+  const { groupId } = req.params;
+  try {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      req.flash('error', 'グループが見つかりませんでした');
+      return res.redirect('/settings');
+    }
+    // 参加メンバーのみ許可
+    const userId = req.user._id.toString();
+    const isMember = group.createdBy?.toString() === userId || (group.members || []).some((m) => String(m) === userId);
+    if (!isMember) {
+      req.flash('error', 'このグループのメンバーではありません');
+      return res.redirect(`/settings?group=${groupId}`);
+    }
+
+    const enabled = toBoolean(req.body?.enabled);
+    const mode = (req.body?.mode === 'nthWeekday') ? 'nthWeekday' : 'monthlyDay';
+    const day = Math.max(1, Math.min(31, Number(req.body?.day) || 1));
+    const nth = Math.max(1, Math.min(5, Number(req.body?.nth) || 1));
+    const weekday = Math.max(0, Math.min(6, Number(req.body?.weekday) || 0));
+    const sendHour = Math.max(0, Math.min(23, Number(req.body?.sendHour) || 8));
+    const windowDays = Math.max(1, Math.min(31, Number(req.body?.windowDays) || 7));
+
+    group.stockInventory = {
+      enabled,
+      mode,
+      day,
+      nth,
+      weekday,
+      sendHour,
+      windowDays
+    };
+
+    await group.save();
+    req.flash('success', 'グループの棚卸し設定を更新しました');
+    res.redirect(`/settings?group=${groupId}&view=group-detail`);
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

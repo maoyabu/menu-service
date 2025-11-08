@@ -21,6 +21,21 @@ const groupSchema = new Schema({
   invitedUsers: {
     type: [String],
     default: []
+  },
+  // Group-level settings
+  stockInventory: {
+    enabled: { type: Boolean, default: true },
+    // mode: 'monthlyDay' | 'nthWeekday'
+    mode: { type: String, enum: ['monthlyDay', 'nthWeekday'], default: 'monthlyDay' },
+    // For monthlyDay
+    day: { type: Number, default: 28 }, // 1-31, clamped per month
+    // For nthWeekday (1-5 and 0-6 for Sun-Sat)
+    nth: { type: Number, default: 4 },
+    weekday: { type: Number, default: 0 },
+    // Send hour in 24h
+    sendHour: { type: Number, default: 8 },
+    // Suggested completion window (days)
+    windowDays: { type: Number, default: 7 }
   }
 }, { timestamps: true });
 

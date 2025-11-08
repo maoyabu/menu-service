@@ -301,6 +301,10 @@
                 </div>
               </div>
             </div>
+
+            
+
+            
           </div>
         </section>
 
@@ -399,9 +403,19 @@
               詳細を表示したいグループを「グループ一覧」から選択してください。
             </div>
           <% } else { %>
-            <header class="flex flex-col gap-1">
-              <h2 class="text-xl font-semibold text-gray-900">グループ管理</h2>
-              <p class="text-sm text-gray-500">参加メンバーや招待、グループ情報を管理します。</p>
+            <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+              <div class="flex flex-col gap-1">
+                <h2 class="text-xl font-semibold text-gray-900">グループ管理</h2>
+                <p class="text-sm text-gray-500">参加メンバーや招待、グループ情報を管理します。</p>
+              </div>
+              <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
+                <form action="/settings/groups/<%= selectedGroup._id %>/delete" method="POST" class="flex">
+                  <button type="button" id="open-delete-group-modal" class="inline-flex items-center gap-2 bg-red-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-red-600 transition">
+                    <span class="lucide w-4 h-4" data-lucide="trash-2"></span>
+                    グループを削除
+                  </button>
+                </form>
+              <% } %>
             </header>
 
             <div class="flex flex-wrap items-center justify-between gap-3 border border-gray-200 rounded-2xl px-4 py-3 bg-white shadow-sm">
@@ -571,13 +585,83 @@
                 </div>
               </section>
             </div>
-            <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
-              <form action="/settings/groups/<%= selectedGroup._id %>/delete" method="POST" class="flex justify-end">
-                <button type="button" id="open-delete-group-modal" class="inline-flex items-center gap-2 bg-red-500 text-white font-semibold px-5 py-2 rounded-lg hover:bg-red-600 transition">
-                  <span class="lucide w-4 h-4" data-lucide="trash-2"></span>
-                  グループを削除
-                </button>
+            
+            <!-- Group basic settings: full width below members/invite -->
+            <section class="mt-6 border border-gray-200 rounded-2xl p-6 space-y-4">
+              <header class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">グループの基本設定</h3>
+                  <p class="text-xs text-gray-500">提案・コミュニケーションに関する基本設定</p>
+                </div>
+              </header>
+
+              <form action="/settings/groups/<%= selectedGroup._id %>/inventory" method="POST" class="space-y-4">
+                <% const inv = (selectedGroup.stockInventory || {}); %>
+                <div class="space-y-2">
+                  <label class="text-sm font-semibold text-gray-800">マイストックの棚卸し設定</label>
+                  <p class="text-xs text-gray-500">毎月の点検タイミングを設定します（通知は指定日の朝 <%= typeof inv.sendHour==='number'? inv.sendHour: 8 %> 時）。</p>
+                  <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="enabled" <%= inv.enabled !== false ? 'checked' : '' %> /> 有効にする
+                  </label>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div class="space-y-2 border rounded-xl p-3 bg-white">
+                    <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-800">
+                      <input type="radio" name="mode" value="monthlyDay" <%= (inv.mode||'monthlyDay')==='monthlyDay' ? 'checked' : '' %> />
+                      毎月●日
+                    </label>
+                    <div class="flex items-center gap-2 text-sm text-gray-700">
+                      <span>毎月</span>
+                      <input type="number" min="1" max="31" name="day" value="<%= inv.day || 28 %>" class="w-20 border rounded px-2 py-1" />
+                      <span>日</span>
+                    </div>
+                  </div>
+
+                  <div class="space-y-2 border rounded-xl p-3 bg-white">
+                    <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-800">
+                      <input type="radio" name="mode" value="nthWeekday" <%= (inv.mode||'monthlyDay')==='nthWeekday' ? 'checked' : '' %> />
+                      第●週●曜日
+                    </label>
+                    <div class="flex items-center gap-2 text-sm text-gray-700">
+                      <span>第</span>
+                      <select name="nth" class="border rounded px-2 py-1">
+                        <% [1,2,3,4,5].forEach(n => { %>
+                          <option value="<%= n %>" <%= Number(inv.nth||4)===n? 'selected':'' %>><%= n %></option>
+                        <% }) %>
+                      </select>
+                      <select name="weekday" class="border rounded px-2 py-1">
+                        <% const wnames=['日','月','火','水','木','金','土']; %>
+                        <% wnames.forEach((nm,idx)=>{ %>
+                          <option value="<%= idx %>" <%= Number(inv.weekday||0)===idx? 'selected':'' %>><%= nm %>曜日</option>
+                        <% }) %>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid sm:grid-cols-3 gap-4">
+                  <label class="flex items-center gap-2 text-sm text-gray-700">
+                    通知時刻
+                    <input type="number" name="sendHour" min="0" max="23" value="<%= typeof inv.sendHour==='number' ? inv.sendHour : 8 %>" class="w-20 border rounded px-2 py-1" />
+                    <span>時</span>
+                  </label>
+                  <label class="flex items-center gap-2 text-sm text-gray-700">
+                    目安期間
+                    <input type="number" name="windowDays" min="1" max="31" value="<%= typeof inv.windowDays==='number' ? inv.windowDays : 7 %>" class="w-20 border rounded px-2 py-1" />
+                    <span>日で完了</span>
+                  </label>
+                </div>
+
+                <div class="flex justify-end">
+                  <button type="submit" class="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">
+                    <span class="lucide w-4 h-4" data-lucide="save"></span>
+                    保存
+                  </button>
+                </div>
               </form>
+            </section>
+            <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
               <div class="fixed inset-0 z-50 hidden" id="delete-group-modal" aria-hidden="true">
                 <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" data-close></div>
                 <div class="relative min-h-full flex items-center justify-center p-4">
