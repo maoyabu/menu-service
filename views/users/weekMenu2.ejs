@@ -96,12 +96,12 @@
   #wm2-supplies .list{ list-style:none; margin:0; padding:0; }
   #wm2-supplies .li{ display:flex; align-items:flex-start; gap:8px; padding:6px 8px; border:1px solid #e5e7eb; border-radius:10px; }
   #wm2-supplies .li.checked{ background:#eff6ff; border-color:#bfdbfe; }
-  #wm2-supplies .pill{ font-size:10px; border-radius:9999px; padding:2px 6px; border:1px solid #e5e7eb; }
+  #wm2-supplies .pill{ font-size:10px; border-radius:9999px; padding:2px 6px; border:1px solid #e5e7eb; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
   #wm2-supplies .pill.ing{ background:#ecfdf5; border-color:#bbf7d0; color:#065f46; }
   #wm2-supplies .pill.sea{ background:#fff7ed; border-color:#fed7aa; color:#92400e; }
-  #wm2-supplies .pill.state{ font-size:10px; }
-  #wm2-supplies .pill.state.stock{ background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
-  #wm2-supplies .pill.state.purchased{ background:#dcfce7; border-color:#bbf7d0; color:#14532d; }
+  #wm2-supplies .pill.state{ font-size:10px; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+  #wm2-supplies .pill.state.stock{ background:#f3e8ff; border-color:#d8b4fe; color:#6d28d9; }
+  #wm2-supplies .pill.state.purchased{ background:#e0f2fe; border-color:#bae6fd; color:#1d4ed8; }
 
   /* Section spacing tuning: allow padding from utility classes */
   #wm2-section{ }
@@ -277,6 +277,7 @@
               // 後続送信はモーダル側から行う
               window.__wm2_openReasonModal(day, meal);
               return;
+              if (window.refreshLucideIcons) window.refreshLucideIcons();
             }
           }
           body = { planId: latestPlanId, dayIndex: day, mealType: meal, participate };
@@ -968,9 +969,13 @@
       const weekISO = data.weekStartISO || (Array.isArray(data.weekDates) && data.weekDates[0] && data.weekDates[0].dateISO) || '';
       const KEY = `shopping:${groupId}:${weekISO}`;
       const state = (()=>{ try { return JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(_) { return {}; } })();
+      const DKEY = KEY + ':dates';
+      const dates = (()=>{ try { return JSON.parse(localStorage.getItem(DKEY)||'{}'); } catch(_) { return {}; } })();
+      window.__wm2_supDates = dates;
 
       const agg = computeWeekly();
-      // Build my-stock name sets (cached)
+      const fmtDate = (iso)=>{ try { const d=new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString('ja-JP'); } catch(_){ return ''; } };
+      // Build my-stock name sets and name->id map (cached)
       async function getStockNameSets(){
         if (window.__wm2_stockNameSets) return window.__wm2_stockNameSets;
         try{
@@ -980,13 +985,23 @@
             fetch('/users/my-menu/api/seasonings?limit=1000')
           ]);
           const [stocks, ings, seas] = await Promise.all([stocksRes.json(), ingRes.json(), seaRes.json()]);
+          // id->name maps
           const ingMap = new Map((ings||[]).map(x=> [String(x._id||x.id), x.ingredient || x.name]));
           const seaMap = new Map((seas||[]).map(x=> [String(x._id||x.id), x.seasoning || x.name]));
+          // name->id maps
+          const ingNameToId = new Map((ings||[]).map(x=> [(x.ingredient || x.name || '').toString(), String(x._id||x.id)]));
+          const seaNameToId = new Map((seas||[]).map(x=> [(x.seasoning || x.name || '').toString(), String(x._id||x.id)]));
           const ingNameSet = new Set(); const seaNameSet = new Set();
-          (stocks||[]).forEach(s=>{ if (s.type==='ingredient'){ const n=ingMap.get(String(s.item)); if(n) ingNameSet.add(n); } else if (s.type==='seasoning'){ const n=seaMap.get(String(s.item)); if(n) seaNameSet.add(n); } });
-          window.__wm2_stockNameSets = { ingNameSet, seaNameSet };
+          (stocks||[]).forEach(s=>{
+            if (s.type==='ingredient'){
+              const n=ingMap.get(String(s.item)); if(n) ingNameSet.add(n);
+            } else if (s.type==='seasoning'){
+              const n=seaMap.get(String(s.item)); if(n) seaNameSet.add(n);
+            }
+          });
+          window.__wm2_stockNameSets = { ingNameSet, seaNameSet, ingNameToId, seaNameToId };
           return window.__wm2_stockNameSets;
-        }catch(_){ return { ingNameSet: new Set(), seaNameSet: new Set() }; }
+        }catch(_){ return { ingNameSet: new Set(), seaNameSet: new Set(), ingNameToId: new Map(), seaNameToId: new Map() }; }
       }
 
       const { ingNameSet, seaNameSet } = await getStockNameSets();
@@ -1024,19 +1039,35 @@
         (items||[]).forEach((it)=>{
           const checked = !!it.checked;
           const li = document.createElement('li'); li.className = 'li ' + (checked ? 'checked' : ''); li.dataset.key = it.key; li.dataset.fromStock = it.fromStock ? 'true' : 'false';
-          const stateLabel = checked ? (it.fromStock ? '在庫あり' : '購入済み') : '';
+          li.dataset.type = it.type; li.dataset.name = it.name;
           const stateClass = checked ? (it.fromStock ? 'stock' : 'purchased') : '';
           li.innerHTML = `
-            <label class="flex items-start gap-2 w-full">
+            <div class="flex items-start gap-2 w-full">
               <input type="checkbox" class="mt-1" ${checked ? 'checked' : ''} />
               <span class="flex-1">
                 <span class="text-sm font-medium text-gray-800">${it.name}</span>
                 <span class="ml-2 text-xs text-gray-600">${it.amountText}</span>
+                <span class="ml-2" data-role="state-inline"></span>
               </span>
               <span class="pill ${it.type==='ingredient'?'ing':'sea'}">${it.type==='ingredient'?'食材':'調味料'}</span>
-              ${checked ? `<span class="pill state ${stateClass}" data-role="state">${stateLabel}</span>` : `<span class="pill state hidden" data-role="state"></span>`}
-            </label>`;
+              ${checked ? (it.fromStock ? `
+                <span class=\"pill state ${stateClass}\" data-role=\"state\"><span class=\"lucide w-3 h-3\" data-lucide=\"package\"></span><span class=\"ml-1\">ストック</span></span>
+              ` : `<span class=\"pill state hidden\" data-role=\"state\"></span>`) : `<span class=\"pill state hidden\" data-role=\"state\"></span>`}
+              ${!it.fromStock ? `
+                <button type="button" class="ml-2 inline-flex items-center justify-center rounded-full border border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-1 text-xs font-semibold" data-action="wm2-add-stock" title="マイストックに追加">
+                  <span class="text-xs font-bold leading-none mr-0.5">＋</span>
+                  <span class="lucide w-3.5 h-3.5" data-lucide="package"></span>
+                </button>
+              ` : ''}
+            </div>`;
           ul.appendChild(li);
+          try {
+            if (checked && li.dataset.fromStock !== 'true') {
+              const inline = li.querySelector('[data-role="state-inline"]');
+              const d = (window.__wm2_supDates && window.__wm2_supDates[it.key]) || '';
+              if (inline && d) inline.innerHTML = '<span class="pill state purchased">購入済み ' + (fmtDate(d) || '') + '</span>';
+            }
+          } catch(_) {}
         });
         return ul;
       };
@@ -1048,9 +1079,10 @@
       const h1 = document.createElement('h4'); h1.textContent = '買うもの'; left.appendChild(h1);
       left.appendChild(listTpl('wm2-sup-buy', buyItems));
       const right = document.createElement('div');
-      const h2 = document.createElement('h4'); h2.textContent = '在庫あり / 購入済み'; right.appendChild(h2);
+      const h2 = document.createElement('h4'); h2.textContent = 'ストック / 購入済み'; right.appendChild(h2);
       right.appendChild(listTpl('wm2-sup-done', doneItems));
       grid.appendChild(left); grid.appendChild(right); box.appendChild(grid);
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
 
       // bind change handler once (delegated)
       if (!window.__wm2_bindSuppliesChange){
@@ -1062,18 +1094,131 @@
           const buy = document.getElementById('wm2-sup-buy'); const done = document.getElementById('wm2-sup-done');
           const fromStock = li.dataset.fromStock === 'true';
           const stateTag = li.querySelector('[data-role="state"]');
+          const inlineTag = li.querySelector('[data-role="state-inline"]');
           if (checked){
             done.appendChild(li); li.classList.add('checked');
-            if (stateTag){
-              stateTag.classList.remove('hidden');
-              stateTag.textContent = fromStock ? '在庫あり' : '購入済み';
-              stateTag.classList.toggle('stock', fromStock);
-              stateTag.classList.toggle('purchased', !fromStock);
+            if (fromStock){
+              if (inlineTag){ inlineTag.innerHTML=''; }
+              if (stateTag){ stateTag.classList.remove('hidden'); stateTag.classList.add('stock'); stateTag.classList.remove('purchased'); stateTag.innerHTML = '<span class="lucide w-3 h-3" data-lucide="package"></span><span class="ml-1">ストック</span>'; }
+            } else {
+              // purchased: store date and render inline tag
+              const nowISO = new Date().toISOString();
+              try { window.__wm2_supDates[key] = nowISO; localStorage.setItem(DKEY, JSON.stringify(window.__wm2_supDates)); } catch(_){}
+              if (inlineTag){ inlineTag.innerHTML = '<span class="pill state purchased">購入済み ' + (fmtDate(nowISO) || '') + '</span>'; }
+              if (stateTag){ stateTag.textContent=''; stateTag.classList.add('hidden'); stateTag.classList.remove('stock','purchased'); }
             }
           } else {
             buy.appendChild(li); li.classList.remove('checked');
             if (stateTag){ stateTag.textContent=''; stateTag.classList.add('hidden'); stateTag.classList.remove('stock','purchased'); }
+            if (inlineTag){ inlineTag.innerHTML=''; }
+            try { delete window.__wm2_supDates[key]; localStorage.setItem(DKEY, JSON.stringify(window.__wm2_supDates)); } catch(_){}
           }
+        });
+        // Add-to-MyStock button handler (open modal for details)
+        document.addEventListener('click', async (ev)=>{
+          const btn = ev.target && ev.target.closest && ev.target.closest('#wm2-supplies [data-action="wm2-add-stock"]');
+          if (!btn) return;
+          const li = btn.closest('li'); if (!li) return;
+          const type = li.dataset.type; const name = li.dataset.name; const key = li.dataset.key;
+          const { ingNameToId, seaNameToId, ingNameSet, seaNameSet } = await getStockNameSets();
+          const id = type === 'ingredient' ? ingNameToId.get(name) : seaNameToId.get(name);
+          if (!id) { alert('品目のIDが見つかりません'); return; }
+
+          // Build modal
+          const modal = document.createElement('div');
+          modal.className = 'fixed inset-0 z-50';
+          modal.innerHTML = `
+            <div class="absolute inset-0 bg-black/40" data-close></div>
+            <div class="relative mx-auto mt-10 w-[720px] max-w-[96vw] rounded-2xl bg-white shadow-xl">
+              <div class="flex items-center justify-between border-b px-5 py-3">
+                <h3 class="font-semibold">マイストックに追加</h3>
+                <button type="button" data-close class="text-gray-500">✕</button>
+              </div>
+              <div class="p-4 space-y-3">
+                <div class="text-sm"><span class="font-semibold">対象:</span> ${name} <span class="text-xs text-gray-600">${type==='ingredient'?'食材':'調味料'}</span></div>
+                <div class="grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3">
+                  <div>
+                    <label class="text-xs text-gray-500">数量</label>
+                    <input data-x="amount" type="number" step="0.1" min="0" class="w-full border rounded px-3 py-2" placeholder="例: 1">
+                  </div>
+                  <div>
+                    <label class="text-xs text-gray-500">単位</label>
+                    <input data-x="unit" class="w-full border rounded px-3 py-2" placeholder="例: 個 / g / ml">
+                  </div>
+                  <div>
+                    <label class="text-xs text-gray-500">保管場所</label>
+                    <select data-x="place" class="w-full border rounded px-3 py-2"><option value="">選択してください</option></select>
+                    <button type="button" data-x="placeAdd" class="ml-2 text-xs text-emerald-700 underline">新規追加</button>
+                  </div>
+                  <div class="col-span-3"><label class="text-xs text-gray-500">コメント</label><input data-x="comment" class="w-full border rounded px-3 py-2" placeholder="メモなど"></div>
+                  <div class="col-span-3">
+                    <label class="text-xs text-gray-500">賞味期限</label>
+                    <input data-x="exp" type="date" class="w-full border rounded px-3 py-2">
+                  </div>
+                  <div class="col-span-3 flex items-center gap-2">
+                    <label class="inline-flex items-center gap-2 text-xs text-gray-700"><input type="checkbox" data-x="stockpile" class="rounded"> 備蓄</label>
+                  </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-2">
+                  <button type="button" data-close class="px-3 py-1.5 rounded border">キャンセル</button>
+                  <button type="button" data-x="save" class="px-4 py-1.5 rounded bg-blue-600 text-white text-sm inline-flex items-center gap-1">
+                    <span class="lucide w-4 h-4" data-lucide="package-plus"></span>
+                    追加する
+                  </button>
+                </div>
+              </div>
+            </div>`;
+          document.body.appendChild(modal);
+          if (window.refreshLucideIcons) window.refreshLucideIcons();
+
+          const close = () => { try { modal.remove(); } catch(_){} };
+          modal.addEventListener('click', (e)=>{ if (e.target.hasAttribute('data-close')) close(); });
+
+          // Load places
+          (async()=>{ try{ const list= await (await fetch('/users/my-stock/api/places')).json(); const sel=modal.querySelector('[data-x="place"]'); sel.innerHTML='<option value="">選択してください</option>'; (list||[]).forEach(p=>{ const op=document.createElement('option'); op.value=p._id; op.textContent=p.name; sel.appendChild(op); }); }catch(_){ } })();
+          modal.querySelector('[data-x="placeAdd"]').addEventListener('click', async ()=>{
+            const pname = prompt('保管場所名'); if(!pname) return;
+            try{
+              const res = await fetch('/users/my-stock/api/places', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: pname }) });
+              if (res.ok){ const created = await res.json(); const sel=modal.querySelector('[data-x="place"]'); const op=document.createElement('option'); op.value=created._id; op.textContent=created.name; sel.appendChild(op); sel.value=created._id; }
+            }catch(_){ alert('保管場所の追加に失敗しました'); }
+          });
+
+          modal.querySelector('[data-x="save"]').addEventListener('click', async ()=>{
+            const payload = {
+              type,
+              id,
+              amount: modal.querySelector('[data-x="amount"]').value,
+              unit: modal.querySelector('[data-x="unit"]').value,
+              placeId: modal.querySelector('[data-x="place"]').value || null,
+              expiryDate: modal.querySelector('[data-x="exp"]').value || null,
+              stockpile: !!modal.querySelector('[data-x="stockpile"]').checked,
+              comment: (modal.querySelector('[data-x="comment"]').value||'').trim()
+            };
+            try{
+              const res = await fetch('/users/my-stock/api/stocks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+              if (!res.ok) throw new Error('登録に失敗しました');
+            }catch(e){ alert(e.message || '登録に失敗しました'); return; }
+
+            // Update caches and UI
+            if (type === 'ingredient') { ingNameSet.add(name); } else { seaNameSet.add(name); }
+            li.dataset.fromStock = 'true';
+            state[key] = true; try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(_){ }
+            const cb = li.querySelector('input[type="checkbox"]'); if (cb && !cb.checked) cb.checked = true;
+            const done = document.getElementById('wm2-sup-done'); if (done) done.appendChild(li);
+            li.classList.add('checked');
+            const stateTag = li.querySelector('[data-role="state"]');
+            if (stateTag){
+              stateTag.classList.remove('hidden');
+              stateTag.classList.add('stock');
+              stateTag.classList.remove('purchased');
+              stateTag.innerHTML = '<span class="lucide w-3 h-3" data-lucide="package"></span><span class="ml-1">ストック</span>';
+            }
+            const inlineTag = li.querySelector('[data-role="state-inline"]'); if (inlineTag) inlineTag.innerHTML='';
+            const addBtn = li.querySelector('[data-action="wm2-add-stock"]'); if (addBtn) addBtn.remove();
+            if (window.refreshLucideIcons) window.refreshLucideIcons();
+            close();
+          });
         });
         window.__wm2_bindSuppliesChange = true;
       }
