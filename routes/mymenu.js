@@ -1483,19 +1483,16 @@ router.get('/edit/:menuId', async (req, res, next) => {
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
     ].filter(Boolean)));
-    // For original recipes, split combined comment into instruction/comment
-    let instructionText = '';
-    let commentText = menuDoc.comment || '';
-    if (owned && owned.sourceType === 'original') {
-      const raw = String(menuDoc.comment || '');
+    // Prepare instruction/comment for edit view
+    // Prefer fields as saved; only fallback to split legacy comment if instruction is empty.
+    let instructionText = String(menuDoc.instructionText || '');
+    let commentText = String(menuDoc.comment || '');
+    if ((owned && owned.sourceType === 'original') && !instructionText && commentText) {
+      const raw = commentText;
       const parts = raw.split(/\n{2,}/); // split by blank line(s)
       if (parts.length > 1) {
         instructionText = (parts.shift() || '').trim();
         commentText = parts.join('\n\n').trim();
-      } else {
-        // If we cannot detect delimiter, assume all is instruction
-        instructionText = raw;
-        commentText = '';
       }
     }
     // 公開URL（一般公開時のみ）
