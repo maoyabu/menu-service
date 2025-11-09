@@ -1,10 +1,13 @@
 <section class="max-w-6xl mx-auto py-8 space-y-6">
   <header class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold"><%= currentGroup ? currentGroup.group_name : 'グループ' %> のメンバーのマイメニュー</h1>
+      <a href="/users/my-menu" class="inline-flex items-center gap-1 text-blue-600 font-semibold mb-2">
+        <span class="lucide w-4 h-4" data-lucide="utensils"></span>
+        <span>マイメニュートップ</span>
+      </a>
+      <h1 class="text-2xl font-bold mt-2"><%= currentGroup ? currentGroup.group_name : 'グループ' %> のメンバーのマイメニュー</h1>
       <p class="text-sm text-gray-500">種類やジャンル、調理方法で絞り込み</p>
     </div>
-    <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold">マイメニュートップへ</a>
   </header>
 
   <form method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -54,4 +57,3 @@
     <% }) %>
   </div>
 </section>
-

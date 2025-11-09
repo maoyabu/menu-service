@@ -1068,6 +1068,55 @@ router.get('/original', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// 共有メニューを複製してオリジナル作成画面へ
+router.get('/duplicate/:id', async (req, res, next) => {
+  try {
+    const menuId = String(req.params.id || '').trim();
+    if (!menuId) return res.redirect('/users/my-menu/shared-register');
+
+    // 共通の候補リスト（/original と同じ）
+    const { kinds, junles, cooks } = await getFacetLists();
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = defaultGroupId || (groups[0]?._id?.toString() ?? null);
+    const groupScope = groupId
+      ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
+      : {};
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
+    const allUnits = Array.from(new Set([
+      ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
+      ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
+    ].filter(Boolean)));
+
+    const menu = await Menu.findById(menuId).lean();
+    if (!menu) {
+      req.flash('error', '対象メニューが見つかりません');
+      return res.redirect('/users/my-menu/shared-register');
+    }
+
+    const prefill = {
+      name: `【オリジナル】${menu.name || ''}`,
+      yomi: menu.yomi || '',
+      menu: menu.menu || '',
+      kind: menu.kind || '',
+      junle: menu.junle || '',
+      cook: menu.cook || '',
+      imageUrl: menu.imageUrl || '',
+      time: menu.time || '',
+      people: menu.people || 1,
+      instruction: menu.instructionText || '',
+      comment: menu.comment || '',
+      ingredients: (menu.ingredients || []).map((x)=>({ id: String(x.name||''), amount: x.amount || '', unit: x.unit || '' })),
+      seasonings: (menu.seasoning || []).map((x)=>({ id: String(x.name||''), amount: x.amount || '', unit: x.unit || '' }))
+    };
+
+    // Render original creation view with prefill
+    const myOriginalCount = await Mymenu.countDocuments({ user: req.user._id, sourceType: 'original' });
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, prefillOriginal: prefill });
+  } catch (err) { next(err); }
+});
+
 // 自分のオリジナルレシピ一覧
 router.get('/original-list', async (req, res, next) => {
   try {

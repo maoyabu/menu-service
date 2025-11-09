@@ -1,5 +1,14 @@
 <section class="max-w-5xl mx-auto py-8 space-y-6">
-  <header class="flex items-center justify-between">
+  <header class="flex flex-col items-start gap-2">
+    <% const __editTitle = (owned && owned.sourceType === 'original') ? 'オリジナルレシピを編集' : 'レシピを編集'; %>
+    <nav class="text-sm text-gray-600 inline-flex items-center gap-1">
+      <a href="/users/my-menu" class="inline-flex items-center gap-1 text-blue-600 font-semibold">
+        <span class="lucide w-4 h-4" data-lucide="utensils"></span>
+        <span>マイメニュートップ</span>
+      </a>
+      <span class="text-gray-400">›</span>
+      <span><%= __editTitle %></span>
+    </nav>
     <div>
       <% if (owned && owned.sourceType === 'original') { %>
         <div class="rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-purple-800">
@@ -13,7 +22,6 @@
         </div>
       <% } %>
     </div>
-    <a href="/users/my-menu/shared-register?fav=mine" class="text-sm text-blue-600 font-semibold">マイメニュー一覧へ</a>
   </header>
 
   <form method="post" action="/users/my-menu/edit/<%= menuDoc._id %>" class="bg-white border rounded-2xl p-5 space-y-4">
@@ -62,26 +70,25 @@
           <% }) %>
         </datalist>
       </div>
-      <div>
-        <label class="text-xs text-gray-500">レシピURL</label>
-        <input name="url" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.url || '' %>" />
-      </div>
-      <div>
+      
+      <div class="md:col-span-2">
         <label class="text-xs text-gray-500">画像URL（プレビューあり）</label>
-        <div class="flex gap-3 items-start">
+        <div class="flex gap-3 items-center">
           <input name="imageUrl" id="f_imageUrl" class="flex-1 border rounded-lg px-3 py-2" value="<%= menuDoc.imageUrl || '' %>" />
           <input type="file" id="f_imageFile" accept="image/*" class="hidden" />
           <img id="imgPreview" src="<%= menuDoc.imageUrl || '' %>" alt="preview" class="w-24 h-24 object-cover rounded border cursor-pointer" title="クリックして画像を変更" />
         </div>
         <p class="text-[11px] text-gray-500 mt-1">画像をクリックして差し替え（Cloudinaryへアップロード・旧画像は削除）</p>
       </div>
-      <div>
-        <label class="text-xs text-gray-500">調理時間（分）</label>
-        <input name="time" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.time || '' %>" />
-      </div>
-      <div>
-        <label class="text-xs text-gray-500">人数</label>
-        <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.people || 1 %>" />
+      <div class="grid grid-cols-2 gap-4 md:col-span-2">
+        <div>
+          <label class="text-xs text-gray-500">調理時間（分）</label>
+          <input name="time" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.time || '' %>" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">人数</label>
+          <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.people || 1 %>" />
+        </div>
       </div>
       <% if (owned && owned.sourceType === 'original') { %>
         <div class="md:col-span-2">
