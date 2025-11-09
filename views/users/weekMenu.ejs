@@ -162,7 +162,7 @@
               <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-300">
                 <span class="lucide w-4 h-4" data-lucide="search"></span>
               </span>
-              <input type="search" data-menu-modal-search placeholder="メニュー名や食材で検索" class="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              <input type="search" data-menu-modal-search placeholder="レシピ名・よみ・メニューで検索" class="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
             </div>
           </div>
           <div>
@@ -1760,13 +1760,12 @@
         if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
         if (activeFilters.cook && menu.cook !== activeFilters.cook) return false;
         if (!query) return true;
+        // 検索対象を「レシピ名・よみ・メニュー」に限定
         const candidates = [
           menu.name,
-          menu.junle,
-          menu.cook,
-          menu.kind,
+          menu.yomi,
           menu.menu
-        ].filter(Boolean).map((text) => text.toLowerCase());
+        ].filter(Boolean).map((text) => String(text).toLowerCase());
         return candidates.some((text) => text.includes(query));
       });
     };

@@ -203,6 +203,7 @@ const SLOT_TYPE_DETAILS = Object.freeze({
 const formatMenuDocument = (doc) => ({
   id: doc._id.toString(),
   name: doc.name,
+  yomi: doc.yomi || '',
   kind: doc.kind,
   cook: doc.cook,
   people: doc.people,
