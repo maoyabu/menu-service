@@ -352,7 +352,7 @@
         <% } %>
       </div>
       <a href="<%= (typeof currentWeekLink === 'string' ? currentWeekLink : '/users/week-menu').replace('/users/week-menu', '/users/week-menu2') %>" class="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
-        今週の7 DAYS PLANを編集する
+        今日のPLANを見る
         <span class="lucide w-4 h-4" data-lucide="arrow-up-right"></span>
       </a>
     </article>
@@ -423,7 +423,7 @@
           <button type="button" class="plan-calendar-header-btn" id="plan-calendar-prev" aria-label="前の月">
             <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
           </button>
-          <span class="text-sm font-semibold text-gray-800" id="plan-calendar-month-label">----</span>
+          <div class="text-sm font-semibold text-gray-800 leading-tight text-center whitespace-pre-line" id="plan-calendar-month-label">----</div>
           <button type="button" class="plan-calendar-header-btn" id="plan-calendar-next" aria-label="次の月">
             <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
           </button>
@@ -458,12 +458,12 @@
             <span class="lucide w-4 h-4" data-lucide="pencil"></span>
           </a>
         </div>
-        <div class="flex items-center gap-2">
-          <a href="/users/my-menu/mine" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100">
-            <span class="lucide w-3 h-3" data-lucide="list"></span>
-            マイメニューを見る
-          </a>
-        </div>
+      </div>
+      <div class="flex justify-end">
+        <a href="/users/my-menu/mine" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100">
+          <span class="lucide w-3 h-3" data-lucide="list"></span>
+          マイメニューを見る
+        </a>
       </div>
       <p class="text-xs text-gray-500">あなたのレシピコレクションを編集</p>
       <div class="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-4">
@@ -520,13 +520,13 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <h2 class="text-lg font-semibold">マイストック</h2>
-          <span class="text-xs text-gray-500">家にある食材・調味料を管理</span>
         </div>
         <a href="/users/my-stock" class="inline-flex items-center gap-2 text-sm font-semibold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-full hover:bg-purple-100">
           <span class="lucide w-4 h-4" data-lucide="package"></span>
           開く
         </a>
       </div>
+      <p class="text-xs text-gray-500">家にある食材・調味料を管理を表示</p>
       <div class="flex items-center gap-3 text-sm">
         <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">
           <span class="lucide w-3 h-3" data-lucide="leaf"></span>
@@ -537,7 +537,7 @@
           調味料: <span class="font-semibold"><%= (mystockCounts && mystockCounts.seasoning) || 0 %></span> 件
         </span>
       </div>
-      <p class="text-xs text-gray-500">分類ごとの在庫や賞味期限を確認・編集できます。</p>
+      
     </article>
 
     <!-- 家族のトピックス（コメントアウト） -->
@@ -1062,7 +1062,7 @@
       return date;
     };
 
-    const formatMonthLabel = (date) => `${date.getFullYear()}年 ${date.getMonth() + 1}月`;
+    const formatMonthLabel = (date) => `${date.getFullYear()}\n${date.getMonth() + 1}`;
 
     let currentMonth = config.initialMonth ? new Date(config.initialMonth) : (config.todayISO ? new Date(config.todayISO) : new Date());
     if (Number.isNaN(currentMonth.getTime())) currentMonth = new Date();
