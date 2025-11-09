@@ -36,11 +36,17 @@ const mymenuSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    // 共有範囲: 'group' | 'all'
+    // 共有範囲: 'group' | 'all' | 'public'（一般公開）
     shareScope: {
         type: String,
-        enum: ['group', 'all'],
+        enum: ['group', 'all', 'public'],
         default: 'group'
+    },
+    // 一般公開URL用トークン（存在する場合のみ一般公開可能）
+    publicToken: {
+        type: String,
+        index: true,
+        unique: false // グローバル一意を保証するほどでなくても良いが、実質衝突しない長さ
     },
     // 登録元: 'shared'（共有メニューから）| 'url'（レシピサイトから）| 'original'（オリジナル）
     sourceType: {

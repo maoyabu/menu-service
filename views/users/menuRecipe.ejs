@@ -21,7 +21,9 @@
         <% } %>
       </div>
     </div>
-    <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold whitespace-nowrap">マイメニューへ戻る</a>
+    <% if (!(typeof isPublic !== 'undefined' && isPublic)) { %>
+      <a href="/users/my-menu" class="text-sm text-blue-600 font-semibold whitespace-nowrap">マイメニューへ戻る</a>
+    <% } %>
   </header>
 
   <% if (menu.imageUrl) { %>

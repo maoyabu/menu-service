@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { isLoggedIn } from '../middleware.js';
 import Menu from '../models/menu.js';
@@ -14,6 +15,32 @@ import Seasoning from '../models/seasonings.js';
 const upload = multer({ dest: 'uploads/' });
 
 const router = express.Router();
+
+// 一般公開URL用トークン生成
+function generatePublicToken(len = 24){
+  return crypto.randomBytes(Math.ceil(len * 0.75)).toString('base64url').slice(0, len);
+}
+
+// 一般公開（ログイン不要）: /users/my-menu/public/:token
+router.get('/public/:token', async (req, res, next) => {
+  try {
+    const token = String(req.params.token || '').trim();
+    if (!token) return res.status(404).send('Not found');
+    const owned = await Mymenu.findOne({ publicToken: token, share: true, shareScope: 'public' })
+      .populate({ path: 'menu', populate: [ { path: 'ingredients.name', select: 'ingredient unit' }, { path: 'seasoning.name', select: 'seasoning unit' } ] })
+      .lean();
+    if (!owned || !owned.menu) return res.status(404).send('Not found');
+    const menu = owned.menu;
+    let instructionText = String(menu.instructionText || '');
+    let commentText = String(menu.comment || '');
+    if (!instructionText && commentText) {
+      const raw = commentText; const parts = raw.split(/\n{2,}/);
+      if (parts.length > 1){ instructionText = (parts.shift()||'').trim(); commentText = parts.join('\n\n').trim(); }
+      else { instructionText = raw; commentText = ''; }
+    }
+    return res.render('users/menuRecipe', { menu, instructionText, commentText, isPublic: true });
+  } catch(e){ return next(e); }
+});
 
 router.use(isLoggedIn);
 
@@ -913,13 +940,16 @@ router.post('/from-url', async (req, res, next) => {
       share: String(share) === 'true'
     });
 
+    const scope = (shareScope === 'all' ? 'all' : (shareScope === 'public' ? 'public' : 'group'));
+    const publicToken = (String(share) === 'true' && scope === 'public') ? generatePublicToken(24) : undefined;
     await Mymenu.create({
       menu: newMenu._id,
       favorite: String(favorite) === 'true',
       frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
       myurl: url || '',
       share: String(share) === 'true',
-      shareScope: shareScope === 'all' ? 'all' : 'group',
+      shareScope: scope,
+      ...(publicToken ? { publicToken } : {}),
       sourceType: 'url',
       user: req.user._id,
       group: groupId
@@ -1177,13 +1207,16 @@ router.post('/original', async (req, res, next) => {
       share: String(share) === 'true'
     });
 
+    const scope = (shareScope === 'all' ? 'all' : (shareScope === 'public' ? 'public' : 'group'));
+    const publicToken = (String(share) === 'true' && scope === 'public') ? generatePublicToken(24) : undefined;
     await Mymenu.create({
       menu: newMenu._id,
       favorite: String(favorite) === 'true',
       frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
       hidden: String(hidden) === 'true',
       share: String(share) === 'true',
-      shareScope: shareScope === 'all' ? 'all' : 'group',
+      shareScope: scope,
+      ...(publicToken ? { publicToken } : {}),
       sourceType: 'original',
       user: req.user._id,
       group: groupId
@@ -1516,15 +1549,20 @@ router.post('/edit/:menuId', async (req, res, next) => {
     await Menu.findByIdAndUpdate(menuId, updatePayload);
 
     // 更新時に自分のマイメニュー設定も反映（存在すれば）
-    await Mymenu.findOneAndUpdate(
-      { user: req.user._id, menu: menuId },
-      {
+    const scope = (shareScope === 'all' ? 'all' : (shareScope === 'public' ? 'public' : 'group'));
+    const mymenu = await Mymenu.findOne({ user: req.user._id, menu: menuId });
+    const updateShare = {
         favorite: String(favorite) === 'true',
         frequency: Math.max(1, Math.min(5, Number(frequency) || 3)),
         share: String(share) === 'true',
-        shareScope: shareScope === 'all' ? 'all' : 'group',
-        ...(owned && owned.sourceType === 'original' ? { hidden: String(req.body.hidden) === 'true' } : {})
-      },
+        shareScope: scope,
+    };
+    if (String(share) === 'true' && scope === 'public' && (!mymenu || !mymenu.publicToken)) {
+      updateShare.publicToken = generatePublicToken(24);
+    }
+    await Mymenu.findOneAndUpdate(
+      { user: req.user._id, menu: menuId },
+      { ...updateShare, ...(owned && owned.sourceType === 'original' ? { hidden: String(req.body.hidden) === 'true' } : {}) },
       { upsert: false }
     );
     req.flash('success', 'レシピを更新しました');
