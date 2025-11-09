@@ -3,7 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>7 DAYS PLAN</title>
+  <title><%= (typeof seo !== 'undefined' && seo && seo.title) ? seo.title : '7 DAYS PLAN' %></title>
+  <% if (typeof seo !== 'undefined' && seo) { %>
+    <% if (seo.description) { %>
+      <meta name="description" content="<%= seo.description %>">
+    <% } %>
+    <% if (seo.robots) { %>
+      <meta name="robots" content="<%= seo.robots %>">
+    <% } %>
+    <% if (seo.canonical) { %>
+      <link rel="canonical" href="<%= seo.canonical %>">
+    <% } %>
+    <% if (seo.title) { %>
+      <meta property="og:title" content="<%= seo.title %>">
+      <meta name="twitter:title" content="<%= seo.title %>">
+    <% } %>
+    <% if (seo.description) { %>
+      <meta property="og:description" content="<%= seo.description %>">
+      <meta name="twitter:description" content="<%= seo.description %>">
+    <% } %>
+    <% if (seo.image) { %>
+      <meta property="og:image" content="<%= seo.image %>">
+      <meta name="twitter:image" content="<%= seo.image %>">
+    <% } %>
+    <meta property="og:type" content="<%= seo.ogType || 'article' %>">
+    <meta name="twitter:card" content="summary_large_image">
+  <% } %>
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
 
   <!-- Google Fonts: Inter -->

@@ -141,6 +141,13 @@
               <option value="public" <%= (owned && owned.shareScope==='public') ? 'selected' : '' %>>一般公開</option>
             </select>
           </label>
+          <% if (publicUrl) { %>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="text-gray-700">公開URL:</span>
+            <input type="text" readonly class="border rounded px-2 py-1 w-80" value="<%= publicUrl %>" id="publicUrlInput">
+            <button type="button" class="px-2 py-1 rounded border text-sm" id="copyPublicUrl">コピー</button>
+          </div>
+          <% } %>
         </div>
       </div>
     </div>
@@ -216,6 +223,27 @@
       <button class="px-5 py-2 rounded-lg bg-emerald-600 text-white font-semibold">更新する</button>
     </div>
   </form>
+
+  <% if (publicUrl) { %>
+  <script>
+    (function(){
+      const btn = document.getElementById('copyPublicUrl');
+      const input = document.getElementById('publicUrlInput');
+      if (!btn || !input) return;
+      btn.addEventListener('click', async function(){
+        try {
+          await navigator.clipboard.writeText(input.value);
+          btn.textContent = 'コピーしました';
+          setTimeout(()=>{ btn.textContent='コピー'; }, 1500);
+        } catch(_) {
+          input.select(); document.execCommand('copy');
+          btn.textContent = 'コピーしました';
+          setTimeout(()=>{ btn.textContent='コピー'; }, 1500);
+        }
+      });
+    })();
+  </script>
+  <% } %>
 
   <datalist id="unitList">
     <% (allUnits || []).forEach(function(u){ %>

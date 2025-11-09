@@ -28,6 +28,7 @@ router.get('/public/:token', async (req, res, next) => {
     if (!token) return res.status(404).send('Not found');
     const owned = await Mymenu.findOne({ publicToken: token, share: true, shareScope: 'public' })
       .populate({ path: 'menu', populate: [ { path: 'ingredients.name', select: 'ingredient unit' }, { path: 'seasoning.name', select: 'seasoning unit' } ] })
+      .populate('user', 'displayname username')
       .lean();
     if (!owned || !owned.menu) return res.status(404).send('Not found');
     const menu = owned.menu;
@@ -38,8 +39,19 @@ router.get('/public/:token', async (req, res, next) => {
       if (parts.length > 1){ instructionText = (parts.shift()||'').trim(); commentText = parts.join('\n\n').trim(); }
       else { instructionText = raw; commentText = ''; }
     }
-    return res.render('users/menuRecipe', { menu, instructionText, commentText, isPublic: true });
+    const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
+    const canonical = `${baseUrl}${req.originalUrl}`;
+    const title = `${menu.name || ''} | 7 DAYS PLAN オリジナルレシピ`;
+    const description = `${menu.kind || ''}${menu.junle ? '・'+menu.junle: ''}${menu.cook ? '・'+menu.cook: ''}のオリジナルレシピ。7 DAYS PLANは「今日何食べる？」のストレスから解放してくれるサービスです。`;
+    const seo = { title, description, image: menu.imageUrl || '', canonical, robots: 'index,follow', ogType: 'article' };
+    const ownerName = (owned.user?.displayname || owned.user?.username || '') || '';
+    return res.render('users/menuRecipe', { menu, instructionText, commentText, isPublic: true, ownerName, seo });
   } catch(e){ return next(e); }
+});
+
+// サービスの簡単な案内ページ（一般公開）
+router.get('/guide', (req, res) => {
+  res.render('users/guide');
 });
 
 router.use(isLoggedIn);
@@ -1486,7 +1498,12 @@ router.get('/edit/:menuId', async (req, res, next) => {
         commentText = '';
       }
     }
-    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned, instructionText, commentText });
+    // 公開URL（一般公開時のみ）
+    const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
+    const publicUrl = (owned && owned.share && owned.shareScope === 'public' && owned.publicToken)
+      ? `${baseUrl}/users/my-menu/public/${owned.publicToken}`
+      : '';
+    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned, instructionText, commentText, publicUrl });
   } catch (err) { next(err); }
 });
 

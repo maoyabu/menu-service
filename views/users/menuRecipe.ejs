@@ -2,6 +2,13 @@
   <header class="flex items-start justify-between gap-4">
     <div class="min-w-0">
       <h1 class="text-2xl font-bold break-words"><%= menu.name %></h1>
+      <% if (typeof isPublic !== 'undefined' && isPublic) { %>
+        <div class="mt-2 p-3 rounded border border-red-600 bg-red-50 text-red-800 text-xs leading-relaxed">
+          <p>このレシピは7 DAYS PLANで<%= ownerName || 'ユーザー' %>さんがオリジナルで作成したレシピです。</p>
+          <p class="mt-1">7 DAYS PLANとは「今日何食べる？」のストレスからの解放してくれるサービスです。</p>
+          <p class="mt-1"><a href="/users/my-menu/guide" class="text-blue-700 underline">詳しくはこちらをご覧下さい。</a></p>
+        </div>
+      <% } %>
       <% const timeText = (function(t){ if (t===undefined||t===null||t==='') return ''; var n=Number(t); if(!Number.isNaN(n) && n>0) return n+"分"; return String(t); })(menu.time); %>
       <div class="mt-2 flex flex-wrap gap-2 text-xs">
         <% if (menu.kind) { %>
