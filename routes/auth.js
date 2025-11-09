@@ -8,6 +8,7 @@ import Group from '../models/groups.js';
 import Notification from '../models/notification.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
+import MenuDo from '../models/menuDo.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
 import Stock from '../models/stock.js';
 import { isLoggedIn } from '../middleware.js';
@@ -962,6 +963,27 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     }
     const weekMenuView = (targetWeekStart.getTime() === todayWeekStart.getTime()) ? 'current' : 'next';
 
+    // Fetch current user's DO ("これ食べた") records for this week
+    let doRecords = [];
+    try {
+      if (currentGroupId && Array.isArray(baseWeekDates) && baseWeekDates.length >= 7) {
+        const rangeStart = startOfDay(baseWeekDates[0]);
+        const rangeEnd = startOfDay(baseWeekDates[6]);
+        const docs = await MenuDo.find({
+          group: currentGroupId,
+          recordedBy: req.user?._id,
+          date: { $gte: rangeStart, $lte: rangeEnd }
+        }).select('date mealType menu').lean();
+        doRecords = (docs || []).map((d) => ({
+          dateISO: d.date ? new Date(d.date).toISOString() : '',
+          mealType: d.mealType || '',
+          menuId: d.menu ? String(d.menu) : ''
+        }));
+      }
+    } catch (e) {
+      console.warn('DO records fetch failed:', e?.message || e);
+    }
+
 	const viewTemplate = 'users/weekMenu2';
 	res.render(viewTemplate, {
     categoryConfig: CATEGORY_CONFIG,
@@ -987,7 +1009,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     participantsMap,
 
     myMenuIds,
-    weekMenuView
+    weekMenuView,
+    doRecords
 	});
   
   } catch (err) {
@@ -2241,5 +2264,112 @@ router.get('/users/week-menu/participant-reasons', isLoggedIn, async (req, res) 
   } catch (err) {
     console.error('過去理由取得エラー:', err);
     return res.status(500).json({ error: '理由を取得できませんでした。' });
+  }
+});
+
+// 記録: 「これ食べた」（DO）
+router.post('/users/week-menu/do', isLoggedIn, async (req, res) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const body = req.body || {};
+    const groupId = String(body.groupId || body.group || '').trim();
+    const planId = String(body.planId || '').trim();
+    const dayIndex = Number(body.dayIndex);
+    const mealType = String(body.mealType || '').trim();
+    const menuId = String(body.menuId || '').trim();
+    const dateISO = String(body.dateISO || '').trim();
+
+    if (!groupId || !userGroups.some((g) => String(g._id) === groupId)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+    if (!(mealType === 'lunch' || mealType === 'dinner')) {
+      return res.status(400).json({ error: '不正な食事区分です。' });
+    }
+    if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex > 6) {
+      return res.status(400).json({ error: '不正な日付インデックスです。' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(menuId)) {
+      return res.status(400).json({ error: '不正なメニューIDです。' });
+    }
+    const date = dateISO ? new Date(dateISO) : null;
+    if (!date || Number.isNaN(date.getTime())) {
+      return res.status(400).json({ error: '不正な日付です。' });
+    }
+
+    // 未来日は不可
+    const today = startOfDay(new Date());
+    const target = startOfDay(date);
+    if (target.getTime() > today.getTime()) {
+      return res.status(400).json({ error: '未来日の記録はできません。' });
+    }
+
+    // 既存の重複を避ける
+    try {
+      await MenuDo.create({
+        group: groupId,
+        plan: mongoose.Types.ObjectId.isValid(planId) ? planId : undefined,
+        date: target,
+        dayIndex,
+        mealType,
+        menu: menuId,
+        recordedBy: req.user._id
+      });
+      return res.json({ success: true, recorded: true });
+    } catch (err) {
+      // 重複（ユニーク制約）なら成功として扱う
+      if (err && err.code === 11000) {
+        return res.json({ success: true, recorded: false, duplicate: true });
+      }
+      throw err;
+    }
+  } catch (err) {
+    console.error('DO記録エラー:', err);
+    return res.status(500).json({ error: '記録に失敗しました。' });
+  }
+});
+
+// 記録取消: 「これ食べた」を取り消す
+router.delete('/users/week-menu/do', isLoggedIn, async (req, res) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const body = req.body || {};
+    const groupId = String(body.groupId || body.group || '').trim();
+    const dayIndex = Number(body.dayIndex);
+    const mealType = String(body.mealType || '').trim();
+    const menuId = String(body.menuId || '').trim();
+    const dateISO = String(body.dateISO || '').trim();
+
+    if (!groupId || !userGroups.some((g) => String(g._id) === groupId)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+    if (!(mealType === 'lunch' || mealType === 'dinner')) {
+      return res.status(400).json({ error: '不正な食事区分です。' });
+    }
+    if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex > 6) {
+      return res.status(400).json({ error: '不正な日付インデックスです。' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(menuId)) {
+      return res.status(400).json({ error: '不正なメニューIDです。' });
+    }
+    const date = dateISO ? new Date(dateISO) : null;
+    if (!date || Number.isNaN(date.getTime())) {
+      return res.status(400).json({ error: '不正な日付です。' });
+    }
+
+    const target = new Date(date);
+    target.setHours(0,0,0,0);
+
+    const result = await MenuDo.findOneAndDelete({
+      group: groupId,
+      date: target,
+      mealType,
+      menu: menuId,
+      recordedBy: req.user._id
+    });
+
+    return res.json({ success: true, removed: !!result });
+  } catch (err) {
+    console.error('DO取消エラー:', err);
+    return res.status(500).json({ error: '取消に失敗しました。' });
   }
 });

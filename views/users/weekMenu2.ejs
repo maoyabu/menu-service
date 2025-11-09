@@ -56,6 +56,10 @@
   .wm2-card .img .fav-overlay{ position:absolute; top:8px; right:8px; z-index:2; }
   .wm2-card .img .fav-overlay .icon-button{ background:rgba(255,255,255,0.92); }
   .wm2-card .img .fav-overlay .icon-button[aria-pressed="true"]{ color:#e11d48; border-color:#fecdd3; background:#fff1f2; }
+  /* DO overlay ("これ食べた") bottom-right on image */
+  .wm2-card .img .do-overlay{ position:absolute; bottom:8px; right:8px; z-index:2; }
+  /* 初期は白背景、記録済みはJSでbg-emerald-50に切替。CSSは未記録のみ白に限定 */
+  .wm2-card .img .do-overlay .icon-button[data-recorded="false"]{ background:rgba(255,255,255,0.96); }
   .wm2-badges{ display:flex; flex-wrap:wrap; gap:8px; }
   .wm2-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:9999px; font-size:11px; font-weight:600; }
   .wm2-chip.time{ background:#ecfdf5; color:#065f46; }
@@ -185,6 +189,14 @@
     const lookup = window.weekMenuData && window.weekMenuData.menuLookup || {};
     const catConfig = window.weekMenuData && window.weekMenuData.categoryConfig || {};
     const WEEK = Array.isArray(window.weekMenuData?.weekDates) ? window.weekMenuData.weekDates : <%- JSON.stringify(weekDates || []) %>;
+    const DO_RECS = Array.isArray(window.weekMenuData?.doRecords) ? window.weekMenuData.doRecords : [];
+    const DO_SET = new Set(DO_RECS.map((r) => {
+      const d = (r && r.dateISO) ? String(r.dateISO) : '';
+      const k = `${d.slice(0,10)}|${r.mealType || ''}|${String(r.menuId || '')}`;
+      return k;
+    }));
+    // expose for other scripts (click handler) to update on the fly
+    window.__wm2_DO_SET = DO_SET;
     // Unify icon-button styling with weekMenu.ejs
     const ICON_BTN = 'icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40';
     const groupSize = Number(window.weekMenuData?.groupSize) > 0 ? Number(window.weekMenuData.groupSize) : 1;
@@ -496,6 +508,37 @@
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
         const card = cardEl(row);
+        // Add DO overlay button at image bottom-right on past/today
+        try {
+          const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
+          const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
+          const canRecord = dayISO && (new Date(dayISO).setHours(0,0,0,0) <= new Date(todayISO).setHours(0,0,0,0));
+          if (canRecord && slot && slot.menuId) {
+            const img = card.querySelector('.img');
+            if (img) {
+              const div = document.createElement('div');
+              div.className = 'do-overlay';
+              div.innerHTML = `<button type="button" class="${ICON_BTN}" data-action="wm2-mark-ate" title="これ食べた" data-menu-id="${String(slot.menuId)}" data-meal="lunch" data-day="${String(sel)}" data-recorded="false"><span class="sr-only">これ食べた</span><span class="lucide w-4 h-4" data-lucide="cooking-pot"></span></button>`;
+              img.appendChild(div);
+              try {
+                const b = div.querySelector('button');
+                if (b) {
+                  // 初期状態: 記録済みなら緑に
+                  try {
+                    const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
+                    const key = `${String(dayISO).slice(0,10)}|lunch|${String(slot.menuId)}`;
+                    if (window.__wm2_DO_SET && window.__wm2_DO_SET.has(key)) {
+                      b.dataset.recorded = 'true';
+                      b.classList.remove('bg-white','text-gray-500','border-gray-200','hover:text-blue-600','hover:border-blue-300','focus:ring-blue-100');
+                      b.classList.add('bg-emerald-50','text-emerald-700','border-emerald-300','hover:text-emerald-800','hover:border-emerald-400','focus:ring-emerald-200');
+                    }
+                  } catch(_) {}
+                  b.addEventListener('click', function(ev){ if (window.__wm2_markAte) window.__wm2_markAte(ev); ev.stopImmediatePropagation(); ev.stopPropagation(); return false; });
+                }
+              } catch(_) {}
+            }
+          }
+        } catch(_) {}
         item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
         // Sync fav overlay active state
         try {
@@ -526,6 +569,37 @@
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
         const card = cardEl(row);
+        // Add DO overlay button at image bottom-right on past/today
+        try {
+          const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
+          const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
+          const canRecord = dayISO && (new Date(dayISO).setHours(0,0,0,0) <= new Date(todayISO).setHours(0,0,0,0));
+          if (canRecord && slot && slot.menuId) {
+            const img = card.querySelector('.img');
+            if (img) {
+              const div = document.createElement('div');
+              div.className = 'do-overlay';
+              div.innerHTML = `<button type="button" class="${ICON_BTN}" data-action="wm2-mark-ate" title="これ食べた" data-menu-id="${String(slot.menuId)}" data-meal="dinner" data-day="${String(sel)}" data-recorded="false"><span class="sr-only">これ食べた</span><span class="lucide w-4 h-4" data-lucide="cooking-pot"></span></button>`;
+              img.appendChild(div);
+              try {
+                const b = div.querySelector('button');
+                if (b) {
+                  // 初期状態: 記録済みなら緑に
+                  try {
+                    const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
+                    const key = `${String(dayISO).slice(0,10)}|dinner|${String(slot.menuId)}`;
+                    if (window.__wm2_DO_SET && window.__wm2_DO_SET.has(key)) {
+                      b.dataset.recorded = 'true';
+                      b.classList.remove('bg-white','text-gray-500','border-gray-200','hover:text-blue-600','hover:border-blue-300','focus:ring-blue-100');
+                      b.classList.add('bg-emerald-50','text-emerald-700','border-emerald-300','hover:text-emerald-800','hover:border-emerald-400','focus:ring-emerald-200');
+                    }
+                  } catch(_) {}
+                  b.addEventListener('click', function(ev){ if (window.__wm2_markAte) window.__wm2_markAte(ev); ev.stopImmediatePropagation(); ev.stopPropagation(); return false; });
+                }
+              } catch(_) {}
+            }
+          }
+        } catch(_) {}
         item.appendChild(card); item.appendChild(actions); dinnerWrap.appendChild(item);
         // Sync fav overlay active state
         try {
@@ -650,11 +724,11 @@
             <div class="space-y-3 text-[15px]">
               <label class="block">
                 <span class="text-sm text-gray-700">お店の名前</span>
-                <input type="text" id="wm2-dine-name" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="店名を入力" />
+                <input type="text" id="wm2-dine-name" name="dineName" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="店名を入力" />
               </label>
               <label class="block">
                 <span class="text-sm text-gray-700">グルメサイトのURL（任意）</span>
-                <input type="url" id="wm2-dine-url" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="https://..." />
+                <input type="url" id="wm2-dine-url" name="dineUrl" class="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="https://..." />
               </label>
             </div>
             <div class="mt-5 flex justify-end gap-2">
@@ -741,6 +815,102 @@
         close();
       }
     });
+  })();
+</script>
+
+<!-- weekMenu2: 「これ食べた」 API 呼び出し -->
+<script>
+  (function(){
+    console.log('[wm2] DO handler boot');
+    const sod = (d)=>{ const x=new Date(d); x.setHours(0,0,0,0); return x; };
+    function applyRecordedStyle(btn, recorded){
+      try { console.log('[wm2] applyRecordedStyle', { recorded, before: btn.className, dataRecorded: btn.dataset.recorded }); } catch(_) {}
+      btn.dataset.recorded = recorded ? 'true' : 'false';
+      const clsOn = ['bg-emerald-50','text-emerald-700','border-emerald-300','hover:text-emerald-800','hover:border-emerald-400','focus:ring-emerald-200'];
+      const clsOff = ['bg-white','text-gray-500','border-gray-200','hover:text-blue-600','hover:border-blue-300','focus:ring-blue-100'];
+      // reset base
+      btn.classList.remove(...clsOn, ...clsOff);
+      // ICON_BTN base minimal assumptions: ensure icon-button base remains; rely on original classes existing
+      const base = 'icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition disabled:cursor-not-allowed disabled:opacity-40'.split(' ');
+      base.forEach(c => { if (!btn.classList.contains(c)) btn.classList.add(c); });
+      // add border/text colors
+      (recorded ? clsOn : clsOff).forEach(c => btn.classList.add(c));
+      try { console.log('[wm2] applyRecordedStyle after', btn.className, 'data-recorded=', btn.dataset.recorded); } catch(_) {}
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+    async function __handle(ev) {
+      const btn = ev.target.closest('[data-action="wm2-mark-ate"]');
+      if (!btn) return false;
+      if (btn.dataset.busy === 'true') { console.log('[wm2] busy: skip'); return false; }
+      btn.dataset.busy = 'true';
+      ev.preventDefault();
+      try {
+        console.log('[wm2] DO click');
+        const data = window.weekMenuData || {};
+        const week = Array.isArray(data.weekDates) ? data.weekDates : [];
+        const dayIndex = Number(btn.getAttribute('data-day'));
+        const meal = btn.getAttribute('data-meal');
+        const menuId = btn.getAttribute('data-menu-id');
+        const dateISO = (week[dayIndex] && (week[dayIndex].dateISO || week[dayIndex])) || '';
+        const todayISO = data.todayISO || new Date().toISOString();
+        console.log('[wm2] payload base', { dayIndex, meal, menuId, dateISO, todayISO });
+        if (!menuId) throw new Error('メニューが特定できません');
+        if (!dateISO) throw new Error('日付が特定できません');
+        if (sod(new Date(dateISO)).getTime() > sod(new Date(todayISO)).getTime()) throw new Error('未来日は記録できません');
+
+        const recorded = btn.dataset.recorded === 'true';
+        console.log('[wm2] recorded?', recorded);
+        // ensure planId (only needed when recording, not when deleting)
+        let planId = data.planId || '';
+        if (!recorded) {
+          if (!planId && window.weekMenuAPI && window.weekMenuAPI.saveWeekPlanSilently) {
+            try { await window.weekMenuAPI.saveWeekPlanSilently(); planId = (window.weekMenuData && window.weekMenuData.planId) || ''; } catch(_) {}
+          }
+        }
+
+        const payload = { planId: planId || '', groupId: data.currentGroupId || '', dayIndex, dateISO, mealType: meal, menuId };
+        console.log('[wm2] request', recorded ? 'DELETE' : 'POST', payload);
+        let resp;
+        if (!recorded) {
+          // record
+          resp = await fetch('/users/week-menu/do', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        } else {
+          // unrecord
+          resp = await fetch('/users/week-menu/do', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        }
+        console.log('[wm2] response status', resp.status);
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error('[wm2] response error', resp.status, txt);
+          throw new Error(recorded ? '取消に失敗しました' : '記録に失敗しました');
+        }
+        const json = await resp.json();
+        console.log('[wm2] response json', json);
+        if (!json || !json.success) throw new Error(recorded ? '取消に失敗しました' : '記録に失敗しました');
+
+        // Toggle style + state
+        applyRecordedStyle(btn, !recorded);
+        // Update in-memory DO set so that re-rendered days reflect the latest state
+        try {
+          const key = `${String(dateISO).slice(0,10)}|${meal}|${String(menuId)}`;
+          if (window.__wm2_DO_SET) {
+            if (!recorded) window.__wm2_DO_SET.add(key); else window.__wm2_DO_SET.delete(key);
+            console.log('[wm2] DO set updated', !recorded ? 'add' : 'delete', key);
+          }
+        } catch(_) {}
+      } catch (err) {
+        console.error('[wm2] DO error', err);
+        alert(err.message || '記録に失敗しました');
+      }
+      btn.dataset.busy = 'false';
+      return false;
+    }
+
+    // expose only direct handler (per-button listeners call this)
+    window.__wm2_markAte = __handle;
+    console.log('[wm2] DO handler attached');
+
+    // 初期描画時は未記録スタイルのまま
   })();
 </script>
 
@@ -848,7 +1018,7 @@
         pop.innerHTML = `
           <div class="text-sm font-semibold mb-2">作り置き人数</div>
           <div class="flex items-center gap-2">
-            <input type="number" min="0" step="1" id="wm2-prep-input" class="w-20 border rounded px-2 py-1" />
+            <input type="number" min="0" step="1" id="wm2-prep-input" name="prepExtra" aria-label="追加作り置き人数" class="w-20 border rounded px-2 py-1" />
             <span class="text-sm">名分</span>
           </div>
           <div class="mt-3 flex justify-end gap-2">
@@ -1043,7 +1213,7 @@
           const stateClass = checked ? (it.fromStock ? 'stock' : 'purchased') : '';
           li.innerHTML = `
             <div class="flex items-start gap-2 w-full">
-              <input type="checkbox" class="mt-1" ${checked ? 'checked' : ''} />
+              <input type="checkbox" class="mt-1" name="wm2-supply-check" aria-label="${it.name}" ${checked ? 'checked' : ''} />
               <span class="flex-1">
                 <span class="text-sm font-medium text-gray-800">${it.name}</span>
                 <span class="ml-2 text-xs text-gray-600">${it.amountText}</span>
@@ -1138,25 +1308,25 @@
                 <div class="text-sm"><span class="font-semibold">対象:</span> ${name} <span class="text-xs text-gray-600">${type==='ingredient'?'食材':'調味料'}</span></div>
                 <div class="grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3">
                   <div>
-                    <label class="text-xs text-gray-500">数量</label>
-                    <input data-x="amount" type="number" step="0.1" min="0" class="w-full border rounded px-3 py-2" placeholder="例: 1">
+                    <label class="text-xs text-gray-500" for="wm2-stock-amount">数量</label>
+                    <input id="wm2-stock-amount" name="amount" data-x="amount" type="number" step="0.1" min="0" class="w-full border rounded px-3 py-2" placeholder="例: 1">
                   </div>
                   <div>
-                    <label class="text-xs text-gray-500">単位</label>
-                    <input data-x="unit" class="w-full border rounded px-3 py-2" placeholder="例: 個 / g / ml">
+                    <label class="text-xs text-gray-500" for="wm2-stock-unit">単位</label>
+                    <input id="wm2-stock-unit" name="unit" data-x="unit" class="w-full border rounded px-3 py-2" placeholder="例: 個 / g / ml">
                   </div>
                   <div>
-                    <label class="text-xs text-gray-500">保管場所</label>
-                    <select data-x="place" class="w-full border rounded px-3 py-2"><option value="">選択してください</option></select>
+                    <label class="text-xs text-gray-500" for="wm2-stock-place">保管場所</label>
+                    <select id="wm2-stock-place" name="place" data-x="place" class="w-full border rounded px-3 py-2"><option value="">選択してください</option></select>
                     <button type="button" data-x="placeAdd" class="ml-2 text-xs text-emerald-700 underline">新規追加</button>
                   </div>
-                  <div class="col-span-3"><label class="text-xs text-gray-500">コメント</label><input data-x="comment" class="w-full border rounded px-3 py-2" placeholder="メモなど"></div>
+                  <div class="col-span-3"><label class="text-xs text-gray-500" for="wm2-stock-comment">コメント</label><input id="wm2-stock-comment" name="comment" data-x="comment" class="w-full border rounded px-3 py-2" placeholder="メモなど"></div>
                   <div class="col-span-3">
-                    <label class="text-xs text-gray-500">賞味期限</label>
-                    <input data-x="exp" type="date" class="w-full border rounded px-3 py-2">
+                    <label class="text-xs text-gray-500" for="wm2-stock-exp">賞味期限</label>
+                    <input id="wm2-stock-exp" name="exp" data-x="exp" type="date" class="w-full border rounded px-3 py-2">
                   </div>
                   <div class="col-span-3 flex items-center gap-2">
-                    <label class="inline-flex items-center gap-2 text-xs text-gray-700"><input type="checkbox" data-x="stockpile" class="rounded"> 備蓄</label>
+                    <label class="inline-flex items-center gap-2 text-xs text-gray-700"><input type="checkbox" id="wm2-stock-stockpile" name="stockpile" data-x="stockpile" class="rounded"> 備蓄</label>
                   </div>
                 </div>
                 <div class="flex items-center justify-end gap-2 pt-2">
