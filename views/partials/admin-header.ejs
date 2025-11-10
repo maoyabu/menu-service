@@ -56,6 +56,12 @@
         <span class="hidden sm:inline bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded"><%= (user.displayname || user.username || user.email || '') %></span>
       </div>
 
+      <!-- Guide link (always visible) -->
+      <a href="https://colts-wish-krs.craft.me/qQrgjsNkauAsKQ" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
+        <i data-lucide="book-open" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">ガイド</span>
+      </a>
+
       <div class="flex items-center gap-2 border border-gray-300 rounded px-3 py-1">
         <a href="/settings?view=profile" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition hide-under-890">
           <i data-lucide="settings" class="w-4 h-4"></i>
@@ -70,10 +76,16 @@
         </form>
       </div>
     <% } else { %>
-      <a href="/user/login" class="flex items-center gap-1 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">
-        <i data-lucide="log-in" class="w-4 h-4"></i>
-        <span>ログイン</span>
-      </a>
+      <div class="flex items-center gap-2">
+        <a href="https://colts-wish-krs.craft.me/qQrgjsNkauAsKQ" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+          <span>ガイド</span>
+        </a>
+        <a href="/user/login" class="flex items-center gap-1 border border-gray-300 px-3 py-1 rounded hover:bg-gray-50">
+          <i data-lucide="log-in" class="w-4 h-4"></i>
+          <span>ログイン</span>
+        </a>
+      </div>
     <% } %>
   </div>
 </header>
