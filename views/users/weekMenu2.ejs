@@ -1220,9 +1220,6 @@
                 <span class="ml-2" data-role="state-inline"></span>
               </span>
               <span class="pill ${it.type==='ingredient'?'ing':'sea'}">${it.type==='ingredient'?'食材':'調味料'}</span>
-              ${checked ? (it.fromStock ? `
-                <span class=\"pill state ${stateClass}\" data-role=\"state\"><span class=\"lucide w-3 h-3\" data-lucide=\"package\"></span><span class=\"ml-1\">ストック</span></span>
-              ` : `<span class=\"pill state hidden\" data-role=\"state\"></span>`) : `<span class=\"pill state hidden\" data-role=\"state\"></span>`}
               ${!it.fromStock ? `
                 <button type="button" class="ml-2 inline-flex items-center justify-center rounded-full border border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-1 text-xs font-semibold" data-action="wm2-add-stock" title="マイストックに追加">
                   <span class="text-xs font-bold leading-none mr-0.5">＋</span>

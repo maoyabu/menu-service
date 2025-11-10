@@ -963,6 +963,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       }
     }
     const weekMenuView = (targetWeekStart.getTime() === todayWeekStart.getTime()) ? 'current' : 'next';
+    // expose supplies/menu mode for hamburger highlighting
+    const weekMenuMode = (typeof req.query.show === 'string' && req.query.show === 'supplies') ? 'supplies' : 'menu';
 
     // Fetch current user's DO ("これ食べた") records for this week
     let doRecords = [];
@@ -1011,7 +1013,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     myMenuIds,
     weekMenuView,
-    doRecords
+    doRecords,
+    weekMenuMode
 	});
   
   } catch (err) {
