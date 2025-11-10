@@ -7,7 +7,7 @@
 <% const wmMode = (typeof weekMenuMode !== 'undefined' ? weekMenuMode : null); %>
 <% const activeNextSupplies = (isWeekRoute && wmView === 'next' && wmMode === 'supplies'); %>
 <% /* Compute next week's Monday (week start) in ISO, same logic as server */ %>
-<% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); %>
+<% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); const _afterNextMon = new Date(_nextMon); _afterNextMon.setDate(_afterNextMon.getDate() + 7); const afterNextWeekStartISO = _afterNextMon.toISOString(); %>
 
 <div id="app-menu-overlay" class="hidden fixed inset-0 z-[60] bg-black/40 opacity-0 transition-opacity duration-200"></div>
 
@@ -107,9 +107,9 @@
           </a>
         </li>
         <li>
-          <a href="/users/week-menu" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= (activeNext && !activeNextSupplies) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+          <a href="/users/week-menu?weekStart=<%= encodeURIComponent(afterNextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= (activeNext && !activeNextSupplies) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="calendar-plus" class="w-5 h-5 <%= (activeNext && !activeNextSupplies) ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>来週の7 DAYS PLANを作成</span>
+            <span>再来週の7 DAYS PLANを作成</span>
             <% if (activeNext && !activeNextSupplies) { %>
               <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
             <% } %>

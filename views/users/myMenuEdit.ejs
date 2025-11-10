@@ -138,7 +138,9 @@
             <select name="shareScope" class="border rounded px-2 py-1">
               <option value="group" <%= (!owned || owned.shareScope==='group') ? 'selected' : '' %>>グループ内</option>
               <option value="all" <%= (owned && owned.shareScope==='all') ? 'selected' : '' %>>全会員</option>
-              <option value="public" <%= (owned && owned.shareScope==='public') ? 'selected' : '' %>>一般公開</option>
+              <% if (owned && owned.sourceType === 'original') { %>
+                <option value="public" <%= (owned && owned.shareScope==='public') ? 'selected' : '' %>>一般公開</option>
+              <% } %>
             </select>
           </label>
           <% if (publicUrl) { %>

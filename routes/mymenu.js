@@ -952,8 +952,9 @@ router.post('/from-url', async (req, res, next) => {
       share: String(share) === 'true'
     });
 
-    const scope = (shareScope === 'all' ? 'all' : (shareScope === 'public' ? 'public' : 'group'));
-    const publicToken = (String(share) === 'true' && scope === 'public') ? generatePublicToken(24) : undefined;
+    // URL 由来は一般公開不可
+    const scope = (shareScope === 'all' ? 'all' : 'group');
+    const publicToken = undefined;
     await Mymenu.create({
       menu: newMenu._id,
       favorite: String(favorite) === 'true',
@@ -1106,7 +1107,8 @@ router.get('/original', async (req, res, next) => {
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
     ].filter(Boolean)));
-    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits });
+    const menuNames = await Menu.find().distinct('menu');
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames });
   } catch (err) { next(err); }
 });
 
@@ -1155,7 +1157,8 @@ router.get('/duplicate/:id', async (req, res, next) => {
 
     // Render original creation view with prefill
     const myOriginalCount = await Mymenu.countDocuments({ user: req.user._id, sourceType: 'original' });
-    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, prefillOriginal: prefill });
+    const menuNames = await Menu.find().distinct('menu');
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, prefillOriginal: prefill });
   } catch (err) { next(err); }
 });
 
@@ -1563,7 +1566,10 @@ router.post('/edit/:menuId', async (req, res, next) => {
     await Menu.findByIdAndUpdate(menuId, updatePayload);
 
     // 更新時に自分のマイメニュー設定も反映（存在すれば）
-    const scope = (shareScope === 'all' ? 'all' : (shareScope === 'public' ? 'public' : 'group'));
+    // 一般公開はオリジナルのみ許可
+    const allowPublic = !!(owned && owned.sourceType === 'original');
+    const scope = allowPublic ? (shareScope === 'all' ? 'all' : (shareScope === 'public' ? 'public' : 'group'))
+                              : (shareScope === 'all' ? 'all' : 'group');
     const mymenu = await Mymenu.findOne({ user: req.user._id, menu: menuId });
     const updateShare = {
         favorite: String(favorite) === 'true',
@@ -1571,7 +1577,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
         share: String(share) === 'true',
         shareScope: scope,
     };
-    if (String(share) === 'true' && scope === 'public' && (!mymenu || !mymenu.publicToken)) {
+    if (allowPublic && String(share) === 'true' && scope === 'public' && (!mymenu || !mymenu.publicToken)) {
       updateShare.publicToken = generatePublicToken(24);
     }
     await Mymenu.findOneAndUpdate(

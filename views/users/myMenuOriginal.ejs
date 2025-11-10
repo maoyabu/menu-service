@@ -33,8 +33,13 @@
         <input name="yomi" class="w-full border rounded-lg px-3 py-2" required />
       </div>
       <div>
-        <label class="text-xs text-gray-500">メニュー（自由入力）</label>
-        <input name="menu" class="w-full border rounded-lg px-3 py-2" required />
+        <label class="text-xs text-gray-500">メニュー（自由入力 or 選択）</label>
+        <input name="menu" list="menuList" class="w-full border rounded-lg px-3 py-2" required />
+        <datalist id="menuList">
+          <% (typeof menuNames !== 'undefined' ? menuNames : []).forEach(function(m){ if (!m) return; %>
+            <option value="<%= m %>"></option>
+          <% }) %>
+        </datalist>
       </div>
       <div>
         <label class="text-xs text-gray-500">種類</label>
