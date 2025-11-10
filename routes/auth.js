@@ -1620,21 +1620,36 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 
     const currentGroupId = defaultGroupId || fallbackGroupId || '';
 
+    // Next week (来週)
     const baseWeekDates = getNextWeekDates();
     const weekStartDate = baseWeekDates[0];
     const weekEndDate = baseWeekDates[6];
-  const nextWeekRangeLabel = `${formatDisplayDate(weekStartDate)}〜${formatDisplayDate(weekEndDate)}`;
+    const nextWeekRangeLabel = `${formatDisplayDate(weekStartDate)}〜${formatDisplayDate(weekEndDate)}`;
+
+    // Week after next (再来週)
+    const afterNextWeekStart = addDays(startOfWeek(new Date()), 14);
+    const afterNextWeekDates = getWeekDatesFromStart(afterNextWeekStart);
+    const afterNextWeekStartISO = afterNextWeekStart.toISOString();
+    const afterNextWeekRangeLabel = `${formatDisplayDate(afterNextWeekDates[0])}〜${formatDisplayDate(afterNextWeekDates[6])}`;
 
   const today = startOfDay(new Date());
   const initialCalendarMonthISO = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
 
   let nextWeekPlan = null;
+  let afterNextWeekPlan = null;
   if (currentGroupId) {
     const normalizedWeekStart = new Date(weekStartDate);
     normalizedWeekStart.setHours(0, 0, 0, 0);
     nextWeekPlan = await WeeklyMenuPlan.findOne({
       group: currentGroupId,
       weekStart: normalizedWeekStart
+    }).select('_id weekStart weekEnd title').lean();
+
+    const normalizedAfterNextStart = new Date(afterNextWeekStart);
+    normalizedAfterNextStart.setHours(0, 0, 0, 0);
+    afterNextWeekPlan = await WeeklyMenuPlan.findOne({
+      group: currentGroupId,
+      weekStart: normalizedAfterNextStart
     }).select('_id weekStart weekEnd title').lean();
   }
 
@@ -1962,6 +1977,10 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   res.render('users/myTop', {
     nextWeekPlan,
     nextWeekRangeLabel,
+    // Week after next
+    afterNextWeekPlan,
+    afterNextWeekStartISO,
+    afterNextWeekRangeLabel,
     currentGroupId,
     todayISO: today.toISOString(),
     initialCalendarMonthISO,

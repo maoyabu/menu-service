@@ -249,7 +249,7 @@ app.listen(PORT, () => {
               rangeLabel,
               linkUrl
             });
-            const subject = `${g.group_name || 'グループ'}の7 DAYS PLAN準備のお知らせ`;
+            const subject = `再来週の 7 DAYS PLAN を作成しましょう - ${g.group_name || 'グループ'}`;
             await sendMail({ to: u.email, subject, html });
           }
 

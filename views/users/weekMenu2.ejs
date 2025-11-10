@@ -133,7 +133,7 @@
   <!-- Title above preview -->
   <div class="wm2-title justify-between">
     <h2>7 DAYS PLAN</h2>
-    <button type="button" id="wm2-toggle-supplies" class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">食材・調味料リストを表示</button>
+    <button type="button" id="wm2-toggle-supplies" class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">お買い物リストを表示</button>
   </div>
   <p id="wm2-supplies-range" aria-live="polite"></p>
   <!-- Weekly supplies (collapsed by default) -->
@@ -1404,7 +1404,7 @@
       if (box) box.classList.toggle('hidden', !showSupplies);
       if (preview) preview.classList.toggle('hidden', showSupplies);
       if (main) main.classList.toggle('hidden', showSupplies);
-      if (toggleBtn) toggleBtn.textContent = showSupplies ? 'メニューの表示' : '食材・調味料リストを表示';
+      if (toggleBtn) toggleBtn.textContent = showSupplies ? 'メニューの表示' : 'お買い物リストを表示';
       if (section) section.dataset.mode = showSupplies ? 'supplies' : 'menu';
       if (showSupplies) render();
     };
@@ -1414,6 +1414,12 @@
         setMode(nowShowing ? 'menu' : 'supplies');
       });
     }
+
+    // Default to supplies mode when query param show=supplies
+    try {
+      const qp = new URLSearchParams(window.location.search || '');
+      if (qp.get('show') === 'supplies') setMode('supplies');
+    } catch (_) { /* noop */ }
 
     // Re-render when plan changes
     document.addEventListener('weekplan:rendered', ()=>{ if (box && !box.classList.contains('hidden')) render(); });

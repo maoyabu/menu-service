@@ -3,16 +3,20 @@
   const currentUserName = (typeof user !== 'undefined' && user)
     ? (user.displayname || user.username || user.email || 'ユーザー')
     : 'ユーザー';
-  const hasNextWeekPlan = typeof nextWeekPlan !== 'undefined' && nextWeekPlan && nextWeekPlan._id;
-  const nextPlanId = hasNextWeekPlan ? String(nextWeekPlan._id) : '';
-  const planButtonLabel = hasNextWeekPlan ? '来週の 7 DAYS PLAN を編集' : '来週の 7 DAYS PLAN を作成';
-  const buttonIcon = hasNextWeekPlan ? 'pencil' : 'plus';
+  // 再来週の 7 DAYS PLAN へ誘導
+  const hasAfterNextWeekPlan = typeof afterNextWeekPlan !== 'undefined' && afterNextWeekPlan && afterNextWeekPlan._id;
+  const afterNextPlanId = hasAfterNextWeekPlan ? String(afterNextWeekPlan._id) : '';
+  const planButtonLabel = hasAfterNextWeekPlan ? '再来週の 7 DAYS PLAN を編集' : '再来週の 7 DAYS PLAN を作成';
+  const buttonIcon = hasAfterNextWeekPlan ? 'pencil' : 'plus';
   const queryParts = [];
   if (typeof currentGroupId !== 'undefined' && currentGroupId) {
     queryParts.push(`group=${currentGroupId}`);
   }
-  if (hasNextWeekPlan) {
-    queryParts.push(`plan=${nextPlanId}`);
+  if (typeof afterNextWeekStartISO !== 'undefined' && afterNextWeekStartISO) {
+    queryParts.push(`weekStart=${encodeURIComponent(afterNextWeekStartISO)}`);
+  }
+  if (hasAfterNextWeekPlan) {
+    queryParts.push(`plan=${afterNextPlanId}`);
   }
   const weekMenuLink = '/users/week-menu2' + (queryParts.length ? `?${queryParts.join('&')}` : '');
 %>
@@ -187,12 +191,12 @@
             こんにちは、<span class="text-emerald-200"><%= currentUserName %></span> さん
           </h1>
           <p class="text-sm md:text-base text-white/80 leading-relaxed">
-            「今日何食べる」のストレスからの解放！来週1週間のMENUをおすすめします。使えば使うほど自分にぴったりなMENUがおすすめされるようになります。
+            「今日何食べる」のストレスからの解放！再来週1週間のMENUをおすすめします。使えば使うほど自分にぴったりなMENUがおすすめされるようになります。
           </p>
         </div>
         <div class="flex flex-col gap-2 mb-2 md:mb-0">
           <div class="flex flex-wrap gap-3">
-            <% const isEditMode = hasNextWeekPlan; %>
+            <% const isEditMode = hasAfterNextWeekPlan; %>
             <a
               href="<%= weekMenuLink %>"
               class="inline-flex items-center gap-2 rounded-full text-sm font-semibold px-5 py-2 transition <%= isEditMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-blue-600 hover:bg-blue-50' %>"
@@ -201,8 +205,8 @@
               <%= planButtonLabel %>
             </a>
           </div>
-          <% if (hasNextWeekPlan && typeof nextWeekRangeLabel !== 'undefined') { %>
-            <p class="text-xs text-white/80">保存済み: <%= nextWeekRangeLabel %></p>
+          <% if (hasAfterNextWeekPlan && typeof afterNextWeekRangeLabel !== 'undefined') { %>
+            <p class="text-xs text-white/80">保存済み: <%= afterNextWeekRangeLabel %></p>
           <% } %>
         </div>
       </div>
