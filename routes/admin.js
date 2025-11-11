@@ -3,6 +3,7 @@ import Menu from '../models/menu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import { isAdmin } from '../middleware.js';
+import Equipment from '../models/equipment.js';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
 import ExcelJS from 'exceljs';
@@ -23,15 +24,158 @@ router.get('/admin-top', async (req, res) => {
     const menuCount = await Menu.countDocuments();
     const ingredientCount = await Ingredient.countDocuments();
     const seasoningCount = await Seasoning.countDocuments();
+    const equipmentCount = await Equipment.countDocuments();
 
     res.render('admin/admin-top', {
       menuCount,
       ingredientCount,
-      seasoningCount
+      seasoningCount,
+      equipmentCount
     });
   } catch (err) {
     console.error('ダッシュボード表示エラー:', err);
     res.status(500).send('ダッシュボードを表示できませんでした');
+  }
+});
+
+// 備品一覧
+router.get('/equipment-list', async (req, res) => {
+  try {
+    const { keyword, houseCategory, disasterCategory, campingCategory, consumable } = req.query;
+    const filter = {};
+    const and = [];
+    if (keyword) {
+      const re = new RegExp(String(keyword), 'i');
+      and.push({ $or: [
+        { name: re },
+        { unit: re },
+        { houseCategory: re },
+        { disasterCategory: re },
+        { campingCategory: re },
+        { maintenance: re }
+      ]});
+    }
+    if (houseCategory) and.push({ houseCategory });
+    if (disasterCategory) and.push({ disasterCategory });
+    if (campingCategory) and.push({ campingCategory });
+    if (consumable === 'true') and.push({ isConsumable: true });
+    if (consumable === 'false') and.push({ isConsumable: false });
+    if (and.length) filter.$and = and;
+
+    const equipments = await Equipment.find(filter).sort({ name: 1 }).lean();
+
+    // distinct values for selects
+    const [units, houseCategories, disasterCategories, campingCategories, maintenances] = await Promise.all([
+      Equipment.distinct('unit'),
+      Equipment.distinct('houseCategory'),
+      Equipment.distinct('disasterCategory'),
+      Equipment.distinct('campingCategory'),
+      Equipment.distinct('maintenance')
+    ]);
+
+    res.render('admin/equipment-list', {
+      equipments,
+      keyword: keyword || '',
+      selectedHouse: houseCategory || '',
+      selectedDisaster: disasterCategory || '',
+      selectedCamping: campingCategory || '',
+      selectedConsumable: consumable || '',
+      units,
+      houseCategories,
+      disasterCategories,
+      campingCategories,
+      maintenances
+    });
+  } catch (err) {
+    console.error('備品一覧取得エラー:', err);
+    res.status(500).send('備品一覧を取得できませんでした');
+  }
+});
+
+// 備品新規作成 画面
+router.get('/equipment-new', async (req, res) => {
+  try {
+    const [units, houseCategories, disasterCategories, campingCategories, maintenances] = await Promise.all([
+      Equipment.distinct('unit'),
+      Equipment.distinct('houseCategory'),
+      Equipment.distinct('disasterCategory'),
+      Equipment.distinct('campingCategory'),
+      Equipment.distinct('maintenance')
+    ]);
+    res.render('admin/equipment-new', { units, houseCategories, disasterCategories, campingCategories, maintenances });
+  } catch (err) {
+    console.error('備品新規作成ページ表示エラー:', err);
+    res.status(500).send('備品新規作成ページを表示できませんでした');
+  }
+});
+
+// 備品新規作成 保存
+router.post('/equipment-new', async (req, res) => {
+  try {
+    const { name, unit, isConsumable, houseCategory, disasterCategory, campingCategory, maintenance } = req.body;
+    await Equipment.create({
+      name: String(name || '').trim(),
+      unit: String(unit || '').trim(),
+      isConsumable: isConsumable === 'true' || isConsumable === true || isConsumable === 'on',
+      houseCategory: String(houseCategory || '').trim(),
+      disasterCategory: String(disasterCategory || '').trim(),
+      campingCategory: String(campingCategory || '').trim(),
+      maintenance: String(maintenance || '').trim()
+    });
+    res.redirect('/admin/equipment-list');
+  } catch (err) {
+    console.error('備品保存エラー:', err);
+    res.status(500).send('備品を保存できませんでした');
+  }
+});
+
+// 備品編集 画面
+router.get('/equipment-edit/:id', async (req, res) => {
+  try {
+    const eq = await Equipment.findById(req.params.id).lean();
+    if (!eq) return res.status(404).send('該当の備品が見つかりません');
+    const [units, houseCategories, disasterCategories, campingCategories, maintenances] = await Promise.all([
+      Equipment.distinct('unit'),
+      Equipment.distinct('houseCategory'),
+      Equipment.distinct('disasterCategory'),
+      Equipment.distinct('campingCategory'),
+      Equipment.distinct('maintenance')
+    ]);
+    res.render('admin/equipment-edit', { eq, units, houseCategories, disasterCategories, campingCategories, maintenances });
+  } catch (err) {
+    console.error('備品編集画面表示エラー:', err);
+    res.status(500).send('編集画面を表示できませんでした');
+  }
+});
+
+// 備品編集 保存
+router.post('/equipment-edit/:id', async (req, res) => {
+  try {
+    const { name, unit, isConsumable, houseCategory, disasterCategory, campingCategory, maintenance } = req.body;
+    await Equipment.findByIdAndUpdate(req.params.id, {
+      name: String(name || '').trim(),
+      unit: String(unit || '').trim(),
+      isConsumable: isConsumable === 'true' || isConsumable === true || isConsumable === 'on',
+      houseCategory: String(houseCategory || '').trim(),
+      disasterCategory: String(disasterCategory || '').trim(),
+      campingCategory: String(campingCategory || '').trim(),
+      maintenance: String(maintenance || '').trim()
+    });
+    res.redirect('/admin/equipment-list');
+  } catch (err) {
+    console.error('備品更新エラー:', err);
+    res.status(500).send('備品を更新できませんでした');
+  }
+});
+
+// 備品削除
+router.post('/equipment-delete/:id', async (req, res) => {
+  try {
+    await Equipment.findByIdAndDelete(req.params.id);
+    res.redirect('/admin/equipment-list');
+  } catch (err) {
+    console.error('備品削除エラー:', err);
+    res.status(500).send('備品を削除できませんでした');
   }
 });
 

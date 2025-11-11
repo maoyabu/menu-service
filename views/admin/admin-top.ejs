@@ -39,6 +39,15 @@
       </div>
       <p class="text-sm text-gray-500">調味料マスターの管理</p>
     </a>
+    <a href="/admin/equipment-list" class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
+          <i data-lucide="package" class="w-6 h-6 text-gray-700"></i>
+        </div>
+        <h2 class="text-lg font-medium text-gray-900">備品管理</h2>
+      </div>
+      <p class="text-sm text-gray-500">備品マスターの管理</p>
+    </a>
     <a href="/admin/admin-setting" class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
       <div class="flex items-center space-x-3 mb-2">
         <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
@@ -67,6 +76,11 @@
         <i data-lucide="beaker" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
         <p class="font-semibold text-gray-900 text-xl"><%= seasoningCount %></p>
         <p class="text-sm text-gray-500 mt-1">登録調味料数</p>
+      </div>
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="package" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p class="font-semibold text-gray-900 text-xl"><%= typeof equipmentCount !== 'undefined' ? equipmentCount : 0 %></p>
+        <p class="text-sm text-gray-500 mt-1">備品登録数</p>
       </div>
       <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
         <i data-lucide="activity" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>

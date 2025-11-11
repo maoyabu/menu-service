@@ -1,0 +1,90 @@
+<div class="container mx-auto px-6 py-10">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-900">備品管理</h1>
+      <p class="text-sm text-gray-500">備品の一覧・検索・編集</p>
+    </div>
+    <a href="/admin/equipment-new" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700">新規登録</a>
+  </div>
+
+  <form method="get" action="/admin/equipment-list" class="bg-white border border-gray-200 rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-6 gap-3">
+    <div class="md:col-span-2">
+      <label class="block text-xs text-gray-600 mb-1">キーワード</label>
+      <input type="text" name="keyword" value="<%= keyword %>" placeholder="名称・保管場所・分類など" class="w-full border-gray-300 rounded-md" />
+    </div>
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">家ストック分類</label>
+      <select name="houseCategory" class="w-full border-gray-300 rounded-md">
+        <option value="">すべて</option>
+        <% (houseCategories||[]).filter(Boolean).forEach(cat => { %>
+          <option value="<%= cat %>" <%= selectedHouse===cat? 'selected':'' %>><%= cat %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">防災対策分類</label>
+      <select name="disasterCategory" class="w-full border-gray-300 rounded-md">
+        <option value="">すべて</option>
+        <% (disasterCategories||[]).filter(Boolean).forEach(cat => { %>
+          <option value="<%= cat %>" <%= selectedDisaster===cat? 'selected':'' %>><%= cat %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">キャンプ用分類</label>
+      <select name="campingCategory" class="w-full border-gray-300 rounded-md">
+        <option value="">すべて</option>
+        <% (campingCategories||[]).filter(Boolean).forEach(cat => { %>
+          <option value="<%= cat %>" <%= selectedCamping===cat? 'selected':'' %>><%= cat %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">消耗品</label>
+      <select name="consumable" class="w-full border-gray-300 rounded-md">
+        <option value="">すべて</option>
+        <option value="true" <%= selectedConsumable==='true'? 'selected':'' %>>消耗品のみ</option>
+        <option value="false" <%= selectedConsumable==='false'? 'selected':'' %>>非消耗のみ</option>
+      </select>
+    </div>
+    <div class="flex items-end">
+      <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm rounded-md">検索</button>
+    </div>
+  </form>
+
+  <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">名称</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">単位</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">家</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">防災</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">キャンプ</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">消耗品</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">メンテ</th>
+          <th class="px-4 py-2"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        <% (equipments||[]).forEach(e => { %>
+          <tr>
+            <td class="px-4 py-2"><%= e.name %></td>
+            <td class="px-4 py-2"><%= e.unit || '' %></td>
+            <td class="px-4 py-2"><%= e.houseCategory || '' %></td>
+            <td class="px-4 py-2"><%= e.disasterCategory || '' %></td>
+            <td class="px-4 py-2"><%= e.campingCategory || '' %></td>
+            <td class="px-4 py-2"><%= e.isConsumable ? 'はい' : 'いいえ' %></td>
+            <td class="px-4 py-2"><%= e.maintenance || '' %></td>
+            <td class="px-4 py-2 text-right space-x-2">
+              <a href="/admin/equipment-edit/<%= e._id %>" class="px-3 py-1 text-sm border rounded-md">編集</a>
+              <form method="post" action="/admin/equipment-delete/<%= e._id %>" class="inline" onsubmit="return confirm('削除しますか？');">
+                <button class="px-3 py-1 text-sm border rounded-md text-red-600 border-red-300">削除</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
