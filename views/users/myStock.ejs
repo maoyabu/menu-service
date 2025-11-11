@@ -1,6 +1,6 @@
 <section class="max-w-6xl mx-auto py-8 space-y-6">
   <header class="flex items-center justify-between">
-    <div>
+    <div class="flex items-center gap-3">
       <h1 class="text-2xl font-bold">マイストック</h1>
       <p class="text-sm text-gray-500">自宅にストックしている食材・調味料を管理</p>
     </div>
@@ -163,10 +163,39 @@
       const modal=document.createElement('div'); modal.className='fixed inset-0 z-50 hidden overflow-y-auto';
       modal.innerHTML=`
         <div class=\"absolute inset-0 bg-black/40\" data-close></div>
-        <div class=\"relative mx-auto mt-10 w-[900px] max-w-[96vw] rounded-2xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-3 py-2\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-[40vh] overflow-auto border rounded p-3 bg-green-50\"></div>\n              <div data-role=\"selected\" class=\"hidden border rounded p-3 bg-blue-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-3 py-2\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-3 py-2\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-3 py-2\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-3 py-2\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 flex items-end justify-end gap-3\">\n                <div class=\"w-40\"><label class=\"text-xs text-gray-500\">賞味期限</label><input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-3 py-2\"></div>\n                <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">ストックに追加</button>\n              </div>\n            </div>\n          </div>\n        </div>`;
+        <div class=\"relative mx-auto mt-10 w-[900px] max-w-[96vw] rounded-2xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-3 py-2\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-48 overflow-auto border rounded p-3 bg-green-50\"></div>\n              <div data-role=\"selected\" class=\"hidden border rounded p-3 bg-blue-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-3 py-2\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-3 py-2\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-3 py-2\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-3 py-2\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 flex items-end justify-end gap-3\">\n                <div class=\"w-40\"><label class=\"text-xs text-gray-500\">賞味期限</label><input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-3 py-2\"></div>\n                <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">ストックに追加</button>\n              </div>\n            </div>\n          </div>\n        </div>`;
       document.body.appendChild(modal);
       // Post-process: blue box styling, label, unit datalist, stockpile checkbox
       try {
+        // Arrange preset search row (keyword + genres + clear in one line)
+        const presetRoot = modal.querySelector('div[data-view="preset"]');
+        if (presetRoot) {
+          const kw = presetRoot.querySelector('[data-role="kw"]');
+          const genres = presetRoot.querySelector('[data-role="genres"]');
+          const selected = presetRoot.querySelector('[data-role="selected"]');
+          if (selected) selected.remove();
+          if (kw && genres) {
+            // Clear current positions
+            kw.parentElement && kw.parentElement.removeChild(kw);
+            genres.parentElement && genres.parentElement.removeChild(genres);
+            // Build row
+            const row = document.createElement('div');
+            row.className = 'flex flex-wrap items-end gap-2';
+            // narrow keyword width on md+
+            kw.className = 'border rounded px-3 py-2 w-full md:w-1/2';
+            row.appendChild(kw);
+            genres.className = 'flex items-center gap-2';
+            row.appendChild(genres);
+            const clr = document.createElement('button');
+            clr.type = 'button';
+            clr.textContent = 'クリア';
+            clr.className = 'px-3 py-1.5 border border-gray-500 rounded text-sm text-gray-700';
+            clr.addEventListener('click', ()=>{ try{ kw.value=''; state.genre=''; run(); }catch(_){} });
+            row.appendChild(clr);
+            // Insert row at top of presetRoot
+            presetRoot.insertBefore(row, presetRoot.firstChild);
+          }
+        }
         const gridBox = modal.querySelector('div.grid.grid-cols-3.gap-3');
         if (gridBox) gridBox.classList.add('border','rounded','bg-blue-50','p-3');
         const expInput = modal.querySelector('[data-x="exp"]');
@@ -183,7 +212,7 @@
         // Add stockpile checkbox into the controls row
         const controlsRow = modal.querySelector('div.col-span-3.flex.items-end.justify-end.gap-3');
         if (controlsRow && !modal.querySelector('[data-x="stockpile"]')){
-          const lb=document.createElement('label'); lb.className='inline-flex items-center gap-1 mr-auto text-xs text-gray-700';
+          const lb=document.createElement('label'); lb.className='inline-flex items-center gap-1 mr-auto text-base text-gray-700';
           const cb=document.createElement('input'); cb.type='checkbox'; cb.className='rounded'; cb.setAttribute('data-x','stockpile');
           lb.appendChild(cb); lb.appendChild(document.createTextNode(' 備蓄'));
           controlsRow.prepend(lb);
@@ -211,12 +240,12 @@
           const cats=Array.isArray(m?.genres)? m.genres: [];
           // プルダウン（分類）
           const select=document.createElement('select');
-          select.className='border rounded px-3 py-2';
-          // ラベル「分類：」
-          holder.className='flex items-center gap-2';
-          const label=document.createElement('span');
-          label.textContent='分類：';
-          label.className='text-sm text-gray-700';
+          select.className='w-full border rounded px-3 py-2';
+          // ラベル（上に表示）
+          holder.className='w-48';
+          const label=document.createElement('label');
+          label.textContent='分類';
+          label.className='block text-xs text-gray-500 mb-1';
           const all=['すべて',...cats];
           all.forEach((label,idx)=>{
             const val=idx===0?'':label;
@@ -242,7 +271,31 @@
           if(catSel){ catSel.innerHTML='<option value="">選択してください</option>'; cats.forEach(c=>{ const op=document.createElement('option'); op.value=c; op.textContent=c; catSel.appendChild(op); }); }
         }catch(_){}
       }
-      function renderTags(data){ const tags=modal.querySelector('[data-role="tags"]'); const selected=modal.querySelector('[data-role="selected"]'); const unitDL = modal.querySelector('#stockUnitList'); if(unitDL) unitDL.innerHTML=''; tags.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML=''; (data||[]).forEach(it=>{ const name=it.ingredient||it.seasoning||''; const units=Array.isArray(it.unit)? it.unit: (it.unit?[it.unit]:[]); const b=document.createElement('button'); b.type='button'; b.className='px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200'; b.textContent=name; b.addEventListener('click', ()=>{ state.selectedId=String(it._id); selected.classList.remove('hidden'); selected.innerHTML=`<div class=\"text-sm\"><span class=\"font-semibold\">選択:</span> ${name} <span class=\"text-xs text-gray-600\">${it.classification||''}</span></div>`; const box=modal.querySelector('div.grid.grid-cols-3'); if(box) box.classList.remove('hidden'); if(unitDL){ unitDL.innerHTML=''; (units||[]).forEach(u=>{ const op=document.createElement('option'); op.value=u; unitDL.appendChild(op); }); } }); tags.appendChild(b); }); }
+      function renderTags(data){
+        const tags=modal.querySelector('[data-role="tags"]');
+        const unitDL = modal.querySelector('#stockUnitList'); if(unitDL) unitDL.innerHTML='';
+        tags.innerHTML='';
+        (data||[]).forEach(it=>{
+          const name=it.ingredient||it.seasoning||'';
+          const units=Array.isArray(it.unit)? it.unit: (it.unit?[it.unit]:[]);
+          const wrap=document.createElement('span'); wrap.className='rounded px-1.5 py-1 bg-green-50';
+          const b=document.createElement('button'); b.type='button'; b.dataset.id=String(it._id);
+          const isSel = state.selectedId && String(state.selectedId)===String(it._id);
+          b.className='px-3 py-1.5 rounded-full ' + (isSel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
+          b.textContent=name;
+          b.addEventListener('click', ()=>{
+            state.selectedId=String(it._id);
+            // update styles
+            Array.from(tags.querySelectorAll('button')).forEach(btn=>{
+              const sel = String(btn.dataset.id) === state.selectedId;
+              btn.className='px-3 py-1.5 rounded-full ' + (sel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
+            });
+            const box=modal.querySelector('div.grid.grid-cols-3'); if(box) box.classList.remove('hidden');
+            if(unitDL){ unitDL.innerHTML=''; (units||[]).forEach(u=>{ const op=document.createElement('option'); op.value=u; unitDL.appendChild(op); }); }
+          });
+          wrap.appendChild(b); tags.appendChild(wrap);
+        });
+      }
       let __reqSeq = 0;
       async function run(){
         const mySeq = ++__reqSeq;
@@ -364,7 +417,7 @@
         const grid = lastRow && lastRow.parentElement;
         if (grid && lastRow){
           const holder=document.createElement('div');
-          const lb=document.createElement('label'); lb.className='inline-flex items-center gap-1 text-xs text-gray-700';
+          const lb=document.createElement('label'); lb.className='inline-flex items-center gap-1 text-base text-gray-700';
           const cb=document.createElement('input'); cb.type='checkbox'; cb.className='rounded'; cb.setAttribute('data-x','stockpile'); if (data && data.stockpile) cb.checked=true;
           lb.appendChild(cb); lb.appendChild(document.createTextNode(' 備蓄'));
           grid.insertBefore(holder, lastRow); holder.appendChild(lb);

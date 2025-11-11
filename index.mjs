@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin.js';
 import settingsRoutes from './routes/settings.js';
 import mymenuRoutes from './routes/mymenu.js';
 import mystockRoutes from './routes/mystock.js';
+import myequipmentRoutes from './routes/myequipment.js';
 import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
 import WeeklyAnnouncement from './models/weeklyAnnouncement.js';
@@ -116,6 +117,7 @@ app.use(authRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/users/my-menu', mymenuRoutes);
 app.use('/users/my-stock', mystockRoutes);
+app.use('/users/my-equipment', myequipmentRoutes);
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
