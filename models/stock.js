@@ -9,6 +9,8 @@ const stockSchema = new mongoose.Schema({
   place: { type: mongoose.Schema.Types.ObjectId, ref: 'StoragePlace', default: null },
   expiryDate: { type: Date, default: null },
   stockpile: { type: Boolean, default: false },
+  productUrl: { type: String, default: '' },
+  productImageUrl: { type: String, default: '' },
   comment: { type: String, default: '' },
   // MyStock checklist
   lastCheckedAt: { type: Date, default: null },

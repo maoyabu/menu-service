@@ -1296,37 +1296,67 @@
           modal.className = 'fixed inset-0 z-50';
           modal.innerHTML = `
             <div class="absolute inset-0 bg-black/40" data-close></div>
-            <div class="relative mx-auto mt-10 w-[720px] max-w-[96vw] rounded-2xl bg-white shadow-xl">
+            <div class="relative mx-auto mt-10 w-[720px] max-w-[96vw] rounded-xl bg-white shadow-xl">
               <div class="flex items-center justify-between border-b px-5 py-3">
                 <h3 class="font-semibold">マイストックに追加</h3>
                 <button type="button" data-close class="text-gray-500">✕</button>
               </div>
               <div class="p-4 space-y-3">
-                <div class="text-sm"><span class="font-semibold">対象:</span> ${name} <span class="text-xs text-gray-600">${type==='ingredient'?'食材':'調味料'}</span></div>
-                <div class="grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3">
+                <div class="text-sm">
+                  <span class="font-semibold">対象:</span>
+                  ${name}
+                  <span class="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+                    ${type==='ingredient'?'食材':'調味料'}
+                  </span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 border rounded bg-blue-50 p-3">
                   <div>
                     <label class="text-xs text-gray-500" for="wm2-stock-amount">数量</label>
-                    <input id="wm2-stock-amount" name="amount" data-x="amount" type="number" step="0.1" min="0" class="w-full border rounded px-3 py-2" placeholder="例: 1">
+                    <input id="wm2-stock-amount" name="amount" data-x="amount" type="number" step="0.1" min="0" class="w-full border rounded px-2 py-1" placeholder="例: 1">
                   </div>
                   <div>
                     <label class="text-xs text-gray-500" for="wm2-stock-unit">単位</label>
-                    <input id="wm2-stock-unit" name="unit" data-x="unit" class="w-full border rounded px-3 py-2" placeholder="例: 個 / g / ml">
+                    <input id="wm2-stock-unit" name="unit" data-x="unit" class="w-full border rounded px-2 py-1" placeholder="例: 個 / g / ml">
                   </div>
                   <div>
                     <label class="text-xs text-gray-500" for="wm2-stock-place">保管場所</label>
-                    <select id="wm2-stock-place" name="place" data-x="place" class="w-full border rounded px-3 py-2"><option value="">選択してください</option></select>
+                    <select id="wm2-stock-place" name="place" data-x="place" class="w-full border rounded px-2 py-1"><option value="">選択してください</option></select>
                     <button type="button" data-x="placeAdd" class="ml-2 text-xs text-emerald-700 underline">新規追加</button>
                   </div>
-                  <div class="col-span-3"><label class="text-xs text-gray-500" for="wm2-stock-comment">コメント</label><input id="wm2-stock-comment" name="comment" data-x="comment" class="w-full border rounded px-3 py-2" placeholder="メモなど"></div>
+                  <div class="col-span-3 md:col-span-2 space-y-1">
+                    <label class="text-xs text-gray-500" for="wm2-stock-product-url">商品URL（任意）</label>
+                    <div class="flex flex-col gap-3 md:flex-row md:items-start">
+                      <div class="flex-1 min-w-0 space-y-1">
+                        <input id="wm2-stock-product-url" name="productUrl" data-x="productUrl" type="url" class="w-full border rounded px-2 py-1" placeholder="例: https://www.amazon.co.jp/...">
+                        <div class="text-[11px] text-gray-500" data-role="image-url">
+                          画像URL：
+                          <span data-role="image-url-text" class="break-all">未取得</span>
+                        </div>
+                      </div>
+                      <div class="w-full md:w-28">
+                        <div class="border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden">
+                          <img data-role="image-preview" class="max-w-full max-h-full object-contain hidden" alt="商品画像">
+                          <span data-role="image-placeholder" class="text-[11px] text-gray-400">プレビュー</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-span-3 flex flex-wrap items-center gap-3">
+                    <label class="inline-flex items-center gap-2 text-xs text-gray-700">
+                      <input type="checkbox" id="wm2-stock-stockpile" name="stockpile" data-x="stockpile" class="rounded">
+                      備蓄
+                    </label>
+                    <div class="flex-1 min-w-0">
+                      <label class="text-xs text-gray-500" for="wm2-stock-comment">コメント</label>
+                      <input id="wm2-stock-comment" name="comment" data-x="comment" class="w-full border rounded px-2 py-1" placeholder="メモなど">
+                    </div>
+                  </div>
                   <div class="col-span-3">
                     <label class="text-xs text-gray-500" for="wm2-stock-exp">賞味期限</label>
-                    <input id="wm2-stock-exp" name="exp" data-x="exp" type="date" class="w-full border rounded px-3 py-2">
-                  </div>
-                  <div class="col-span-3 flex items-center gap-2">
-                    <label class="inline-flex items-center gap-2 text-xs text-gray-700"><input type="checkbox" id="wm2-stock-stockpile" name="stockpile" data-x="stockpile" class="rounded"> 備蓄</label>
+                    <input id="wm2-stock-exp" name="exp" data-x="exp" type="date" class="w-full border rounded px-2 py-1">
                   </div>
                 </div>
-                <div class="flex items-center justify-end gap-2 pt-2">
+                <div class="flex items-center justify-end gap-2 pt-3">
                   <button type="button" data-close class="px-3 py-1.5 rounded border">キャンセル</button>
                   <button type="button" data-x="save" class="px-4 py-1.5 rounded bg-blue-600 text-white text-sm inline-flex items-center gap-1">
                     <span class="lucide w-4 h-4" data-lucide="package-plus"></span>
@@ -1338,8 +1368,65 @@
           document.body.appendChild(modal);
           if (window.refreshLucideIcons) window.refreshLucideIcons();
 
-          const close = () => { try { modal.remove(); } catch(_){} };
+          const close = () => { try { clearTimeout(imageFetchTimer); modal.remove(); } catch(_){} };
           modal.addEventListener('click', (e)=>{ if (e.target.hasAttribute('data-close')) close(); });
+          const productUrlInput = modal.querySelector('[data-x="productUrl"]');
+          const imageUrlText = modal.querySelector('[data-role="image-url-text"]');
+          const imagePreview = modal.querySelector('[data-role="image-preview"]');
+          const imagePlaceholder = modal.querySelector('[data-role="image-placeholder"]');
+          let cachedImageUrl = '';
+          let imageFetchTimer = null;
+          let imageFetchId = 0;
+          const updateImagePreview = (url, fallback) => {
+            cachedImageUrl = url || '';
+            if (imageUrlText) imageUrlText.textContent = url ? url : (fallback || '未取得');
+            if (imagePreview) {
+              if (url) {
+                imagePreview.src = url;
+                imagePreview.classList.remove('hidden');
+              } else {
+                imagePreview.src = '';
+                imagePreview.classList.add('hidden');
+              }
+            }
+            if (imagePlaceholder) {
+              imagePlaceholder.classList.toggle('hidden', !!url);
+            }
+          };
+          const fetchImageFromUrl = async (value, runId) => {
+            try {
+              const res = await fetch('/users/my-stock/api/product-image?url=' + encodeURIComponent(value));
+              if (!res.ok) throw new Error('fetch failed');
+              const data = await res.json();
+              if (runId !== imageFetchId) return;
+              if (data && data.imageUrl) {
+                updateImagePreview(data.imageUrl);
+              } else {
+                updateImagePreview('', '取得できませんでした');
+              }
+            } catch (_){
+              if (runId !== imageFetchId) return;
+              updateImagePreview('', '取得に失敗しました');
+            }
+          };
+          const scheduleImageFetch = (inputValue) => {
+            imageFetchId += 1;
+            const runId = imageFetchId;
+            clearTimeout(imageFetchTimer);
+            if (!inputValue){
+              updateImagePreview('', '未取得');
+              return;
+            }
+            if (imageUrlText) imageUrlText.textContent = '読み込み中…';
+            imageFetchTimer = setTimeout(()=> fetchImageFromUrl(inputValue, runId), 450);
+          };
+          if (productUrlInput){
+            productUrlInput.addEventListener('input', ()=>{
+              const value = String(productUrlInput.value || '').trim();
+              scheduleImageFetch(value);
+            });
+          }
+          updateImagePreview('', '未取得');
 
           // Load places
           (async()=>{ try{ const list= await (await fetch('/users/my-stock/api/places')).json(); const sel=modal.querySelector('[data-x="place"]'); sel.innerHTML='<option value="">選択してください</option>'; (list||[]).forEach(p=>{ const op=document.createElement('option'); op.value=p._id; op.textContent=p.name; sel.appendChild(op); }); }catch(_){ } })();
@@ -1360,7 +1447,9 @@
               placeId: modal.querySelector('[data-x="place"]').value || null,
               expiryDate: modal.querySelector('[data-x="exp"]').value || null,
               stockpile: !!modal.querySelector('[data-x="stockpile"]').checked,
-              comment: (modal.querySelector('[data-x="comment"]').value||'').trim()
+              comment: (modal.querySelector('[data-x="comment"]').value||'').trim(),
+              productUrl: (modal.querySelector('[data-x="productUrl"]').value||'').trim(),
+              productImageUrl: cachedImageUrl || ''
             };
             try{
               const res = await fetch('/users/my-stock/api/stocks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });

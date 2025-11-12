@@ -29,7 +29,7 @@
     <section class="rounded-2xl border bg-white">
       <div class="p-4 flex items-center justify-between">
         <h2 class="font-semibold">食材のストック</h2>
-        <button type="button" id="addIng" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 追加</button>
+        <button type="button" id="addIng" data-action="add-ingredient" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 追加</button>
       </div>
       <div class="divide-y">
         <% Object.keys(grouped.ingredient || {}).forEach(function(cls){ const rows = grouped.ingredient[cls] || []; %>
@@ -40,7 +40,7 @@
             </summary>
             <div class="px-4 pb-3 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <% rows.forEach(function(r){ const it = r.meta || {}; const s = r.stock || {}; var _p=((places||[]).find(function(p){return String(p._id)===String(s.place||'')})); const placeName=_p?_p.name:''; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-                <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>">
+                <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
                   <div class="flex items-center justify-between gap-2">
                     <span class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></span>
                     <span class="inline-flex items-center gap-1 ml-2">
@@ -66,7 +66,7 @@
     <section class="rounded-2xl border bg-white">
       <div class="p-4 flex items-center justify-between">
         <h2 class="font-semibold">調味料のストック</h2>
-        <button type="button" id="addSea" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 追加</button>
+        <button type="button" id="addSea" data-action="add-seasoning" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 追加</button>
       </div>
       <div class="divide-y">
         <% Object.keys(grouped.seasoning || {}).forEach(function(cls){ const rows = grouped.seasoning[cls] || []; %>
@@ -77,7 +77,7 @@
             </summary>
             <div class="px-4 pb-3 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <% rows.forEach(function(r){ const it = r.meta || {}; const s = r.stock || {}; var _p=((places||[]).find(function(p){return String(p._id)===String(s.place||'')})); const placeName=_p?_p.name:''; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-                <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>">
+                <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
                   <div class="flex items-center justify-between gap-2">
                     <span class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></span>
                     <span class="inline-flex items-center gap-1 ml-2">
@@ -103,16 +103,22 @@
   <div data-view="place" class="hidden space-y-6">
     <% const _pg = (typeof placeGrouped !== 'undefined' && placeGrouped) ? placeGrouped : {}; Object.keys(_pg).forEach(function(pname){ const sec=_pg[pname]||{}; %>
     <section class="rounded-2xl border bg-white">
-      <div class="p-4 flex items-center justify-between">
-        <h2 class="font-semibold"><%= pname %></h2>
-        <span class="text-xs text-gray-500">食材 <%= (sec.ingredient||[]).length %> 件・調味料 <%= (sec.seasoning||[]).length %> 件</span>
+      <div class="p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 class="font-semibold"><%= pname %></h2>
+          <span class="text-xs text-gray-500 block">食材 <%= (sec.ingredient||[]).length %> 件・調味料 <%= (sec.seasoning||[]).length %> 件</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" data-action="add-ingredient" class="px-3 py-1 rounded border bg-amber-50 border-amber-300 text-amber-800 text-xs">＋ 食材</button>
+          <button type="button" data-action="add-seasoning" class="px-3 py-1 rounded border bg-amber-50 border-amber-300 text-amber-800 text-xs">＋ 調味料</button>
+        </div>
       </div>
       <div class="px-4 pb-4 space-y-2">
         <% if ((sec.ingredient||[]).length){ %>
           <div class="text-xs text-gray-500 mb-1">食材</div>
           <div class="flex flex-wrap gap-2">
             <% (sec.ingredient||[]).forEach(function(r){ const it=r.meta||{}; const s=r.stock||{}; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>">
+              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
                 <div class="flex items-center justify-between gap-2">
                   <span class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></span>
                   <span class="inline-flex items-center gap-1 ml-2">
@@ -133,7 +139,7 @@
           <div class="text-xs text-gray-500 mt-3 mb-1">調味料</div>
           <div class="flex flex-wrap gap-2">
             <% (sec.seasoning||[]).forEach(function(r){ const it=r.meta||{}; const s=r.stock||{}; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>">
+              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
                 <div class="flex items-center justify-between gap-2">
                   <span class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></span>
                   <span class="inline-flex items-center gap-1 ml-2">
@@ -163,8 +169,63 @@
       const modal=document.createElement('div'); modal.className='fixed inset-0 z-50 hidden overflow-y-auto';
       modal.innerHTML=`
         <div class=\"absolute inset-0 bg-black/40\" data-close></div>
-        <div class=\"relative mx-auto mt-10 w-[900px] max-w-[96vw] rounded-2xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-3 py-2\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-48 overflow-auto border rounded p-3 bg-green-50\"></div>\n              <div data-role=\"selected\" class=\"hidden border rounded p-3 bg-blue-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-3 py-2\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-3 py-2\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-3 py-2\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-3 py-2\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 flex items-end justify-end gap-3\">\n                <div class=\"w-40\"><label class=\"text-xs text-gray-500\">賞味期限</label><input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-3 py-2\"></div>\n                <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">ストックに追加</button>\n              </div>\n            </div>\n          </div>\n        </div>`;
+        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-2 py-1\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-48 overflow-auto border rounded p-2.5 bg-green-50\"></div>\n              <div data-role=\"selected\" class=\"hidden border rounded p-2.5 bg-blue-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-2 py-1\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-2 py-1\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3 flex flex-wrap items-center gap-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n                <div class=\"flex-1 min-w-0\">\n                  <label class=\"text-xs text-gray-500\">コメント</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"text-xs text-gray-500\">賞味期限</label>\n                <input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-2 py-1\">\n              </div>\n            </div>\n            <div class=\"flex items-center justify-end gap-2 pt-3\">\n              <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">ストックに追加</button>\n            </div>\n          </div>\n        </div>`;
       document.body.appendChild(modal);
+      const productUrlInput = modal.querySelector('[data-x="productUrl"]');
+      const imageUrlText = modal.querySelector('[data-role="image-url-text"]');
+      const imagePreview = modal.querySelector('[data-role="image-preview"]');
+      const imagePlaceholder = modal.querySelector('[data-role="image-placeholder"]');
+      let cachedImageUrl = '';
+      let imageFetchTimer = null;
+      let imageFetchId = 0;
+      const updateImagePreview = (url, fallback) => {
+        cachedImageUrl = url || '';
+        if (imageUrlText) imageUrlText.textContent = url ? url : (fallback || '未取得');
+        if (imagePreview) {
+          if (url) {
+            imagePreview.src = url;
+            imagePreview.classList.remove('hidden');
+          } else {
+            imagePreview.src = '';
+            imagePreview.classList.add('hidden');
+          }
+        }
+        if (imagePlaceholder) imagePlaceholder.classList.toggle('hidden', !!url);
+      };
+      const fetchImageFromUrl = async (value, runId) => {
+        try {
+          const res = await fetch('/users/my-stock/api/product-image?url=' + encodeURIComponent(value));
+          if (!res.ok) throw new Error('failed');
+          const data = await res.json();
+          if (runId !== imageFetchId) return;
+          if (data && data.imageUrl) {
+            updateImagePreview(data.imageUrl);
+          } else {
+            updateImagePreview('', '取得できませんでした');
+          }
+        } catch (_) {
+          if (runId !== imageFetchId) return;
+          updateImagePreview('', '取得に失敗しました');
+        }
+      };
+      const scheduleImageFetch = (inputValue) => {
+        imageFetchId += 1;
+        const runId = imageFetchId;
+        clearTimeout(imageFetchTimer);
+        if (!inputValue) {
+          updateImagePreview('', '未取得');
+          return;
+        }
+        if (imageUrlText) imageUrlText.textContent = '読み込み中…';
+        imageFetchTimer = setTimeout(()=> fetchImageFromUrl(inputValue, runId), 450);
+      };
+      if (productUrlInput) {
+        productUrlInput.addEventListener('input', ()=>{
+          const value = String(productUrlInput.value || '').trim();
+          scheduleImageFetch(value);
+        });
+      }
+      updateImagePreview('', '未取得');
       // Post-process: blue box styling, label, unit datalist, stockpile checkbox
       try {
         // Arrange preset search row (keyword + genres + clear in one line)
@@ -182,7 +243,7 @@
             const row = document.createElement('div');
             row.className = 'flex flex-wrap items-end gap-2';
             // narrow keyword width on md+
-            kw.className = 'border rounded px-3 py-2 w-full md:w-1/2';
+            kw.className = 'border rounded px-2 py-1 w-full md:w-1/2';
             row.appendChild(kw);
             genres.className = 'flex items-center gap-2';
             row.appendChild(genres);
@@ -209,24 +270,8 @@
           const container = modal.querySelector('.p-4');
           if (container) container.appendChild(dl); else modal.appendChild(dl);
         }
-        // Add stockpile checkbox into the controls row
-        const controlsRow = modal.querySelector('div.col-span-3.flex.items-end.justify-end.gap-3');
-        if (controlsRow && !modal.querySelector('[data-x="stockpile"]')){
-          const lb=document.createElement('label'); lb.className='inline-flex items-center gap-1 mr-auto text-base text-gray-700';
-          const cb=document.createElement('input'); cb.type='checkbox'; cb.className='rounded'; cb.setAttribute('data-x','stockpile');
-          lb.appendChild(cb); lb.appendChild(document.createTextNode(' 備蓄'));
-          controlsRow.prepend(lb);
-        }
-        // Add comment input (full width) before expiry
-        const expRow = modal.querySelector('[data-x="exp"]')?.closest('div');
-        const grid = expRow && expRow.parentElement;
-        if (grid && !modal.querySelector('[data-x="comment"]')){
-          const wrap=document.createElement('div'); wrap.className='col-span-3';
-          wrap.innerHTML='<label class="text-xs text-gray-500">コメント</label><input data-x="comment" class="w-full border rounded px-3 py-2" placeholder="メモなど">';
-          grid.insertBefore(wrap, expRow);
-        }
       } catch(_){ }
-      function close(){ modal.classList.add('hidden'); }
+      function close(){ modal.classList.add('hidden'); clearTimeout(imageFetchTimer); }
       modal.addEventListener('click', (e)=>{ if (e.target.hasAttribute('data-close')) close(); });
       const base= type==='ingredient'? '/users/my-menu/api/ingredients': '/users/my-menu/api/seasonings';
       async function fetchList(params){ const url=new URL(base, location.origin); Object.entries(params||{}).forEach(([k,v])=>{ if(v) url.searchParams.set(k,v); }); const res=await fetch(url.toString()); return res.json(); }
@@ -240,7 +285,7 @@
           const cats=Array.isArray(m?.genres)? m.genres: [];
           // プルダウン（分類）
           const select=document.createElement('select');
-          select.className='w-full border rounded px-3 py-2';
+          select.className='w-full border rounded px-2 py-1';
           // ラベル（上に表示）
           holder.className='w-48';
           const label=document.createElement('label');
@@ -281,14 +326,14 @@
           const wrap=document.createElement('span'); wrap.className='rounded px-1.5 py-1 bg-green-50';
           const b=document.createElement('button'); b.type='button'; b.dataset.id=String(it._id);
           const isSel = state.selectedId && String(state.selectedId)===String(it._id);
-          b.className='px-3 py-1.5 rounded-full ' + (isSel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
+          b.className='px-3 py-1.5 text-sm rounded-full ' + (isSel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
           b.textContent=name;
           b.addEventListener('click', ()=>{
             state.selectedId=String(it._id);
             // update styles
             Array.from(tags.querySelectorAll('button')).forEach(btn=>{
               const sel = String(btn.dataset.id) === state.selectedId;
-              btn.className='px-3 py-1.5 rounded-full ' + (sel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
+              btn.className='px-3 py-1.5 text-sm rounded-full ' + (sel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
             });
             const box=modal.querySelector('div.grid.grid-cols-3'); if(box) box.classList.remove('hidden');
             if(unitDL){ unitDL.innerHTML=''; (units||[]).forEach(u=>{ const op=document.createElement('option'); op.value=u; unitDL.appendChild(op); }); }
@@ -330,7 +375,9 @@
             placeId: modal.querySelector('[data-x="place"]').value || null,
             expiryDate: modal.querySelector('[data-x="exp"]').value || null,
             stockpile: !!modal.querySelector('[data-x="stockpile"]')?.checked,
-            comment: (modal.querySelector('[data-x="comment"]')?.value || '').trim()
+            comment: (modal.querySelector('[data-x="comment"]')?.value || '').trim(),
+            productUrl: (modal.querySelector('[data-x="productUrl"]')?.value || '').trim(),
+            productImageUrl: cachedImageUrl || ''
           };
           const res = await fetch('/users/my-stock/api/stocks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
           if (!res.ok) { alert('登録に失敗しました'); return; }
@@ -370,8 +417,21 @@
       return { open: ()=> modal.classList.remove('hidden') };
     }
     const addIng = buildModal('ingredient'); const addSea = buildModal('seasoning');
-    document.getElementById('addIng')?.addEventListener('click', ()=>addIng.open());
-    document.getElementById('addSea')?.addEventListener('click', ()=>addSea.open());
+    const bindAddButtons = () => {
+      document.querySelectorAll('[data-action="add-ingredient"]').forEach(btn=>{
+        if (!btn.__msBoundIng){
+          btn.addEventListener('click', (ev)=>{ ev.preventDefault(); addIng.open(); });
+          btn.__msBoundIng = true;
+        }
+      });
+      document.querySelectorAll('[data-action="add-seasoning"]').forEach(btn=>{
+        if (!btn.__msBoundSea){
+          btn.addEventListener('click', (ev)=>{ ev.preventDefault(); addSea.open(); });
+          btn.__msBoundSea = true;
+        }
+      });
+    };
+    bindAddButtons();
     // View toggle
     const tabClass = document.querySelector('[data-view-tab="class"]');
     const tabPlace = document.querySelector('[data-view-tab="place"]');
@@ -401,39 +461,90 @@
       const name= data.name || ''; const cls=data.class || '';
       modal.innerHTML=`
         <div class=\"absolute inset-0 bg-black/40\" data-close></div>
-        <div class=\"relative mx-auto mt-10 w-[700px] max-w-[96vw] rounded-2xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">ストック編集</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"text-sm\"><span class=\"font-semibold\">対象:</span> ${name} <span class=\"text-xs text-gray-600\">${cls}</span></div>\n            <div class=\"grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-3 py-2\" value=\"${data.amount||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" list=\"editUnitList\" class=\"w-full border rounded px-3 py-2\" value=\"${data.unit||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-3 py-2\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3\"><label class=\"text-xs text-gray-500\">賞味期限</label><input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-3 py-2\" value=\"${data.exp||''}\"></div>\n            </div>\n            <datalist id=\"editUnitList\"></datalist>\n            <div class=\"flex items-center justify-between pt-2\">\n              <button type=\"button\" data-x=\"delete\" class=\"px-3 py-1.5 rounded bg-red-600 text-white text-sm\">削除</button>\n              <div class=\"space-x-2\">\n                <button type=\"button\" data-close class=\"px-3 py-1.5 rounded border\">キャンセル</button>\n                <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">保存</button>\n              </div>\n            </div>\n          </div>\n        </div>`;
+        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">ストック編集</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"text-sm\"><span class=\"font-semibold\">対象:</span> ${name} <span class=\"text-xs text-gray-600\">${cls}</span></div>\n            <div class=\"grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\" value=\"${data.amount||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" list=\"editUnitList\" class=\"w-full border rounded px-2 py-1\" value=\"${data.unit||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3 flex flex-wrap items-center gap-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n                <div class=\"flex-1 min-w-0\">\n                  <label class=\"text-xs text-gray-500\">コメント</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"text-xs text-gray-500\">賞味期限</label>\n                <input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-2 py-1\" value=\"${data.exp||''}\">\n              </div>\n            </div>\n            <datalist id=\"editUnitList\"></datalist>\n            <div class=\"flex items-center justify-between pt-2\">\n              <button type=\"button\" data-x=\"delete\" class=\"px-3 py-1.5 rounded bg-red-600 text-white text-sm\">削除</button>\n              <div class=\"space-x-2\">\n                <button type=\"button\" data-close class=\"px-3 py-1.5 rounded border\">キャンセル</button>\n                <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">保存</button>\n              </div>\n            </div>\n          </div>\n        </div>`;
       document.body.appendChild(modal);
-      function close(){ modal.classList.add('hidden'); }
+      const productUrlInputEdit = modal.querySelector('[data-x="productUrl"]');
+      const imageUrlTextEdit = modal.querySelector('[data-role="image-url-text"]');
+      const imagePreviewEdit = modal.querySelector('[data-role="image-preview"]');
+      const imagePlaceholderEdit = modal.querySelector('[data-role="image-placeholder"]');
+      let cachedImageUrlEdit = data.img || '';
+      let imageFetchTimer = null;
+      let imageFetchId = 0;
+      const updateImagePreviewEdit = (url, fallback) => {
+        cachedImageUrlEdit = url || '';
+        if (imageUrlTextEdit) imageUrlTextEdit.textContent = url ? url : (fallback || '未取得');
+        if (imagePreviewEdit) {
+          if (url) {
+            imagePreviewEdit.src = url;
+            imagePreviewEdit.classList.remove('hidden');
+          } else {
+            imagePreviewEdit.src = '';
+            imagePreviewEdit.classList.add('hidden');
+          }
+        }
+        if (imagePlaceholderEdit) imagePlaceholderEdit.classList.toggle('hidden', !!url);
+      };
+      const fetchImageFromUrlEdit = async (value, runId) => {
+        try {
+          const res = await fetch('/users/my-stock/api/product-image?url=' + encodeURIComponent(value));
+          if (!res.ok) throw new Error('failed');
+          const payload = await res.json();
+          if (runId !== imageFetchId) return;
+          if (payload && payload.imageUrl) {
+            updateImagePreviewEdit(payload.imageUrl);
+          } else {
+            updateImagePreviewEdit('', '取得できませんでした');
+          }
+        } catch (_) {
+          if (runId !== imageFetchId) return;
+          updateImagePreviewEdit('', '取得に失敗しました');
+        }
+      };
+      const scheduleImageFetchEdit = (value) => {
+        imageFetchId += 1;
+        const runId = imageFetchId;
+        clearTimeout(imageFetchTimer);
+        if (!value) {
+          updateImagePreviewEdit('', '未取得');
+          return;
+        }
+        if (imageUrlTextEdit) imageUrlTextEdit.textContent = '読み込み中…';
+        imageFetchTimer = setTimeout(()=> fetchImageFromUrlEdit(value, runId), 450);
+      };
+      if (productUrlInputEdit) {
+        productUrlInputEdit.value = data.url || '';
+        productUrlInputEdit.addEventListener('input', ()=>{
+          const value = String(productUrlInputEdit.value || '').trim();
+          scheduleImageFetchEdit(value);
+        });
+      }
+      if (cachedImageUrlEdit) {
+        updateImagePreviewEdit(cachedImageUrlEdit);
+      } else if ((data.url||'').trim()) {
+        scheduleImageFetchEdit(String(data.url).trim());
+      } else {
+        updateImagePreviewEdit('', '未取得');
+      }
+      function close(){ modal.classList.add('hidden'); clearTimeout(imageFetchTimer); }
       modal.addEventListener('click', (e)=>{ if (e.target.hasAttribute('data-close')) close(); });
       // 単位候補
       const units=(data.units||'').split(',').map(s=>s.trim()).filter(Boolean);
       const dl=modal.querySelector('#editUnitList'); dl.innerHTML=''; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; dl.appendChild(op); });
       // 保管場所候補
       (async()=>{ try{ const sel=modal.querySelector('[data-x="place"]'); const list= await (await fetch('/users/my-stock/api/places')).json(); sel.innerHTML='<option value="">選択してください</option>'; (list||[]).forEach(p=>{ const op=document.createElement('option'); op.value=p._id; op.textContent=p.name; sel.appendChild(op); }); sel.value = data.place || ''; }catch(_){}})();
-      // Insert stockpile checkbox and comment before expiry row
       try {
-        const expEl = modal.querySelector('[data-x="exp"]');
-        const lastRow = expEl && expEl.closest('div');
-        const grid = lastRow && lastRow.parentElement;
-        if (grid && lastRow){
-          const holder=document.createElement('div');
-          const lb=document.createElement('label'); lb.className='inline-flex items-center gap-1 text-base text-gray-700';
-          const cb=document.createElement('input'); cb.type='checkbox'; cb.className='rounded'; cb.setAttribute('data-x','stockpile'); if (data && data.stockpile) cb.checked=true;
-          lb.appendChild(cb); lb.appendChild(document.createTextNode(' 備蓄'));
-          grid.insertBefore(holder, lastRow); holder.appendChild(lb);
-          const wrap=document.createElement('div'); wrap.className='col-span-3';
-          wrap.innerHTML = '<label class="text-xs text-gray-500">コメント</label><input data-x="comment" class="w-full border rounded px-3 py-2">';
-          grid.insertBefore(wrap, lastRow);
-          const cmt = data && (data.cmt || data.comment) ? (data.cmt || data.comment) : '';
-          modal.querySelector('[data-x="comment"]').value = cmt;
-        }
+        const cb = modal.querySelector('[data-x="stockpile"]');
+        if (cb) cb.checked = !!data.stockpile;
+        const cmt = data && (data.cmt || data.comment) ? (data.cmt || data.comment) : '';
+        const commentInput = modal.querySelector('[data-x="comment"]');
+        if (commentInput) commentInput.value = cmt;
       } catch(_){ }
       // 新規保管場所
       modal.querySelector('[data-x="placeAdd"]').addEventListener('click', async ()=>{ const name=prompt('保管場所名'); if(!name) return; const res=await fetch('/users/my-stock/api/places', { method:'POST', headers:{'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); if(res.ok){ const created=await res.json(); const sel=modal.querySelector('[data-x="place"]'); const op=document.createElement('option'); op.value=created._id; op.textContent=created.name; sel.appendChild(op); sel.value=created._id; } else { alert('追加に失敗しました'); }});
       // 削除
       modal.querySelector('[data-x="delete"]').addEventListener('click', async ()=>{ if(!confirm('削除しますか？')) return; const res=await fetch(`/users/my-stock/api/stocks/${data.id}`, { method:'DELETE' }); if(!res.ok){ alert('削除に失敗しました'); return; } location.reload(); });
       // 保存
-      modal.querySelector('[data-x="save"]').addEventListener('click', async ()=>{ const payload={ amount: modal.querySelector('[data-x="amount"]').value, unit: modal.querySelector('[data-x="unit"]').value, placeId: modal.querySelector('[data-x="place"]').value || null, expiryDate: modal.querySelector('[data-x="exp"]').value || null, stockpile: !!modal.querySelector('[data-x="stockpile"]').checked, comment: (modal.querySelector('[data-x="comment"]').value||'').trim() }; const res=await fetch(`/users/my-stock/api/stocks/${data.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); if(!res.ok){ alert('更新に失敗しました'); return; } location.reload(); });
+      modal.querySelector('[data-x="save"]').addEventListener('click', async ()=>{ const payload={ amount: modal.querySelector('[data-x="amount"]').value, unit: modal.querySelector('[data-x="unit"]').value, placeId: modal.querySelector('[data-x="place"]').value || null, expiryDate: modal.querySelector('[data-x="exp"]').value || null, stockpile: !!modal.querySelector('[data-x="stockpile"]').checked, comment: (modal.querySelector('[data-x="comment"]').value||'').trim(), productUrl: (modal.querySelector('[data-x="productUrl"]').value||'').trim(), productImageUrl: cachedImageUrlEdit || '' }; const res=await fetch(`/users/my-stock/api/stocks/${data.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); if(!res.ok){ alert('更新に失敗しました'); return; } location.reload(); });
       return { open: ()=> modal.classList.remove('hidden') };
     }
     // タグクリックで編集（全体）
@@ -441,7 +552,7 @@
       el.addEventListener('click', (ev)=>{
         // 内側の編集/削除ボタンは個別ハンドラに委譲
         if (ev.target && (ev.target.hasAttribute('data-stock-edit') || ev.target.hasAttribute('data-stock-del'))) return;
-        const data={ id: el.dataset.stockId, type: el.dataset.type, itemId: el.dataset.itemId, name: el.dataset.name||'', class: el.dataset.class||'', units: el.dataset.units||'', amount: el.dataset.amount||'', unit: el.dataset.unit||'', place: el.dataset.place||'', exp: el.dataset.exp||'', stockpile: el.dataset.sp==='1', cmt: el.dataset.cmt || '' };
+        const data={ id: el.dataset.stockId, type: el.dataset.type, itemId: el.dataset.itemId, name: el.dataset.name||'', class: el.dataset.class||'', units: el.dataset.units||'', amount: el.dataset.amount||'', unit: el.dataset.unit||'', place: el.dataset.place||'', exp: el.dataset.exp||'', stockpile: el.dataset.sp==='1', cmt: el.dataset.cmt || '', url: el.dataset.url || '', img: el.dataset.img || '' };
         const edit = buildEditModal(data); edit.open();
       });
     });
@@ -452,7 +563,7 @@
         e.stopPropagation();
         const host = editBtn.closest('[data-stock-id]');
         if (!host) return;
-        const data={ id: host.dataset.stockId, type: host.dataset.type, itemId: host.dataset.itemId, name: host.dataset.name||'', class: host.dataset.class||'', units: host.dataset.units||'', amount: host.dataset.amount||'', unit: host.dataset.unit||'', place: host.dataset.place||'', exp: host.dataset.exp||'', stockpile: host.dataset.sp==='1', cmt: host.dataset.cmt || '' };
+        const data={ id: host.dataset.stockId, type: host.dataset.type, itemId: host.dataset.itemId, name: host.dataset.name||'', class: host.dataset.class||'', units: host.dataset.units||'', amount: host.dataset.amount||'', unit: host.dataset.unit||'', place: host.dataset.place||'', exp: host.dataset.exp||'', stockpile: host.dataset.sp==='1', cmt: host.dataset.cmt || '', url: host.dataset.url || '', img: host.dataset.img || '' };
         const edit = buildEditModal(data); edit.open();
         return;
       }

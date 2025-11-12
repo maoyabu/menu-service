@@ -14,6 +14,62 @@ function getGroupId(res){
   return def || (groups[0]?._id?.toString?.() ?? null);
 }
 
+const IMAGE_META_PATTERNS = [
+  /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+  /<meta[^>]+name=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+  /<meta[^>]+name=["']og:image:url["'][^>]+content=["']([^"']+)["']/i,
+  /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+  /<img[^>]+id=["']landingImage["'][^>]+(?:src|data-old-hires)=["']([^"']+)["']/i,
+  /<img[^>]+data-old-hires=["']([^"']+)["']/i,
+  /<img[^>]+class=["'][^"']*?product-image[^"']*["'][^>]+src=["']([^"']+)["']/i,
+  /data-a-dynamic-image=["'][^"']*?(https?:\/\/[^"']+?\.jpg)[^"']*["']/i
+];
+
+const JSON_IMAGE_PATTERNS = [
+  /"hiRes"\s*:\s*"([^"]+)"/i,
+  /"large"\s*:\s*"([^"]+)"/i,
+  /"mainUrl"\s*:\s*"([^"]+)"/i,
+  /"displayImageUri"\s*:\s*"([^"]+)"/i,
+  /"originalImageUri"\s*:\s*"([^"]+)"/i
+];
+
+const resolveImageUrlFromValue = (value, base) => {
+  if (!value) return null;
+  try {
+    return new URL(value, base).toString();
+  } catch {
+    return null;
+  }
+};
+
+const sanitizeImageValue = (value) => String(value || '')
+  .replace(/&quot;/g, '"')
+  .replace(/&amp;/g, '&')
+  .replace(/\\u0026/gi, '&')
+  .replace(/\\u002f/gi, '/')
+  .trim();
+
+const extractImageUrl = (html, base) => {
+  if (!html) return null;
+  for (const re of IMAGE_META_PATTERNS) {
+    const match = re.exec(html);
+    if (match && match[1]) {
+      const cleaned = sanitizeImageValue(match[1]);
+      const resolved = resolveImageUrlFromValue(cleaned, base);
+      if (resolved) return resolved;
+    }
+  }
+  for (const re of JSON_IMAGE_PATTERNS) {
+    const match = re.exec(html);
+    if (match && match[1]) {
+      const cleaned = sanitizeImageValue(match[1]);
+      const resolved = resolveImageUrlFromValue(cleaned, base);
+      if (resolved) return resolved;
+    }
+  }
+  return null;
+};
+
 router.get('/', async (req, res, next) => {
   try {
     const groupId = getGroupId(res);
@@ -91,12 +147,58 @@ router.get('/api/stocks', async (req, res) => {
 router.post('/api/stocks', express.json(), async (req, res) => {
   try {
     const groupId = getGroupId(res); if(!groupId) return res.status(400).json({ error: 'no group' });
-    const { type, id, amount, unit, placeId, expiryDate, stockpile, comment } = req.body || {};
+    const { type, id, amount, unit, placeId, expiryDate, stockpile, comment, productUrl, productImageUrl } = req.body || {};
     const typeRef = type==='ingredient' ? 'Ingredient' : 'Seasoning';
     if (!type || !id) return res.status(400).json({ error: 'bad request' });
-    const created = await Stock.create({ type, typeRef, item: id, amount: Number(amount)||0, unit: unit||'', place: placeId||null, expiryDate: expiryDate? new Date(expiryDate): null, stockpile: !!stockpile, comment: String(comment||'').trim(), user: req.user._id, group: groupId });
+    const created = await Stock.create({
+      type,
+      typeRef,
+      item: id,
+      amount: Number(amount)||0,
+      unit: unit||'',
+      place: placeId||null,
+      expiryDate: expiryDate? new Date(expiryDate): null,
+      stockpile: !!stockpile,
+      comment: String(comment||'').trim(),
+      productUrl: String(productUrl||'').trim(),
+      productImageUrl: String(productImageUrl||'').trim(),
+      user: req.user._id,
+      group: groupId
+    });
     res.json(created);
   } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.get('/api/product-image', async (req, res) => {
+  try {
+    const rawUrl = String(req.query?.url || '').trim();
+    if (!rawUrl) return res.status(400).json({ error: 'url required' });
+    let target;
+    try {
+      target = new URL(rawUrl);
+    } catch {
+      return res.status(400).json({ error: 'invalid url' });
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
+    try {
+      const response = await fetch(target.href, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (MenuService)', 'Accept-Language': 'ja,en-US;q=0.9' },
+        signal: controller.signal
+      });
+      if (!response.ok) return res.status(502).json({ error: 'fetch failed' });
+      const html = await response.text();
+      const imageUrl = extractImageUrl(html, target.href);
+      return res.json({ imageUrl: imageUrl || '' });
+    } catch (err) {
+      if (err?.name === 'AbortError') return res.status(504).json({ error: 'timeout' });
+      return res.status(500).json({ error: 'failed' });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (_) {
+    return res.status(500).json({ error: 'failed' });
+  }
 });
 
 router.delete('/api/stocks/:id', async (req, res) => {
@@ -111,7 +213,7 @@ router.delete('/api/stocks/:id', async (req, res) => {
 router.put('/api/stocks/:id', express.json(), async (req, res) => {
   try {
     const groupId = getGroupId(res); if(!groupId) return res.status(400).json({ error: 'no group' });
-    const { amount, unit, placeId, expiryDate, stockpile, comment } = req.body || {};
+    const { amount, unit, placeId, expiryDate, stockpile, comment, productUrl, productImageUrl } = req.body || {};
     const update = {
       amount: typeof amount === 'number' ? amount : Number(amount)||0,
       unit: unit || '',
@@ -120,6 +222,8 @@ router.put('/api/stocks/:id', express.json(), async (req, res) => {
       ...(typeof stockpile !== 'undefined' ? { stockpile: !!stockpile } : {})
     };
     if (typeof comment !== 'undefined') update.comment = String(comment||'').trim();
+    if (typeof productUrl !== 'undefined') update.productUrl = String(productUrl||'').trim();
+    if (typeof productImageUrl !== 'undefined') update.productImageUrl = String(productImageUrl||'').trim();
     const updated = await Stock.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id, group: groupId },
       { $set: update },
