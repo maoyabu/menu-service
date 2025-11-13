@@ -169,16 +169,35 @@
       const modal=document.createElement('div'); modal.className='fixed inset-0 z-50 hidden overflow-y-auto';
       modal.innerHTML=`
         <div class=\"absolute inset-0 bg-black/40\" data-close></div>
-        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-2 py-1\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-48 overflow-auto border rounded p-2.5 bg-green-50\"></div>\n              <div data-role=\"selected\" class=\"hidden border rounded p-2.5 bg-blue-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-2 py-1\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-2 py-1\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3 flex flex-wrap items-center gap-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n                <div class=\"flex-1 min-w-0\">\n                  <label class=\"text-xs text-gray-500\">コメント</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"text-xs text-gray-500\">賞味期限</label>\n                <input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-2 py-1\">\n              </div>\n            </div>\n            <div class=\"flex items-center justify-end gap-2 pt-3\">\n              <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">ストックに追加</button>\n            </div>\n          </div>\n        </div>`;
+        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-2 py-1\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-48 overflow-auto border rounded p-2.5 bg-green-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-2 py-1\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-2 py-1\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div class=\"col-span-3 space-y-2\">\n                <div data-role=\"selected\" class=\"hidden rounded border border-blue-200 bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-900 flex flex-wrap gap-2\">\n                  <span data-role=\"selected-name\"></span>\n                  <span data-role=\"selected-class\" class=\"text-xs font-normal text-blue-800\"></span>\n                </div>\n                <div>\n                  <label class=\"text-xs text-gray-500\">ストックの補足（任意）</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                    <input data-x=\"productImageManual\" type=\"url\" class=\"w-full border rounded px-2 py-1 text-xs\" placeholder=\"画像URLを直接入力（任意）\">\n                    <p class=\"text-[11px] text-gray-400\">取得できない場合はこちらに画像URLを入力してください</p>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n              </div>\n            <div class=\"grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3\">
+              <div class=\"col-span-3\">\n                <label class=\"text-xs text-gray-500\">賞味期限</label>\n                <input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-2 py-1\">\n              </div>\n            </div>\n            <div class=\"flex items-center justify-end gap-2 pt-3\">\n              <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">ストックに追加</button>\n            </div>\n          </div>\n        </div>`;
       document.body.appendChild(modal);
       const productUrlInput = modal.querySelector('[data-x="productUrl"]');
+      const manualImageInput = modal.querySelector('[data-x="productImageManual"]');
       const imageUrlText = modal.querySelector('[data-role="image-url-text"]');
       const imagePreview = modal.querySelector('[data-role="image-preview"]');
       const imagePlaceholder = modal.querySelector('[data-role="image-placeholder"]');
+      const selectedBanner = modal.querySelector('[data-role="selected"]');
+      const selectedNameText = modal.querySelector('[data-role="selected-name"]');
+      const selectedClassText = modal.querySelector('[data-role="selected-class"]');
       let cachedImageUrl = '';
       let imageFetchTimer = null;
       let imageFetchId = 0;
-      const updateImagePreview = (url, fallback) => {
+      let manualOverride = false;
+      const setTargetBanner = (label, cls) => {
+        if (!selectedBanner) return;
+        const hasLabel = !!(label && label.trim());
+        if (selectedNameText) {
+          selectedNameText.textContent = hasLabel ? `対象: ${label}` : '';
+        }
+        if (selectedClassText) {
+          selectedClassText.textContent = cls || '';
+          selectedClassText.classList.toggle('hidden', !cls);
+        }
+        selectedBanner.classList.toggle('hidden', !hasLabel);
+      };
+      setTargetBanner('', '');
+      const updateImagePreview = (url, fallback, opts = {}) => {
         cachedImageUrl = url || '';
         if (imageUrlText) imageUrlText.textContent = url ? url : (fallback || '未取得');
         if (imagePreview) {
@@ -191,6 +210,9 @@
           }
         }
         if (imagePlaceholder) imagePlaceholder.classList.toggle('hidden', !!url);
+        if (manualImageInput && (!manualOverride || opts.forceManualSync)) {
+          manualImageInput.value = url || '';
+        }
       };
       const fetchImageFromUrl = async (value, runId) => {
         try {
@@ -222,10 +244,22 @@
       if (productUrlInput) {
         productUrlInput.addEventListener('input', ()=>{
           const value = String(productUrlInput.value || '').trim();
+          manualOverride = false;
           scheduleImageFetch(value);
         });
       }
-      updateImagePreview('', '未取得');
+      if (manualImageInput) {
+        manualImageInput.addEventListener('input', ()=>{
+          const value = String(manualImageInput.value || '').trim();
+          manualOverride = !!value;
+          if (value) {
+            updateImagePreview(value, null, { forceManualSync: true });
+          } else {
+            updateImagePreview('', '未取得', { forceManualSync: true });
+          }
+        });
+      }
+      updateImagePreview('', '未取得', { forceManualSync: true });
       // Post-process: blue box styling, label, unit datalist, stockpile checkbox
       try {
         // Arrange preset search row (keyword + genres + clear in one line)
@@ -322,12 +356,14 @@
         tags.innerHTML='';
         (data||[]).forEach(it=>{
           const name=it.ingredient||it.seasoning||'';
+          const cls=it.classification||'';
           const units=Array.isArray(it.unit)? it.unit: (it.unit?[it.unit]:[]);
           const wrap=document.createElement('span'); wrap.className='rounded px-1.5 py-1 bg-green-50';
           const b=document.createElement('button'); b.type='button'; b.dataset.id=String(it._id);
           const isSel = state.selectedId && String(state.selectedId)===String(it._id);
           b.className='px-3 py-1.5 text-sm rounded-full ' + (isSel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
           b.textContent=name;
+          if (isSel) { setTargetBanner(name, cls); }
           b.addEventListener('click', ()=>{
             state.selectedId=String(it._id);
             // update styles
@@ -336,6 +372,7 @@
               btn.className='px-3 py-1.5 text-sm rounded-full ' + (sel ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200');
             });
             const box=modal.querySelector('div.grid.grid-cols-3'); if(box) box.classList.remove('hidden');
+            setTargetBanner(name, cls);
             if(unitDL){ unitDL.innerHTML=''; (units||[]).forEach(u=>{ const op=document.createElement('option'); op.value=u; unitDL.appendChild(op); }); }
           });
           wrap.appendChild(b); tags.appendChild(wrap);
@@ -401,14 +438,10 @@
         // 直後のフロー: 追加したアイテムを選択済みにし、ストック入力へ
         switchTab('preset');
         state.selectedId = String(created._id);
-        const selected=modal.querySelector('[data-role="selected"]');
+        const label = created.ingredient || created.seasoning || name;
+        const cls = created.classification || '';
+        setTargetBanner(label, cls);
         const unitDL = modal.querySelector('#stockUnitList');
-        if (selected){
-          selected.classList.remove('hidden');
-          const label = created.ingredient || created.seasoning || name;
-          const cls = created.classification || '';
-          selected.innerHTML = `<div class=\"text-sm\"><span class=\"font-semibold\">選択:</span> ${label} <span class=\"text-xs text-gray-600\">${cls}</span></div>`;
-        }
         if (unitDL){ unitDL.innerHTML=''; (Array.isArray(created.unit)?created.unit:(created.unit?[created.unit]:[])).forEach(u=>{ const op=document.createElement('option'); op.value=u; unitDL.appendChild(op); }); }
         const box=modal.querySelector('div.grid.grid-cols-3'); if(box) box.classList.remove('hidden');
         const amountEl = modal.querySelector('[data-x="amount"]');
@@ -461,16 +494,18 @@
       const name= data.name || ''; const cls=data.class || '';
       modal.innerHTML=`
         <div class=\"absolute inset-0 bg-black/40\" data-close></div>
-        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">ストック編集</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"text-sm\"><span class=\"font-semibold\">対象:</span> ${name} <span class=\"text-xs text-gray-600\">${cls}</span></div>\n            <div class=\"grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3\">\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\" value=\"${data.amount||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" list=\"editUnitList\" class=\"w-full border rounded px-2 py-1\" value=\"${data.unit||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3 flex flex-wrap items-center gap-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n                <div class=\"flex-1 min-w-0\">\n                  <label class=\"text-xs text-gray-500\">コメント</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"text-xs text-gray-500\">賞味期限</label>\n                <input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-2 py-1\" value=\"${data.exp||''}\">\n              </div>\n            </div>\n            <datalist id=\"editUnitList\"></datalist>\n            <div class=\"flex items-center justify-between pt-2\">\n              <button type=\"button\" data-x=\"delete\" class=\"px-3 py-1.5 rounded bg-red-600 text-white text-sm\">削除</button>\n              <div class=\"space-x-2\">\n                <button type=\"button\" data-close class=\"px-3 py-1.5 rounded border\">キャンセル</button>\n                <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">保存</button>\n              </div>\n            </div>\n          </div>\n        </div>`;
+        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">ストック編集</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3\">\n              <div class=\"col-span-3 space-y-2\">\n                <div class=\"rounded border border-blue-200 bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-900 flex flex-wrap gap-2\">\n                  <span>対象: ${name}</span>\n                  <span class=\"text-xs font-normal text-blue-800\">${cls}</span>\n                </div>\n                <div>\n                  <label class=\"text-xs text-gray-500\">ストックの補足（任意）</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\" value=\"${data.amount||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" list=\"editUnitList\" class=\"w-full border rounded px-2 py-1\" value=\"${data.unit||''}\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                    <input data-x=\"productImageManual\" type=\"url\" class=\"w-full border rounded px-2 py-1 text-xs\" placeholder=\"画像URLを直接入力（任意）\">\n                    <p class=\"text-[11px] text-gray-400\">取得できない場合はこちらに入力してください</p>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"text-xs text-gray-500\">賞味期限</label>\n                <input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-2 py-1\" value=\"${data.exp||''}\">\n              </div>\n            </div>\n            <datalist id=\"editUnitList\"></datalist>\n            <div class=\"flex items-center justify-between pt-2\">\n              <button type=\"button\" data-x=\"delete\" class=\"px-3 py-1.5 rounded bg-red-600 text-white text-sm\">削除</button>\n              <div class=\"space-x-2\">\n                <button type=\"button\" data-close class=\"px-3 py-1.5 rounded border\">キャンセル</button>\n                <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">保存</button>\n              </div>\n            </div>\n          </div>\n        </div>`;
       document.body.appendChild(modal);
       const productUrlInputEdit = modal.querySelector('[data-x="productUrl"]');
+      const manualImageInputEdit = modal.querySelector('[data-x="productImageManual"]');
       const imageUrlTextEdit = modal.querySelector('[data-role="image-url-text"]');
       const imagePreviewEdit = modal.querySelector('[data-role="image-preview"]');
       const imagePlaceholderEdit = modal.querySelector('[data-role="image-placeholder"]');
       let cachedImageUrlEdit = data.img || '';
       let imageFetchTimer = null;
       let imageFetchId = 0;
-      const updateImagePreviewEdit = (url, fallback) => {
+      let manualOverrideEdit = false;
+      const updateImagePreviewEdit = (url, fallback, opts = {}) => {
         cachedImageUrlEdit = url || '';
         if (imageUrlTextEdit) imageUrlTextEdit.textContent = url ? url : (fallback || '未取得');
         if (imagePreviewEdit) {
@@ -483,6 +518,9 @@
           }
         }
         if (imagePlaceholderEdit) imagePlaceholderEdit.classList.toggle('hidden', !!url);
+        if (manualImageInputEdit && (!manualOverrideEdit || opts.forceManualSync)) {
+          manualImageInputEdit.value = url || '';
+        }
       };
       const fetchImageFromUrlEdit = async (value, runId) => {
         try {
@@ -515,15 +553,31 @@
         productUrlInputEdit.value = data.url || '';
         productUrlInputEdit.addEventListener('input', ()=>{
           const value = String(productUrlInputEdit.value || '').trim();
+          manualOverrideEdit = false;
           scheduleImageFetchEdit(value);
         });
       }
+      if (manualImageInputEdit) {
+        if (data.img) {
+          manualImageInputEdit.value = data.img;
+          manualOverrideEdit = true;
+        }
+        manualImageInputEdit.addEventListener('input', ()=>{
+          const value = String(manualImageInputEdit.value || '').trim();
+          manualOverrideEdit = !!value;
+          if (value) {
+            updateImagePreviewEdit(value, null, { forceManualSync: true });
+          } else {
+            updateImagePreviewEdit('', '未取得', { forceManualSync: true });
+          }
+        });
+      }
       if (cachedImageUrlEdit) {
-        updateImagePreviewEdit(cachedImageUrlEdit);
+        updateImagePreviewEdit(cachedImageUrlEdit, '未取得', { forceManualSync: true });
       } else if ((data.url||'').trim()) {
         scheduleImageFetchEdit(String(data.url).trim());
       } else {
-        updateImagePreviewEdit('', '未取得');
+        updateImagePreviewEdit('', '未取得', { forceManualSync: true });
       }
       function close(){ modal.classList.add('hidden'); clearTimeout(imageFetchTimer); }
       modal.addEventListener('click', (e)=>{ if (e.target.hasAttribute('data-close')) close(); });

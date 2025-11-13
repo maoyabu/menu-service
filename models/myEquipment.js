@@ -14,10 +14,10 @@ const myEquipmentSchema = new mongoose.Schema({
   campingCategory: { type: String, default: '' },
   maintenance: { type: String, default: '' },
   productUrl: { type: String, default: '' },
+  productImageUrl: { type: String, default: '' },
   expiryDate: { type: Date, default: null },
   comment: { type: String, default: '' }
 }, { timestamps: true });
 
 const MyEquipment = mongoose.models.MyEquipment || mongoose.model('MyEquipment', myEquipmentSchema);
 export default MyEquipment;
-

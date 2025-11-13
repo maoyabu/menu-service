@@ -134,6 +134,8 @@ router.post('/api/add', express.json(), async (req, res) => {
       campingCategory: String(b.campingCategory || '').trim(),
       maintenance: String(b.maintenance || '').trim(),
       productUrl: String(b.productUrl || '').trim(),
+      productImageUrl: String(b.productImageUrl || '').trim(),
+      comment: String(b.comment || '').trim(),
       expiryDate: b.expiryDate ? new Date(b.expiryDate) : null
     };
     if (!doc.name) return res.status(400).json({ error: 'name required' });
@@ -149,7 +151,7 @@ router.put('/api/:id', express.json(), async (req, res) => {
     const groupId = getGroupId(res); if(!groupId) return res.status(400).json({ error: 'no group' });
     const b = req.body || {};
     const update = {};
-    ['name','unit','houseCategory','disasterCategory','campingCategory','maintenance','productUrl','comment'].forEach(k=>{
+    ['name','unit','houseCategory','disasterCategory','campingCategory','maintenance','productUrl','productImageUrl','comment'].forEach(k=>{
       if (k in b) update[k] = String(b[k] || '').trim();
     });
     if ('isConsumable' in b) update.isConsumable = !!b.isConsumable;
@@ -181,4 +183,3 @@ router.delete('/api/:id', async (req, res) => {
 });
 
 export default router;
-

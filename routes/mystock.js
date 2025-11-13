@@ -22,7 +22,8 @@ const IMAGE_META_PATTERNS = [
   /<img[^>]+id=["']landingImage["'][^>]+(?:src|data-old-hires)=["']([^"']+)["']/i,
   /<img[^>]+data-old-hires=["']([^"']+)["']/i,
   /<img[^>]+class=["'][^"']*?product-image[^"']*["'][^>]+src=["']([^"']+)["']/i,
-  /data-a-dynamic-image=["'][^"']*?(https?:\/\/[^"']+?\.jpg)[^"']*["']/i
+  /data-a-dynamic-image=["'][^"']*?(https?:\/\/[^"']+?\.jpg)[^"']*["']/i,
+  /<ul[^>]+regularAltImageViewLayout[^>]*>[\s\S]*?<img[^>]+src=["']([^"']+?\.jpg)["']/i
 ];
 
 const JSON_IMAGE_PATTERNS = [
@@ -33,10 +34,24 @@ const JSON_IMAGE_PATTERNS = [
   /"originalImageUri"\s*:\s*"([^"]+)"/i
 ];
 
+const normalizeAmazonImage = (url) => {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    if (/amazon\./i.test(u.hostname)) {
+      return url.replace(/_AC_[A-Z]{2}\d+(?:,\d+)?_/gi, '_AC_SL1000_');
+    }
+    return url;
+  } catch {
+    return url;
+  }
+};
+
 const resolveImageUrlFromValue = (value, base) => {
   if (!value) return null;
   try {
-    return new URL(value, base).toString();
+    const resolved = new URL(value, base).toString();
+    return normalizeAmazonImage(resolved);
   } catch {
     return null;
   }
