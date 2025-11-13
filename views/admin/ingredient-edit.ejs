@@ -100,14 +100,29 @@
     </div>
 
     <div>
-      <label class="block mb-1 text-sm font-bold">単位（複数可）</label>
+      <label class="block mb-1 text-sm font-bold">単位 / g換算（複数可）</label>
+      <p class="text-xs text-gray-500 mb-2">「1単位 = 何gか」を入力すると、必要量をグラムで集計できるようになります（未入力でも保存可）。</p>
       <div id="unit-list" class="space-y-2 text-sm text-gray-500">
-        <% const _units = Array.isArray(ingredient.unit)
-              ? ingredient.unit.filter(function(u){ return typeof u === 'string' && u.trim() !== ''; })
-              : []; %>
-        <% _units.forEach(function(u){ %>
-          <div class="flex items-center space-x-2">
-            <input type="text" name="unit[]" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= u %>">
+        <%
+          const _units = Array.isArray(ingredient.unit)
+            ? ingredient.unit.filter(function(u){ return typeof u === 'string' && u.trim() !== ''; })
+            : [];
+          const _conversions = Array.isArray(ingredient.unitConversions) ? ingredient.unitConversions : [];
+          const usedLabels = new Set();
+          const rows = [];
+          _units.forEach(function(label){ if (!label) return; usedLabels.add(label); rows.push({ label, grams: (_conversions.find(function(c){ return c && c.label === label; }) || {}).grams }); });
+          _conversions.forEach(function(conv){ if (!conv || !conv.label || usedLabels.has(conv.label)) return; rows.push({ label: conv.label, grams: conv.grams }); });
+        %>
+        <% if (!rows.length) { %>
+          <p class="text-xs text-gray-400" data-empty-text>単位を追加してください</p>
+        <% } %>
+        <% rows.forEach(function(row){ %>
+          <div class="flex items-center gap-2">
+            <input type="text" name="unit[]" class="flex-1 border rounded-md px-3 py-2 bg-gray-50" value="<%= row.label %>" placeholder="例: 玉">
+            <div class="flex items-center gap-1">
+              <input type="number" step="0.1" min="0" name="unitGrams[]" class="w-28 border rounded-md px-3 py-2 bg-gray-50" value="<%= typeof row.grams === 'number' ? row.grams : '' %>" placeholder="1単位のg">
+              <span class="text-xs text-gray-500">g</span>
+            </div>
             <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100" onclick="this.parentElement.remove()">×</button>
           </div>
         <% }) %>
@@ -125,16 +140,36 @@
 </div>
 
 <script>
-  function addUnit() {
+  function addUnit(value = '', grams = '') {
     const container = document.getElementById('unit-list');
+    if (!container) return;
+    const emptyHint = container.querySelector('[data-empty-text]');
+    if (emptyHint) emptyHint.remove();
     const wrapper = document.createElement('div');
-    wrapper.className = 'flex items-center space-x-2';
+    wrapper.className = 'flex items-center gap-2';
 
     const input = document.createElement('input');
     input.name = 'unit[]';
     input.type = 'text';
     input.placeholder = '例: g';
-    input.className = 'w-full border rounded-md px-3 py-2 bg-gray-50';
+    input.className = 'flex-1 border rounded-md px-3 py-2 bg-gray-50';
+    input.value = value || '';
+
+    const gramsWrap = document.createElement('div');
+    gramsWrap.className = 'flex items-center gap-1';
+    const gramsInput = document.createElement('input');
+    gramsInput.name = 'unitGrams[]';
+    gramsInput.type = 'number';
+    gramsInput.step = '0.1';
+    gramsInput.min = '0';
+    gramsInput.placeholder = '1単位のg';
+    gramsInput.className = 'w-28 border rounded-md px-3 py-2 bg-gray-50';
+    gramsInput.value = grams || '';
+    const gramsSuffix = document.createElement('span');
+    gramsSuffix.className = 'text-xs text-gray-500';
+    gramsSuffix.textContent = 'g';
+    gramsWrap.appendChild(gramsInput);
+    gramsWrap.appendChild(gramsSuffix);
 
     const button = document.createElement('button');
     button.type = 'button';
@@ -145,6 +180,7 @@
     };
 
     wrapper.appendChild(input);
+    wrapper.appendChild(gramsWrap);
     wrapper.appendChild(button);
     container.appendChild(wrapper);
   }

@@ -102,8 +102,11 @@
     </div>
 
     <div>
-      <label class="block mb-1 text-sm font-bold">単位（複数可）</label>
-      <div id="units-list" class="space-y-2 text-sm text-gray-500">単位を追加してください</div>
+      <label class="block mb-1 text-sm font-bold">単位 / g換算（複数可）</label>
+      <p class="text-xs text-gray-500 mb-2">単位ごとに「1単位 = 何gか」を入力できます（任意）。</p>
+      <div id="units-list" class="space-y-2 text-sm text-gray-500">
+        <p class="text-xs text-gray-400" data-empty-text>単位を追加してください</p>
+      </div>
       <button type="button" class="mt-2 px-3 py-1 border text-sm rounded bg-white text-gray-700 hover:bg-gray-100" onclick="addUnit()">＋ 追加</button>
     </div>
 
@@ -117,16 +120,36 @@
 </div>
 
 <script>
-  function addUnit() {
+  function addUnit(value = '', grams = '') {
     const container = document.getElementById('units-list');
+    if (!container) return;
+    const emptyHint = container.querySelector('[data-empty-text]');
+    if (emptyHint) emptyHint.remove();
     const wrapper = document.createElement('div');
-    wrapper.className = 'flex items-center space-x-2';
+    wrapper.className = 'flex items-center gap-2';
 
     const input = document.createElement('input');
     input.name = 'unit[]';
     input.type = 'text';
     input.placeholder = '例: g, 個, 杯';
-    input.className = 'w-full border rounded-md px-3 py-2 bg-gray-50';
+    input.className = 'flex-1 border rounded-md px-3 py-2 bg-gray-50';
+    input.value = value || '';
+
+    const gramsWrap = document.createElement('div');
+    gramsWrap.className = 'flex items-center gap-1';
+    const gramsInput = document.createElement('input');
+    gramsInput.name = 'unitGrams[]';
+    gramsInput.type = 'number';
+    gramsInput.step = '0.1';
+    gramsInput.min = '0';
+    gramsInput.placeholder = '1単位のg';
+    gramsInput.className = 'w-28 border rounded-md px-3 py-2 bg-gray-50';
+    gramsInput.value = grams || '';
+    const gramsSuffix = document.createElement('span');
+    gramsSuffix.className = 'text-xs text-gray-500';
+    gramsSuffix.textContent = 'g';
+    gramsWrap.appendChild(gramsInput);
+    gramsWrap.appendChild(gramsSuffix);
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
@@ -137,6 +160,7 @@
     };
 
     wrapper.appendChild(input);
+    wrapper.appendChild(gramsWrap);
     wrapper.appendChild(removeBtn);
     container.appendChild(wrapper);
   }

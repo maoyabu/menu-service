@@ -41,6 +41,10 @@ const ingredientsSchema = new mongoose.Schema({
     unit: {
         type: [String]  // 例: ['g', 'ml']
     },
+    unitConversions: [{
+        label: { type: String },
+        grams: { type: Number }
+    }],
     season: {
         type: [String]  // 例: ['春', '夏']
     },

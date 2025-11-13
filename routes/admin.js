@@ -14,6 +14,30 @@ const router = express.Router();
 // 管理画面は管理者のみアクセス可能
 router.use(isAdmin);
 
+const normalizeUnitPayload = (unitInput, gramsInput) => {
+  const unitArray = Array.isArray(unitInput)
+    ? unitInput
+    : (typeof unitInput !== 'undefined' ? [unitInput] : []);
+  const gramsArray = Array.isArray(gramsInput)
+    ? gramsInput
+    : (typeof gramsInput !== 'undefined' ? [gramsInput] : []);
+  const units = [];
+  const conversions = [];
+  unitArray.forEach((rawLabel, index) => {
+    const label = typeof rawLabel === 'string' ? rawLabel.trim() : '';
+    if (!label) return;
+    units.push(label);
+    const gramsRaw = gramsArray[index];
+    const gramsVal = typeof gramsRaw === 'string' && gramsRaw.trim() === ''
+      ? NaN
+      : Number(gramsRaw);
+    if (!Number.isNaN(gramsVal) && gramsVal > 0) {
+      conversions.push({ label, grams: gramsVal });
+    }
+  });
+  return { units, conversions };
+};
+
 // システム設定画面の表示
 router.get('/admin-setting', (req, res) => {
   res.render('admin/admin-setting');
@@ -787,11 +811,13 @@ router.post('/ingredient-new', async (req, res) => {
       lipid,
       carbohydrate,
       unit,
+      unitGrams,
       season,
       month,
       comment
     } = req.body;
 
+    const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
     const newIngredient = new Ingredient({
       classification,
       ingredient,
@@ -801,7 +827,8 @@ router.post('/ingredient-new', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit],
+      unit: units,
+      unitConversions: conversions,
       season: Array.isArray(season) ? season : season ? [season] : [],
       month:  Array.isArray(month)  ? month  : month  ? [month]  : [],
       comment
@@ -828,11 +855,13 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       lipid,
       carbohydrate,
       unit,
+      unitGrams,
       season,
       month,
       comment
     } = req.body;
 
+    const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
     await Ingredient.findByIdAndUpdate(req.params.id, {
       classification,
       ingredient,
@@ -842,7 +871,8 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit],
+      unit: units,
+      unitConversions: conversions,
       season: Array.isArray(season) ? season : season ? [season] : [],
       month:  Array.isArray(month)  ? month  : month  ? [month]  : [],
       comment

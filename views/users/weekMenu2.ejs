@@ -204,6 +204,56 @@
     const currentUserId = (window.weekMenuData && window.weekMenuData.currentUserId) || '';
     const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
     const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
+    const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
+    const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
+    const DEFAULT_ING_CLASS = 'その他';
+    const ingredientClassCache = {
+      ready: false,
+      error: false,
+      pending: null,
+      byId: new Map(),
+      byName: new Map()
+    };
+    const ensureIngredientClasses = () => {
+      if (ingredientClassCache.ready) return Promise.resolve(true);
+      if (ingredientClassCache.pending) return ingredientClassCache.pending;
+      ingredientClassCache.pending = fetch('/users/my-menu/api/ingredients?limit=1000')
+        .then((res) => {
+          if (!res.ok) throw new Error('failed to load');
+          return res.json();
+        })
+        .then((list) => {
+          ingredientClassCache.byId = new Map();
+          ingredientClassCache.byName = new Map();
+          (list || []).forEach((item) => {
+            const id = item && (item._id || item.id) ? String(item._id || item.id) : '';
+            const name = item && (item.ingredient || item.name) ? String(item.ingredient || item.name) : '';
+            let cls = item && item.classification ? String(item.classification) : DEFAULT_ING_CLASS;
+            if (!ING_CLASS_SET.has(cls)) cls = DEFAULT_ING_CLASS;
+            if (id) ingredientClassCache.byId.set(id, cls);
+            if (name) ingredientClassCache.byName.set(name, cls);
+          });
+          ingredientClassCache.ready = true;
+          ingredientClassCache.error = false;
+          return true;
+        })
+        .catch((err) => {
+          console.warn('Ingredient classification fetch failed:', err);
+          ingredientClassCache.error = true;
+          return false;
+        })
+        .finally(() => { ingredientClassCache.pending = null; });
+      return ingredientClassCache.pending;
+    };
+    // 事前に読み込みを開始して分類集計の描画を早める
+    ensureIngredientClasses();
+    const resolveIngredientClass = (id, name) => {
+      const idKey = id ? String(id) : '';
+      const nameKey = name ? String(name) : '';
+      const raw = (idKey && ingredientClassCache.byId.get(idKey)) || (nameKey && ingredientClassCache.byName.get(nameKey)) || DEFAULT_ING_CLASS;
+      return ING_CLASS_SET.has(raw) ? raw : DEFAULT_ING_CLASS;
+    };
+    let requirementsRenderToken = 0;
 
     const keyFor = (dayIndex, meal) => `${dayIndex}:${meal}`;
     const defaultIds = () => groupUsers.map((u) => String(u.id));
@@ -614,7 +664,17 @@
     }
 
     function renderRequirementsForDay(day){
-      const reqEl = document.getElementById('wm2-req'); if (!reqEl) return; reqEl.innerHTML='';
+      const reqEl = document.getElementById('wm2-req'); if (!reqEl) return;
+      requirementsRenderToken += 1;
+      const renderToken = requirementsRenderToken;
+      reqEl.innerHTML='';
+      if (!day) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-gray-500';
+        empty.textContent = 'この日のデータが見つかりません。';
+        reqEl.appendChild(empty);
+        return;
+      }
       const menusLunch = [];
       const menusDinner = [];
       (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusLunch.push({ menu: m, extra: Math.max(0, Number(s?.prepExtra)||0) }); });
@@ -627,6 +687,7 @@
       dSlots.forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusDinner.push({ menu: m, extra: Math.max(0, Number(s?.prepExtra)||0) }); });
 
       const agg = { ingredients: new Map(), seasonings: new Map() };
+      const classEntries = [];
       const add = (map, name, amount, unit)=>{
         if (!name) return; const key = name + '|' + (unit||''); const prev = map.get(key) || 0; const val = parseFloat(amount); map.set(key, (isNaN(val)? prev: prev + val));
       };
@@ -639,7 +700,19 @@
           const extra = Math.max(0, Number(entry && entry.extra) || 0);
           const basePeople = Number(m.people) > 0 ? Number(m.people) : 1;
           const multiplier = (people + extra) > 0 ? ((people + extra) / basePeople) : 1;
-          (Array.isArray(m.ingredients)? m.ingredients: []).forEach(it=> add(agg.ingredients, it?.name || '', Number(it.amount) * multiplier, it.unit));
+          (Array.isArray(m.ingredients)? m.ingredients: []).forEach(it=> {
+            const raw = Number(it?.amount);
+            const scaled = raw * multiplier;
+            add(agg.ingredients, it?.name || '', scaled, it.unit);
+            if (!Number.isNaN(raw)) {
+              classEntries.push({
+                id: it?.id ? String(it.id) : '',
+                name: it?.name || '',
+                unit: it?.unit || '',
+                amount: scaled
+              });
+            }
+          });
           (Array.isArray(m.seasoning)? m.seasoning: []).forEach(it=> add(agg.seasonings, it?.name || '', Number(it.amount) * multiplier, it.unit));
         });
       };
@@ -658,9 +731,90 @@
         box.appendChild(ul);
         return box;
       };
-
       reqEl.appendChild(sec('食材', agg.ingredients));
       reqEl.appendChild(sec('調味料', agg.seasonings));
+      const classBox = document.createElement('div');
+      classBox.className = 'mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-3 text-xs';
+      classBox.dataset.role = 'ingredient-class-summary';
+      reqEl.appendChild(classBox);
+      renderClassSummary(classBox, classEntries, formatQty1, renderToken);
+    }
+
+    function renderClassSummary(target, entries, formatQty, token){
+      if (!target) return;
+      target.innerHTML = '';
+      const title = document.createElement('p');
+      title.className = 'text-xs font-semibold text-amber-700 mb-1';
+      title.textContent = '食材分類別の合計';
+      target.appendChild(title);
+
+      if (!entries || !entries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-gray-500';
+        empty.textContent = '分類できる食材がありません。';
+        target.appendChild(empty);
+        return;
+      }
+
+      if (!ingredientClassCache.ready) {
+        const note = document.createElement('p');
+        note.className = 'text-xs text-gray-500';
+        note.textContent = ingredientClassCache.error ? '分類データの取得に失敗しました。再試行しています…' : '分類データを取得しています...';
+        target.appendChild(note);
+        ensureIngredientClasses().then((ok) => {
+          if (!ok) {
+            if (note.isConnected) note.textContent = '分類データの取得に失敗しました。時間をおいて再試行してください。';
+            return;
+          }
+          if (token !== requirementsRenderToken) return;
+          renderClassSummary(target, entries, formatQty, token);
+        });
+        return;
+      }
+
+      const totals = new Map();
+      entries.forEach(({ id, name, amount, unit }) => {
+        if (typeof amount !== 'number' || Number.isNaN(amount)) return;
+        const cls = resolveIngredientClass(id, name);
+        const unitKey = unit || '';
+        const unitMap = totals.get(cls) || new Map();
+        unitMap.set(unitKey, (unitMap.get(unitKey) || 0) + amount);
+        totals.set(cls, unitMap);
+      });
+
+      const list = document.createElement('ul');
+      list.className = 'space-y-1';
+      let hasRows = false;
+      ING_CLASS_ORDER.forEach((cls) => {
+        const unitMap = totals.get(cls);
+        if (!unitMap) return;
+        const parts = Array.from(unitMap.entries()).map(([unit, amt]) => {
+          const qty = formatQty(amt);
+          if (!qty) return '';
+          return unit ? `${qty}-${unit}` : qty;
+        }).filter(Boolean);
+        if (!parts.length) return;
+        hasRows = true;
+        const li = document.createElement('li');
+        li.className = 'flex items-start justify-between gap-3 text-gray-700';
+        const label = document.createElement('span');
+        label.className = 'font-medium';
+        label.textContent = cls;
+        const value = document.createElement('span');
+        value.className = 'text-right text-gray-900';
+        value.textContent = parts.join(' / ');
+        li.append(label, value);
+        list.appendChild(li);
+      });
+
+      if (!hasRows) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-gray-500';
+        empty.textContent = '分類データはありません。';
+        target.appendChild(empty);
+        return;
+      }
+      target.appendChild(list);
     }
 
     function rebuild(){ buildPills(); renderDay(); }
