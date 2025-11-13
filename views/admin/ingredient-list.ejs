@@ -1,5 +1,5 @@
 <% const returnQuery = currentQuery ? `?returnTo=${encodeURIComponent(currentQuery)}` : ''; %>
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-center justify-between mb-2">
   <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
     <i data-lucide="carrot" class="w-6 h-6 text-gray-700"></i>
     食材一覧
@@ -9,6 +9,7 @@
     新規登録
   </a>
 </div>
+<p class="text-sm text-gray-500 mb-4">該当件数: <%= ingredients.length %> 件</p>
 
 <form id="ingredient-filters" method="GET" action="/admin/ingredient-list" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
   <div>
