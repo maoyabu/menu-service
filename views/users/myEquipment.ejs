@@ -53,8 +53,8 @@
                  const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
                  const hasProductUrl = !!(it.productUrl && it.productUrl.trim());
             %>
-                  <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
-                <div class="flex gap-3">
+              <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm flex flex-col h-full">
+                <div class="flex gap-3 flex-1">
                   <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                     <% if (hasImage) { %>
                       <img src="<%= it.productImageUrl %>" alt="<%= it.name %>の画像" class="w-full h-full object-cover" loading="lazy">
@@ -87,15 +87,15 @@
                     <% if (it.maintenance) { %><div class="text-[11px] text-gray-500 truncate"><%= it.maintenance %></div><% } %>
                       </div>
                     </div>
-                    <% if (hasProductUrl) { %>
-                      <div class="pt-2">
-                        <a href="<%= it.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
-                          <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
-                          購入
-                        </a>
-                      </div>
-                    <% } %>
+                <% if (hasProductUrl) { %>
+                  <div class="pt-2 mt-auto">
+                    <a href="<%= it.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                      <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
+                      購入
+                    </a>
                   </div>
+                <% } %>
+              </div>
                 <% }) %>
               </div>
         <% } else { %>
@@ -113,8 +113,8 @@
                      const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
                      const hasProductUrl = !!(it.productUrl && it.productUrl.trim());
                 %>
-                  <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
-                    <div class="flex gap-3">
+                  <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm flex flex-col h-full">
+                    <div class="flex gap-3 flex-1">
                       <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                         <% if (hasImage) { %>
                           <img src="<%= it.productImageUrl %>" alt="<%= it.name %>の画像" class="w-full h-full object-cover" loading="lazy">
@@ -148,7 +148,7 @@
                       </div>
                     </div>
                     <% if (hasProductUrl) { %>
-                      <div class="pt-2">
+                      <div class="pt-2 mt-auto">
                         <a href="<%= it.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
                           <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
                           購入

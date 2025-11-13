@@ -7,10 +7,22 @@
   </header>
 
   <!-- View tabs + checklist action in one row (compact) -->
-  <div class="mt-1 flex items-center justify-between">
-    <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
-      <button type="button" data-view-tab="class" class="px-4 py-1 rounded-full bg-white shadow text-gray-900">分類で見る</button>
-      <button type="button" data-view-tab="place" class="px-4 py-1 rounded-full text-gray-600">保管場所で見る</button>
+  <div class="mt-1 flex items-center justify-between flex-wrap gap-3">
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
+        <button type="button" data-view-tab="class" class="px-4 py-1 rounded-full bg-white shadow text-gray-900">分類で見る</button>
+        <button type="button" data-view-tab="place" class="px-4 py-1 rounded-full text-gray-600">保管場所で見る</button>
+      </div>
+      <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
+        <button type="button" data-filter-tab="all" class="px-3 py-1 rounded-full bg-white shadow text-gray-900">すべて</button>
+        <button type="button" data-filter-tab="ingredient" class="px-3 py-1 rounded-full text-gray-600">食材のみ</button>
+        <button type="button" data-filter-tab="seasoning" class="px-3 py-1 rounded-full text-gray-600">調味料のみ</button>
+      </div>
+      <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
+        <% const __onlySP = typeof onlyStockpile !== 'undefined' && onlyStockpile; %>
+        <a href="/users/my-stock" class="px-4 py-1 rounded-full <%= __onlySP ? 'text-gray-600' : 'bg-white shadow text-gray-900' %>">全て</a>
+        <a href="/users/my-stock?stockpile=true" class="px-4 py-1 rounded-full <%= __onlySP ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">備蓄のみ</a>
+      </div>
     </div>
     <a href="/users/my-stock/checklist" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">
       <span class="lucide w-4 h-4" data-lucide="check-square"></span>
@@ -18,15 +30,9 @@
     </a>
   </div>
 
-  <div class="flex items-center gap-2 text-sm">
-    <% const __onlySP = typeof onlyStockpile !== 'undefined' && onlyStockpile; %>
-    <a href="/users/my-stock" class="px-3 py-1 rounded-full border <%= __onlySP ? '' : 'bg-white shadow' %>">全て</a>
-    <a href="/users/my-stock?stockpile=true" class="px-3 py-1 rounded-full border <%= __onlySP ? 'bg-white shadow' : '' %>">備蓄のみ</a>
-  </div>
-
-  <div data-view="class" class="grid md:grid-cols-2 gap-6">
+  <div data-view="class" class="space-y-6">
     <!-- 食材 -->
-    <section class="rounded-2xl border bg-white">
+    <section class="rounded-2xl border bg-white" data-class-section="ingredient">
       <div class="p-4 flex items-center justify-between">
         <h2 class="font-semibold">食材のストック</h2>
         <button type="button" id="addIng" data-action="add-ingredient" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 追加</button>
@@ -38,22 +44,41 @@
               <span class="font-medium"><%= cls %></span>
               <span class="text-xs text-gray-500"><%= rows.length %> 件</span>
             </summary>
-            <div class="px-4 pb-3 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div class="px-4 pb-3 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               <% rows.forEach(function(r){ const it = r.meta || {}; const s = r.stock || {}; var _p=((places||[]).find(function(p){return String(p._id)===String(s.place||'')})); const placeName=_p?_p.name:''; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-                <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></span>
-                    <span class="inline-flex items-center gap-1 ml-2">
-                      <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
-                      <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
-                    </span>
+                <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm flex flex-col h-full cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
+                  <div class="flex gap-3 flex-1">
+                    <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                      <% if (s.productImageUrl) { %>
+                        <img src="<%= s.productImageUrl %>" alt="<%= it.ingredient || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                      <% } else { %>
+                        <span class="text-[11px] text-gray-400">No Image</span>
+                      <% } %>
+                    </div>
+                    <div class="flex-1 min-w-0 space-y-1">
+                      <div class="flex items-start justify-between gap-2">
+                        <p class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></p>
+                        <span class="inline-flex items-center gap-1 ml-2">
+                          <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                          <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                        </span>
+                      </div>
+                      <% if (s.comment) { %><div class="text-[11px] text-gray-500 truncate"><%= s.comment %></div><% } %>
+                      <div class="text-xs text-gray-600">
+                        <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
+                        <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
+                      </div>
+                      <% if (placeName) { %><div class="text-[11px] text-gray-500 flex items-center gap-1"><span class="lucide w-3 h-3" data-lucide="map-pin"></span><span class="truncate">保管: <%= placeName %></span></div><% } %>
+                    </div>
                   </div>
-                  <div class="text-xs text-gray-600 mt-1">
-                    <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
-                    <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
-                  </div>
-                  <% if (placeName) { %><div class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><span class="lucide w-3 h-3" data-lucide="map-pin"></span><span class="truncate">保管: <%= placeName %></span></div><% } %>
-                  <% if (s.comment) { %><div class="text-[11px] text-gray-500 mt-0.5 truncate"><%= s.comment %></div><% } %>
+                  <% if (s.productUrl) { %>
+                    <div class="pt-2 mt-auto">
+                      <a href="<%= s.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                        <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
+                        購入
+                      </a>
+                    </div>
+                  <% } %>
                 </div>
               <% }) %>
             </div>
@@ -63,7 +88,7 @@
     </section>
 
     <!-- 調味料 -->
-    <section class="rounded-2xl border bg-white">
+    <section class="rounded-2xl border bg-white" data-class-section="seasoning">
       <div class="p-4 flex items-center justify-between">
         <h2 class="font-semibold">調味料のストック</h2>
         <button type="button" id="addSea" data-action="add-seasoning" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 追加</button>
@@ -75,22 +100,41 @@
               <span class="font-medium"><%= cls %></span>
               <span class="text-xs text-gray-500"><%= rows.length %> 件</span>
             </summary>
-            <div class="px-4 pb-3 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div class="px-4 pb-3 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               <% rows.forEach(function(r){ const it = r.meta || {}; const s = r.stock || {}; var _p=((places||[]).find(function(p){return String(p._id)===String(s.place||'')})); const placeName=_p?_p.name:''; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-                <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></span>
-                    <span class="inline-flex items-center gap-1 ml-2">
-                      <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
-                      <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
-                    </span>
+                <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm flex flex-col h-full cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
+                  <div class="flex gap-3 flex-1">
+                    <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                      <% if (s.productImageUrl) { %>
+                        <img src="<%= s.productImageUrl %>" alt="<%= it.seasoning || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                      <% } else { %>
+                        <span class="text-[11px] text-gray-400">No Image</span>
+                      <% } %>
+                    </div>
+                    <div class="flex-1 min-w-0 space-y-1">
+                      <div class="flex items-start justify-between gap-2">
+                        <p class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></p>
+                        <span class="inline-flex items-center gap-1 ml-2">
+                          <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                          <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                        </span>
+                      </div>
+                      <% if (s.comment) { %><div class="text-[11px] text-gray-500 truncate"><%= s.comment %></div><% } %>
+                      <div class="text-xs text-gray-600">
+                        <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
+                        <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
+                      </div>
+                      <% if (placeName) { %><div class="text-[11px] text-gray-500 flex items-center gap-1"><span class="lucide w-3 h-3" data-lucide="map-pin"></span><span class="truncate">保管: <%= placeName %></span></div><% } %>
+                    </div>
                   </div>
-                  <div class="text-xs text-gray-600 mt-1">
-                    <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
-                    <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
-                  </div>
-                  <% if (placeName) { %><div class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1"><span class="lucide w-3 h-3" data-lucide="map-pin"></span><span class="truncate">保管: <%= placeName %></span></div><% } %>
-                  <% if (s.comment) { %><div class="text-[11px] text-gray-500 mt-0.5 truncate"><%= s.comment %></div><% } %>
+                  <% if (s.productUrl) { %>
+                    <div class="pt-2 mt-auto">
+                      <a href="<%= s.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                        <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
+                        購入
+                      </a>
+                    </div>
+                  <% } %>
                 </div>
               <% }) %>
             </div>
@@ -102,7 +146,7 @@
 
   <div data-view="place" class="hidden space-y-6">
     <% const _pg = (typeof placeGrouped !== 'undefined' && placeGrouped) ? placeGrouped : {}; Object.keys(_pg).forEach(function(pname){ const sec=_pg[pname]||{}; %>
-    <section class="rounded-2xl border bg-white">
+    <section class="rounded-2xl border bg-white" data-place-group>
       <div class="p-4 flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 class="font-semibold"><%= pname %></h2>
@@ -115,45 +159,87 @@
       </div>
       <div class="px-4 pb-4 space-y-2">
         <% if ((sec.ingredient||[]).length){ %>
-          <div class="text-xs text-gray-500 mb-1">食材</div>
-          <div class="flex flex-wrap gap-2">
+          <div data-place-section="ingredient" class="space-y-1">
+            <div class="text-xs text-gray-500 mb-1">食材</div>
+            <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <% (sec.ingredient||[]).forEach(function(r){ const it=r.meta||{}; const s=r.stock||{}; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></span>
-                  <span class="inline-flex items-center gap-1 ml-2">
-                    <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
-                    <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
-                  </span>
+              <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm flex flex-col h-full cursor-pointer" data-stock-id="<%= s._id %>" data-type="ingredient" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.ingredient || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
+                <div class="flex gap-3 flex-1">
+                  <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                    <% if (s.productImageUrl) { %>
+                      <img src="<%= s.productImageUrl %>" alt="<%= it.ingredient || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                    <% } else { %>
+                      <span class="text-[11px] text-gray-400">No Image</span>
+                    <% } %>
+                  </div>
+                  <div class="flex-1 min-w-0 space-y-1">
+                    <div class="flex items-start justify-between gap-2">
+                      <p class="font-medium text-gray-900 truncate"><%= it.ingredient || '' %></p>
+                      <span class="inline-flex items-center gap-1 ml-2">
+                        <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                        <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                      </span>
+                    </div>
+                    <% if (s.comment) { %><div class="text-[11px] text-gray-500 truncate"><%= s.comment %></div><% } %>
+                    <div class="text-xs text-gray-600">
+                      <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
+                      <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
+                    </div>
+                  </div>
                 </div>
-                <div class="text-xs text-gray-600 mt-1">
-                  <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
-                  <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
-                </div>
-                <% if (s.comment) { %><div class="text-[11px] text-gray-500 mt-0.5 truncate"><%= s.comment %></div><% } %>
+                <% if (s.productUrl) { %>
+                  <div class="pt-2 mt-auto">
+                    <a href="<%= s.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                      <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
+                      購入
+                    </a>
+                  </div>
+                <% } %>
               </div>
             <% }) %>
+            </div>
           </div>
         <% } %>
         <% if ((sec.seasoning||[]).length){ %>
-          <div class="text-xs text-gray-500 mt-3 mb-1">調味料</div>
-          <div class="flex flex-wrap gap-2">
-            <% (sec.seasoning||[]).forEach(function(r){ const it=r.meta||{}; const s=r.stock||{}; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
-              <div class="w-48 border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></span>
-                  <span class="inline-flex items-center gap-1 ml-2">
-                    <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
-                    <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
-                  </span>
+          <div data-place-section="seasoning" class="space-y-1">
+            <div class="text-xs text-gray-500 mt-3 mb-1">調味料</div>
+            <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <% (sec.seasoning||[]).forEach(function(r){ const it=r.meta||{}; const s=r.stock||{}; const expStr = s.expiryDate ? (new Date(s.expiryDate)).toISOString().slice(0,10) : ''; %>
+                <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm flex flex-col h-full cursor-pointer" data-stock-id="<%= s._id %>" data-type="seasoning" data-item-id="<%= it._id %>" data-units="<%- Array.isArray(it.unit)? it.unit.join(',') : (it.unit || '') %>" data-name="<%- it.seasoning || '' %>" data-class="<%- it.classification || '' %>" data-amount="<%- s.amount || '' %>" data-unit="<%- s.unit || '' %>" data-place="<%- s.place || '' %>" data-exp="<%- expStr %>" data-sp="<%= s.stockpile ? '1':'0' %>" data-cmt="<%- s.comment || '' %>" data-url="<%- (s.productUrl || '').replace(/\"/g,'&quot;') %>" data-img="<%- (s.productImageUrl || '').replace(/\"/g,'&quot;') %>">
+                  <div class="flex gap-3 flex-1">
+                    <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                      <% if (s.productImageUrl) { %>
+                        <img src="<%= s.productImageUrl %>" alt="<%= it.seasoning || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                      <% } else { %>
+                        <span class="text-[11px] text-gray-400">No Image</span>
+                      <% } %>
+                    </div>
+                    <div class="flex-1 min-w-0 space-y-1">
+                      <div class="flex items-start justify-between gap-2">
+                        <p class="font-medium text-gray-900 truncate"><%= it.seasoning || '' %></p>
+                        <span class="inline-flex items-center gap-1 ml-2">
+                          <button type="button" class="text-gray-600 hover:text-gray-800" data-stock-edit="<%= s._id %>" title="編集"><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                          <button type="button" class="text-red-600 hover:text-red-700" data-stock-del="<%= s._id %>" title="削除"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                        </span>
+                      </div>
+                      <% if (s.comment) { %><div class="text-[11px] text-gray-500 truncate"><%= s.comment %></div><% } %>
+                      <div class="text-xs text-gray-600">
+                        <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
+                        <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
+                      </div>
+                    </div>
+                  </div>
+                  <% if (s.productUrl) { %>
+                    <div class="pt-2 mt-auto">
+                      <a href="<%= s.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                        <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
+                        購入
+                      </a>
+                    </div>
+                  <% } %>
                 </div>
-                <div class="text-xs text-gray-600 mt-1">
-                  <% if (s.stockpile) { %><span class="inline-block text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 mr-1 align-middle">備蓄</span><% } %>
-                  <span class="align-middle"><%= s.amount || '' %><%= s.unit || '' %></span>
-                </div>
-                <% if (s.comment) { %><div class="text-[11px] text-gray-500 mt-0.5 truncate"><%= s.comment %></div><% } %>
-              </div>
-            <% }) %>
+              <% }) %>
+            </div>
           </div>
         <% } %>
       </div>
@@ -540,6 +626,71 @@
     tabPlace?.addEventListener('click', ()=>switchView('place'));
     // 初期表示: 前回の選択を復元
     (function(){ try{ const v=localStorage.getItem(VIEW_KEY); if (v==='place'){ switchView('place'); } else { switchView('class'); } }catch(_){ switchView('class'); } })();
+
+    // 食材/調味料フィルター
+    const FILTER_KEY = 'mystock:class-filter';
+    const filterButtons = Array.from(document.querySelectorAll('[data-filter-tab]'));
+    const classSections = Array.from(document.querySelectorAll('[data-class-section]'));
+    const placeSections = Array.from(document.querySelectorAll('[data-place-section]'));
+    const placeGroups = Array.from(document.querySelectorAll('[data-place-group]'));
+    function applyClassFilter(which){
+      const target = ['ingredient','seasoning'].includes(which) ? which : 'all';
+      filterButtons.forEach(btn=>{
+        const isActive = (btn.dataset.filterTab || 'all') === target;
+        btn.classList.toggle('bg-white', isActive);
+        btn.classList.toggle('shadow', isActive);
+        btn.classList.toggle('text-gray-900', isActive);
+        btn.classList.toggle('text-gray-600', !isActive);
+      });
+      classSections.forEach(sec=>{
+        if (!sec) return;
+        if (target === 'all') {
+          sec.classList.remove('hidden');
+        } else {
+          sec.classList.toggle('hidden', sec.getAttribute('data-class-section') !== target);
+        }
+      });
+      placeSections.forEach(sec=>{
+        if (!sec) return;
+        if (target === 'all') {
+          sec.classList.remove('hidden');
+        } else {
+          sec.classList.toggle('hidden', sec.getAttribute('data-place-section') !== target);
+        }
+      });
+      placeGroups.forEach(group=>{
+        if (!group) return;
+        const hasIngredient = !!group.querySelector('[data-place-section="ingredient"]');
+        const hasSeasoning = !!group.querySelector('[data-place-section="seasoning"]');
+        let shouldShow = true;
+        if (target === 'ingredient') {
+          shouldShow = hasIngredient;
+        } else if (target === 'seasoning') {
+          shouldShow = hasSeasoning;
+        } else {
+          shouldShow = hasIngredient || hasSeasoning;
+        }
+        group.classList.toggle('hidden', !shouldShow);
+      });
+      try { localStorage.setItem(FILTER_KEY, target); } catch(_){ }
+    }
+    filterButtons.forEach(btn=>{
+      if (btn.__msFilterBound) return;
+      btn.__msFilterBound = true;
+      btn.addEventListener('click', ()=>{
+        applyClassFilter(btn.dataset.filterTab || 'all');
+      });
+    });
+    (function(){
+      let saved = 'all';
+      try {
+        const stored = localStorage.getItem(FILTER_KEY);
+        if (stored && ['all','ingredient','seasoning'].includes(stored)) {
+          saved = stored;
+        }
+      } catch(_){ }
+      applyClassFilter(saved);
+    })();
     // 既存ストックの編集用モーダル
     function buildEditModal(data){
       const modal=document.createElement('div'); modal.className='fixed inset-0 z-50 hidden overflow-y-auto';
