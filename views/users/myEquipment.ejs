@@ -7,13 +7,14 @@
   </header>
 
   <!-- Filter tabs (match myStock look) -->
-  <% const t = type || 'all'; %>
+  <% const t = type || 'all'; const showGridView = (t === 'all' || t === 'wishlist'); %>
   <div class="mt-1">
     <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
       <a href="/users/my-equipment?type=all" class="px-4 py-1 rounded-full <%= t==='all' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">すべて</a>
       <a href="/users/my-equipment?type=house" class="px-4 py-1 rounded-full <%= t==='house' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">家ストック</a>
       <a href="/users/my-equipment?type=disaster" class="px-4 py-1 rounded-full <%= t==='disaster' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">防災対策</a>
       <a href="/users/my-equipment?type=camping" class="px-4 py-1 rounded-full <%= t==='camping' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">キャンプ用</a>
+      <a href="/users/my-equipment?type=wishlist" class="px-4 py-1 rounded-full <%= t==='wishlist' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">ウィッシュリスト</a>
     </div>
   </div>
 
@@ -35,35 +36,68 @@
         </div>
       </div>
       <div class="px-4 pb-4 space-y-3">
-        <% const groupKey = (it) => (t==='house'? (it.houseCategory||'未分類') : t==='disaster'? (it.disasterCategory||'未分類') : t==='camping'? (it.campingCategory||'未分類') : ''); %>
+        <% const groupKey = (it) => {
+             if (t === 'house') return it.houseCategory || '未分類';
+             if (t === 'disaster') return it.disasterCategory || '未分類';
+             if (t === 'camping') return it.campingCategory || '未分類';
+             return '';
+           }; %>
         <% const grouped = {}; list.forEach(it=>{ const k = groupKey(it); grouped[k] = grouped[k]||[]; grouped[k].push(it); }); %>
         <% const cats = Object.keys(grouped); %>
-        <% if (t==='all') { %>
+        <% if (showGridView) { %>
           <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            <% list.forEach(function(it){ const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "" }).replace(/'/g,"\\\\'"); %>
-              <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium text-gray-900 truncate"><%= it.name %></span>
-                  <span class="inline-flex items-center gap-1 ml-2">
-                    <button type="button" class="text-gray-600 hover:text-gray-800" title="編集" onclick='openEdit(<%- editPayload %>)'><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
-                    <button type="button" class="text-red-600 hover:text-red-700" title="削除" onclick="removeItem('<%= it._id %>')"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
-                  </span>
-                </div>
-                <% if (it.comment) { %>
-                  <p class="text-xs text-gray-500 mt-0.5 truncate"><%= it.comment %></p>
-                <% } %>
-                <div class="text-xs text-gray-600 mt-1">
-                  <span class="align-middle"><%= it.quantity || '' %><%= it.unit || '' %></span>
-                </div>
-                <div class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 flex-wrap">
-                  <% if (it.houseCategory) { %><span class="px-2 py-0.5 text-[11px] bg-gray-100 rounded"><%= it.houseCategory %></span><% } %>
-                  <% if (it.disasterCategory) { %><span class="px-2 py-0.5 text-[11px] bg-orange-100 rounded"><%= it.disasterCategory %></span><% } %>
-                  <% if (it.campingCategory) { %><span class="px-2 py-0.5 text-[11px] bg-green-100 rounded"><%= it.campingCategory %></span><% } %>
-                </div>
-                <% if (it.maintenance) { %><div class="text-[11px] text-gray-500 mt-0.5 truncate"><%= it.maintenance %></div><% } %>
+            <% list.forEach(function(it){
+                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "" }).replace(/'/g,"\\\\'");
+                 const qtyNum = Number(it.quantity) || 0;
+                 const wishlistItem = (!it.place) || qtyNum <= 0;
+                 const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
+                 const hasProductUrl = !!(it.productUrl && it.productUrl.trim());
+            %>
+                  <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
+                <div class="flex gap-3">
+                  <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                    <% if (hasImage) { %>
+                      <img src="<%= it.productImageUrl %>" alt="<%= it.name %>の画像" class="w-full h-full object-cover" loading="lazy">
+                    <% } else { %>
+                      <span class="text-[11px] text-gray-400">No Image</span>
+                    <% } %>
+                  </div>
+                  <div class="flex-1 min-w-0 space-y-1">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="min-w-0">
+                        <p class="font-medium text-gray-900 truncate"><%= it.name %></p>
+                        <% if (wishlistItem) { %><span class="inline-flex items-center text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">ウィッシュリスト</span><% } %>
+                      </div>
+                      <span class="inline-flex items-center gap-1 ml-2 shrink-0">
+                        <button type="button" class="text-gray-600 hover:text-gray-800" title="編集" onclick='openEdit(<%- editPayload %>)'><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                        <button type="button" class="text-red-600 hover:text-red-700" title="削除" onclick="removeItem('<%= it._id %>')"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                      </span>
+                    </div>
+                    <% if (it.comment) { %>
+                      <p class="text-xs text-gray-500 truncate"><%= it.comment %></p>
+                    <% } %>
+                    <div class="text-xs text-gray-600">
+                      <span class="align-middle"><%= it.quantity || '' %><%= it.unit || '' %></span>
+                    </div>
+                    <div class="text-[11px] text-gray-500 flex items-center gap-1 flex-wrap">
+                      <% if (it.houseCategory) { %><span class="px-2 py-0.5 text-[11px] bg-gray-100 rounded"><%= it.houseCategory %></span><% } %>
+                      <% if (it.disasterCategory) { %><span class="px-2 py-0.5 text-[11px] bg-orange-100 rounded"><%= it.disasterCategory %></span><% } %>
+                      <% if (it.campingCategory) { %><span class="px-2 py-0.5 text-[11px] bg-green-100 rounded"><%= it.campingCategory %></span><% } %>
+                    </div>
+                    <% if (it.maintenance) { %><div class="text-[11px] text-gray-500 truncate"><%= it.maintenance %></div><% } %>
+                      </div>
+                    </div>
+                    <% if (hasProductUrl) { %>
+                      <div class="pt-2">
+                        <a href="<%= it.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                          <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
+                          購入
+                        </a>
+                      </div>
+                    <% } %>
+                  </div>
+                <% }) %>
               </div>
-            <% }) %>
-          </div>
         <% } else { %>
           <% cats.forEach(function(cat){ const items = grouped[cat] || []; %>
             <details class="group" open>
@@ -72,27 +106,55 @@
                 <span class="text-xs text-gray-500"><%= items.length %> 件</span>
               </summary>
               <div class="pb-2 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                <% items.forEach(function(it){ const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "" }).replace(/'/g,"\\\\'"); %>
-                  <div class="border border-gray-200 rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium text-gray-900 truncate"><%= it.name %></span>
-                  <span class="inline-flex items-center gap-1 ml-2">
-                        <button type="button" class="text-gray-600 hover:text-gray-800" title="編集" onclick='openEdit(<%- editPayload %>)'><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
-                    <button type="button" class="text-red-600 hover:text-red-700" title="削除" onclick="removeItem('<%= it._id %>')"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
-                  </span>
-                </div>
-                <% if (it.comment) { %>
-                  <p class="text-xs text-gray-500 mt-0.5 truncate"><%= it.comment %></p>
-                <% } %>
-                <div class="text-xs text-gray-600 mt-1">
-                      <span class="align-middle"><%= it.quantity || '' %><%= it.unit || '' %></span>
+                <% items.forEach(function(it){
+                     const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "" }).replace(/'/g,"\\\\'");
+                     const qtyNum = Number(it.quantity) || 0;
+                     const wishlistItem = (!it.place) || qtyNum <= 0;
+                     const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
+                     const hasProductUrl = !!(it.productUrl && it.productUrl.trim());
+                %>
+                  <div class="border border-blue-300 rounded-lg bg-white px-3 py-2 text-sm shadow-sm">
+                    <div class="flex gap-3">
+                      <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                        <% if (hasImage) { %>
+                          <img src="<%= it.productImageUrl %>" alt="<%= it.name %>の画像" class="w-full h-full object-cover" loading="lazy">
+                        <% } else { %>
+                          <span class="text-[11px] text-gray-400">No Image</span>
+                        <% } %>
+                      </div>
+                      <div class="flex-1 min-w-0 space-y-1">
+                        <div class="flex items-start justify-between gap-2">
+                          <div class="min-w-0">
+                            <p class="font-medium text-gray-900 truncate"><%= it.name %></p>
+                            <% if (wishlistItem) { %><span class="inline-flex items-center text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">ウィッシュリスト</span><% } %>
+                          </div>
+                          <span class="inline-flex items-center gap-1 ml-2 shrink-0">
+                            <button type="button" class="text-gray-600 hover:text-gray-800" title="編集" onclick='openEdit(<%- editPayload %>)'><span class="lucide w-4 h-4" data-lucide="pencil"></span></button>
+                            <button type="button" class="text-red-600 hover:text-red-700" title="削除" onclick="removeItem('<%= it._id %>')"><span class="lucide w-4 h-4" data-lucide="trash-2"></span></button>
+                          </span>
+                        </div>
+                        <% if (it.comment) { %>
+                          <p class="text-xs text-gray-500 truncate"><%= it.comment %></p>
+                        <% } %>
+                        <div class="text-xs text-gray-600">
+                          <span class="align-middle"><%= it.quantity || '' %><%= it.unit || '' %></span>
+                        </div>
+                        <div class="text-[11px] text-gray-500 flex items-center gap-1 flex-wrap">
+                          <% if (it.houseCategory) { %><span class="px-2 py-0.5 text-[11px] bg-gray-100 rounded"><%= it.houseCategory %></span><% } %>
+                          <% if (it.disasterCategory) { %><span class="px-2 py-0.5 text-[11px] bg-orange-100 rounded"><%= it.disasterCategory %></span><% } %>
+                          <% if (it.campingCategory) { %><span class="px-2 py-0.5 text-[11px] bg-green-100 rounded"><%= it.campingCategory %></span><% } %>
+                        </div>
+                        <% if (it.maintenance) { %><div class="text-[11px] text-gray-500 truncate"><%= it.maintenance %></div><% } %>
+                      </div>
                     </div>
-                    <div class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 flex-wrap">
-                      <% if (it.houseCategory) { %><span class="px-2 py-0.5 text-[11px] bg-gray-100 rounded"><%= it.houseCategory %></span><% } %>
-                      <% if (it.disasterCategory) { %><span class="px-2 py-0.5 text-[11px] bg-orange-100 rounded"><%= it.disasterCategory %></span><% } %>
-                      <% if (it.campingCategory) { %><span class="px-2 py-0.5 text-[11px] bg-green-100 rounded"><%= it.campingCategory %></span><% } %>
-                    </div>
-                    <% if (it.maintenance) { %><div class="text-[11px] text-gray-500 mt-0.5 truncate"><%= it.maintenance %></div><% } %>
+                    <% if (hasProductUrl) { %>
+                      <div class="pt-2">
+                        <a href="<%= it.productUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                          <span class="lucide w-3.5 h-3.5" data-lucide="shopping-cart"></span>
+                          購入
+                        </a>
+                      </div>
+                    <% } %>
                   </div>
                 <% }) %>
               </div>
@@ -112,43 +174,95 @@
       </div>
       <div class="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
         <!-- Tabs like myStock -->
-        <div id="preset-controls" class="flex items-center justify-between">
-          <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
-            <button type="button" id="tab-preset" class="px-4 py-1 rounded-full bg-white shadow text-gray-900">プリセットから選択</button>
-            <button type="button" id="tab-original" class="px-4 py-1 rounded-full text-gray-600">オリジナル追加</button>
+        <div id="preset-section" class="space-y-3">
+          <div class="flex flex-col gap-2">
+            <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm w-fit">
+              <button type="button" data-preset-tab="preset" class="px-4 py-1 rounded-full bg-white shadow text-gray-900">プリセットから選択</button>
+              <button type="button" data-preset-tab="custom" class="px-4 py-1 rounded-full text-gray-600">オリジナル追加</button>
+            </div>
+            <span class="text-xs text-gray-500">タグを選んだあと、下の入力欄で数量や保存場所を入力してください</span>
           </div>
-        </div>
 
-        <!-- Preset search -->
-        <div id="preset-pane" class="space-y-3">
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-            <div>
-              <label class="block text-xs text-gray-600">キーワード検索</label>
-              <input id="q-keyword" type="text" placeholder="例: 石けん" class="w-full border rounded px-2 py-1" />
+          <!-- Preset search -->
+          <div id="preset-pane" class="space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
+              <div>
+                <label class="block text-xs text-gray-600">キーワード検索</label>
+                <input id="q-keyword" type="text" placeholder="例: 石けん" class="w-full border rounded px-2 py-1" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">家ストック分類</label>
+                <input id="q-house" list="opt-house" class="w-full border rounded px-2 py-1" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">防災対策分類</label>
+                <input id="q-disaster" list="opt-disaster" class="w-full border rounded px-2 py-1" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">キャンプ分類</label>
+                <input id="q-camping" list="opt-camping" class="w-full border rounded px-2 py-1" />
+              </div>
+              <div class="md:col-span-1 flex md:justify-start">
+                <button type="button" id="preset-clear" class="px-3 py-1.5 border border-gray-500 rounded text-sm text-gray-700">クリア</button>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs text-gray-600">家ストック分類</label>
-              <input id="q-house" list="opt-house" class="w-full border rounded px-2 py-1" />
-            </div>
-            <div>
-              <label class="block text-xs text-gray-600">防災対策分類</label>
-              <input id="q-disaster" list="opt-disaster" class="w-full border rounded px-2 py-1" />
-            </div>
-            <div>
-              <label class="block text-xs text-gray-600">キャンプ分類</label>
-              <input id="q-camping" list="opt-camping" class="w-full border rounded px-2 py-1" />
-            </div>
-            <div class="md:col-span-1 flex md:justify-start">
-              <button type="button" id="preset-clear" class="px-3 py-1.5 border border-gray-500 rounded text-sm text-gray-700">クリア</button>
+            <div class="bg-gray-50 border border-gray-200 rounded p-2">
+              <div id="preset-results" class="flex gap-2 flex-wrap max-h-48 overflow-auto"></div>
             </div>
           </div>
-          <div class="bg-gray-50 border border-gray-200 rounded p-2">
-            <div id="preset-results" class="flex gap-2 flex-wrap max-h-48 overflow-auto"></div>
+
+          <!-- Custom preset registration -->
+        <div id="custom-preset-panel" class="rounded border border-dashed border-blue-200 bg-blue-50/40 p-3 space-y-3 hidden">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p class="text-sm font-semibold text-blue-900">オリジナル備品を登録（グループ限定）</p>
+                <p class="text-xs text-blue-800">プリセットに無い備品名をタグとして登録できます</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div class="md:col-span-3">
+                <label class="block text-xs text-gray-600">備品名</label>
+                <input id="custom-preset-name" type="text" class="w-full border rounded px-2 py-1" placeholder="例: 自宅オリジナル備品" />
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 md:col-span-3">
+                <div>
+                  <label class="block text-xs text-gray-600">単位</label>
+                  <input id="custom-preset-unit" type="text" class="w-full border rounded px-2 py-1" placeholder="例: 個" />
+                </div>
+                <div class="flex items-end">
+                  <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input id="custom-preset-consumable" type="checkbox" />
+                    消耗品
+                  </label>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2 md:col-span-3">
+                <div>
+                  <label class="block text-xs text-gray-600">家ストック分類</label>
+                  <input id="custom-preset-house" list="opt-house" class="w-full border rounded px-2 py-1" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600">防災対策分類</label>
+                  <input id="custom-preset-disaster" list="opt-disaster" class="w-full border rounded px-2 py-1" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-600">キャンプ分類</label>
+                  <input id="custom-preset-camping" list="opt-camping" class="w-full border rounded px-2 py-1" />
+                </div>
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-xs text-gray-600">メンテナンス内容</label>
+                <input id="custom-preset-maintenance" list="opt-maint" class="w-full border rounded px-2 py-1" />
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button type="button" id="custom-preset-save" class="px-4 py-1.5 rounded bg-blue-600 text-white text-xs">タグとして登録</button>
+            </div>
           </div>
         </div>
 
         <!-- Input block (blue background) -->
-        <div id="original-pane" class="rounded border border-blue-200 bg-blue-50 p-3 space-y-3">
+        <div id="original-pane" class="rounded border border-blue-200 bg-blue-50 p-3 space-y-3 hidden">
           <div id="equip-target" class="rounded border border-blue-200 bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-900 flex flex-wrap gap-2 hidden">
             <span id="equip-target-name"></span>
             <span id="equip-target-category" class="text-xs font-normal text-blue-800 hidden"></span>
@@ -164,10 +278,7 @@
               <input id="f-place-name" list="opt-place" placeholder="既存を選択 or 新規名を入力" class="w-full border rounded px-2 py-1" />
             </div>
           </div>
-          <div id="original-name-row" class="hidden">
-            <label class="block text-xs text-gray-600">備品名</label>
-            <input id="f-name" type="text" class="w-full border rounded px-2 py-1" />
-          </div>
+          <input id="f-name" type="hidden" />
 
           <!-- Row: 数量/単位/消耗品 -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -235,7 +346,7 @@
           </div>
         </div>
       </div>
-      <div class="px-5 py-3 border-t flex justify-end gap-2">
+      <div id="equip-form-actions" class="px-5 py-3 border-t flex justify-end gap-2 hidden">
         <button type="button" class="px-3 py-1.5 border rounded" onclick="closeEquipModal()">キャンセル</button>
         <button type="button" class="px-3 py-1.5 bg-blue-600 text-white rounded" onclick="submitEquipForm()">保存</button>
       </div>
@@ -271,14 +382,47 @@ const manualImageInputEl = document.getElementById('f-image-url');
 const equipTargetBox = document.getElementById('equip-target');
 const equipTargetName = document.getElementById('equip-target-name');
 const equipTargetCategory = document.getElementById('equip-target-category');
-const presetControls = document.getElementById('preset-controls');
-const presetPane = document.getElementById('preset-pane');
+const presetSection = document.getElementById('preset-section');
 let equipImageFetchTimer = null;
 let equipImageFetchId = 0;
 const nameInputEl = document.getElementById('f-name');
+const unitInputEl = document.getElementById('f-unit');
+const consumableInputEl = document.getElementById('f-consumable');
 const houseInputEl = document.getElementById('f-house');
 const disasterInputEl = document.getElementById('f-disaster');
 const campingInputEl = document.getElementById('f-camping');
+const customPresetInputs = {
+  name: document.getElementById('custom-preset-name'),
+  unit: document.getElementById('custom-preset-unit'),
+  consumable: document.getElementById('custom-preset-consumable'),
+  house: document.getElementById('custom-preset-house'),
+  disaster: document.getElementById('custom-preset-disaster'),
+  camping: document.getElementById('custom-preset-camping'),
+  maintenance: document.getElementById('custom-preset-maintenance')
+};
+const customPresetSaveBtn = document.getElementById('custom-preset-save');
+const presetTabButtons = document.querySelectorAll('[data-preset-tab]');
+const presetPane = document.getElementById('preset-pane');
+const customPresetPanel = document.getElementById('custom-preset-panel');
+const formActions = document.getElementById('equip-form-actions');
+let presetTabState = 'preset';
+
+function updateOriginalPaneVisibility(){
+  const pane = document.getElementById('original-pane');
+  if (!pane) return;
+  const shouldShow = !!(editingId || (selectedPreset && selectedPreset._id));
+  pane.classList.toggle('hidden', !shouldShow);
+  formActions?.classList.toggle('hidden', !shouldShow);
+}
+
+function resetCustomPresetForm(){
+  Object.values(customPresetInputs).forEach(el=>{
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = false;
+    else el.value = '';
+  });
+  updateOriginalPaneVisibility();
+}
 
 function getPresetCategory(item){
   if (!item) return '';
@@ -304,10 +448,44 @@ let manualImageOverride = false;
 
 function togglePresetControls(show){
   const method = show ? 'remove' : 'add';
-  presetControls?.classList[method]('hidden');
-  presetPane?.classList[method]('hidden');
+  presetSection?.classList[method]('hidden');
+  if (!show) resetCustomPresetForm();
 }
 
+function setPresetTab(tab){
+  presetTabState = tab;
+  const isPresetTab = tab === 'preset';
+  presetPane?.classList.toggle('hidden', !isPresetTab);
+  customPresetPanel?.classList.toggle('hidden', isPresetTab);
+  if (isPresetTab) {
+    resetCustomPresetForm();
+  } else {
+    selectedPreset = null;
+    if (nameInputEl) nameInputEl.value = '';
+    if (unitInputEl) unitInputEl.value = '';
+    if (consumableInputEl) consumableInputEl.checked = false;
+    if (houseInputEl) houseInputEl.value = '';
+    if (disasterInputEl) disasterInputEl.value = '';
+    if (campingInputEl) campingInputEl.value = '';
+    const maintenanceInputEl = document.getElementById('f-maintenance');
+    if (maintenanceInputEl) maintenanceInputEl.value = '';
+    renderSelectedPresetTag();
+    updatePresetButtons();
+    setTargetInfo('', '');
+  }
+  presetTabButtons.forEach(btn=>{
+    const active = btn.dataset.presetTab === tab;
+    btn.classList.toggle('bg-white', active);
+    btn.classList.toggle('shadow', active);
+    btn.classList.toggle('text-gray-900', active);
+    btn.classList.toggle('text-gray-600', !active);
+  });
+}
+setPresetTab('preset');
+
+presetTabButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=> setPresetTab(btn.dataset.presetTab));
+});
 function updateEquipImagePreview(url, fallback, opts = {}){
   if (equipImageUrlText) equipImageUrlText.textContent = url ? url : (fallback || '未取得');
   if (equipImagePreview) {
@@ -393,12 +571,48 @@ if (manualImageInputEl){
   });
 }
 
+if (customPresetSaveBtn){
+  customPresetSaveBtn.addEventListener('click', async ()=>{
+    const payload = {
+      name: customPresetInputs.name?.value.trim() || '',
+      unit: customPresetInputs.unit?.value.trim() || '',
+      isConsumable: !!customPresetInputs.consumable?.checked,
+      houseCategory: customPresetInputs.house?.value.trim() || '',
+      disasterCategory: customPresetInputs.disaster?.value.trim() || '',
+      campingCategory: customPresetInputs.camping?.value.trim() || '',
+      maintenance: customPresetInputs.maintenance?.value.trim() || ''
+    };
+    if (!payload.name){
+      alert('備品名を入力してください');
+      customPresetInputs.name?.focus();
+      return;
+    }
+    try{
+      const res = await fetch('/users/my-equipment/api/custom-presets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error();
+      const created = await res.json();
+      selectPreset(created);
+      updatePresetButtons();
+      renderSelectedPresetTag();
+      setTargetInfo(created.name || '', getPresetCategory(created));
+      searchPresets();
+      alert('オリジナル備品を登録しました');
+    } catch(_){
+      alert('オリジナル備品の登録に失敗しました');
+    }
+  });
+}
+
 function renderSelectedPresetTag(){
   const box = document.querySelector('[data-role="selected"]');
   if (!box) return;
   box.innerHTML = '';
   if (selectedPreset && selectedPreset._id){
-    const allowBadge = !presetControls?.classList.contains('hidden');
+    const allowBadge = !presetSection?.classList.contains('hidden');
     box.classList.remove('hidden');
     const wrap = document.createElement('div');
     wrap.className = 'flex items-center gap-2 text-sm';
@@ -422,12 +636,14 @@ function renderSelectedPresetTag(){
     box.classList.add('hidden');
     setTargetInfo(nameInputEl?.value.trim() || '', getCurrentCategory());
   }
+  updateOriginalPaneVisibility();
 }
 
 function clearSelectedPreset(){
   selectedPreset = null;
   renderSelectedPresetTag();
   updatePresetButtons();
+  updateOriginalPaneVisibility();
 }
 
 renderSelectedPresetTag();
@@ -446,7 +662,6 @@ function openAddModal(placeName){
   editingId = null; selectedPreset = null;
   document.getElementById('equip-modal-title').textContent = '備品の追加';
   togglePresetControls(true);
-  setTab('preset');
   resetForm();
   loadPlaces();
   searchPresets();
@@ -458,13 +673,13 @@ function openAddModal(placeName){
   }
   primeEquipImagePreview('', '');
   setTargetInfo('', '');
+  updateOriginalPaneVisibility();
   const dlg = document.getElementById('equip-modal'); dlg.showModal();
 }
 function openEdit(data){
   editingId = data.id; selectedPreset = null;
   document.getElementById('equip-modal-title').textContent = '備品の編集';
   togglePresetControls(false);
-  setTab('original');
   // fill
   document.getElementById('f-name').value = data.name||'';
   document.getElementById('f-qty').value = data.quantity||0;
@@ -490,24 +705,11 @@ function openEdit(data){
   updatePresetButtons();
   primeEquipImagePreview(data.productUrl || '', data.productImageUrl || '');
   setTargetInfo(data.name || '', category);
+  updateOriginalPaneVisibility();
   const dlg = document.getElementById('equip-modal'); dlg.showModal();
   if (window.refreshLucideIcons) window.refreshLucideIcons();
 }
 function closeEquipModal(){ document.getElementById('equip-modal').close(); }
-function setTab(which){
-  const p = document.getElementById('preset-pane'); const o = document.getElementById('original-pane');
-  const tbp = document.getElementById('tab-preset'); const tbo = document.getElementById('tab-original');
-  const isPreset = which === 'preset';
-  p.classList.toggle('hidden', !isPreset);
-  o.classList.toggle('hidden', isPreset);
-  if (isPreset) { tbp.classList.add('bg-white','shadow','text-gray-900'); tbo.classList.remove('bg-white','shadow','text-gray-900'); }
-  else { tbo.classList.add('bg-white','shadow','text-gray-900'); tbp.classList.remove('bg-white','shadow','text-gray-900'); }
-  // Name row visibility
-  document.getElementById('original-name-row').classList.toggle('hidden', isPreset);
-}
-document.getElementById('tab-preset').addEventListener('click', ()=> setTab('preset'));
-document.getElementById('tab-original').addEventListener('click', ()=> setTab('original'));
-
 async function loadPlaces(){
   try{
     const res = await fetch('/users/my-equipment/api/places');
@@ -529,6 +731,8 @@ function resetForm(){
   manualImageOverride = false;
   renderSelectedPresetTag();
   setTargetInfo('', '');
+  resetCustomPresetForm();
+  updateOriginalPaneVisibility();
 }
 
 let _presetTimer = null;
@@ -570,12 +774,14 @@ function selectPreset(e){
   selectedPreset = { ...e, category: getPresetCategory(e) };
   document.getElementById('f-name').value = e.name||'';
   document.getElementById('f-unit').value = e.unit||'';
+  document.getElementById('f-consumable').checked = !!e.isConsumable;
   document.getElementById('f-house').value = e.houseCategory||'';
   document.getElementById('f-disaster').value = e.disasterCategory||'';
   document.getElementById('f-camping').value = e.campingCategory||'';
   document.getElementById('f-maintenance').value = e.maintenance||'';
   renderSelectedPresetTag();
   setTargetInfo(e.name || '', selectedPreset.category || '');
+  updateOriginalPaneVisibility();
 }
 
 function updatePresetButtons(){

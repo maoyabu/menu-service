@@ -3,6 +3,7 @@ import { isLoggedIn } from '../middleware.js';
 import Group from '../models/groups.js';
 import StoragePlace from '../models/storagePlace.js';
 import Equipment from '../models/equipment.js';
+import CustomEquipmentPreset from '../models/customEquipmentPreset.js';
 import MyEquipment from '../models/myEquipment.js';
 
 const router = express.Router();
@@ -18,7 +19,8 @@ function getGroupId(res){
 router.get('/', async (req, res, next) => {
   try {
     const groupId = getGroupId(res);
-    const type = ['house','disaster','camping'].includes(String(req.query?.type)) ? String(req.query.type) : 'all';
+    const allowedTypes = ['house', 'disaster', 'camping', 'wishlist'];
+    const type = allowedTypes.includes(String(req.query?.type)) ? String(req.query.type) : 'all';
     if (!groupId) return res.render('users/myEquipment', { places: [], placeMap: {}, type, categories: { house: [], disaster: [], camping: [], maintenance: [], units: [] } });
 
     const [items, places] = await Promise.all([
@@ -28,6 +30,10 @@ router.get('/', async (req, res, next) => {
     const placeNameById = new Map((places||[]).map(p=> [String(p._id), p.name]));
 
     const filtered = items.filter(it => {
+      if (type === 'wishlist') {
+        const qty = Number(it.quantity) || 0;
+        return !it.place || qty <= 0;
+      }
       if (type === 'house') return !!(it.houseCategory && it.houseCategory.trim());
       if (type === 'disaster') return !!(it.disasterCategory && it.disasterCategory.trim());
       if (type === 'camping') return !!(it.campingCategory && it.campingCategory.trim());
@@ -37,7 +43,10 @@ router.get('/', async (req, res, next) => {
     // group by place name
     const placeMap = {};
     filtered.forEach(it => {
-      const pname = placeNameById.get(String(it.place||'')) || '未設定';
+      const qty = Number(it.quantity) || 0;
+      const pname = (!it.place && qty <= 0)
+        ? 'ウィッシュリスト'
+        : (placeNameById.get(String(it.place||'')) || '未設定');
       if (!placeMap[pname]) placeMap[pname] = [];
       placeMap[pname].push(it);
     });
@@ -87,6 +96,7 @@ router.post('/api/places', express.json(), async (req, res) => {
 // Presets search
 router.get('/api/presets', async (req, res) => {
   try {
+    const groupId = getGroupId(res);
     const { keyword, houseCategory, disasterCategory, campingCategory } = req.query;
     const and = [];
     if (keyword) {
@@ -98,7 +108,36 @@ router.get('/api/presets', async (req, res) => {
     if (campingCategory) and.push({ campingCategory });
     const filter = and.length? { $and: and } : {};
     const list = await Equipment.find(filter).sort({ name: 1 }).limit(300).lean();
-    res.json(list);
+
+    let customList = [];
+    if (groupId) {
+      const customFilter = and.length ? { $and: [...and, { group: groupId }] } : { group: groupId };
+      customList = await CustomEquipmentPreset.find(customFilter).sort({ name: 1 }).lean();
+    }
+
+    res.json([...(customList || []), ...list]);
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.post('/api/custom-presets', express.json(), async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const body = req.body || {};
+    const name = String(body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const doc = await CustomEquipmentPreset.create({
+      group: groupId,
+      createdBy: req.user._id,
+      name,
+      unit: String(body.unit || '').trim(),
+      isConsumable: !!body.isConsumable,
+      houseCategory: String(body.houseCategory || '').trim(),
+      disasterCategory: String(body.disasterCategory || '').trim(),
+      campingCategory: String(body.campingCategory || '').trim(),
+      maintenance: String(body.maintenance || '').trim()
+    });
+    res.json(doc.toObject());
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 

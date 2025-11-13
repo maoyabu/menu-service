@@ -387,6 +387,29 @@
         renderTags(data);
       }
       const state={ genre:'', selectedId: null };
+      const detailInputs = modal.querySelectorAll('[data-x]');
+      const originalInputs = modal.querySelectorAll('[data-o]');
+      const selectedBox = modal.querySelector('[data-role="selected"]');
+      function resetDetailFields(){
+        detailInputs.forEach(el=>{
+          if (!el) return;
+          if (el.type === 'checkbox') el.checked = false;
+          else el.value = '';
+        });
+        cachedImageUrl = '';
+        manualOverride = false;
+        updateImagePreview('', '未取得', { forceManualSync: true });
+      }
+      function resetOriginalInputs(){
+        originalInputs.forEach(el=>{ if (el) el.value = ''; });
+      }
+      function resetPresetSelection(){
+        state.selectedId = null;
+        if (selectedBox) selectedBox.classList.add('hidden');
+        renderSelectedPresetTag?.();
+        updatePresetButtons?.();
+        setTargetInfo?.('', '');
+      }
       modal.querySelector('[data-role="kw"]').addEventListener('input', ()=>run());
       modal.querySelector('[data-x="placeAdd"]').addEventListener('click', async ()=>{
         const name=prompt('保管場所名');
@@ -424,7 +447,36 @@
       buildGenres(); run();
       // tabs
       const preset=modal.querySelector('[data-view="preset"]'); const original=modal.querySelector('[data-view="original"]'); const tabP=modal.querySelector('[data-tab="preset"]'); const tabO=modal.querySelector('[data-tab="original"]');
-      function switchTab(tab){ if(tab==='preset'){ tabP.classList.add('bg-white','shadow','text-gray-900'); tabO.classList.remove('bg-white','shadow','text-gray-900'); preset.classList.remove('hidden'); original.classList.add('hidden'); } else { tabO.classList.add('bg-white','shadow','text-gray-900'); tabP.classList.remove('bg-white','shadow','text-gray-900'); original.classList.remove('hidden'); preset.classList.add('hidden'); } const box=modal.querySelector('div.grid.grid-cols-3'); if(box){ if(tab==='original' && !state.selectedId){ box.classList.add('hidden'); } else { box.classList.remove('hidden'); } } }
+      function switchTab(tab){
+        if(tab==='preset'){
+          resetOriginalInputs();
+          resetDetailFields();
+          resetPresetSelection();
+        } else {
+          resetPresetSelection();
+          resetDetailFields();
+          resetOriginalInputs();
+        }
+        if(tab==='preset'){
+          tabP.classList.add('bg-white','shadow','text-gray-900');
+          tabO.classList.remove('bg-white','shadow','text-gray-900');
+          preset.classList.remove('hidden');
+          original.classList.add('hidden');
+        } else {
+          tabO.classList.add('bg-white','shadow','text-gray-900');
+          tabP.classList.remove('bg-white','shadow','text-gray-900');
+          original.classList.remove('hidden');
+          preset.classList.add('hidden');
+        }
+        const box=modal.querySelector('div.grid.grid-cols-3');
+        if(box){
+          if(tab==='original' && !state.selectedId){
+            box.classList.add('hidden');
+          } else {
+            box.classList.remove('hidden');
+          }
+        }
+      }
       tabP.addEventListener('click', ()=>switchTab('preset')); tabO.addEventListener('click', ()=>switchTab('original'));
       modal.querySelector('[data-role="create"]').addEventListener('click', async ()=>{
         const name=modal.querySelector('[data-o="name"]').value.trim();
