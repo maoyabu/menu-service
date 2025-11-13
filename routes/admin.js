@@ -38,6 +38,40 @@ const normalizeUnitPayload = (unitInput, gramsInput) => {
   return { units, conversions };
 };
 
+const fetchWikiImage = async (wikiUrl) => {
+  const parsed = new URL(wikiUrl);
+  const isWikipedia = /(^|\.)wikipedia\.org$/.test(parsed.hostname);
+  if (!isWikipedia) {
+    throw new Error('wikipediaリンクではありません');
+  }
+  const segments = parsed.pathname.split('/').filter(Boolean);
+  if (!segments.length) throw new Error('ページ名を特定できません');
+  let title = segments.pop();
+  if (!title) throw new Error('ページ名を特定できません');
+  title = decodeURIComponent(title);
+  const summaryUrl = `${parsed.protocol}//${parsed.hostname}/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+  const response = await fetch(summaryUrl, { headers: { accept: 'application/json' } });
+  if (!response.ok) throw new Error('WIKI APIの取得に失敗しました');
+  const data = await response.json();
+  const imageUrl = data?.originalimage?.source || data?.thumbnail?.source || '';
+  return {
+    title: data?.title || title,
+    imageUrl,
+    extract: data?.extract || ''
+  };
+};
+
+router.get('/api/wiki-image', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'url is required' });
+    const result = await fetchWikiImage(url);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || '画像取得に失敗しました' });
+  }
+});
+
 // システム設定画面の表示
 router.get('/admin-setting', (req, res) => {
   res.render('admin/admin-setting');
@@ -864,7 +898,9 @@ router.post('/ingredient-new', async (req, res) => {
       unitGrams,
       season,
       month,
-      comment
+      comment,
+      wikiUrl,
+      imageUrl
     } = req.body;
 
     const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
@@ -881,7 +917,9 @@ router.post('/ingredient-new', async (req, res) => {
       unitConversions: conversions,
       season: Array.isArray(season) ? season : season ? [season] : [],
       month:  Array.isArray(month)  ? month  : month  ? [month]  : [],
-      comment
+      comment,
+      wikiUrl: typeof wikiUrl === 'string' ? wikiUrl.trim() : '',
+      imageUrl: typeof imageUrl === 'string' ? imageUrl.trim() : ''
     });
 
     await newIngredient.save();
@@ -909,6 +947,8 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       season,
       month,
       comment,
+      wikiUrl,
+      imageUrl,
       returnTo
     } = req.body;
 
@@ -926,7 +966,9 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       unitConversions: conversions,
       season: Array.isArray(season) ? season : season ? [season] : [],
       month:  Array.isArray(month)  ? month  : month  ? [month]  : [],
-      comment
+      comment,
+      wikiUrl: typeof wikiUrl === 'string' ? wikiUrl.trim() : '',
+      imageUrl: typeof imageUrl === 'string' ? imageUrl.trim() : ''
     });
 
     if (returnTo && typeof returnTo === 'string') {

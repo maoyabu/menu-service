@@ -45,6 +45,12 @@ const ingredientsSchema = new mongoose.Schema({
         label: { type: String },
         grams: { type: Number }
     }],
+    wikiUrl: {
+        type: String
+    },
+    imageUrl: {
+        type: String
+    },
     season: {
         type: [String]  // 例: ['春', '夏']
     },

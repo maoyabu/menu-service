@@ -46,6 +46,22 @@
         <label class="block mb-1 text-sm font-bold">炭水化物 (g)</label>
         <input type="number" step="0.1" name="carbohydrate" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
+      <div>
+        <label class="block mb-1 text-sm font-bold">WIKIリンク</label>
+        <div class="flex gap-2">
+          <input type="url" name="wikiUrl" data-wiki-input class="flex-1 border rounded-md px-3 py-2 bg-gray-50" placeholder="https://ja.wikipedia.org/wiki/○○">
+          <button type="button" data-action="fetch-wiki-image" class="px-3 py-2 text-sm border rounded-md bg-white text-gray-700 hover:bg-gray-100">画像取得</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Wikipediaのリンクを入力すると、画像URLを自動取得できます。</p>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-bold">画像URL</label>
+        <input type="url" name="imageUrl" data-image-input class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="https://example.com/image.jpg">
+        <div class="mt-2">
+          <img data-image-preview class="max-h-40 rounded border hidden" alt="プレビュー">
+          <p class="text-xs text-gray-500 mt-1">URLは直接編集可能です。</p>
+        </div>
+      </div>
       <div class="md:col-span-2">
         <label class="block mb-1 text-sm font-bold">コメント</label>
         <textarea name="comment" rows="4" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="メモや注意点などを自由入力"></textarea>
@@ -164,6 +180,52 @@
     wrapper.appendChild(removeBtn);
     container.appendChild(wrapper);
   }
+
+  (function(){
+    const wikiInput = document.querySelector('[data-wiki-input]');
+    const fetchBtn = document.querySelector('[data-action="fetch-wiki-image"]');
+    const imageInput = document.querySelector('[data-image-input]');
+    const preview = document.querySelector('[data-image-preview]');
+
+    const updatePreview = () => {
+      if (!preview) return;
+      const val = (imageInput?.value || '').trim();
+      if (val) {
+        preview.src = val;
+        preview.classList.remove('hidden');
+      } else {
+        preview.src = '';
+        preview.classList.add('hidden');
+      }
+    };
+    imageInput?.addEventListener('input', updatePreview);
+
+    const fetchImage = async () => {
+      const url = (wikiInput?.value || '').trim();
+      if (!url) {
+        alert('WIKIリンクを入力してください');
+        return;
+      }
+      try {
+        fetchBtn?.setAttribute('disabled', 'disabled');
+        fetchBtn?.classList.add('opacity-60', 'cursor-wait');
+        const res = await fetch(`/admin/api/wiki-image?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error('取得に失敗しました');
+        const data = await res.json();
+        if (data?.imageUrl && imageInput) {
+          imageInput.value = data.imageUrl;
+          updatePreview();
+        }
+        alert(data?.imageUrl ? '画像URLを取得しました' : '画像が見つかりませんでした');
+      } catch (err) {
+        alert(err?.message || '取得に失敗しました');
+      } finally {
+        fetchBtn?.removeAttribute('disabled');
+        fetchBtn?.classList.remove('opacity-60', 'cursor-wait');
+      }
+    };
+    fetchBtn?.addEventListener('click', (e)=>{ e.preventDefault(); fetchImage(); });
+  })();
 
   lucide.createIcons();
 </script>
