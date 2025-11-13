@@ -750,13 +750,18 @@ router.get('/ingredient-list', async (req, res) => {
     const allIngredients = await Ingredient.find();
     const categoryList = [...new Set(allIngredients.map(item => item.classification).filter(Boolean))];
 
+    const currentQuery = req.originalUrl.includes('?')
+      ? req.originalUrl.slice(req.originalUrl.indexOf('?') + 1)
+      : '';
+
     res.render('admin/ingredient-list', {
       ingredients,
       categoryList,
       selectedCategory: classification || '',
       classification: classification || '',
       keyword: keyword || '',
-      missingConversion
+      missingConversion,
+      currentQuery
     });
   } catch (err) {
     console.error('食材取得エラー:', err);
@@ -804,10 +809,12 @@ router.get('/ingredient-edit/:id', async (req, res) => {
 
     const allIngredients = await Ingredient.find();
     const classificationList = [...new Set(allIngredients.map(item => item.classification).filter(Boolean))];
+    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
 
     res.render('admin/ingredient-edit', {
       ingredient,
-      classificationList
+      classificationList,
+      returnTo
     });
   } catch (err) {
     console.error('食材編集画面表示エラー:', err);
@@ -875,7 +882,8 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       unitGrams,
       season,
       month,
-      comment
+      comment,
+      returnTo
     } = req.body;
 
     const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
@@ -895,7 +903,12 @@ router.post('/ingredient-edit/:id', async (req, res) => {
       comment
     });
 
-    res.redirect('/admin/ingredient-list');
+    if (returnTo && typeof returnTo === 'string') {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/ingredient-list${sanitized ? '?' + sanitized : ''}`);
+    } else {
+      res.redirect('/admin/ingredient-list');
+    }
   } catch (err) {
     console.error('食材更新エラー:', err);
     res.status(500).send('食材を更新できませんでした');

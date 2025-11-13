@@ -1,3 +1,4 @@
+<% const returnQuery = currentQuery ? `?returnTo=${encodeURIComponent(currentQuery)}` : ''; %>
 <div class="flex items-center justify-between mb-6">
   <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
     <i data-lucide="carrot" class="w-6 h-6 text-gray-700"></i>
@@ -54,7 +55,7 @@
             </div>
           </div>
           <div class="flex gap-2">
-            <a href="/admin/ingredient-edit/<%= item._id %>" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+            <a href="/admin/ingredient-edit/<%= item._id %><%= returnQuery %>" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
               <i data-lucide="edit" class="w-4 h-4"></i>
             </a>
             <form action="/admin/ingredient-delete/<%= item._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');">
