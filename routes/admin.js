@@ -754,6 +754,7 @@ router.get('/ingredient-list', async (req, res) => {
     const missingConversion = req.query.missingConversion === 'true';
     const missingSeason = req.query.missingSeason === 'true';
     const missingMonth = req.query.missingMonth === 'true';
+    const missingWiki = req.query.missingWiki === 'true';
 
     const and = [];
     if (classification) and.push({ classification });
@@ -795,6 +796,14 @@ router.get('/ingredient-list', async (req, res) => {
         ]
       });
     }
+    if (missingWiki) {
+      and.push({
+        $or: [
+          { wikiUrl: { $exists: false } },
+          { wikiUrl: { $in: [null, ''] } }
+        ]
+      });
+    }
 
     const filter = and.length ? { $and: and } : {};
 
@@ -817,6 +826,7 @@ router.get('/ingredient-list', async (req, res) => {
       missingConversion,
       missingSeason,
       missingMonth,
+      missingWiki,
       currentQuery
     });
   } catch (err) {
@@ -833,6 +843,7 @@ router.post('/ingredient-list', (req, res) => {
   const missingConversion = req.body.missingConversion;
   const missingSeason = req.body.missingSeason;
   const missingMonth = req.body.missingMonth;
+  const missingWiki = req.body.missingWiki;
 
   const query = new URLSearchParams();
   if (classification) query.append('classification', classification);
@@ -840,6 +851,7 @@ router.post('/ingredient-list', (req, res) => {
   if (missingConversion === 'true' || missingConversion === 'on') query.append('missingConversion', 'true');
   if (missingSeason === 'true' || missingSeason === 'on') query.append('missingSeason', 'true');
   if (missingMonth === 'true' || missingMonth === 'on') query.append('missingMonth', 'true');
+  if (missingWiki === 'true' || missingWiki === 'on') query.append('missingWiki', 'true');
 
   res.redirect(`/admin/ingredient-list?${query.toString()}`);
 });
