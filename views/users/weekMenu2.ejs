@@ -207,51 +207,96 @@
     const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
     const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
     const DEFAULT_ING_CLASS = 'その他';
-    const ingredientClassCache = {
+    const ingredientMetaCache = {
       ready: false,
       error: false,
       pending: null,
       byId: new Map(),
       byName: new Map()
     };
-    const ensureIngredientClasses = () => {
-      if (ingredientClassCache.ready) return Promise.resolve(true);
-      if (ingredientClassCache.pending) return ingredientClassCache.pending;
-      ingredientClassCache.pending = fetch('/users/my-menu/api/ingredients?limit=1000')
+    const normalizeUnitLabel = (label) => (typeof label === 'string' ? label.trim() : '');
+    const gramsFallbackByUnit = (unit) => {
+      const u = normalizeUnitLabel(unit).toLowerCase();
+      if (!u) return null;
+      if (['g', 'gram', 'grams', 'ｇ', 'グラム'].includes(u)) return 1;
+      if (['kg', 'kilogram', '㎏', 'キログラム'].includes(u)) return 1000;
+      if (['mg', 'milligram', '㎎', 'ミリグラム'].includes(u)) return 0.001;
+      return null;
+    };
+    const ensureIngredientMeta = () => {
+      if (ingredientMetaCache.ready) return Promise.resolve(true);
+      if (ingredientMetaCache.pending) return ingredientMetaCache.pending;
+      ingredientMetaCache.pending = fetch('/users/my-menu/api/ingredients?limit=1000')
         .then((res) => {
           if (!res.ok) throw new Error('failed to load');
           return res.json();
         })
         .then((list) => {
-          ingredientClassCache.byId = new Map();
-          ingredientClassCache.byName = new Map();
+          ingredientMetaCache.byId = new Map();
+          ingredientMetaCache.byName = new Map();
           (list || []).forEach((item) => {
             const id = item && (item._id || item.id) ? String(item._id || item.id) : '';
             const name = item && (item.ingredient || item.name) ? String(item.ingredient || item.name) : '';
             let cls = item && item.classification ? String(item.classification) : DEFAULT_ING_CLASS;
             if (!ING_CLASS_SET.has(cls)) cls = DEFAULT_ING_CLASS;
-            if (id) ingredientClassCache.byId.set(id, cls);
-            if (name) ingredientClassCache.byName.set(name, cls);
+            const meta = {
+              classification: cls,
+              grams: new Map(),
+              gramsLower: new Map()
+            };
+            const conversions = Array.isArray(item?.unitConversions) ? item.unitConversions : [];
+            conversions.forEach((conv) => {
+              const label = normalizeUnitLabel(conv?.label);
+              const grams = Number(conv?.grams);
+              if (!label || !grams || !Number.isFinite(grams) || grams <= 0) return;
+              meta.grams.set(label, grams);
+              meta.gramsLower.set(label.toLowerCase(), grams);
+            });
+            if (id) ingredientMetaCache.byId.set(id, meta);
+            if (name) ingredientMetaCache.byName.set(name, meta);
           });
-          ingredientClassCache.ready = true;
-          ingredientClassCache.error = false;
+          ingredientMetaCache.ready = true;
+          ingredientMetaCache.error = false;
           return true;
         })
         .catch((err) => {
           console.warn('Ingredient classification fetch failed:', err);
-          ingredientClassCache.error = true;
+          ingredientMetaCache.error = true;
           return false;
         })
-        .finally(() => { ingredientClassCache.pending = null; });
-      return ingredientClassCache.pending;
+        .finally(() => { ingredientMetaCache.pending = null; });
+      return ingredientMetaCache.pending;
     };
     // 事前に読み込みを開始して分類集計の描画を早める
-    ensureIngredientClasses();
-    const resolveIngredientClass = (id, name) => {
+    ensureIngredientMeta();
+    const getIngredientMeta = (id, name) => {
       const idKey = id ? String(id) : '';
       const nameKey = name ? String(name) : '';
-      const raw = (idKey && ingredientClassCache.byId.get(idKey)) || (nameKey && ingredientClassCache.byName.get(nameKey)) || DEFAULT_ING_CLASS;
+      return (idKey && ingredientMetaCache.byId.get(idKey)) || (nameKey && ingredientMetaCache.byName.get(nameKey)) || null;
+    };
+    const resolveIngredientClass = (id, name) => {
+      const meta = getIngredientMeta(id, name);
+      const raw = meta?.classification || DEFAULT_ING_CLASS;
       return ING_CLASS_SET.has(raw) ? raw : DEFAULT_ING_CLASS;
+    };
+    const gramsPerUnit = (meta, unit) => {
+      if (!meta || !unit) return null;
+      const key = normalizeUnitLabel(unit);
+      if (!key) return null;
+      if (meta.grams.has(key)) return meta.grams.get(key);
+      const lower = meta.gramsLower.get(key.toLowerCase());
+      return typeof lower === 'number' ? lower : null;
+    };
+    const convertEntryToGrams = (entry) => {
+      if (!entry) return null;
+      const amount = entry.amount;
+      if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
+      const unit = entry.unit || '';
+      const meta = getIngredientMeta(entry.id, entry.name);
+      let gPerUnit = gramsPerUnit(meta, unit);
+      if (!gPerUnit) gPerUnit = gramsFallbackByUnit(unit);
+      if (!gPerUnit || !Number.isFinite(gPerUnit) || gPerUnit <= 0) return null;
+      return amount * gPerUnit;
     };
     let requirementsRenderToken = 0;
 
@@ -745,7 +790,7 @@
       target.innerHTML = '';
       const title = document.createElement('p');
       title.className = 'text-xs font-semibold text-amber-700 mb-1';
-      title.textContent = '食材分類別の合計';
+      title.textContent = '食材分類別の合計 (g換算)';
       target.appendChild(title);
 
       if (!entries || !entries.length) {
@@ -756,12 +801,12 @@
         return;
       }
 
-      if (!ingredientClassCache.ready) {
+      if (!ingredientMetaCache.ready) {
         const note = document.createElement('p');
         note.className = 'text-xs text-gray-500';
-        note.textContent = ingredientClassCache.error ? '分類データの取得に失敗しました。再試行しています…' : '分類データを取得しています...';
+        note.textContent = ingredientMetaCache.error ? '分類データの取得に失敗しました。再試行しています…' : '分類データを取得しています...';
         target.appendChild(note);
-        ensureIngredientClasses().then((ok) => {
+        ensureIngredientMeta().then((ok) => {
           if (!ok) {
             if (note.isConnected) note.textContent = '分類データの取得に失敗しました。時間をおいて再試行してください。';
             return;
@@ -774,26 +819,20 @@
 
       const totals = new Map();
       entries.forEach(({ id, name, amount, unit }) => {
-        if (typeof amount !== 'number' || Number.isNaN(amount)) return;
+        const grams = convertEntryToGrams({ id, name, amount, unit });
+        if (typeof grams !== 'number' || Number.isNaN(grams)) return;
         const cls = resolveIngredientClass(id, name);
-        const unitKey = unit || '';
-        const unitMap = totals.get(cls) || new Map();
-        unitMap.set(unitKey, (unitMap.get(unitKey) || 0) + amount);
-        totals.set(cls, unitMap);
+        totals.set(cls, (totals.get(cls) || 0) + grams);
       });
 
       const list = document.createElement('ul');
       list.className = 'space-y-1';
       let hasRows = false;
       ING_CLASS_ORDER.forEach((cls) => {
-        const unitMap = totals.get(cls);
-        if (!unitMap) return;
-        const parts = Array.from(unitMap.entries()).map(([unit, amt]) => {
-          const qty = formatQty(amt);
-          if (!qty) return '';
-          return unit ? `${qty}-${unit}` : qty;
-        }).filter(Boolean);
-        if (!parts.length) return;
+        const grams = totals.get(cls);
+        if (typeof grams !== 'number' || Number.isNaN(grams)) return;
+        const qty = formatQty(grams);
+        if (!qty) return;
         hasRows = true;
         const li = document.createElement('li');
         li.className = 'flex items-start justify-between gap-3 text-gray-700';
@@ -802,7 +841,7 @@
         label.textContent = cls;
         const value = document.createElement('span');
         value.className = 'text-right text-gray-900';
-        value.textContent = parts.join(' / ');
+        value.textContent = `${qty}g`;
         li.append(label, value);
         list.appendChild(li);
       });
@@ -810,7 +849,7 @@
       if (!hasRows) {
         const empty = document.createElement('p');
         empty.className = 'text-xs text-gray-500';
-        empty.textContent = '分類データはありません。';
+        empty.textContent = 'g換算できる食材がありません。';
         target.appendChild(empty);
         return;
       }
