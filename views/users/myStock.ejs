@@ -50,7 +50,7 @@
                   <div class="flex gap-3 flex-1">
                     <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                       <% if (s.productImageUrl) { %>
-                        <img src="<%= s.productImageUrl %>" alt="<%= it.ingredient || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                        <img src="<%= s.productImageUrl %>" alt="<%= it.ingredient || '' %>の画像" class="w-full h-full object-contain" loading="lazy">
                       <% } else { %>
                         <span class="text-[11px] text-gray-400">No Image</span>
                       <% } %>
@@ -106,7 +106,7 @@
                   <div class="flex gap-3 flex-1">
                     <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                       <% if (s.productImageUrl) { %>
-                        <img src="<%= s.productImageUrl %>" alt="<%= it.seasoning || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                        <img src="<%= s.productImageUrl %>" alt="<%= it.seasoning || '' %>の画像" class="w-full h-full object-contain" loading="lazy">
                       <% } else { %>
                         <span class="text-[11px] text-gray-400">No Image</span>
                       <% } %>
@@ -167,7 +167,7 @@
                 <div class="flex gap-3 flex-1">
                   <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                     <% if (s.productImageUrl) { %>
-                      <img src="<%= s.productImageUrl %>" alt="<%= it.ingredient || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                      <img src="<%= s.productImageUrl %>" alt="<%= it.ingredient || '' %>の画像" class="w-full h-full object-contain" loading="lazy">
                     <% } else { %>
                       <span class="text-[11px] text-gray-400">No Image</span>
                     <% } %>
@@ -209,7 +209,7 @@
                   <div class="flex gap-3 flex-1">
                     <div class="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                       <% if (s.productImageUrl) { %>
-                        <img src="<%= s.productImageUrl %>" alt="<%= it.seasoning || '' %>の画像" class="w-full h-full object-cover" loading="lazy">
+                        <img src="<%= s.productImageUrl %>" alt="<%= it.seasoning || '' %>の画像" class="w-full h-full object-contain" loading="lazy">
                       <% } else { %>
                         <span class="text-[11px] text-gray-400">No Image</span>
                       <% } %>
