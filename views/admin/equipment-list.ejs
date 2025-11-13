@@ -7,7 +7,7 @@
     <a href="/admin/equipment-new" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700">新規登録</a>
   </div>
 
-  <form method="get" action="/admin/equipment-list" class="bg-white border border-gray-200 rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-6 gap-3">
+  <form id="equipment-search-form" method="get" action="/admin/equipment-list" class="bg-white border border-gray-200 rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-6 gap-3">
     <div class="md:col-span-2">
       <label class="block text-xs text-gray-600 mb-1">キーワード</label>
       <input type="text" name="keyword" value="<%= keyword %>" placeholder="名称・保管場所・分類など" class="w-full border-gray-300 rounded-md" />
@@ -47,9 +47,6 @@
         <option value="false" <%= selectedConsumable==='false'? 'selected':'' %>>非消耗のみ</option>
       </select>
     </div>
-    <div class="flex items-end">
-      <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm rounded-md">検索</button>
-    </div>
   </form>
 
   <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
@@ -62,6 +59,7 @@
           <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">防災</th>
           <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">キャンプ</th>
           <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">消耗品</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">ユーザー利用数</th>
           <th class="px-4 py-2 text-left text-xs font-medium text-gray-600">メンテ</th>
           <th class="px-4 py-2"></th>
         </tr>
@@ -75,6 +73,7 @@
             <td class="px-4 py-2"><%= e.disasterCategory || '' %></td>
             <td class="px-4 py-2"><%= e.campingCategory || '' %></td>
             <td class="px-4 py-2"><%= e.isConsumable ? 'はい' : 'いいえ' %></td>
+            <td class="px-4 py-2"><%= e.usageCount || 0 %> 件</td>
             <td class="px-4 py-2"><%= e.maintenance || '' %></td>
             <td class="px-4 py-2 text-right space-x-2">
               <a href="/admin/equipment-edit/<%= e._id %>" class="px-3 py-1 text-sm border rounded-md">編集</a>
@@ -88,3 +87,31 @@
     </table>
   </div>
 </div>
+
+<script>
+  (function(){
+    const form = document.getElementById('equipment-search-form');
+    if (!form) return;
+    const debounce = (fn, delay) => {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(null, args), delay);
+      };
+    };
+    const submitForm = () => {
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        form.submit();
+      }
+    };
+    const keyword = form.querySelector('input[name="keyword"]');
+    if (keyword) {
+      keyword.addEventListener('input', debounce(submitForm, 400));
+    }
+    form.querySelectorAll('select').forEach(sel => {
+      sel.addEventListener('change', submitForm);
+    });
+  })();
+</script>

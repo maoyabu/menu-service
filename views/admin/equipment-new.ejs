@@ -8,7 +8,7 @@
   </div>
 
   <form method="post" action="/admin/equipment-new" class="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
-    <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <section class="bg-blue-50 border border-blue-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="md:col-span-2">
         <label class="block text-sm font-medium text-gray-800 mb-1">備品名</label>
         <input required name="name" type="text" placeholder="例: 懐中電灯" class="w-full border-gray-300 rounded-md px-3 py-2" />
@@ -32,7 +32,7 @@
       </div>
     </section>
 
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <section class="bg-blue-50 border border-blue-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
         <label class="block text-sm font-medium text-gray-800 mb-1">家ストック分類</label>
         <input name="houseCategory" list="houseOptions" placeholder="例: 日用品 / 掃除" class="w-full border-gray-300 rounded-md px-3 py-2" />
@@ -62,7 +62,7 @@
       </div>
     </section>
 
-    <section>
+    <section class="bg-blue-50 border border-blue-200 rounded-xl p-4">
       <label class="block text-sm font-medium text-gray-800 mb-1">メンテナンス内容</label>
       <input name="maintenance" list="maintOptions" placeholder="例: 半年ごとに動作確認" class="w-full border-gray-300 rounded-md px-3 py-2" />
       <datalist id="maintOptions">

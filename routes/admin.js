@@ -4,6 +4,7 @@ import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import { isAdmin } from '../middleware.js';
 import Equipment from '../models/equipment.js';
+import MyEquipment from '../models/myEquipment.js';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
 import ExcelJS from 'exceljs';
@@ -63,6 +64,22 @@ router.get('/equipment-list', async (req, res) => {
     if (and.length) filter.$and = and;
 
     const equipments = await Equipment.find(filter).sort({ name: 1 }).lean();
+    const equipmentIds = equipments.map(e => e._id).filter(Boolean);
+    let usageMap = {};
+    if (equipmentIds.length) {
+      const usageStats = await MyEquipment.aggregate([
+        { $match: { equipment: { $in: equipmentIds } } },
+        { $group: { _id: '$equipment', count: { $sum: 1 } } }
+      ]);
+      usageMap = usageStats.reduce((acc, stat) => {
+        acc[String(stat._id)] = stat.count;
+        return acc;
+      }, {});
+    }
+    const equipmentsWithUsage = equipments.map(e => ({
+      ...e,
+      usageCount: usageMap[String(e._id)] || 0
+    }));
 
     // distinct values for selects
     const [units, houseCategories, disasterCategories, campingCategories, maintenances] = await Promise.all([
@@ -74,7 +91,7 @@ router.get('/equipment-list', async (req, res) => {
     ]);
 
     res.render('admin/equipment-list', {
-      equipments,
+      equipments: equipmentsWithUsage,
       keyword: keyword || '',
       selectedHouse: houseCategory || '',
       selectedDisaster: disasterCategory || '',
