@@ -717,18 +717,32 @@ router.post('/menu-delete/:id', async (req, res) => {
 router.get('/ingredient-list', async (req, res) => {
   try {
     const { classification, keyword } = req.query;
+    const missingConversion = req.query.missingConversion === 'true';
 
-    const filter = {};
-    if (classification) filter.classification = classification;
+    const and = [];
+    if (classification) and.push({ classification });
     if (keyword) {
       const keywordRegex = new RegExp(keyword, 'i');
-      filter.$or = [
-        { ingredient: keywordRegex },
-        { yomi: keywordRegex },
-        { classification: keywordRegex },
-        { unit: { $in: [keywordRegex] } }
-      ];
+      and.push({
+        $or: [
+          { ingredient: keywordRegex },
+          { yomi: keywordRegex },
+          { classification: keywordRegex },
+          { unit: { $in: [keywordRegex] } }
+        ]
+      });
     }
+    if (missingConversion) {
+      and.push({
+        $or: [
+          { unitConversions: { $exists: false } },
+          { unitConversions: { $size: 0 } },
+          { unitConversions: { $not: { $elemMatch: { grams: { $gt: 0 } } } } }
+        ]
+      });
+    }
+
+    const filter = and.length ? { $and: and } : {};
 
     const ingredients = await Ingredient.find(filter);
 
@@ -741,7 +755,8 @@ router.get('/ingredient-list', async (req, res) => {
       categoryList,
       selectedCategory: classification || '',
       classification: classification || '',
-      keyword: keyword || ''
+      keyword: keyword || '',
+      missingConversion
     });
   } catch (err) {
     console.error('食材取得エラー:', err);
@@ -754,10 +769,12 @@ router.post('/ingredient-list', (req, res) => {
   // Accept both 'category' and legacy 'classification' from form
   const classification = req.body.classification;
   const keyword = req.body.keyword;
+  const missingConversion = req.body.missingConversion;
 
   const query = new URLSearchParams();
   if (classification) query.append('classification', classification);
   if (keyword) query.append('keyword', keyword);
+  if (missingConversion === 'true' || missingConversion === 'on') query.append('missingConversion', 'true');
 
   res.redirect(`/admin/ingredient-list?${query.toString()}`);
 });
