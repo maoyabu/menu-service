@@ -718,6 +718,8 @@ router.get('/ingredient-list', async (req, res) => {
   try {
     const { classification, keyword } = req.query;
     const missingConversion = req.query.missingConversion === 'true';
+    const missingSeason = req.query.missingSeason === 'true';
+    const missingMonth = req.query.missingMonth === 'true';
 
     const and = [];
     if (classification) and.push({ classification });
@@ -741,6 +743,24 @@ router.get('/ingredient-list', async (req, res) => {
         ]
       });
     }
+    if (missingSeason) {
+      and.push({
+        $or: [
+          { season: { $exists: false } },
+          { season: { $size: 0 } },
+          { season: { $in: [null, ''] } }
+        ]
+      });
+    }
+    if (missingMonth) {
+      and.push({
+        $or: [
+          { month: { $exists: false } },
+          { month: { $size: 0 } },
+          { month: { $in: [null, ''] } }
+        ]
+      });
+    }
 
     const filter = and.length ? { $and: and } : {};
 
@@ -761,6 +781,8 @@ router.get('/ingredient-list', async (req, res) => {
       classification: classification || '',
       keyword: keyword || '',
       missingConversion,
+      missingSeason,
+      missingMonth,
       currentQuery
     });
   } catch (err) {
@@ -775,11 +797,15 @@ router.post('/ingredient-list', (req, res) => {
   const classification = req.body.classification;
   const keyword = req.body.keyword;
   const missingConversion = req.body.missingConversion;
+  const missingSeason = req.body.missingSeason;
+  const missingMonth = req.body.missingMonth;
 
   const query = new URLSearchParams();
   if (classification) query.append('classification', classification);
   if (keyword) query.append('keyword', keyword);
   if (missingConversion === 'true' || missingConversion === 'on') query.append('missingConversion', 'true');
+  if (missingSeason === 'true' || missingSeason === 'on') query.append('missingSeason', 'true');
+  if (missingMonth === 'true' || missingMonth === 'on') query.append('missingMonth', 'true');
 
   res.redirect(`/admin/ingredient-list?${query.toString()}`);
 });

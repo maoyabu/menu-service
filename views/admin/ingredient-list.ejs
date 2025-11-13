@@ -25,11 +25,19 @@
       <% }) %>
     </select>
   </div>
-  <div class="flex flex-col justify-end">
-    <label class="block text-sm font-medium text-gray-700 mb-1">換算単位</label>
+  <div class="flex flex-col justify-end gap-2">
+    <label class="block text-sm font-medium text-gray-700 mb-1">チェック項目</label>
     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
       <input type="checkbox" name="missingConversion" value="true" <%= missingConversion ? 'checked' : '' %> class="rounded">
       g換算未登録のみ
+    </label>
+    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+      <input type="checkbox" name="missingSeason" value="true" <%= missingSeason ? 'checked' : '' %> class="rounded">
+      旬の季節未登録のみ
+    </label>
+    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+      <input type="checkbox" name="missingMonth" value="true" <%= missingMonth ? 'checked' : '' %> class="rounded">
+      旬の月未登録のみ
     </label>
   </div>
 </form>
