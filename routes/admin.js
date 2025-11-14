@@ -1011,28 +1011,48 @@ router.post('/ingredient-delete/:id', async (req, res) => {
 router.get('/seasoning-list', async (req, res) => {
   try {
     const { classification, keyword } = req.query;
+    const missingWiki = req.query.missingWiki === 'true';
 
-    const filter = {};
-    if (classification) filter.classification = classification;
+    const and = [];
+    if (classification) and.push({ classification });
     if (keyword) {
-      filter.$or = [
-        { seasoning: new RegExp(keyword, 'i') },
-        { yomi: new RegExp(keyword, 'i') },
-        { classification: new RegExp(keyword, 'i') },
-        { unit: { $elemMatch: { $regex: new RegExp(keyword, 'i') } } }
-      ];
+      const keywordRegex = new RegExp(keyword, 'i');
+      and.push({
+        $or: [
+          { seasoning: keywordRegex },
+          { yomi: keywordRegex },
+          { classification: keywordRegex },
+          { unit: { $in: [keywordRegex] } }
+        ]
+      });
     }
+    if (missingWiki) {
+      and.push({
+        $or: [
+          { wikiUrl: { $exists: false } },
+          { wikiUrl: { $in: [null, ''] } }
+        ]
+      });
+    }
+
+    const filter = and.length ? { $and: and } : {};
 
     const seasonings = await Seasoning.find(filter);
     const allSeasonings = await Seasoning.find();
     const categoryList = [...new Set(allSeasonings.map(item => item.classification).filter(Boolean))];
+
+    const currentQuery = req.originalUrl.includes('?')
+      ? req.originalUrl.slice(req.originalUrl.indexOf('?') + 1)
+      : '';
 
     res.render('admin/seasoning-list', {
       seasonings,
       categoryList,
       selectedCategory: classification || '',
       classification: classification || '',
-      keyword: keyword || ''
+      keyword: keyword || '',
+      missingWiki,
+      currentQuery
     });
   } catch (err) {
     console.error('調味料取得エラー:', err);
@@ -1044,10 +1064,12 @@ router.get('/seasoning-list', async (req, res) => {
 router.post('/seasoning-list', (req, res) => {
   const classification = req.body.classification;
   const keyword = req.body.keyword;
+  const missingWiki = req.body.missingWiki;
 
   const query = new URLSearchParams();
   if (classification) query.append('classification', classification);
   if (keyword) query.append('keyword', keyword);
+  if (missingWiki === 'true' || missingWiki === 'on') query.append('missingWiki', 'true');
 
   res.redirect(`/admin/seasoning-list?${query.toString()}`);
 });
@@ -1077,10 +1099,12 @@ router.get('/seasoning-edit/:id', async (req, res) => {
 
     const allSeasonings = await Seasoning.find();
     const classificationList = [...new Set(allSeasonings.map(item => item.classification).filter(Boolean))];
+    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
 
     res.render('admin/seasoning-edit', {
       seasoning,
-      classificationList
+      classificationList,
+      returnTo
     });
   } catch (err) {
     console.error('調味料編集画面表示エラー:', err);
@@ -1101,9 +1125,13 @@ router.post('/seasoning-new', async (req, res) => {
       lipid,
       carbohydrate,
       unit,
-      comment
+      unitGrams,
+      comment,
+      wikiUrl,
+      imageUrl
     } = req.body;
 
+    const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
     const newSeasoning = new Seasoning({
       classification,
       seasoning,
@@ -1113,8 +1141,11 @@ router.post('/seasoning-new', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit],
-      comment
+      unit: units,
+      unitConversions: conversions,
+      comment,
+      wikiUrl: typeof wikiUrl === 'string' ? wikiUrl.trim() : '',
+      imageUrl: typeof imageUrl === 'string' ? imageUrl.trim() : ''
     });
 
     await newSeasoning.save();
@@ -1138,9 +1169,14 @@ router.post('/seasoning-edit/:id', async (req, res) => {
       lipid,
       carbohydrate,
       unit,
-      comment
+      unitGrams,
+      comment,
+      wikiUrl,
+      imageUrl,
+      returnTo
     } = req.body;
 
+    const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
     await Seasoning.findByIdAndUpdate(req.params.id, {
       classification,
       seasoning,
@@ -1150,11 +1186,19 @@ router.post('/seasoning-edit/:id', async (req, res) => {
       protein,
       lipid,
       carbohydrate,
-      unit: Array.isArray(unit) ? unit : [unit],
-      comment
+      unit: units,
+      unitConversions: conversions,
+      comment,
+      wikiUrl: typeof wikiUrl === 'string' ? wikiUrl.trim() : '',
+      imageUrl: typeof imageUrl === 'string' ? imageUrl.trim() : ''
     });
 
-    res.redirect('/admin/seasoning-list');
+    if (returnTo && typeof returnTo === 'string') {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/seasoning-list${sanitized ? `?${sanitized}` : ''}`);
+    } else {
+      res.redirect('/admin/seasoning-list');
+    }
   } catch (err) {
     console.error('調味料更新エラー:', err);
     res.status(500).send('調味料を更新できませんでした');

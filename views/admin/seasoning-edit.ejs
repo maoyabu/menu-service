@@ -1,17 +1,16 @@
-
-
 <div class="max-w-3xl mx-auto bg-white p-8 rounded-md shadow">
   <h1 class="text-2xl font-semibold mb-4 flex items-center space-x-2">
-    <i data-lucide="carrot" class="w-6 h-6 text-gray-700"></i>
+    <i data-lucide="salt" class="w-6 h-6 text-gray-700"></i>
     <span>調味料編集</span>
   </h1>
   <p class="text-sm text-gray-500 mb-6">調味料の情報を編集してください</p>
 
   <form action="/admin/seasoning-edit/<%= seasoning._id %>" method="POST" class="space-y-8">
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
         <label class="block mb-1 text-sm font-bold">分類 *</label>
-        <input list="classification-list" name="classification" value="<%= seasoning.classification %>" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+        <input list="classification-list" name="classification" value="<%= seasoning.classification || '' %>" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
         <datalist id="classification-list">
           <% if (classificationList && classificationList.length > 0) { %>
             <% classificationList.forEach(cat => { %>
@@ -26,27 +25,43 @@
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">調味料名（よみ）</label>
-        <input type="text" name="yomi" value="<%= seasoning.yomi %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+        <input type="text" name="yomi" value="<%= seasoning.yomi || '' %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">エネルギー (kcal)</label>
-        <input type="number" name="energy" value="<%= seasoning.energy %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+        <input type="number" name="energy" value="<%= seasoning.energy || '' %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">水分 (g)</label>
-        <input type="number" step="0.1" name="water" value="<%= seasoning.water %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+        <input type="number" step="0.1" name="water" value="<%= seasoning.water || '' %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">たんぱく質 (g)</label>
-        <input type="number" step="0.1" name="protein" value="<%= seasoning.protein %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+        <input type="number" step="0.1" name="protein" value="<%= seasoning.protein || '' %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">脂質 (g)</label>
-        <input type="number" step="0.1" name="lipid" value="<%= seasoning.lipid %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+        <input type="number" step="0.1" name="lipid" value="<%= seasoning.lipid || '' %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
       </div>
       <div>
         <label class="block mb-1 text-sm font-bold">炭水化物 (g)</label>
-        <input type="number" step="0.1" name="carbohydrate" value="<%= seasoning.carbohydrate %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+        <input type="number" step="0.1" name="carbohydrate" value="<%= seasoning.carbohydrate || '' %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-bold">WIKIリンク</label>
+        <div class="flex gap-2">
+          <input type="url" name="wikiUrl" data-wiki-input class="flex-1 border rounded-md px-3 py-2 bg-gray-50" placeholder="https://ja.wikipedia.org/wiki/○○" value="<%= seasoning.wikiUrl || '' %>">
+          <button type="button" data-action="fetch-wiki-image" class="px-3 py-2 text-sm border rounded-md bg-white text-gray-700 hover:bg-gray-100">画像取得</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">WikipediaのURLを貼り付けて「画像取得」を押すと、サムネイル画像を取得できます。</p>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-bold">画像URL</label>
+        <input type="url" name="imageUrl" data-image-input class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= seasoning.imageUrl || '' %>" placeholder="https://example.com/image.jpg">
+        <div class="mt-2">
+          <img src="<%= seasoning.imageUrl || '' %>" data-image-preview class="max-h-40 rounded border <%= seasoning.imageUrl ? '' : 'hidden' %>" alt="プレビュー">
+          <p class="text-xs text-gray-500 mt-1">URLを直接編集できます。</p>
+        </div>
       </div>
       <div class="md:col-span-2">
         <label class="block mb-1 text-sm font-bold">コメント</label>
@@ -55,16 +70,38 @@
     </div>
 
     <div>
-      <label class="block mb-1 text-sm font-bold">単位（複数可）</label>
+      <label class="block mb-1 text-sm font-bold">単位 / g換算（複数可）</label>
+      <p class="text-xs text-gray-500 mb-2">単位ごとに「1単位 = 何gか」を入力できます（任意）。</p>
       <div id="units-list" class="space-y-2 text-sm text-gray-500">
-        <% if (seasoning.unit && seasoning.unit.length > 0) { %>
-          <% seasoning.unit.forEach(u => { if (u && u.trim()) { %>
-            <div class="flex items-center space-x-2">
-              <input type="text" name="unit[]" value="<%= u %>" class="w-full border rounded-md px-3 py-2 bg-gray-50">
-              <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100" onclick="this.parentElement.remove()">×</button>
-            </div>
-          <% } }) %>
+        <%
+          const _units = Array.isArray(seasoning.unit) ? seasoning.unit : [];
+          const _conversions = Array.isArray(seasoning.unitConversions) ? seasoning.unitConversions : [];
+          const usedLabels = new Set();
+          const rows = [];
+          _units.forEach(function(label){
+            if (!label) return;
+            usedLabels.add(label);
+            const conv = _conversions.find(function(c){ return c && c.label === label; }) || {};
+            rows.push({ label, grams: typeof conv.grams === 'number' ? conv.grams : '' });
+          });
+          _conversions.forEach(function(conv){
+            if (!conv || !conv.label || usedLabels.has(conv.label)) return;
+            rows.push({ label: conv.label, grams: typeof conv.grams === 'number' ? conv.grams : '' });
+          });
+        %>
+        <% if (!rows.length) { %>
+          <p class="text-xs text-gray-400" data-empty-text>単位を追加してください</p>
         <% } %>
+        <% rows.forEach(function(row){ %>
+          <div class="flex items-center gap-2" data-unit-row>
+            <input type="text" name="unit[]" class="flex-1 border rounded-md px-3 py-2 bg-gray-50" value="<%= row.label %>" placeholder="例: g">
+            <div class="flex items-center gap-1">
+              <input type="number" step="0.1" min="0" name="unitGrams[]" class="w-28 border rounded-md px-3 py-2 bg-gray-50" value="<%= row.grams %>" placeholder="1単位のg">
+              <span class="text-xs text-gray-500">g</span>
+            </div>
+            <button type="button" class="px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100" onclick="handleUnitRowRemoval(this)">×</button>
+          </div>
+        <% }) %>
       </div>
       <button type="button" class="mt-2 px-3 py-1 border text-sm rounded bg-white text-gray-700 hover:bg-gray-100" onclick="addUnit()">＋ 追加</button>
     </div>
@@ -79,29 +116,124 @@
 </div>
 
 <script>
-  function addUnit() {
+  function ensureUnitHint(container = document.getElementById('units-list')) {
+    if (!container) return;
+    const hasRow = container.querySelector('[data-unit-row]');
+    const emptyHint = container.querySelector('[data-empty-text]');
+    if (hasRow && emptyHint) {
+      emptyHint.remove();
+    } else if (!hasRow && !emptyHint) {
+      const hint = document.createElement('p');
+      hint.className = 'text-xs text-gray-400';
+      hint.dataset.emptyText = 'true';
+      hint.textContent = '単位を追加してください';
+      container.appendChild(hint);
+    }
+  }
+
+  function handleUnitRowRemoval(target) {
     const container = document.getElementById('units-list');
+    if (!container) return;
+    let row = target;
+    if (!row || typeof row.hasAttribute !== 'function' || !row.hasAttribute('data-unit-row')) {
+      row = row?.closest ? row.closest('[data-unit-row]') : null;
+    }
+    if (row) {
+      row.remove();
+    }
+    ensureUnitHint(container);
+  }
+
+  function addUnit(value = '', grams = '') {
+    const container = document.getElementById('units-list');
+    if (!container) return;
     const wrapper = document.createElement('div');
-    wrapper.className = 'flex items-center space-x-2';
+    wrapper.className = 'flex items-center gap-2';
+    wrapper.dataset.unitRow = 'true';
 
     const input = document.createElement('input');
     input.name = 'unit[]';
     input.type = 'text';
-    input.placeholder = '例: g, 大さじ, 小さじ';
-    input.className = 'w-full border rounded-md px-3 py-2 bg-gray-50';
+    input.placeholder = '例: g';
+    input.className = 'flex-1 border rounded-md px-3 py-2 bg-gray-50';
+    input.value = value || '';
+
+    const gramsWrap = document.createElement('div');
+    gramsWrap.className = 'flex items-center gap-1';
+    const gramsInput = document.createElement('input');
+    gramsInput.name = 'unitGrams[]';
+    gramsInput.type = 'number';
+    gramsInput.step = '0.1';
+    gramsInput.min = '0';
+    gramsInput.placeholder = '1単位のg';
+    gramsInput.className = 'w-28 border rounded-md px-3 py-2 bg-gray-50';
+    gramsInput.value = grams || '';
+    const gramsSuffix = document.createElement('span');
+    gramsSuffix.className = 'text-xs text-gray-500';
+    gramsSuffix.textContent = 'g';
+    gramsWrap.appendChild(gramsInput);
+    gramsWrap.appendChild(gramsSuffix);
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
     removeBtn.textContent = '×';
     removeBtn.onclick = function () {
-      wrapper.remove();
+      handleUnitRowRemoval(wrapper);
     };
 
     wrapper.appendChild(input);
+    wrapper.appendChild(gramsWrap);
     wrapper.appendChild(removeBtn);
     container.appendChild(wrapper);
+    ensureUnitHint(container);
   }
+
+  (function(){
+    const wikiInput = document.querySelector('[data-wiki-input]');
+    const fetchBtn = document.querySelector('[data-action="fetch-wiki-image"]');
+    const imageInput = document.querySelector('[data-image-input]');
+    const preview = document.querySelector('[data-image-preview]');
+
+    const updatePreview = () => {
+      if (!preview) return;
+      const val = (imageInput?.value || '').trim();
+      if (val) {
+        preview.src = val;
+        preview.classList.remove('hidden');
+      } else {
+        preview.src = '';
+        preview.classList.add('hidden');
+      }
+    };
+    imageInput?.addEventListener('input', updatePreview);
+
+    const fetchImage = async () => {
+      const url = (wikiInput?.value || '').trim();
+      if (!url) {
+        alert('WIKIリンクを入力してください');
+        return;
+      }
+      try {
+        fetchBtn?.setAttribute('disabled', 'disabled');
+        fetchBtn?.classList.add('opacity-60', 'cursor-wait');
+        const res = await fetch(`/admin/api/wiki-image?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error('取得に失敗しました');
+        const data = await res.json();
+        if (data?.imageUrl && imageInput) {
+          imageInput.value = data.imageUrl;
+          updatePreview();
+        }
+        alert(data?.imageUrl ? '画像URLを取得しました' : '画像が見つかりませんでした');
+      } catch (err) {
+        alert(err?.message || '取得に失敗しました');
+      } finally {
+        fetchBtn?.removeAttribute('disabled');
+        fetchBtn?.classList.remove('opacity-60', 'cursor-wait');
+      }
+    };
+    fetchBtn?.addEventListener('click', (e)=>{ e.preventDefault(); fetchImage(); });
+  })();
 
   lucide.createIcons();
 </script>
