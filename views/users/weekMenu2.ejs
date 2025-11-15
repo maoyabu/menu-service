@@ -1010,6 +1010,10 @@
       const spacer = document.createElement('div');
       spacer.className = 'h-4 md:h-6';
       reqEl.appendChild(spacer);
+      const labelData = (() => {
+        const info = toLabel(WEEK[safeIndex] || null);
+        return info?.disp || '';
+      })();
       const classHeader = document.createElement('div');
       classHeader.className = 'flex items-center justify-between mb-2 gap-3 bg-white';
       const classTitle = document.createElement('p');
@@ -1037,7 +1041,9 @@
       });
       renderClassSummary(classBox, combinedEntries, formatQty1, renderToken, {
         seasoningEntries: combinedSeasoningEntries,
-        mode
+        mode,
+        dayCount: mode === 'week' ? safeIndex + 1 : 1,
+        targetLabel: labelData
       });
     }
 
@@ -1098,9 +1104,12 @@
       table.className = 'w-full mt-2 text-[13px]';
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
+      const requiredHeader = options.mode === 'week'
+        ? `${options.targetLabel || ''}までの必要量`
+        : '1日の\n必要量';
       headRow.innerHTML = `
         <th class="text-left text-[11px] font-semibold text-gray-500"></th>
-        <th class="${metricsColClass} text-[11px] font-semibold text-gray-500 leading-tight">1日の<br>必要量</th>
+        <th class="${metricsColClass} text-[11px] font-semibold text-gray-500 leading-tight whitespace-pre-line">${requiredHeader}</th>
         <th class="${metricsColClass} text-[11px] font-semibold text-gray-500">実績</th>
         <th class="${metricsColClass} text-[11px] font-semibold text-gray-500">差分</th>
       `;
@@ -1119,7 +1128,8 @@
         const requiredValRaw = guidelineTotals && Object.prototype.hasOwnProperty.call(guidelineTotals, cls)
           ? Number(guidelineTotals[cls])
           : 0;
-        const requiredVal = Number.isFinite(requiredValRaw) ? requiredValRaw : 0;
+        const multiplier = options.mode === 'week' ? Math.max(1, Number(options.dayCount) || 1) : 1;
+        const requiredVal = Number.isFinite(requiredValRaw) ? requiredValRaw * multiplier : 0;
         if (!actualVal && !requiredVal) return;
         hasRows = true;
         const row = document.createElement('tr');
