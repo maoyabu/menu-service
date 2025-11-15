@@ -1335,29 +1335,28 @@
       if (!btn && !editBtn) return;
       ev.preventDefault(); ev.stopPropagation();
 
-      let container = t.closest('[data-slot-index]') || t.closest('[data-dinner-index]');
-      const mealBox = t.closest('#wm2-box-lunch, #wm2-box-dinner');
+      const container = t.closest('[data-slot-index],[data-dinner-index]');
+      const mealBox = t.closest('#wm2-box-breakfast, #wm2-box-lunch, #wm2-box-dinner');
       if (!container || !mealBox) return;
-      const isDinner = !!container.getAttribute('data-dinner-index');
-      const meal = isDinner ? 'dinner' : 'lunch';
-      const index = Number(isDinner ? container.getAttribute('data-dinner-index') : container.getAttribute('data-slot-index'));
+      const isDinner = container.hasAttribute('data-dinner-index');
+      const meal = mealBox.dataset.meal || (isDinner ? 'dinner' : 'lunch');
+      const indexAttr = isDinner ? 'data-dinner-index' : 'data-slot-index';
+      const index = Number(container.getAttribute(indexAttr));
       const day = Number(mealBox.getAttribute('data-day'));
-      if (Number.isNaN(index) || Number.isNaN(day)) return;
+      if (!meal || Number.isNaN(index) || Number.isNaN(day)) return;
 
       const api = window.weekMenuAPI || {};
       const current = api.getDineInfo ? api.getDineInfo(day, meal, index) : { dineOut:false };
       if (editBtn) {
-        // Always open modal for editing
         open(day, meal, index);
         return;
       }
       if (!current.dineOut) {
-        // Turn on dineOut and open modal to edit name/url
         if (api.setDineInfo) api.setDineInfo(day, meal, index, { dineOut: true });
         open(day, meal, index);
       } else {
-        // Turn off dineOut
         if (api.setDineInfo) api.setDineInfo(day, meal, index, { dineOut: false, dineOutName: '', dineOutUrl: '' });
+        try { if (api.saveWeekPlanSilently) api.saveWeekPlanSilently(); else if (api.requestAutoSave) api.requestAutoSave(); } catch(_) {}
       }
     }, true);
 
