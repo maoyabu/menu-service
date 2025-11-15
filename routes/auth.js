@@ -276,27 +276,27 @@ const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const CATEGORY_CONFIG = {
   lunchMain: {
-    kinds: ['主菜', '副菜', '汁物', '主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート'],
+    kinds: ['主菜', '副菜', '汁物', '主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート', 'ドリンク'],
     label: 'メインディッシュ',
     mealType: 'ランチ'
   },
   dinnerStaple: {
-    kinds: ['主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート'],
+    kinds: ['主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート', 'ドリンク'],
     label: '主食',
     mealType: 'ディナー'
   },
   dinnerMain: {
-    kinds: ['主菜', 'デザート'],
+    kinds: ['主菜', 'デザート', 'ドリンク'],
     label: 'メイン',
     mealType: 'ディナー'
   },
   dinnerSide: {
-    kinds: ['副菜', 'デザート'],
+    kinds: ['副菜', 'デザート', 'ドリンク'],
     label: '副菜',
     mealType: 'ディナー'
   },
   dinnerSoup: {
-    kinds: ['汁物', 'デザート'],
+    kinds: ['汁物', 'デザート', 'ドリンク'],
     label: '汁物',
     mealType: 'ディナー'
   },
@@ -309,7 +309,8 @@ const CATEGORY_CONFIG = {
       '主食・ごはん',
       '主食・パン',
       '主食・麺',
-      'デザート'
+      'デザート',
+      'ドリンク'
     ],
     label: 'ディナー追加',
     mealType: 'ディナー'
