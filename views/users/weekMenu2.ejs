@@ -152,30 +152,25 @@
     <div>
       <h3 class="text-sm font-semibold mb-2" id="wm2-left-title"></h3>
       <div class="space-y-6">
+        <!-- Breakfast -->
+        <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-breakfast" data-day="0" data-meal="breakfast">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-3">
+              <div class="text-xs font-semibold text-blue-600">朝食</div>
+              <div class="attendees" id="wm2-attendees-breakfast"></div>
+            </div>
+            <button type="button" id="wm2-btn-add-breakfast" class="wm2-add inline-flex items-center gap-1 text-amber-700 bg-amber-50" data-action="add-lunch-slot" data-meal-type="breakfast"><span class="lucide w-4 h-4" data-lucide="sunrise"></span>メニューを追加</button>
+          </div>
+          <div id="wm2-day-breakfast" class="wm2-list"></div>
+        </div>
         <!-- Lunch -->
         <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-lunch" data-day="0" data-meal="lunch">
-          <div class="flex flex-col gap-2 mb-2">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="text-xs font-semibold text-blue-600">朝食 / ランチ</div>
-              <div class="flex flex-wrap gap-2">
-                <button type="button" id="wm2-btn-add-breakfast" class="wm2-add inline-flex items-center gap-1 text-amber-700 bg-amber-50" data-action="add-lunch-slot" data-meal-type="breakfast">
-                  <span class="lucide w-4 h-4" data-lucide="sunrise"></span>朝食を追加
-                </button>
-                <button type="button" id="wm2-btn-add-lunch" class="wm2-add" data-action="add-lunch-slot" data-meal-type="lunch">
-                  <span class="lucide w-4 h-4" data-lucide="plus"></span>ランチを追加
-                </button>
-              </div>
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-3">
+              <div class="text-xs font-semibold text-blue-600">ランチ</div>
+              <div class="attendees" id="wm2-attendees-lunch"></div>
             </div>
-            <div class="flex flex-wrap gap-4 text-[11px]">
-              <div class="flex items-center gap-2">
-                <span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">朝食</span>
-                <div class="attendees" id="wm2-attendees-breakfast"></div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">ランチ</span>
-                <div class="attendees" id="wm2-attendees-lunch"></div>
-              </div>
-            </div>
+            <button type="button" id="wm2-btn-add-lunch" class="wm2-add" data-action="add-lunch-slot" data-meal-type="lunch"><span class="lucide w-4 h-4" data-lucide="plus"></span>メニューを追加</button>
           </div>
           <div id="wm2-day-lunch" class="wm2-list"></div>
         </div>
@@ -788,14 +783,16 @@
 
       const plan = getPlanData();
       const day = plan[sel] || {};
+      const breakfastWrap = document.getElementById('wm2-day-breakfast'); if (breakfastWrap){ breakfastWrap.innerHTML=''; }
       const lunchWrap = document.getElementById('wm2-day-lunch'); if (lunchWrap){ lunchWrap.innerHTML=''; }
       const dinnerWrap = document.getElementById('wm2-day-dinner'); if (dinnerWrap){ dinnerWrap.innerHTML=''; }
+      const breakfastBox = document.getElementById('wm2-box-breakfast'); if (breakfastBox){ breakfastBox.dataset.day = String(sel); breakfastBox.dataset.meal = 'breakfast'; }
       const lunchBox = document.getElementById('wm2-box-lunch'); if (lunchBox){ lunchBox.dataset.day = String(sel); lunchBox.dataset.meal = 'lunch'; }
       const dinnerBox = document.getElementById('wm2-box-dinner'); if (dinnerBox){ dinnerBox.dataset.day = String(sel); dinnerBox.dataset.meal = 'dinner'; }
 
       // Ensure add buttons carry day/meal to satisfy weekMenu event delegation
       const addBreakfastBtn = document.getElementById('wm2-btn-add-breakfast');
-      if (addBreakfastBtn){ addBreakfastBtn.dataset.day = String(sel); addBreakfastBtn.dataset.meal = 'lunch'; addBreakfastBtn.dataset.mealType = 'breakfast'; }
+      if (addBreakfastBtn){ addBreakfastBtn.dataset.day = String(sel); addBreakfastBtn.dataset.meal = 'breakfast'; addBreakfastBtn.dataset.mealType = 'breakfast'; }
       const addLunchBtn = document.getElementById('wm2-btn-add-lunch');
       if (addLunchBtn){ addLunchBtn.dataset.day = String(sel); addLunchBtn.dataset.meal = 'lunch'; addLunchBtn.dataset.mealType = 'lunch'; }
       const addDinnerBtn = document.getElementById('wm2-btn-add-dinner');
@@ -804,67 +801,66 @@
       // Render attendees for selected day
       renderAttendees(sel);
 
+      const renderSimpleSlots = (slots, wrapEl, mealType, defaultCategory = 'lunchMain') => {
+        if (!wrapEl) return;
+        wrapEl.innerHTML = '';
+        (slots || []).forEach((slot, idx) => {
+          const row = rowFromSlot(slot); if (!row.hasMenu) return;
+          const item = document.createElement('div');
+          item.setAttribute('data-slot-index', String(idx));
+          item.setAttribute('data-category', slot?.categoryKey || defaultCategory);
+          item.dataset.meal = mealType;
+          item.dataset.mealType = mealType;
+          const actions = document.createElement('div'); actions.className='wm2-actions';
+          const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
+          const favActive = !!(slot?.menuId && mySet.has(String(slot.menuId))) || !!slot?.favorite;
+          actions.innerHTML = `
+            <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
+            <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
+            <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
+          const card = cardEl(row);
+          // Add DO overlay button at image bottom-right on past/today
+          try {
+            const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
+            const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
+            const canRecord = dayISO && (new Date(dayISO).setHours(0,0,0,0) <= new Date(todayISO).setHours(0,0,0,0));
+            if (canRecord && slot && slot.menuId) {
+              const img = card.querySelector('.img');
+              if (img) {
+                const div = document.createElement('div');
+                div.className = 'do-overlay';
+                div.innerHTML = `<button type="button" class="${ICON_BTN}" data-action="wm2-mark-ate" title="これ食べた" data-menu-id="${String(slot.menuId)}" data-meal="${mealType}" data-day="${String(sel)}" data-recorded="false"><span class="sr-only">これ食べた</span><span class="lucide w-4 h-4" data-lucide="cooking-pot"></span></button>`;
+                img.appendChild(div);
+                try {
+                  const b = div.querySelector('button');
+                  if (b) {
+                    try {
+                      const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
+                      const key = `${String(dayISO).slice(0,10)}|${mealType}|${String(slot.menuId)}`;
+                      if (window.__wm2_DO_SET && window.__wm2_DO_SET.has(key)) {
+                        b.dataset.recorded = 'true';
+                        b.classList.remove('bg-white','text-gray-500','border-gray-200','hover:text-blue-600','hover:border-blue-300','focus:ring-blue-100');
+                        b.classList.add('bg-emerald-50','text-emerald-700','border-emerald-300','hover:text-emerald-800','hover:border-emerald-400','focus:ring-emerald-200');
+                      }
+                    } catch(_) {}
+                    b.addEventListener('click', function(ev){ if (window.__wm2_markAte) window.__wm2_markAte(ev); ev.stopImmediatePropagation(); ev.stopPropagation(); return false; });
+                  }
+                } catch(_) {}
+              }
+            }
+          } catch(_) {}
+          item.appendChild(card); item.appendChild(actions); wrapEl.appendChild(item);
+          try {
+            const favBtn = item.querySelector('.fav-overlay [data-action="toggle-favorite"]');
+            if (favBtn) favBtn.setAttribute('aria-pressed', favActive ? 'true' : 'false');
+          } catch(_) {}
+        });
+      };
+
       const breakfastSlots = Array.isArray(day.breakfastSlots)? day.breakfastSlots: [];
       const lunchSlots = Array.isArray(day.lunchSlots)? day.lunchSlots: [];
-      const combinedLunchSlots = [...breakfastSlots, ...lunchSlots];
-      let fallbackIndex = 0;
-      combinedLunchSlots.forEach((slot)=>{
-        const row = rowFromSlot(slot); if (!row.hasMenu || !lunchWrap) return;
-        const slotIndex = typeof slot?.combinedIndex === 'number' ? slot.combinedIndex : fallbackIndex++;
-        const mealType = row.mealType || (slot?.categoryKey === 'breakfastMain' ? 'breakfast' : 'lunch');
-        const item = document.createElement('div');
-        item.setAttribute('data-slot-index', String(slotIndex));
-        item.setAttribute('data-category', slot?.categoryKey||'lunchMain');
-        item.dataset.meal = 'lunch';
-        item.dataset.mealType = mealType;
-        const actions = document.createElement('div'); actions.className='wm2-actions';
-        const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
-        const favActive = !!(slot?.menuId && mySet.has(String(slot.menuId))) || !!slot?.favorite;
-        const dineHomeHidden = slot?.dineOut ? 'hidden' : '';
-        const dineOutHidden = slot?.dineOut ? '' : 'hidden';
-        actions.innerHTML = `
-          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
-          <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
-        const card = cardEl(row);
-        // Add DO overlay button at image bottom-right on past/today
-        try {
-          const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
-          const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
-          const canRecord = dayISO && (new Date(dayISO).setHours(0,0,0,0) <= new Date(todayISO).setHours(0,0,0,0));
-          if (canRecord && slot && slot.menuId) {
-            const img = card.querySelector('.img');
-            if (img) {
-              const div = document.createElement('div');
-              div.className = 'do-overlay';
-              div.innerHTML = `<button type="button" class="${ICON_BTN}" data-action="wm2-mark-ate" title="これ食べた" data-menu-id="${String(slot.menuId)}" data-meal="${mealType}" data-day="${String(sel)}" data-recorded="false"><span class="sr-only">これ食べた</span><span class="lucide w-4 h-4" data-lucide="cooking-pot"></span></button>`;
-              img.appendChild(div);
-              try {
-                const b = div.querySelector('button');
-                if (b) {
-                  // 初期状態: 記録済みなら緑に
-                  try {
-                    const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
-                    const key = `${String(dayISO).slice(0,10)}|${mealType}|${String(slot.menuId)}`;
-                    if (window.__wm2_DO_SET && window.__wm2_DO_SET.has(key)) {
-                      b.dataset.recorded = 'true';
-                      b.classList.remove('bg-white','text-gray-500','border-gray-200','hover:text-blue-600','hover:border-blue-300','focus:ring-blue-100');
-                      b.classList.add('bg-emerald-50','text-emerald-700','border-emerald-300','hover:text-emerald-800','hover:border-emerald-400','focus:ring-emerald-200');
-                    }
-                  } catch(_) {}
-                  b.addEventListener('click', function(ev){ if (window.__wm2_markAte) window.__wm2_markAte(ev); ev.stopImmediatePropagation(); ev.stopPropagation(); return false; });
-                }
-              } catch(_) {}
-            }
-          }
-        } catch(_) {}
-        item.appendChild(card); item.appendChild(actions); lunchWrap.appendChild(item);
-        // Sync fav overlay active state
-        try {
-          const favBtn = item.querySelector('.fav-overlay [data-action="toggle-favorite"]');
-          if (favBtn) favBtn.setAttribute('aria-pressed', favActive ? 'true' : 'false');
-        } catch(_) {}
-      });
+      renderSimpleSlots(breakfastSlots, breakfastWrap, 'breakfast', 'breakfastMain');
+      renderSimpleSlots(lunchSlots, lunchWrap, 'lunch', 'lunchMain');
 
       let dinnerSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
       if (!Array.isArray(day.dinnerSlots)) {
