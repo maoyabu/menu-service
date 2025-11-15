@@ -953,13 +953,17 @@
         <th class="text-left text-[11px] font-semibold text-gray-500"></th>
         <th class="${metricsColClass} text-[11px] font-semibold text-gray-500 leading-tight">1日の<br>必要量</th>
         <th class="${metricsColClass} text-[11px] font-semibold text-gray-500">実績</th>
-        <th class="${metricsColClass} text-[11px] font-semibold text-gray-500">不足</th>
+        <th class="${metricsColClass} text-[11px] font-semibold text-gray-500">差分</th>
       `;
       thead.appendChild(headRow);
       table.appendChild(thead);
       const tbody = document.createElement('tbody');
       let hasRows = false;
-      const formatWithUnit = (val) => `${formatQty(typeof val === 'number' ? val : 0) || '0'}g`;
+      const formatWhole = (val) => {
+        const num = typeof val === 'number' ? val : 0;
+        const rounded = Math.round(num);
+        return `${rounded}g`;
+      };
       ING_CLASS_ORDER.forEach((cls) => {
         const grams = totals.get(cls);
         const actualVal = (typeof grams === 'number' && !Number.isNaN(grams)) ? grams : 0;
@@ -985,11 +989,11 @@
         labelWrap.append(badge, label);
 
         const shortageVal = requiredVal - actualVal;
-        const shortageClass = shortageVal > 0 ? 'text-red-600' : (shortageVal < 0 ? 'text-blue-600' : 'text-gray-500');
-        const shortageMagnitude = shortageVal === 0 ? '0' : (formatQty(Math.abs(shortageVal)) || '0');
+        const shortageClass = shortageVal > 0 ? 'text-red-600' : (shortageVal < 0 ? 'text-gray-900' : 'text-gray-500');
+        const shortageMagnitude = shortageVal === 0 ? '0' : String(Math.round(Math.abs(shortageVal)));
         const shortageText = shortageVal === 0
           ? '0g'
-          : `${shortageVal < 0 ? '+' : ''}${shortageMagnitude}g`;
+          : `${shortageVal > 0 ? '-' : ''}${shortageMagnitude}g`;
 
         const buildValue = (value, extraClass = 'text-gray-900') => {
           const el = document.createElement('td');
@@ -998,10 +1002,7 @@
           return el;
         };
 
-        const shortageCol = buildValue(
-          shortageVal < 0 ? `${shortageText} (超過)` : shortageText,
-          `${shortageClass} ${shortageVal ? '' : 'text-gray-500'}`
-        );
+        const shortageCol = buildValue(shortageText, `${shortageClass} ${shortageVal ? '' : 'text-gray-500'}`);
 
         const labelCell = document.createElement('td');
         labelCell.className = 'py-1';
@@ -1009,8 +1010,8 @@
 
         row.append(
           labelCell,
-          buildValue(formatWithUnit(requiredVal)),
-          buildValue(formatWithUnit(actualVal), 'text-blue-600'),
+          buildValue(formatWhole(requiredVal)),
+          buildValue(formatWhole(actualVal), 'text-blue-600'),
           shortageCol
         );
         tbody.appendChild(row);
