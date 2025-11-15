@@ -193,7 +193,7 @@
       </div>
     </div>
     <div>
-        <h3 class="text-sm font-semibold mb-2" id="wm2-right-title"></h3>
+      <h3 class="text-sm font-semibold mb-2" id="wm2-right-title"></h3>
       <div id="wm2-req" class="wm2-req"></div>
     </div>
   </div>
@@ -433,14 +433,14 @@
     let requirementsMode = 'day';
     const createReqModeButtons = () => {
       const wrap = document.createElement('div');
-      wrap.className = 'inline-flex rounded-full border border-amber-200 text-xs font-semibold overflow-hidden';
+      wrap.className = 'inline-flex rounded-full border border-amber-400 text-xs font-semibold overflow-hidden shadow-sm bg-white';
       const mkBtn = (mode, label) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.dataset.reqMode = mode;
         btn.textContent = label;
         const isActive = requirementsMode === mode;
-        btn.className = `px-3 py-1 transition ${isActive ? 'bg-amber-50 text-amber-700' : 'text-amber-600'}`;
+        btn.className = `px-3 py-1 transition ${isActive ? 'bg-amber-200 text-amber-900' : 'text-amber-600 hover:text-amber-800'}`;
         btn.addEventListener('click', () => {
           const next = mode === 'week' ? 'week' : 'day';
           if (requirementsMode === next) return;
@@ -452,6 +452,12 @@
       wrap.appendChild(mkBtn('day', '当日'));
       wrap.appendChild(mkBtn('week', '週合計'));
       return wrap;
+    };
+    const renderTopReqMode = () => {
+      const host = document.querySelector('[data-role="req-mode-header"]');
+      if (!host) return;
+      host.innerHTML = '';
+      host.appendChild(createReqModeButtons());
     };
     const getPlanData = () => (window.weekMenuData && (window.weekMenuData.planSnapshot || window.weekMenuData.plan)) || [];
 
@@ -643,6 +649,39 @@
       const disp = display || (function(){ try { const dt=new Date(iso); const m=dt.getMonth()+1, day=dt.getDate(); return `${('0'+m).slice(-2)}/${('0'+day).slice(-2)}`; } catch(_) { return '--/--'; } })();
       return { disp, dow };
     }
+    const formatLabelWithDow = (entry) => {
+      const info = toLabel(entry);
+      if (!info.disp) return '';
+      return info.dow ? `${info.disp}（${info.dow}）` : info.disp;
+    };
+    const getDateLabel = (idx) => {
+      const entry = WEEK[idx];
+      if (!entry) return '';
+      if (entry.display) {
+        return entry.weekday
+          ? `${entry.display}（${entry.weekday}）`
+          : entry.display;
+      }
+      return formatLabelWithDow(entry);
+    };
+    const getDateFromWeek = (idx) => {
+      const entry = WEEK[idx];
+      if (!entry) return null;
+      const iso = entry.dateISO || entry;
+      try {
+        return new Date(iso);
+      } catch (_) {
+        return null;
+      }
+    };
+    const computeDaySpan = (idx) => {
+      const startDate = getDateFromWeek(0);
+      const targetDate = getDateFromWeek(idx);
+      if (!startDate || !targetDate) return idx + 1;
+      const ms = targetDate.setHours(0,0,0,0) - startDate.setHours(0,0,0,0);
+      const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+      return Math.max(1, days + 1);
+    };
 
     function buildPills(){
       const row = document.getElementById('wm2-days'); if (!row) return; row.innerHTML='';
@@ -1010,10 +1049,8 @@
       const spacer = document.createElement('div');
       spacer.className = 'h-4 md:h-6';
       reqEl.appendChild(spacer);
-      const labelData = (() => {
-        const info = toLabel(WEEK[safeIndex] || null);
-        return info?.disp || '';
-      })();
+      const labelData = getDateLabel(safeIndex);
+      const spanDayCount = computeDaySpan(safeIndex);
       const classHeader = document.createElement('div');
       classHeader.className = 'flex items-center justify-between mb-2 gap-3 bg-white';
       const classTitle = document.createElement('p');
@@ -1022,7 +1059,10 @@
         ? '食材分類別の合計 (週合計, g換算)'
         : '食材分類別の合計 (g換算)';
       classHeader.appendChild(classTitle);
-      classHeader.appendChild(createReqModeButtons());
+      const toggleHost = document.createElement('div');
+      toggleHost.dataset.role = 'req-mode-header';
+      toggleHost.appendChild(createReqModeButtons());
+      classHeader.appendChild(toggleHost);
       reqEl.appendChild(classHeader);
       const classBox = document.createElement('div');
       classBox.className = 'mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-3 text-xs';
@@ -1042,7 +1082,7 @@
       renderClassSummary(classBox, combinedEntries, formatQty1, renderToken, {
         seasoningEntries: combinedSeasoningEntries,
         mode,
-        dayCount: mode === 'week' ? safeIndex + 1 : 1,
+        dayCount: mode === 'week' ? spanDayCount : 1,
         targetLabel: labelData
       });
     }
@@ -1105,12 +1145,15 @@
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
       const requiredHeader = options.mode === 'week'
-        ? `${options.targetLabel || ''}までの必要量`
+        ? `${options.targetLabel || ''}\nまでの必要量`
         : '1日の\n必要量';
+      const actualHeader = options.mode === 'week'
+        ? `${options.targetLabel || ''}\nまでの実績`
+        : '実績';
       headRow.innerHTML = `
         <th class="text-left text-[11px] font-semibold text-gray-500"></th>
         <th class="${metricsColClass} text-[11px] font-semibold text-gray-500 leading-tight whitespace-pre-line">${requiredHeader}</th>
-        <th class="${metricsColClass} text-[11px] font-semibold text-gray-500">実績</th>
+        <th class="${metricsColClass} text-[11px] font-semibold text-gray-500 leading-tight whitespace-pre-line">${actualHeader}</th>
         <th class="${metricsColClass} text-[11px] font-semibold text-gray-500">差分</th>
       `;
       thead.appendChild(headRow);
