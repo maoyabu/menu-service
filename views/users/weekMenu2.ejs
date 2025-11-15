@@ -207,7 +207,15 @@
     const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
     const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
     const DEFAULT_ING_CLASS = 'その他';
+    const SEASONING_GRAIN_CLASS = '穀物';
     const ingredientMetaCache = {
+      ready: false,
+      error: false,
+      pending: null,
+      byId: new Map(),
+      byName: new Map()
+    };
+    const seasoningMetaCache = {
       ready: false,
       error: false,
       pending: null,
@@ -269,10 +277,59 @@
     };
     // 事前に読み込みを開始して分類集計の描画を早める
     ensureIngredientMeta();
+    const ensureSeasoningMeta = () => {
+      if (seasoningMetaCache.ready) return Promise.resolve(true);
+      if (seasoningMetaCache.pending) return seasoningMetaCache.pending;
+      seasoningMetaCache.pending = fetch('/users/my-menu/api/seasonings?limit=1000')
+        .then((res) => {
+          if (!res.ok) throw new Error('failed to load');
+          return res.json();
+        })
+        .then((list) => {
+          seasoningMetaCache.byId = new Map();
+          seasoningMetaCache.byName = new Map();
+          (list || []).forEach((item) => {
+            const id = item && (item._id || item.id) ? String(item._id || item.id) : '';
+            const name = item && (item.seasoning || item.name) ? String(item.seasoning || item.name) : '';
+            let cls = item && item.classification ? String(item.classification) : DEFAULT_ING_CLASS;
+            if (!ING_CLASS_SET.has(cls)) cls = DEFAULT_ING_CLASS;
+            const meta = {
+              classification: cls,
+              grams: new Map(),
+              gramsLower: new Map()
+            };
+            const conversions = Array.isArray(item?.unitConversions) ? item.unitConversions : [];
+            conversions.forEach((conv) => {
+              const label = normalizeUnitLabel(conv?.label);
+              const grams = Number(conv?.grams);
+              if (!label || !grams || !Number.isFinite(grams) || grams <= 0) return;
+              meta.grams.set(label, grams);
+              meta.gramsLower.set(label.toLowerCase(), grams);
+            });
+            if (id) seasoningMetaCache.byId.set(id, meta);
+            if (name) seasoningMetaCache.byName.set(name, meta);
+          });
+          seasoningMetaCache.ready = true;
+          seasoningMetaCache.error = false;
+          return true;
+        })
+        .catch((err) => {
+          console.warn('Seasoning classification fetch failed:', err);
+          seasoningMetaCache.error = true;
+          return false;
+        })
+        .finally(() => { seasoningMetaCache.pending = null; });
+      return seasoningMetaCache.pending;
+    };
     const getIngredientMeta = (id, name) => {
       const idKey = id ? String(id) : '';
       const nameKey = name ? String(name) : '';
       return (idKey && ingredientMetaCache.byId.get(idKey)) || (nameKey && ingredientMetaCache.byName.get(nameKey)) || null;
+    };
+    const getSeasoningMeta = (id, name) => {
+      const idKey = id ? String(id) : '';
+      const nameKey = name ? String(name) : '';
+      return (idKey && seasoningMetaCache.byId.get(idKey)) || (nameKey && seasoningMetaCache.byName.get(nameKey)) || null;
     };
     const resolveIngredientClass = (id, name) => {
       const meta = getIngredientMeta(id, name);
@@ -297,6 +354,22 @@
       if (!gPerUnit) gPerUnit = gramsFallbackByUnit(unit);
       if (!gPerUnit || !Number.isFinite(gPerUnit) || gPerUnit <= 0) return null;
       return amount * gPerUnit;
+    };
+    const convertSeasoningEntryToGrams = (entry) => {
+      if (!entry) return null;
+      const amount = entry.amount;
+      if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
+      const unit = entry.unit || '';
+      const meta = getSeasoningMeta(entry.id, entry.name);
+      let gPerUnit = gramsPerUnit(meta, unit);
+      if (!gPerUnit) gPerUnit = gramsFallbackByUnit(unit);
+      if (!gPerUnit || !Number.isFinite(gPerUnit) || gPerUnit <= 0) return null;
+      return amount * gPerUnit;
+    };
+    const resolveSeasoningClass = (id, name) => {
+      const meta = getSeasoningMeta(id, name);
+      const raw = meta?.classification || DEFAULT_ING_CLASS;
+      return ING_CLASS_SET.has(raw) ? raw : DEFAULT_ING_CLASS;
     };
     let requirementsRenderToken = 0;
 
@@ -733,6 +806,7 @@
 
       const agg = { ingredients: new Map(), seasonings: new Map() };
       const classEntries = [];
+      const seasoningClassEntries = [];
       const add = (map, name, amount, unit)=>{
         if (!name) return; const key = name + '|' + (unit||''); const prev = map.get(key) || 0; const val = parseFloat(amount); map.set(key, (isNaN(val)? prev: prev + val));
       };
@@ -758,7 +832,18 @@
               });
             }
           });
-          (Array.isArray(m.seasoning)? m.seasoning: []).forEach(it=> add(agg.seasonings, it?.name || '', Number(it.amount) * multiplier, it.unit));
+          (Array.isArray(m.seasoning)? m.seasoning: []).forEach(it=> {
+            const raw = Number(it?.amount);
+            if (Number.isNaN(raw)) return;
+            const scaled = raw * multiplier;
+            add(agg.seasonings, it?.name || '', scaled, it.unit);
+            seasoningClassEntries.push({
+              id: it?.id ? String(it.id) : '',
+              name: it?.name || '',
+              unit: it?.unit || '',
+              amount: scaled
+            });
+          });
         });
       };
       applyMenus(menusLunch, countLunch);
@@ -782,10 +867,10 @@
       classBox.className = 'mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-3 text-xs';
       classBox.dataset.role = 'ingredient-class-summary';
       reqEl.appendChild(classBox);
-      renderClassSummary(classBox, classEntries, formatQty1, renderToken);
+      renderClassSummary(classBox, classEntries, formatQty1, renderToken, { seasoningEntries: seasoningClassEntries });
     }
 
-    function renderClassSummary(target, entries, formatQty, token){
+    function renderClassSummary(target, entries, formatQty, token, options = {}){
       if (!target) return;
       target.innerHTML = '';
       const title = document.createElement('p');
@@ -793,7 +878,9 @@
       title.textContent = '食材分類別の合計 (g換算)';
       target.appendChild(title);
 
-      if (!entries || !entries.length) {
+      const seasoningEntries = Array.isArray(options.seasoningEntries) ? options.seasoningEntries : [];
+      const needsSeasoningMeta = seasoningEntries.length > 0;
+      if ((!entries || !entries.length) && !needsSeasoningMeta) {
         const empty = document.createElement('p');
         empty.className = 'text-xs text-gray-500';
         empty.textContent = '分類できる食材がありません。';
@@ -801,18 +888,23 @@
         return;
       }
 
-      if (!ingredientMetaCache.ready) {
+      if (!ingredientMetaCache.ready || (needsSeasoningMeta && !seasoningMetaCache.ready)) {
         const note = document.createElement('p');
         note.className = 'text-xs text-gray-500';
-        note.textContent = ingredientMetaCache.error ? '分類データの取得に失敗しました。再試行しています…' : '分類データを取得しています...';
+        note.textContent = (ingredientMetaCache.error || seasoningMetaCache.error)
+          ? '分類データの取得に失敗しました。再試行しています…'
+          : '分類データを取得しています...';
         target.appendChild(note);
-        ensureIngredientMeta().then((ok) => {
-          if (!ok) {
+        Promise.all([
+          ingredientMetaCache.ready ? Promise.resolve(true) : ensureIngredientMeta(),
+          (!needsSeasoningMeta || seasoningMetaCache.ready) ? Promise.resolve(true) : ensureSeasoningMeta()
+        ]).then(([ingOk, seaOk]) => {
+          if (!ingOk || (!seaOk && needsSeasoningMeta)) {
             if (note.isConnected) note.textContent = '分類データの取得に失敗しました。時間をおいて再試行してください。';
             return;
           }
           if (token !== requirementsRenderToken) return;
-          renderClassSummary(target, entries, formatQty, token);
+          renderClassSummary(target, entries, formatQty, token, options);
         });
         return;
       }
@@ -824,6 +916,16 @@
         const cls = resolveIngredientClass(id, name);
         totals.set(cls, (totals.get(cls) || 0) + grams);
       });
+
+      if (needsSeasoningMeta) {
+        seasoningEntries.forEach(({ id, name, amount, unit }) => {
+          const cls = resolveSeasoningClass(id, name);
+          if (cls !== SEASONING_GRAIN_CLASS) return;
+          const grams = convertSeasoningEntryToGrams({ id, name, amount, unit });
+          if (typeof grams !== 'number' || Number.isNaN(grams)) return;
+          totals.set(cls, (totals.get(cls) || 0) + grams);
+        });
+      }
 
       const list = document.createElement('ul');
       list.className = 'space-y-1';
