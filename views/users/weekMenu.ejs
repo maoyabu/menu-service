@@ -828,17 +828,13 @@
       tab: 'lunch',
       mainTab: 'plan',
       supplyTab: 'ingredients',
-      plan: Array.isArray(rawPlan) ? rawPlan.map((day) => {
-        if (!day) return day;
-        const breakfastSlots = Array.isArray(day.breakfastSlots) ? day.breakfastSlots : [];
-        const lunchSlots = Array.isArray(day.lunchSlots) ? day.lunchSlots : [];
-        const merged = [...breakfastSlots, ...lunchSlots].map((slot) => ({
-          ...slot,
-          categoryKey: slot?.categoryKey === 'breakfastMain' ? 'breakfastMain' : 'lunchMain'
-        }));
-        const { breakfastSlots: _b, ...rest } = day;
-        return { ...rest, lunchSlots: merged };
-      }) : []
+      plan: Array.isArray(rawPlan)
+        ? rawPlan.map((day) => ({
+            ...day,
+            breakfastSlots: Array.isArray(day?.breakfastSlots) ? day.breakfastSlots : [],
+            lunchSlots: Array.isArray(day?.lunchSlots) ? day.lunchSlots : []
+          }))
+        : []
     };
 
     const menuLookup = data.menuLookup || {};
@@ -989,6 +985,10 @@
     const requirementsListEl = document.querySelector('[data-requirements-list]');
     const requirementsEmptyEl = document.querySelector('[data-requirements-empty]');
     const requirementsSummaryEl = document.querySelector('[data-requirements-summary]');
+    const ensureBreakfastSlots = (day) => {
+      if (!day.breakfastSlots) day.breakfastSlots = [];
+      return day.breakfastSlots;
+    };
     const ensureLunchSlots = (day) => {
       if (!day.lunchSlots) day.lunchSlots = [];
       return day.lunchSlots;
@@ -1001,25 +1001,16 @@
       : 'bg-blue-50 text-blue-700 border border-blue-200';
     const insertLunchSlot = (slots, slot) => {
       if (!slots || !slot) return;
-      if (slotIsBreakfast(slot)) {
-        const firstLunchIndex = slots.findIndex((s) => !slotIsBreakfast(s));
-        if (firstLunchIndex === -1) {
-          slots.push(slot);
-        } else {
-          slots.splice(firstLunchIndex, 0, slot);
-        }
-      } else {
-        slots.push(slot);
-      }
+      slots.push(slot);
     };
     const buildPlanSnapshot = () => state.plan.map((day) => {
       if (!day) return day;
-      const combinedSlots = ensureLunchSlots(day);
-      const cloned = combinedSlots.map((slot, index) => ({ ...slot, combinedIndex: index }));
+      const breakfast = ensureBreakfastSlots(day).map((slot, index) => ({ ...slot, combinedIndex: index }));
+      const lunch = ensureLunchSlots(day).map((slot, index) => ({ ...slot, combinedIndex: index }));
       return {
         ...day,
-        breakfastSlots: cloned.filter((slot) => slotIsBreakfast(slot)),
-        lunchSlots: cloned.filter((slot) => !slotIsBreakfast(slot))
+        breakfastSlots: breakfast,
+        lunchSlots: lunch
       };
     });
 
@@ -1089,10 +1080,16 @@
       if (!target) return false;
       let removed = false;
       state.plan.forEach((day) => {
-        const slots = ensureLunchSlots(day);
-        const index = slots.indexOf(target);
-        if (index !== -1) {
-          slots.splice(index, 1);
+        const bSlots = ensureBreakfastSlots(day);
+        const lSlots = ensureLunchSlots(day);
+        const idxB = bSlots.indexOf(target);
+        if (idxB !== -1) {
+          bSlots.splice(idxB, 1);
+          removed = true;
+        }
+        const idxL = lSlots.indexOf(target);
+        if (idxL !== -1) {
+          lSlots.splice(idxL, 1);
           removed = true;
         }
       });
@@ -1164,38 +1161,28 @@
 
       state.plan.forEach((day, dayIndex) => {
         if (!day) return;
+        const breakfastSlots = ensureBreakfastSlots(day).filter(Boolean);
         const lunchSlots = ensureLunchSlots(day).filter(Boolean);
         const dinnerSlots = ensureDinnerSlots(day).filter(Boolean);
-        // 昼・夜で人数を分けて計算
-        lunchSlots.forEach((slot) => {
-          if (!slot || slot.dineOut || (!slot.menuId && !slot.menu)) return;
-          const menu = slot.menuId ? (menuLookup[slot.menuId] || slot.menu || null) : slot.menu || null;
-          if (!menu) return;
-          const basePeople = Number(menu.people);
-          const lunchCount = getParticipantIds(dayIndex, 'lunch').length;
-          const extra = Math.max(0, Number(slot.prepExtra) || 0);
-          const rawMultiplier = basePeople && basePeople > 0 ? (lunchCount + extra) / basePeople : 1;
-          const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
-          const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
-          const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
-          ingredients.forEach((item) => mergeEntry(item, multiplier, 'ingredient'));
-          seasonings.forEach((item) => mergeEntry(item, multiplier, 'seasoning'));
-        });
-
-        dinnerSlots.forEach((slot) => {
-          if (!slot || slot.dineOut || (!slot.menuId && !slot.menu)) return;
-          const menu = slot.menuId ? (menuLookup[slot.menuId] || slot.menu || null) : slot.menu || null;
-          if (!menu) return;
-          const basePeople = Number(menu.people);
-          const dinnerCount = getParticipantIds(dayIndex, 'dinner').length;
-          const extra = Math.max(0, Number(slot.prepExtra) || 0);
-          const rawMultiplier = basePeople && basePeople > 0 ? (dinnerCount + extra) / basePeople : 1;
-          const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
-          const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
-          const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
-          ingredients.forEach((item) => mergeEntry(item, multiplier, 'ingredient'));
-          seasonings.forEach((item) => mergeEntry(item, multiplier, 'seasoning'));
-        });
+        const applySlots = (slots, participantMeal) => {
+          slots.forEach((slot) => {
+            if (!slot || slot.dineOut || (!slot.menuId && !slot.menu)) return;
+            const menu = slot.menuId ? (menuLookup[slot.menuId] || slot.menu || null) : slot.menu || null;
+            if (!menu) return;
+            const basePeople = Number(menu.people);
+            const count = getParticipantIds(dayIndex, participantMeal).length;
+            const extra = Math.max(0, Number(slot.prepExtra) || 0);
+            const rawMultiplier = basePeople && basePeople > 0 ? (count + extra) / basePeople : 1;
+            const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
+            const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
+            const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
+            ingredients.forEach((item) => mergeEntry(item, multiplier, 'ingredient'));
+            seasonings.forEach((item) => mergeEntry(item, multiplier, 'seasoning'));
+          });
+        };
+        applySlots(breakfastSlots, 'breakfast');
+        applySlots(lunchSlots, 'lunch');
+        applySlots(dinnerSlots, 'dinner');
       });
 
       const allItems = Array.from(itemsMap.entries())
@@ -1559,6 +1546,12 @@
     const getSlotReference = (dayIndex, mealKey, slotKey) => {
       const day = state.plan[dayIndex];
       if (!day) return null;
+      if (mealKey === 'breakfast') {
+        const slots = ensureBreakfastSlots(day);
+        const index = Number(slotKey);
+        if (Number.isNaN(index) || index < 0) return null;
+        return slots[index] || null;
+      }
       if (mealKey === 'lunch') {
         const slots = ensureLunchSlots(day);
         const index = Number(slotKey);
@@ -2187,10 +2180,10 @@
         if (!day) return;
         const dateISO = weekDates[day.index]?.dateISO || day.dateISO || null;
 
-        const lunchSlotsForPayload = ensureLunchSlots(day)
+        const breakfastSlotsForPayload = ensureBreakfastSlots(day)
           .filter((slot) => slot && slot.menuId);
-        const breakfastSlotsForPayload = lunchSlotsForPayload.filter((slot) => slot.categoryKey === 'breakfastMain');
-        const regularLunchSlots = lunchSlotsForPayload.filter((slot) => slot.categoryKey !== 'breakfastMain');
+        const regularLunchSlots = ensureLunchSlots(day)
+          .filter((slot) => slot && slot.menuId);
 
         const mapSlot = (slot, fallbackKey) => ({
           categoryKey: slot.categoryKey || fallbackKey,
@@ -2732,10 +2725,15 @@
       const action = actionNode.dataset.action;
 
       if (action === 'add-lunch-slot') {
-        const slots = ensureLunchSlots(day);
         const mealChoice = actionNode.dataset.mealType === 'breakfast' ? 'breakfastMain' : 'lunchMain';
         const newSlot = createEmptySlot(mealChoice);
-        insertLunchSlot(slots, newSlot);
+        if (mealChoice === 'breakfastMain') {
+          const slots = ensureBreakfastSlots(day);
+          slots.push(newSlot);
+        } else {
+          const slots = ensureLunchSlots(day);
+          insertLunchSlot(slots, newSlot);
+        }
         render();
         openMenuModal(newSlot.categoryKey || 'lunchMain', newSlot);
         return;
@@ -2756,7 +2754,7 @@
       let identifier = null;
       let slotWrapper = null;
 
-      if (mealKey === 'lunch') {
+      if (mealKey === 'lunch' || mealKey === 'breakfast') {
         slotWrapper = actionNode.closest('[data-slot-index]');
         if (!slotWrapper) return;
         identifier = Number(slotWrapper.dataset.slotIndex);
@@ -2770,7 +2768,7 @@
 
       const categoryKey = slotWrapper.dataset.category || (mealKey === 'dinner'
         ? (ensureDinnerSlots(day)[identifier]?.categoryKey || 'dinnerFlexible')
-        : '');
+        : (mealKey === 'breakfast' ? (ensureBreakfastSlots(day)[identifier]?.categoryKey || 'breakfastMain') : ''));
       if (!categoryKey) return;
 
       const slot = (() => {
@@ -2779,7 +2777,10 @@
 
         const baseSlot = createEmptySlot(categoryKey);
 
-        if (mealKey === 'lunch') {
+        if (mealKey === 'breakfast') {
+          const slots = ensureBreakfastSlots(day);
+          slots[identifier] = baseSlot;
+        } else if (mealKey === 'lunch') {
           const slots = ensureLunchSlots(day);
           slots[identifier] = baseSlot;
         } else if (mealKey === 'dinner') {
@@ -2849,7 +2850,16 @@
         slot.favorite = false;
         slot.dineOut = false;
         slot.locked = false;
-        if (mealKey === 'lunch') {
+        if (mealKey === 'breakfast') {
+          const slots = ensureBreakfastSlots(day);
+          const slotIndex = Number(identifier);
+          if (!Number.isNaN(slotIndex) && slotIndex >= 0 && slotIndex < slots.length) {
+            slots.splice(slotIndex, 1);
+          } else {
+            const idx = slots.indexOf(slot);
+            if (idx !== -1) slots.splice(idx, 1);
+          }
+        } else if (mealKey === 'lunch') {
           const slots = ensureLunchSlots(day);
           const slotIndex = Number(identifier);
           if (!Number.isNaN(slotIndex) && slotIndex >= 0 && slotIndex < slots.length) {
