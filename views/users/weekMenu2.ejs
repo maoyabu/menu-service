@@ -205,6 +205,22 @@
     const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
     const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
     const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
+    const ING_CLASS_ICONS = {
+      '乳類': 'cup-soda',
+      'チーズ': 'pizza',
+      '卵類': 'egg',
+      '肉類': 'drumstick',
+      '魚介類': 'fish',
+      '豆類': 'leaf',
+      '野菜類': 'carrot',
+      'いも及びでん粉類': 'sprout',
+      'きのこ類': 'mushroom',
+      '果実類': 'apple',
+      '穀物': 'wheat',
+      '藻類': 'waves',
+      '加工食品': 'factory',
+      'その他': 'circle'
+    };
     const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
     const DEFAULT_ING_CLASS = 'その他';
     const SEASONING_GRAIN_CLASS = '穀物';
@@ -937,14 +953,23 @@
         if (!qty) return;
         hasRows = true;
         const li = document.createElement('li');
-        li.className = 'flex items-start justify-between gap-3 text-gray-700';
+        li.className = 'flex items-center justify-between gap-3 text-gray-700';
+        const labelWrap = document.createElement('div');
+        labelWrap.className = 'flex items-center gap-2';
+        const badge = document.createElement('span');
+        badge.className = 'inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-100 bg-white text-amber-600 shadow-sm';
+        const icon = document.createElement('i');
+        icon.dataset.lucide = ING_CLASS_ICONS[cls] || 'circle';
+        icon.className = 'w-4 h-4';
+        badge.appendChild(icon);
         const label = document.createElement('span');
         label.className = 'font-medium';
         label.textContent = cls;
+        labelWrap.append(badge, label);
         const value = document.createElement('span');
         value.className = 'text-right text-gray-900';
         value.textContent = `${qty}g`;
-        li.append(label, value);
+        li.append(labelWrap, value);
         list.appendChild(li);
       });
 
@@ -956,6 +981,7 @@
         return;
       }
       target.appendChild(list);
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
     function rebuild(){ buildPills(); renderDay(); }
