@@ -154,12 +154,28 @@
       <div class="space-y-6">
         <!-- Lunch -->
         <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-lunch" data-day="0" data-meal="lunch">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-3">
-              <div class="text-xs font-semibold text-blue-600">ランチ</div>
-              <div class="attendees" id="wm2-attendees-lunch"></div>
+          <div class="flex flex-col gap-2 mb-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs font-semibold text-blue-600">朝食 / ランチ</div>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="wm2-btn-add-breakfast" class="wm2-add inline-flex items-center gap-1 text-amber-700 bg-amber-50" data-action="add-lunch-slot" data-meal-type="breakfast">
+                  <span class="lucide w-4 h-4" data-lucide="sunrise"></span>朝食を追加
+                </button>
+                <button type="button" id="wm2-btn-add-lunch" class="wm2-add" data-action="add-lunch-slot" data-meal-type="lunch">
+                  <span class="lucide w-4 h-4" data-lucide="plus"></span>ランチを追加
+                </button>
+              </div>
             </div>
-            <button type="button" id="wm2-btn-add-lunch" class="wm2-add" data-action="add-lunch-slot"><span class="lucide w-4 h-4" data-lucide="plus"></span>メニューを追加</button>
+            <div class="flex flex-wrap gap-4 text-[11px]">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">朝食</span>
+                <div class="attendees" id="wm2-attendees-breakfast"></div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">ランチ</span>
+                <div class="attendees" id="wm2-attendees-lunch"></div>
+              </div>
+            </div>
           </div>
           <div id="wm2-day-lunch" class="wm2-list"></div>
         </div>
@@ -399,8 +415,11 @@
     };
     const setIds = (dayIndex, meal, ids) => { participantsByMeal[keyFor(dayIndex, meal)] = Array.from(new Set(ids.map(String))); };
     function renderAttendees(dayIndex){
-      ['lunch','dinner'].forEach((meal) => {
-        const wrapId = meal === 'lunch' ? 'wm2-attendees-lunch' : 'wm2-attendees-dinner';
+      [
+        { meal: 'breakfast', wrapId: 'wm2-attendees-breakfast' },
+        { meal: 'lunch', wrapId: 'wm2-attendees-lunch' },
+        { meal: 'dinner', wrapId: 'wm2-attendees-dinner' }
+      ].forEach(({ meal, wrapId }) => {
         const wrap = document.getElementById(wrapId);
         if (!wrap) return;
         wrap.innerHTML = '';
@@ -602,6 +621,14 @@
       const shopName = (slot.dineOutName || '').trim();
       const shopUrl = (slot.dineOutUrl || '').trim();
       const detail = m.cook || m.junle || m.kind || m.menu || '';
+      let mealType = 'dinner';
+      if (slot?.categoryKey === 'breakfastMain') {
+        mealType = 'breakfast';
+      } else if (slot?.categoryKey === 'lunchMain') {
+        mealType = 'lunch';
+      } else if (slot?.categoryKey && slot.categoryKey.startsWith('dinner')) {
+        mealType = 'dinner';
+      }
       // Always keep menu name and image; only chips area changes for dine-out
       return {
         hasMenu:true,
@@ -615,7 +642,9 @@
         prepExtra: Math.max(0, Number(slot?.prepExtra) || 0),
         shopName,
         shopUrl,
-        detail
+        detail,
+        mealType,
+        mealLabel: mealType === 'breakfast' ? '朝食' : (mealType === 'lunch' ? 'ランチ' : 'ディナー')
       };
     }
 
@@ -640,8 +669,14 @@
             ${cookChip}
             ${cookChip ? `<span class=\"wm2-mini-icons\">${homeOrOutIcon}${prepIcon}</span>` : `<span class=\"wm2-mini-icons\">${homeOrOutIcon}${prepIcon}</span>`}
           `;
+      const showMealBadge = row.mealType === 'breakfast' || row.mealType === 'lunch';
+      const mealBadgeClass = row.mealType === 'breakfast'
+        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+        : 'bg-blue-50 text-blue-700 border border-blue-200';
       wrap.innerHTML = `
-        <div class=\"img\" data-element=\"dish-image\">${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}
+        <div class=\"img\" data-element=\"dish-image\">
+          ${showMealBadge ? `<span class=\"absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${mealBadgeClass}\">${row.mealLabel || ''}</span>` : ''}
+          ${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}
           <div class=\"fav-overlay\">
             <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-favorite\" aria-pressed=\"false\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
           </div>
@@ -671,18 +706,29 @@
       const dinnerBox = document.getElementById('wm2-box-dinner'); if (dinnerBox){ dinnerBox.dataset.day = String(sel); dinnerBox.dataset.meal = 'dinner'; }
 
       // Ensure add buttons carry day/meal to satisfy weekMenu event delegation
+      const addBreakfastBtn = document.getElementById('wm2-btn-add-breakfast');
+      if (addBreakfastBtn){ addBreakfastBtn.dataset.day = String(sel); addBreakfastBtn.dataset.meal = 'lunch'; addBreakfastBtn.dataset.mealType = 'breakfast'; }
       const addLunchBtn = document.getElementById('wm2-btn-add-lunch');
-      if (addLunchBtn){ addLunchBtn.dataset.day = String(sel); addLunchBtn.dataset.meal = 'lunch'; }
+      if (addLunchBtn){ addLunchBtn.dataset.day = String(sel); addLunchBtn.dataset.meal = 'lunch'; addLunchBtn.dataset.mealType = 'lunch'; }
       const addDinnerBtn = document.getElementById('wm2-btn-add-dinner');
       if (addDinnerBtn){ addDinnerBtn.dataset.day = String(sel); addDinnerBtn.dataset.meal = 'dinner'; addDinnerBtn.dataset.category = 'dinnerFlexible'; }
 
       // Render attendees for selected day
       renderAttendees(sel);
 
+      const breakfastSlots = Array.isArray(day.breakfastSlots)? day.breakfastSlots: [];
       const lunchSlots = Array.isArray(day.lunchSlots)? day.lunchSlots: [];
-      lunchSlots.forEach((slot, i)=>{
+      const combinedLunchSlots = [...breakfastSlots, ...lunchSlots];
+      let fallbackIndex = 0;
+      combinedLunchSlots.forEach((slot)=>{
         const row = rowFromSlot(slot); if (!row.hasMenu || !lunchWrap) return;
-        const item = document.createElement('div'); item.setAttribute('data-slot-index', String(i)); item.setAttribute('data-category', slot?.categoryKey||'lunchMain'); item.dataset.meal = 'lunch';
+        const slotIndex = typeof slot?.combinedIndex === 'number' ? slot.combinedIndex : fallbackIndex++;
+        const mealType = row.mealType || (slot?.categoryKey === 'breakfastMain' ? 'breakfast' : 'lunch');
+        const item = document.createElement('div');
+        item.setAttribute('data-slot-index', String(slotIndex));
+        item.setAttribute('data-category', slot?.categoryKey||'lunchMain');
+        item.dataset.meal = 'lunch';
+        item.dataset.mealType = mealType;
         const actions = document.createElement('div'); actions.className='wm2-actions';
         const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
         const favActive = !!(slot?.menuId && mySet.has(String(slot.menuId))) || !!slot?.favorite;
@@ -703,7 +749,7 @@
             if (img) {
               const div = document.createElement('div');
               div.className = 'do-overlay';
-              div.innerHTML = `<button type="button" class="${ICON_BTN}" data-action="wm2-mark-ate" title="これ食べた" data-menu-id="${String(slot.menuId)}" data-meal="lunch" data-day="${String(sel)}" data-recorded="false"><span class="sr-only">これ食べた</span><span class="lucide w-4 h-4" data-lucide="cooking-pot"></span></button>`;
+              div.innerHTML = `<button type="button" class="${ICON_BTN}" data-action="wm2-mark-ate" title="これ食べた" data-menu-id="${String(slot.menuId)}" data-meal="${mealType}" data-day="${String(sel)}" data-recorded="false"><span class="sr-only">これ食べた</span><span class="lucide w-4 h-4" data-lucide="cooking-pot"></span></button>`;
               img.appendChild(div);
               try {
                 const b = div.querySelector('button');
@@ -711,7 +757,7 @@
                   // 初期状態: 記録済みなら緑に
                   try {
                     const dayISO = (WEEK[sel] && (WEEK[sel].dateISO || WEEK[sel])) || '';
-                    const key = `${String(dayISO).slice(0,10)}|lunch|${String(slot.menuId)}`;
+                    const key = `${String(dayISO).slice(0,10)}|${mealType}|${String(slot.menuId)}`;
                     if (window.__wm2_DO_SET && window.__wm2_DO_SET.has(key)) {
                       b.dataset.recorded = 'true';
                       b.classList.remove('bg-white','text-gray-500','border-gray-200','hover:text-blue-600','hover:border-blue-300','focus:ring-blue-100');
@@ -810,8 +856,10 @@
         reqEl.appendChild(empty);
         return;
       }
+      const menusBreakfast = [];
       const menusLunch = [];
       const menusDinner = [];
+      (Array.isArray(day.breakfastSlots)?day.breakfastSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusBreakfast.push({ menu: m, extra: Math.max(0, Number(s?.prepExtra)||0) }); });
       (Array.isArray(day.lunchSlots)?day.lunchSlots:[]).forEach(s=>{ const m = s?.menuId && lookup[s.menuId] ? lookup[s.menuId] : (s?.menu || null); if (m && !s?.dineOut) menusLunch.push({ menu: m, extra: Math.max(0, Number(s?.prepExtra)||0) }); });
       let dSlots = Array.isArray(day.dinnerSlots)? day.dinnerSlots: [];
       if (!Array.isArray(day.dinnerSlots)) {
@@ -828,6 +876,7 @@
         if (!name) return; const key = name + '|' + (unit||''); const prev = map.get(key) || 0; const val = parseFloat(amount); map.set(key, (isNaN(val)? prev: prev + val));
       };
       const dayIndex = sel;
+      const countBreakfast = getIds(dayIndex, 'breakfast').length;
       const countLunch = getIds(dayIndex, 'lunch').length;
       const countDinner = getIds(dayIndex, 'dinner').length;
       const applyMenus = (entries, people) => {
@@ -863,6 +912,7 @@
           });
         });
       };
+      applyMenus(menusBreakfast, countBreakfast);
       applyMenus(menusLunch, countLunch);
       applyMenus(menusDinner, countDinner);
 

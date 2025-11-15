@@ -275,6 +275,11 @@ const WEEKDAY_JA = ['月', '火', '水', '木', '金', '土', '日'];
 const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const CATEGORY_CONFIG = {
+  breakfastMain: {
+    kinds: ['主菜', '副菜', '汁物', '主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート', 'ドリンク'],
+    label: '朝食',
+    mealType: 'モーニング'
+  },
   lunchMain: {
     kinds: ['主菜', '副菜', '汁物', '主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート', 'ドリンク'],
     label: 'メインディッシュ',
@@ -318,6 +323,7 @@ const CATEGORY_CONFIG = {
 };
 
 const CATEGORY_TO_SLOT_TYPE = {
+  breakfastMain: 'breakfast-main',
   lunchMain: 'lunch-main',
   dinnerStaple: 'dinner-staple',
   dinnerMain: 'dinner-main',
@@ -327,6 +333,7 @@ const CATEGORY_TO_SLOT_TYPE = {
 };
 
 const SLOT_TYPE_DETAILS = Object.freeze({
+  'breakfast-main': { meal: 'breakfast', key: 'main', categoryKey: 'breakfastMain' },
   'lunch-main': { meal: 'lunch', key: 'main', categoryKey: 'lunchMain' },
   'dinner-staple': { meal: 'dinner', key: 'staple', categoryKey: 'dinnerStaple' },
   'dinner-main': { meal: 'dinner', key: 'main', categoryKey: 'dinnerMain' },
@@ -437,6 +444,7 @@ const aggregateSummary = (plan, menuLookup, field) => {
 
   plan.forEach((day) => {
     const slots = [
+      ...(Array.isArray(day?.breakfastSlots) ? day.breakfastSlots : []),
       ...(Array.isArray(day?.lunchSlots) ? day.lunchSlots : []),
       day?.dinner?.staple,
       day?.dinner?.main,
@@ -521,6 +529,7 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
       dayLabel: WEEKDAY_JA[index],
       dayLabelEn: WEEKDAY_EN[index],
       dateISO: date.toISOString(),
+      breakfastSlots: [createSlot('breakfastMain')].filter(Boolean),
       lunchSlots: [createSlot('lunchMain')].filter(Boolean),
       dinner: {
         staple: createSlot('dinnerStaple'),
@@ -891,6 +900,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         dayLabel: WEEKDAY_JA[index],
         dayLabelEn: WEEKDAY_EN[index],
         dateISO: date.toISOString(),
+        breakfastSlots: [],
         lunchSlots: [],
         dinner: { staple: null, main: null, side: null, soup: null },
         dinnerExtras: []
@@ -950,7 +960,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
               : 0
           };
 
-          if (map.meal === 'lunch') {
+          if (map.meal === 'breakfast') {
+            target.breakfastSlots = target.breakfastSlots || [];
+            target.breakfastSlots.push(slotData);
+          } else if (map.meal === 'lunch') {
             target.lunchSlots = target.lunchSlots || [];
             target.lunchSlots.push(slotData);
           } else if (map.key === 'extras') {
@@ -1003,6 +1016,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
         plan = plan.map((day) => ({
           ...day,
+          breakfastSlots: Array.isArray(day?.breakfastSlots)
+            ? day.breakfastSlots.map((slot) => ensureSlot(slot, slot?.categoryKey || 'breakfastMain'))
+            : [],
           lunchSlots: Array.isArray(day?.lunchSlots)
             ? day.lunchSlots.map((slot) => ensureSlot(slot, slot?.categoryKey || 'lunchMain'))
             : [],
@@ -1235,7 +1251,12 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     let menuLookup = {};
     if (existingPlan) {
       const basePlan = baseWeekDates.map((date, index) => ({
-        index, dateISO: date.toISOString(), lunchSlots: [], dinner: { staple: null, main: null, side: null, soup: null }, dinnerExtras: []
+        index,
+        dateISO: date.toISOString(),
+        breakfastSlots: [],
+        lunchSlots: [],
+        dinner: { staple: null, main: null, side: null, soup: null },
+        dinnerExtras: []
       }));
       menuLookup = {};
       Object.values(menusByCategory).forEach((list)=> list.forEach((m)=> { menuLookup[m.id] = m; }));
@@ -1253,7 +1274,11 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
         (dp.slots||[]).forEach((slot)=>{
           const map = SLOT_TYPE_DETAILS[slot?.slotType]; if(!map) return;
           const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra)||0 };
-          if (map.meal === 'lunch') { target.lunchSlots.push(data); }
+          if (map.meal === 'breakfast') {
+            target.breakfastSlots.push(data);
+          } else if (map.meal === 'lunch') {
+            target.lunchSlots.push(data);
+          }
           else if (map.key === 'extras') { target.dinnerExtras.push(data); }
           else if (!target.dinner[map.key]) { target.dinner[map.key] = data; } else { target.dinnerExtras.push(data); }
         });
@@ -1392,7 +1417,16 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
         }
         date.setHours(0, 0, 0, 0);
 
-        const mealType = plan.mealType === 'dinner' ? 'dinner' : 'lunch';
+        const mealType = plan.mealType === 'dinner'
+          ? 'dinner'
+          : plan.mealType === 'breakfast'
+            ? 'breakfast'
+            : plan.mealType === 'lunch'
+              ? 'lunch'
+              : '';
+        if (!mealType) {
+          return null;
+        }
         const slots = (plan.slots || [])
           .map((slot) => {
             const slotType = CATEGORY_TO_SLOT_TYPE[slot?.categoryKey] || slot?.slotType;
@@ -1538,7 +1572,7 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
           const today = new Date();
           const today00 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
           const actorName = req.user.displayname || req.user.username || req.user.email;
-          const mealLabel = (mt) => mt === 'dinner' ? 'ディナー' : 'ランチ';
+      const mealLabel = (mt) => (mt === 'dinner' ? 'ディナー' : (mt === 'breakfast' ? '朝食' : 'ランチ'));
 
           // group all added items into immediate/batch
           const immediateItems = [];
@@ -1605,7 +1639,13 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
     if (!Number.isInteger(di) || di < 0 || di > 6) {
       return res.status(400).json({ error: 'dayIndex が不正です。' });
     }
-    const meal = (mealType === 'dinner') ? 'dinner' : (mealType === 'lunch' ? 'lunch' : '');
+    const meal = mealType === 'dinner'
+      ? 'dinner'
+      : mealType === 'breakfast'
+        ? 'breakfast'
+        : mealType === 'lunch'
+          ? 'lunch'
+          : '';
     if (!meal) {
       return res.status(400).json({ error: 'mealType が不正です。' });
     }
@@ -1688,7 +1728,7 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
       const diffDays = Math.round((targetDate.getTime() - today00.getTime()) / (24*60*60*1000));
       const actorName = req.user.displayname || req.user.username || req.user.email;
       const dateLabel = `${targetDate.getMonth() + 1}月${targetDate.getDate()}日`;
-      const mealLabel = meal === 'dinner' ? 'ディナー' : 'ランチ';
+      const mealLabel = meal === 'dinner' ? 'ディナー' : meal === 'breakfast' ? '朝食' : 'ランチ';
 
       const scheduleFor = (immediate) => {
         if (immediate) return new Date();
@@ -1741,7 +1781,13 @@ router.post('/users/week-menu/participants/reset', isLoggedIn, async (req, res) 
     if (!Number.isInteger(di) || di < 0 || di > 6) {
       return res.status(400).json({ error: 'dayIndex が不正です。' });
     }
-    const meal = (mealType === 'dinner') ? 'dinner' : (mealType === 'lunch' ? 'lunch' : '');
+    const meal = mealType === 'dinner'
+      ? 'dinner'
+      : mealType === 'breakfast'
+        ? 'breakfast'
+        : mealType === 'lunch'
+          ? 'lunch'
+          : '';
     if (!meal) {
       return res.status(400).json({ error: 'mealType が不正です。' });
     }
@@ -1901,6 +1947,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       display: formatDisplayDate(date),
       weekday: WEEKDAY_JA[index],
       isToday: startOfDay(date).getTime() === today.getTime(),
+      breakfastSlots: [],
       lunchSlots: [],
       dinner: { staple: null, main: null, side: null, soup: null },
       dinnerExtras: [],
@@ -1943,7 +1990,10 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
           menu: menuId && currentWeekMenuLookup[menuId] ? currentWeekMenuLookup[menuId] : null
         };
 
-    if (map.meal === 'lunch') {
+    if (map.meal === 'breakfast') {
+      dayEntry.breakfastSlots = dayEntry.breakfastSlots || [];
+      dayEntry.breakfastSlots.push(slotPayload);
+    } else if (map.meal === 'lunch') {
       dayEntry.lunchSlots = dayEntry.lunchSlots || [];
       dayEntry.lunchSlots.push(slotPayload);
     } else if (map.key === 'extras') {
@@ -2009,6 +2059,20 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 
   weekPlanOverview.forEach((day) => {
     const meals = [];
+
+    const breakfastSlots = Array.isArray(day.breakfastSlots) ? day.breakfastSlots.filter(Boolean) : [];
+    if (breakfastSlots.length) {
+      meals.push({
+        mealKey: 'breakfast',
+        label: '朝食',
+        slots: breakfastSlots.map((slot) => ({
+          categoryKey: slot.categoryKey,
+          categoryLabel: categoryLabels[slot.categoryKey] || '',
+          menuId: slot.menuId,
+          menu: slot.menu
+        }))
+      });
+    }
 
     const lunchSlots = Array.isArray(day.lunchSlots) ? day.lunchSlots.filter(Boolean) : [];
     if (lunchSlots.length) {
@@ -2465,7 +2529,7 @@ router.post('/users/week-menu/do', isLoggedIn, async (req, res) => {
     if (!groupId || !userGroups.some((g) => String(g._id) === groupId)) {
       return res.status(403).json({ error: 'このグループに対する権限がありません。' });
     }
-    if (!(mealType === 'lunch' || mealType === 'dinner')) {
+    if (!(mealType === 'breakfast' || mealType === 'lunch' || mealType === 'dinner')) {
       return res.status(400).json({ error: '不正な食事区分です。' });
     }
     if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex > 6) {
@@ -2525,7 +2589,7 @@ router.delete('/users/week-menu/do', isLoggedIn, async (req, res) => {
     if (!groupId || !userGroups.some((g) => String(g._id) === groupId)) {
       return res.status(403).json({ error: 'このグループに対する権限がありません。' });
     }
-    if (!(mealType === 'lunch' || mealType === 'dinner')) {
+    if (!(mealType === 'breakfast' || mealType === 'lunch' || mealType === 'dinner')) {
       return res.status(400).json({ error: '不正な食事区分です。' });
     }
     if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex > 6) {

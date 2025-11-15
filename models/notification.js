@@ -5,7 +5,7 @@ const { Schema } = mongoose;
 const notificationItemSchema = new Schema({
   // for not-eating/eatingAgain
   date: { type: Date },
-  mealType: { type: String, enum: ['lunch', 'dinner'] },
+  mealType: { type: String, enum: ['breakfast', 'lunch', 'dinner'] },
   reason: { type: String, default: '' },
   // for myMenuAdded / planMenuAdded
   name: { type: String, default: '' },

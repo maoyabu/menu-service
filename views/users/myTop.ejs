@@ -291,9 +291,21 @@
             <% meal.slots.forEach((slot) => { const menu = slot.menu || null; %>
               <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm flex flex-col">
                 <div class="relative h-40 md:h-64 bg-gray-100">
-                  <!-- 画像左上のランチ/ディナー タグ（重ね表示） -->
-                  <span class="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold <%= meal.mealKey === 'lunch' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600' %>">
-                    <span class="lucide w-3 h-3 <%= meal.mealKey === 'lunch' ? 'text-orange-500' : 'text-blue-500' %>" data-lucide="<%= meal.mealKey === 'lunch' ? 'sun' : 'moon' %>"></span>
+                  <!-- 画像左上の朝食/ランチ/ディナー タグ（重ね表示） -->
+                  <% const mealKey = meal.mealKey; %>
+                  <% const mealTagClass = mealKey === 'breakfast'
+                    ? 'bg-amber-50 text-amber-700'
+                    : mealKey === 'lunch'
+                      ? 'bg-orange-50 text-orange-600'
+                      : 'bg-blue-50 text-blue-600'; %>
+                  <% const mealIcon = mealKey === 'breakfast' ? 'sunrise' : (mealKey === 'lunch' ? 'sun' : 'moon'); %>
+                  <% const mealIconClass = mealKey === 'breakfast'
+                    ? 'text-amber-600'
+                    : mealKey === 'lunch'
+                      ? 'text-orange-500'
+                      : 'text-blue-500'; %>
+                  <span class="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold <%= mealTagClass %>">
+                    <span class="lucide w-3 h-3 <%= mealIconClass %>" data-lucide="<%= mealIcon %>"></span>
                     <%= meal.label %>
                   </span>
 

@@ -171,7 +171,11 @@ app.listen(PORT, () => {
           } else {
             const items = (n.items || []).map((it) => {
               const d = new Date(it.date);
-              const mealLabel = it.mealType === 'dinner' ? 'ディナー' : 'ランチ';
+              const mealLabel = it.mealType === 'dinner'
+                ? 'ディナー'
+                : it.mealType === 'breakfast'
+                  ? '朝食'
+                  : 'ランチ';
               return { dateLabel: `${d.getMonth()+1}月${d.getDate()}日`, mealLabel, reason: it.reason || '', menuName: it.name || '' };
             });
             if (n.type === 'eatingAgain' || n.type === 'notEating') {

@@ -281,7 +281,7 @@
   <div class="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden">
     <div class="px-6 pb-6 pt-[24px] space-y-0" data-main-panel="plan">
       <div class="inline-grid grid-cols-2 text-sm font-semibold border border-blue-600 overflow-hidden w-64 ml-0 rounded-none" data-plan-tab-buttons>
-        <button type="button" data-tab="lunch" class="tab-button w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white border-r border-blue-600">🍱 ランチ</button>
+        <button type="button" data-tab="lunch" class="tab-button w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white border-r border-blue-600">🥐 朝食 / ランチ</button>
         <button type="button" data-tab="dinner" class="tab-button w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-white text-blue-600">🍽 ディナー</button>
       </div>
       <section class="space-y-4" data-panel="lunch">
@@ -298,7 +298,9 @@
                 <div class="flex-1 grid gap-3 md:grid-cols-2 lg:grid-cols-4" data-lunch-group>
                   <% rawLunchSlots.forEach((slot, slotIndex) => { if (!(slot && slot.menuId)) { return; } const row = displayRow(menuLookup, slot); %>
                     <div class="rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full<%= row.hasMenu ? '' : ' slot-empty' %>" data-slot-index="<%= slotIndex %>" data-category="<%= (slot && slot.categoryKey) || 'lunchMain' %>">
-                      <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative" data-element="dish-image">                        <% if (row.imageUrl) { %>
+                      <div class="w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative overflow-hidden" data-element="dish-image">
+                        <div class="absolute inset-0 w-full h-full flex items-center justify-center" data-element="image-frame">
+                        <% if (row.imageUrl) { %>
                           <% if (row.url) { %>
                             <a href="<%= row.url %>" target="menuWindow" rel="noopener" class="block w-full h-full">
                               <img src="<%= row.imageUrl %>" alt="<%= row.name %>" class="object-cover w-full h-full">
@@ -309,8 +311,13 @@
                         <% } else { %>
                           <span>no image</span>
                         <% } %>
+                        </div>
+                        <span class="absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold <%= slot && slot.categoryKey === 'breakfastMain' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200' %>" data-element="meal-tag">
+                          <%= slot && slot.categoryKey === 'breakfastMain' ? '朝食' : 'ランチ' %>
+                        </span>
                         <% if (row.junle) { %>
-                          <span class="absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold"><%= row.junle %></span>                        <% } %>
+                          <span class="absolute right-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold" data-element="dish-genre"><%= row.junle %></span>
+                        <% } %>
                       </div>
                       <div class="space-y-2 p-4 flex-1">
                         <!-- ランチラベル削除 -->
@@ -374,10 +381,16 @@
                       </div>
                     </div>
                   <% }) %>
-                  <button type="button" class="rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition" data-action="add-lunch-slot">
-                    <span class="lucide w-6 h-6" data-lucide="plus"></span>
-                    <span class="text-xs font-semibold">メニューを追加</span>
-                  </button>
+                  <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <button type="button" class="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 text-amber-600 flex flex-col items-center justify-center gap-2 py-6 hover:border-amber-300 hover:text-amber-700 transition" data-action="add-lunch-slot" data-meal-type="breakfast">
+                      <span class="lucide w-6 h-6" data-lucide="sunrise"></span>
+                      <span class="text-xs font-semibold">朝食メニューを追加</span>
+                    </button>
+                    <button type="button" class="rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition" data-action="add-lunch-slot" data-meal-type="lunch">
+                      <span class="lucide w-6 h-6" data-lucide="plus"></span>
+                      <span class="text-xs font-semibold">ランチメニューを追加</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -809,12 +822,23 @@
       return JSON.parse(JSON.stringify(value));
     };
 
+    const rawPlan = clonePlan(data.plan);
     const state = {
       planId: data.planId || '',
       tab: 'lunch',
       mainTab: 'plan',
       supplyTab: 'ingredients',
-      plan: clonePlan(data.plan)
+      plan: Array.isArray(rawPlan) ? rawPlan.map((day) => {
+        if (!day) return day;
+        const breakfastSlots = Array.isArray(day.breakfastSlots) ? day.breakfastSlots : [];
+        const lunchSlots = Array.isArray(day.lunchSlots) ? day.lunchSlots : [];
+        const merged = [...breakfastSlots, ...lunchSlots].map((slot) => ({
+          ...slot,
+          categoryKey: slot?.categoryKey === 'breakfastMain' ? 'breakfastMain' : 'lunchMain'
+        }));
+        const { breakfastSlots: _b, ...rest } = day;
+        return { ...rest, lunchSlots: merged };
+      }) : []
     };
 
     const menuLookup = data.menuLookup || {};
@@ -969,6 +993,35 @@
       if (!day.lunchSlots) day.lunchSlots = [];
       return day.lunchSlots;
     };
+
+    const slotIsBreakfast = (slot) => slot?.categoryKey === 'breakfastMain';
+    const mealLabelForSlot = (slot) => (slotIsBreakfast(slot) ? '朝食' : 'ランチ');
+    const mealTagClassesForSlot = (slot) => slotIsBreakfast(slot)
+      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+      : 'bg-blue-50 text-blue-700 border border-blue-200';
+    const insertLunchSlot = (slots, slot) => {
+      if (!slots || !slot) return;
+      if (slotIsBreakfast(slot)) {
+        const firstLunchIndex = slots.findIndex((s) => !slotIsBreakfast(s));
+        if (firstLunchIndex === -1) {
+          slots.push(slot);
+        } else {
+          slots.splice(firstLunchIndex, 0, slot);
+        }
+      } else {
+        slots.push(slot);
+      }
+    };
+    const buildPlanSnapshot = () => state.plan.map((day) => {
+      if (!day) return day;
+      const combinedSlots = ensureLunchSlots(day);
+      const cloned = combinedSlots.map((slot, index) => ({ ...slot, combinedIndex: index }));
+      return {
+        ...day,
+        breakfastSlots: cloned.filter((slot) => slotIsBreakfast(slot)),
+        lunchSlots: cloned.filter((slot) => !slotIsBreakfast(slot))
+      };
+    });
 
     const ensureDinnerSlots = (day) => {
       if (!day) return [];
@@ -1238,8 +1291,23 @@
         card.dataset.category = slot?.categoryKey || 'lunchMain';
 
         const imageWrap = document.createElement('div');
-        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative';
+        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative overflow-hidden';
         imageWrap.setAttribute('data-element', 'dish-image');
+        const imageFrame = document.createElement('div');
+        imageFrame.className = 'absolute inset-0 w-full h-full flex items-center justify-center';
+        imageFrame.dataset.element = 'image-frame';
+        imageWrap.appendChild(imageFrame);
+        const mealTag = document.createElement('span');
+        mealTag.className = `absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${mealTagClassesForSlot(slot)}`;
+        mealTag.dataset.element = 'meal-tag';
+        mealTag.textContent = mealLabelForSlot(slot);
+        imageWrap.appendChild(mealTag);
+        const genreTag = document.createElement('span');
+        genreTag.className = 'absolute right-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
+        genreTag.dataset.element = 'dish-genre';
+        genreTag.textContent = '';
+        genreTag.hidden = true;
+        imageWrap.appendChild(genreTag);
         card.appendChild(imageWrap);
 
         const body = document.createElement('div');
@@ -1508,7 +1576,8 @@
 
     const updateImage = (container, url, name, linkUrl) => {
       if (!container) return;
-      container.innerHTML = '';
+      const frame = container.querySelector('[data-element="image-frame"]') || container;
+      frame.innerHTML = '';
       if (url) {
         const img = document.createElement('img');
         img.src = url;
@@ -1521,15 +1590,15 @@
           link.rel = 'noopener';
           link.className = 'block w-full h-full';
           link.appendChild(img);
-          container.appendChild(link);
+          frame.appendChild(link);
         } else {
-          container.appendChild(img);
+          frame.appendChild(img);
         }
       } else {
         const span = document.createElement('span');
         span.className = 'text-[10px] text-gray-400';
         span.textContent = 'no image';
-        container.appendChild(span);
+        frame.appendChild(span);
       }
     };
 
@@ -2120,21 +2189,35 @@
 
         const lunchSlotsForPayload = ensureLunchSlots(day)
           .filter((slot) => slot && slot.menuId);
-        if (lunchSlotsForPayload.length) {
+        const breakfastSlotsForPayload = lunchSlotsForPayload.filter((slot) => slot.categoryKey === 'breakfastMain');
+        const regularLunchSlots = lunchSlotsForPayload.filter((slot) => slot.categoryKey !== 'breakfastMain');
+
+        const mapSlot = (slot, fallbackKey) => ({
+          categoryKey: slot.categoryKey || fallbackKey,
+          menuId: slot.menuId,
+          dineOut: !!slot.dineOut,
+          dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+          dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
+          favorite: !!slot.favorite,
+          locked: !!slot.locked,
+          prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
+        });
+
+        if (breakfastSlotsForPayload.length) {
+          dayPlans.push({
+            dayIndex: day.index,
+            dateISO,
+            mealType: 'breakfast',
+            slots: breakfastSlotsForPayload.map((slot) => mapSlot(slot, 'breakfastMain'))
+          });
+        }
+
+        if (regularLunchSlots.length) {
           dayPlans.push({
             dayIndex: day.index,
             dateISO,
             mealType: 'lunch',
-            slots: lunchSlotsForPayload.map((slot) => ({
-              categoryKey: slot.categoryKey || 'lunchMain',
-              menuId: slot.menuId,
-              dineOut: !!slot.dineOut,
-              dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
-              dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
-              favorite: !!slot.favorite,
-              locked: !!slot.locked,
-              prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
-            }))
+            slots: regularLunchSlots.map((slot) => mapSlot(slot, 'lunchMain'))
           });
         }
 
@@ -2318,6 +2401,8 @@
       const clearBtn = wrapper.querySelector('[data-action="clear-slot"]');
       const chipsEl = wrapper.querySelector('[data-element="dish-chips"]');
       const imageEl = wrapper.querySelector('[data-element="dish-image"]');
+      const mealTagEl = imageEl ? imageEl.querySelector('[data-element="meal-tag"]') : null;
+      const genreTagEl = imageEl ? imageEl.querySelector('[data-element="dish-genre"]') : null;
       const mealType = wrapper.dataset.meal || wrapper.closest('[data-meal]')?.dataset.meal || '';
 
       const domCategoryKey = wrapper.dataset.category || wrapper.closest('[data-slot]')?.dataset.category || '';
@@ -2335,6 +2420,12 @@
       const categoryOptions = effectiveCategoryKey ? (menusByCategory[effectiveCategoryKey] || []) : [];
       const hasCategoryOptions = categoryOptions.length > 0;
 
+      if (mealTagEl) {
+        const slotForLabel = slot || { categoryKey: effectiveCategoryKey || 'lunchMain' };
+        mealTagEl.textContent = mealLabelForSlot(slotForLabel);
+        mealTagEl.className = `absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${mealTagClassesForSlot(slotForLabel)}`;
+      }
+
       if (!slot) {
         if (nameEl) {
           nameEl.innerHTML = '';
@@ -2346,6 +2437,10 @@
         }
         if (chipsEl) chipsEl.innerHTML = '';
         updateImage(imageEl, '', '', '');
+        if (genreTagEl) {
+          genreTagEl.textContent = '';
+          genreTagEl.hidden = true;
+        }
         [favoriteBtn, dineBtn, shuffleBtn, changeBtn, clearBtn].forEach((btn) => {
           if (!btn) return;
           if (btn === shuffleBtn || btn === changeBtn) {
@@ -2389,6 +2484,10 @@
         }
         if (chipsEl) chipsEl.innerHTML = '';
         updateImage(imageEl, '', '', '');
+        if (genreTagEl) {
+          genreTagEl.textContent = '';
+          genreTagEl.hidden = true;
+        }
 
         if (favoriteBtn) {
           favoriteBtn.disabled = true;
@@ -2467,18 +2566,15 @@
         }
       }
       updateImage(imageEl, menu.imageUrl, menu.name, menu.url || '');
+      if (genreTagEl && mealType === 'lunch') {
+        genreTagEl.textContent = menu.junle || '';
+        genreTagEl.hidden = !menu.junle;
+      }
       // Add/Update badge on image
       if (imageEl) {
         const oldBadge = imageEl.querySelector('.genre-badge');
         if (oldBadge) oldBadge.remove();
 
-        if (mealType === 'lunch' && menu && menu.junle) {
-          imageEl.classList.add('relative');
-          const badge = document.createElement('span');
-          badge.className = 'genre-badge absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
-          badge.textContent = menu.junle;
-          imageEl.appendChild(badge);
-        }
         if (mealType === 'dinner') {
           const categoryKey = wrapper.dataset.category || '';
           const catLabel = (categoryConfig[categoryKey] && categoryConfig[categoryKey].label) ? categoryConfig[categoryKey].label : 'ディナー';
@@ -2561,7 +2657,7 @@
       // Notify external views (e.g., weekMenu2) that render completed
       try {
         if (window && window.weekMenuData) {
-          window.weekMenuData.planSnapshot = JSON.parse(JSON.stringify(state.plan));
+          window.weekMenuData.planSnapshot = JSON.parse(JSON.stringify(buildPlanSnapshot()));
         }
         const ev = new CustomEvent('weekplan:rendered', {
           detail: { plan: (window.weekMenuData && window.weekMenuData.planSnapshot) || [] }
@@ -2637,8 +2733,9 @@
 
       if (action === 'add-lunch-slot') {
         const slots = ensureLunchSlots(day);
-        const newSlot = createEmptySlot();
-        slots.push(newSlot);
+        const mealChoice = actionNode.dataset.mealType === 'breakfast' ? 'breakfastMain' : 'lunchMain';
+        const newSlot = createEmptySlot(mealChoice);
+        insertLunchSlot(slots, newSlot);
         render();
         openMenuModal(newSlot.categoryKey || 'lunchMain', newSlot);
         return;
