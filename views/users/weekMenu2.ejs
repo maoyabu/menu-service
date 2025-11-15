@@ -1032,19 +1032,6 @@
         if (typeof val !== 'number' || Number.isNaN(val)) return '';
         const n = Math.round(val * 10) / 10; return n % 1 ? n.toFixed(1) : String(n);
       };
-      const sec = (title, map)=>{
-        const box = document.createElement('div');
-        const h = document.createElement('h4'); h.textContent = title; box.appendChild(h);
-        const ul = document.createElement('ul');
-        Array.from(map.entries()).forEach(([k,v])=>{ const [name, unit] = k.split('|'); const li=document.createElement('li'); const valStr = (typeof v === 'number' && !Number.isNaN(v)) ? formatQty1(v) : ''; li.innerHTML = `<span>${name}</span><span>${valStr}${unit? unit: ''}</span>`; ul.appendChild(li); });
-        box.appendChild(ul);
-        return box;
-      };
-      reqEl.appendChild(sec('食材', agg.ingredients));
-      reqEl.appendChild(sec('調味料', agg.seasonings));
-      const spacer = document.createElement('div');
-      spacer.className = 'h-4 md:h-6';
-      reqEl.appendChild(spacer);
       const labelData = getDateLabel(safeIndex);
       const spanDayCount = computeDaySpan(safeIndex);
       const classHeader = document.createElement('div');
@@ -1081,6 +1068,19 @@
         dayCount: mode === 'week' ? spanDayCount : 1,
         targetLabel: labelData
       });
+      const spacer = document.createElement('div');
+      spacer.className = 'h-4 md:h-6';
+      reqEl.appendChild(spacer);
+      const sec = (title, map)=>{
+        const box = document.createElement('div');
+        const h = document.createElement('h4'); h.textContent = title; box.appendChild(h);
+        const ul = document.createElement('ul');
+        Array.from(map.entries()).forEach(([k,v])=>{ const [name, unit] = k.split('|'); const li=document.createElement('li'); const valStr = (typeof v === 'number' && !Number.isNaN(v)) ? formatQty1(v) : ''; li.innerHTML = `<span>${name}</span><span>${valStr}${unit? unit: ''}</span>`; ul.appendChild(li); });
+        box.appendChild(ul);
+        return box;
+      };
+      reqEl.appendChild(sec('食材', agg.ingredients));
+      reqEl.appendChild(sec('調味料', agg.seasonings));
     }
 
     function renderClassSummary(target, entries, formatQty, token, options = {}){
