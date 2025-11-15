@@ -379,6 +379,9 @@
 
   // --- 調味料追加モーダル用JS ---
   let currentSeasoningTab = 'search';
+  let SEAS_GENRE = '';
+  const SEAS_GENRES = <%- JSON.stringify(seasoningGenreList || []) %>;
+
   function setSeasoningTab(tab) {
     currentSeasoningTab = tab;
     document.querySelectorAll('.seasoning-tab-btn').forEach(btn => {
@@ -391,71 +394,135 @@
 
     if (tab === 'favorite' || tab === 'recent') {
       document.getElementById('seasoning-search').value = '';
-      document.getElementById('seasoning-genre-filter').selectedIndex = 0;
+      const genreSel = document.getElementById('seasoning-genre-filter');
+      if (genreSel) genreSel.selectedIndex = 0;
+      SEAS_GENRE = '';
     }
 
     fetchSeasonings();
   }
 
+  function paintSeaGenres(){
+    const holder = document.getElementById('seasoning-genres'); if (!holder) return;
+    holder.innerHTML=''; holder.className='flex items-center gap-2';
+    const label=document.createElement('span'); label.textContent='分類：'; label.className='text-sm text-gray-700';
+    const sel=document.createElement('select'); sel.className='border rounded px-3 py-2'; sel.id='seasoning-genre-filter';
+    const all=['すべて',...SEAS_GENRES];
+    all.forEach((lb,idx)=>{ const val=idx===0?'':lb; const op=document.createElement('option'); op.value=val; op.textContent=lb; if(String(SEAS_GENRE||'')===String(val||'')) op.selected=true; sel.appendChild(op); });
+    sel.addEventListener('change', ()=>{ SEAS_GENRE = sel.value; fetchSeasonings(); });
+    holder.appendChild(label); holder.appendChild(sel);
+  }
+
   async function fetchSeasonings() {
     const keyword = document.getElementById('seasoning-search')?.value || '';
-    const genreFilter = document.getElementById('seasoning-genre-filter')?.value || '';
+    const genreFilter = SEAS_GENRE || '';
     const params = new URLSearchParams();
     params.append('keyword', keyword);
     params.append('tab', currentSeasoningTab);
     if (genreFilter) params.append('genre', genreFilter);
     if (currentSeasoningTab === 'favorite') params.append('favorite', true);
+    if (currentSeasoningTab === 'recent') params.append('recent', true);
 
     const res = await fetch('/admin/api/seasonings?' + params.toString());
-    const seasonings = await res.json();
+    let seasonings = await res.json();
+    if (keyword && Array.isArray(seasonings)) {
+      seasonings = seasonings.filter(item =>
+        (item.seasoning && item.seasoning.includes(keyword)) ||
+        (item.yomi && item.yomi.includes(keyword)) ||
+        (item.classification && item.classification.includes(keyword)) ||
+        (item.unit && Array.isArray(item.unit) && item.unit.some(u => u.includes(keyword)))
+      );
+    }
     renderSeasoningList(seasonings);
   }
 
-  function renderSeasoningList(seasonings) {
-    const resultsContainer = document.getElementById('seasoning-results');
-    resultsContainer.innerHTML = '';
-    if (!seasonings || seasonings.length === 0) {
-      resultsContainer.innerHTML = '<p class="text-sm text-gray-500">該当する調味料が見つかりません</p>';
+  function renderSeasoningList(list) {
+    const tags = document.getElementById('seasoning-tags');
+    const selected = document.getElementById('seasoning-selected');
+    if (!tags || !selected) return;
+    tags.innerHTML='';
+    selected.classList.add('hidden');
+    selected.innerHTML='';
+    if (!list || list.length === 0) {
+      tags.innerHTML = '<p class="text-sm text-gray-500">該当する調味料が見つかりません</p>';
       return;
     }
-
-    seasonings.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'border p-2 rounded-md hover:bg-gray-50 cursor-pointer text-sm flex items-center gap-2';
-      div.setAttribute('onclick', `addSeasoningFromSearch("${item._id}", "${item.seasoning}", ${JSON.stringify(item.unit)}, "${item.classification || ''}", "${item.nutrition || ''}")`);
-      div.innerHTML = `
-        <button type="button" class="favorite-btn mr-2" onclick="event.stopPropagation(); toggleFavorite(this, '${item._id}', 'seasoning')">
-          <span class="favorite-icon">${item.isFavorite ? '★' : '☆'}</span>
-        </button>
-        <div class="flex-1">
-          <div class="font-medium"><span class="seasoning-name">${item.seasoning}</span> <span class="text-xs text-gray-500">(${item.classification})</span></div>
-          <div class="text-xs text-gray-600">単位: ${item.unit.join(', ')}</div>
-        </div>
-        <button onclick="event.stopPropagation(); toggleIngredientDetail(this)" class="text-blue-500 hover:text-blue-700" title="栄養を見る">
-          <span class="inline-block">Info </span>
-        </button>
-        <button onclick="event.stopPropagation(); toggleFavorite(this, '${item._id}', 'seasoning')" class="${item.favorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-500">${item.favorite ? '★' : '☆'}</button>
-      `;
-      // 栄養情報div
-      const nutritionDiv = document.createElement('div');
-      nutritionDiv.className = 'nutrition-info hidden text-xs text-gray-700 mt-1 w-full';
-      nutritionDiv.innerHTML = item.nutrition ? item.nutrition : '栄養情報はありません';
-      div.appendChild(nutritionDiv);
-      resultsContainer.appendChild(div);
+    list.forEach(item => {
+      const label = item.seasoning || '';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.className = 'px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200';
+      button.addEventListener('click', () => {
+        selected.classList.remove('hidden');
+        selected.innerHTML = '';
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3';
+        const info = document.createElement('div');
+        info.className = 'flex-1';
+        info.innerHTML = `<div class="font-semibold">${label}</div><div class="text-xs text-gray-600">カテゴリ: ${item.classification || ''}</div>`;
+        const hiddenId = document.createElement('input');
+        hiddenId.type = 'hidden';
+        hiddenId.value = String(item._id);
+        const amountInput = document.createElement('input');
+        amountInput.type = 'number';
+        amountInput.min = '0';
+        amountInput.step = '0.1';
+        amountInput.className = 'w-24 border rounded px-2 py-1';
+        const units = Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : []);
+        let unitEl;
+        if (units.length) {
+          unitEl = document.createElement('select');
+          unitEl.className = 'w-28 border rounded px-2 py-1';
+          units.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u;
+            opt.textContent = u;
+            unitEl.appendChild(opt);
+          });
+        } else {
+          unitEl = document.createElement('input');
+          unitEl.className = 'w-24 border rounded px-2 py-1';
+        }
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.textContent = '追加';
+        addBtn.className = 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
+        addBtn.addEventListener('click', () => {
+          addSeasoningFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '');
+          const container = document.getElementById('seasonings-list');
+          const last = container?.lastElementChild;
+          if (last) {
+            const inputs = last.querySelectorAll('input, select');
+            if (inputs && inputs.length >= 3) {
+              inputs[1].value = amountInput.value || '';
+              const unitCtl = inputs[2];
+              if (unitCtl && unitCtl.tagName === 'SELECT' && unitEl.tagName === 'SELECT') {
+                unitCtl.value = unitEl.value;
+              } else if (unitCtl) {
+                unitCtl.value = unitEl.value || '';
+              }
+            }
+          }
+          document.getElementById('seasoning-modal').classList.add('hidden');
+        });
+        row.append(info, hiddenId, amountInput, unitEl, addBtn);
+        selected.appendChild(row);
+      });
+      tags.appendChild(button);
     });
   }
 
   function openSeasoningModal() {
     document.getElementById('seasoning-modal').classList.remove('hidden');
-    paintSeaGenres(); fetchSeasonings();
+    paintSeaGenres();
+    fetchSeasonings();
 
     const searchInput = document.getElementById('seasoning-search');
     if (searchInput && !searchInput.dataset.bound) {
-      searchInput.addEventListener('input', (e) => {
+      searchInput.addEventListener('input', () => {
         clearTimeout(seasoningSearchTimer);
-        seasoningSearchTimer = setTimeout(() => {
-          fetchSeasonings();
-        }, 300);
+        seasoningSearchTimer = setTimeout(fetchSeasonings, 300);
       });
       searchInput.dataset.bound = 'true';
     }
@@ -466,26 +533,6 @@
   }
 
   let seasoningSearchTimer;
-
-  // 分類プルダウン生成（調味料）
-  function paintSeaGenres(){
-    const holder = document.getElementById('seasoning-genres'); if(!holder) return; holder.innerHTML=''; holder.className='flex items-center gap-2';
-    // サーバからの分類一覧はメニュー新規と違い変数を持っていないため、初回fetchで取得
-    // 簡易にAPIへメタリクエスト
-    (async()=>{
-      try {
-        const metaUrl = new URL('/admin/api/seasonings', location.origin); metaUrl.searchParams.set('meta','genres');
-        const meta = await (await fetch(metaUrl.toString())).json();
-        const cats = Array.isArray(meta?.genres) ? meta.genres : [];
-        const label=document.createElement('span'); label.textContent='分類：'; label.className='text-sm text-gray-700';
-        const sel=document.createElement('select'); sel.className='border rounded px-3 py-2'; sel.id='seasoning-genre-filter';
-        const all=['すべて', ...cats];
-        all.forEach((lb,idx)=>{ const val=idx===0?'':lb; const op=document.createElement('option'); op.value=val; op.textContent=lb; sel.appendChild(op); });
-        sel.addEventListener('change', ()=>{ fetchSeasonings(); });
-        holder.appendChild(label); holder.appendChild(sel);
-      } catch(_) {}
-    })();
-  }
 
   function addSeasoningFromSearch(id, name, units, classification = '', nutrition = '') {
     const container = document.getElementById('seasonings-list');
@@ -573,47 +620,6 @@
     openSeasoningModal();
   }
 
-function setSeasoningTab(tab) {
-  currentSeasoningTab = tab;
-  document.querySelectorAll('.seasoning-tab-btn').forEach(btn => {
-    btn.classList.remove('bg-gray-300');
-  });
-  document.getElementById(`seasoning-tab-btn-${tab}`).classList.add('bg-gray-300');
-
-  if (tab === 'favorite' || tab === 'recent') {
-    document.getElementById('seasoning-search').value = '';
-    document.getElementById('seasoning-genre-filter').selectedIndex = 0;
-  }
-
-  fetchSeasonings();
-}
-
-async function fetchSeasonings() {
-  const keyword = document.getElementById('seasoning-search')?.value || '';
-  const genreFilter = document.getElementById('seasoning-genre-filter')?.value || '';
-  const params = new URLSearchParams();
-  params.append('keyword', keyword);
-  params.append('tab', currentSeasoningTab);
-  if (genreFilter) {
-    params.append('genre', genreFilter);
-  }
-  if (currentSeasoningTab === 'favorite') {
-    params.append('favorite', true);
-  }
-  if (currentSeasoningTab === 'recent') {
-    params.append('recent', true);
-  }
-
-  const res = await fetch('/admin/api/seasonings?' + params.toString());
-  const seasonings = await res.json();
-  renderSeasoningList(seasonings);
-}
-
-
-
-</script>
-
-<script>
 // 共通: 詳細表示・お気に入りトグル
 function toggleIngredientDetail(button) {
   const parent = button.closest('.ingredient-card, .seasoning-card');
