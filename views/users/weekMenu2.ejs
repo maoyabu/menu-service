@@ -224,7 +224,7 @@
     };
     const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
     const DEFAULT_ING_CLASS = 'その他';
-    const SEASONING_GRAIN_CLASS = '穀物';
+    const SEASONING_CAPTURE_CLASSES = new Set(['穀物','乳類','チーズ']);
     const ingredientMetaCache = {
       ready: false,
       error: false,
@@ -937,7 +937,7 @@
       if (needsSeasoningMeta) {
         seasoningEntries.forEach(({ id, name, amount, unit }) => {
           const cls = resolveSeasoningClass(id, name);
-          if (cls !== SEASONING_GRAIN_CLASS) return;
+          if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
           const grams = convertSeasoningEntryToGrams({ id, name, amount, unit });
           if (typeof grams !== 'number' || Number.isNaN(grams)) return;
           totals.set(cls, (totals.get(cls) || 0) + grams);
