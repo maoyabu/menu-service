@@ -204,6 +204,7 @@
     const currentUserId = (window.weekMenuData && window.weekMenuData.currentUserId) || '';
     const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
     const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
+    const guidelineTotals = (window.weekMenuData && window.weekMenuData.guidelineTotals) || {};
     const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
     const ING_CLASS_ICONS = {
       '乳類': 'cup-soda',
@@ -943,19 +944,32 @@
         });
       }
 
+      const headerRow = document.createElement('div');
+      headerRow.className = 'mt-1 grid grid-cols-[auto,repeat(3,minmax(60px,1fr))] gap-3 text-[11px] font-semibold text-gray-500 justify-items-end';
+      headerRow.innerHTML = `
+        <span class="justify-self-start"></span>
+        <span class="text-right leading-tight">1日の<br>必要量</span>
+        <span class="text-right">実績</span>
+        <span class="text-right">不足</span>
+      `;
+
       const list = document.createElement('ul');
       list.className = 'space-y-1';
       let hasRows = false;
+      const formatWithUnit = (val) => `${formatQty(typeof val === 'number' ? val : 0) || '0'}g`;
       ING_CLASS_ORDER.forEach((cls) => {
         const grams = totals.get(cls);
-        if (typeof grams !== 'number' || Number.isNaN(grams)) return;
-        const qty = formatQty(grams);
-        if (!qty) return;
+        const actualVal = (typeof grams === 'number' && !Number.isNaN(grams)) ? grams : 0;
+        const requiredValRaw = guidelineTotals && Object.prototype.hasOwnProperty.call(guidelineTotals, cls)
+          ? Number(guidelineTotals[cls])
+          : 0;
+        const requiredVal = Number.isFinite(requiredValRaw) ? requiredValRaw : 0;
+        if (!actualVal && !requiredVal) return;
         hasRows = true;
         const li = document.createElement('li');
-        li.className = 'flex items-center justify-between gap-3 text-gray-700';
+        li.className = 'grid grid-cols-[auto,repeat(3,minmax(60px,1fr))] items-center gap-3 text-gray-700 justify-items-end';
         const labelWrap = document.createElement('div');
-        labelWrap.className = 'flex items-center gap-2';
+        labelWrap.className = 'flex items-center gap-2 justify-self-start';
         const badge = document.createElement('span');
         badge.className = 'inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-100 bg-white text-amber-600 shadow-sm';
         const icon = document.createElement('i');
@@ -966,10 +980,32 @@
         label.className = 'font-medium';
         label.textContent = cls;
         labelWrap.append(badge, label);
-        const value = document.createElement('span');
-        value.className = 'text-right text-gray-900';
-        value.textContent = `${qty}g`;
-        li.append(labelWrap, value);
+
+        const shortageVal = requiredVal - actualVal;
+        const shortageClass = shortageVal > 0 ? 'text-red-600' : (shortageVal < 0 ? 'text-blue-600' : 'text-gray-500');
+        const shortageMagnitude = shortageVal === 0 ? '0' : (formatQty(Math.abs(shortageVal)) || '0');
+        const shortageText = shortageVal === 0
+          ? '0g'
+          : `${shortageVal < 0 ? '+' : ''}${shortageMagnitude}g`;
+
+        const buildValue = (value, extraClass = 'text-gray-900') => {
+          const el = document.createElement('div');
+          el.className = `text-right text-sm font-semibold ${extraClass}`;
+          el.textContent = value;
+          return el;
+        };
+
+        const shortageCol = buildValue(
+          shortageVal < 0 ? `${shortageText} (超過)` : shortageText,
+          `${shortageClass} ${shortageVal ? '' : 'text-gray-500'}`
+        );
+
+        li.append(
+          labelWrap,
+          buildValue(formatWithUnit(requiredVal)),
+          buildValue(formatWithUnit(actualVal), 'text-blue-600'),
+          shortageCol
+        );
         list.appendChild(li);
       });
 
@@ -980,6 +1016,7 @@
         target.appendChild(empty);
         return;
       }
+      target.appendChild(headerRow);
       target.appendChild(list);
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }

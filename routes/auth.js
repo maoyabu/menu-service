@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import fs from 'fs';
 import User from '../models/users.js';
 import Menu from '../models/menu.js';
 import Mymenu from '../models/mymenu.js';
@@ -27,6 +28,139 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 const __dirname = path.resolve();
 
 const router = express.Router();
+
+const FOOD_CLASSIFICATIONS = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
+const guidelineCsvPath = path.join(__dirname, 'seeds/guideline.csv');
+let guidelineRowsCache = null;
+
+const ensureGuidelineRows = () => {
+  if (guidelineRowsCache) return guidelineRowsCache;
+  try {
+    const raw = fs.readFileSync(guidelineCsvPath, 'utf8');
+    const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) {
+      guidelineRowsCache = [];
+      return guidelineRowsCache;
+    }
+    const headerLine = lines.shift().replace(/^\uFEFF/, '');
+    const headers = headerLine.split(',');
+    const classIndexMap = {};
+    FOOD_CLASSIFICATIONS.forEach((cls) => {
+      classIndexMap[cls] = headers.indexOf(cls);
+    });
+    guidelineRowsCache = lines.map((line) => {
+      const cells = line.split(',');
+      const startAge = Number(cells[0]);
+      const endAge = Number(cells[1]);
+      const sex = (cells[2] || '').trim();
+      const values = {};
+      FOOD_CLASSIFICATIONS.forEach((cls) => {
+        const idx = classIndexMap[cls];
+        const val = idx >= 0 ? Number(cells[idx]) : 0;
+        values[cls] = Number.isFinite(val) ? val : 0;
+      });
+      if (!Number.isFinite(startAge) || !Number.isFinite(endAge)) return null;
+      return { startAge, endAge, sex, values };
+    }).filter(Boolean);
+  } catch (err) {
+    console.warn('Guideline CSV load failed:', err?.message || err);
+    guidelineRowsCache = [];
+  }
+  return guidelineRowsCache;
+};
+
+const normalizeSexForGuideline = (value) => {
+  if (!value) return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (raw === '男' || raw === '男性') return '男';
+  if (raw === '女' || raw === '女性') return '女';
+  if (raw.includes('男')) return '男';
+  if (raw.includes('女')) return '女';
+  const lower = raw.toLowerCase();
+  if (lower.startsWith('m')) return '男';
+  if (lower.startsWith('f')) return '女';
+  return '';
+};
+
+const calculateAgeFromISO = (iso) => {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDiff = today.getMonth() - date.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
+
+const findGuidelineRow = (age, sexCode) => {
+  if (typeof age !== 'number' || Number.isNaN(age)) return null;
+  const targetSex = normalizeSexForGuideline(sexCode);
+  const rows = ensureGuidelineRows();
+  if (!rows.length) return null;
+  const match = rows.find((row) => {
+    if (age < row.startAge || age > row.endAge) return false;
+    if (targetSex && row.sex && row.sex !== targetSex) return false;
+    return targetSex ? row.sex === targetSex : true;
+  });
+  if (match) return match;
+  return rows.find((row) => age >= row.startAge && age <= row.endAge) || null;
+};
+
+const aggregateGuidelineTotals = (members = []) => {
+  const totals = {};
+  FOOD_CLASSIFICATIONS.forEach((cls) => { totals[cls] = 0; });
+  if (!Array.isArray(members) || !members.length) return totals;
+  const seen = new Set();
+  members.forEach((member) => {
+    if (!member) return;
+    const id = member.id ? String(member.id) : '';
+    if (id) {
+      if (seen.has(id)) return;
+      seen.add(id);
+    }
+    const age = calculateAgeFromISO(member.birthDateISO || member.birthDate);
+    const guideline = findGuidelineRow(age, member.sex);
+    if (!guideline) return;
+    FOOD_CLASSIFICATIONS.forEach((cls) => {
+      const value = Number(guideline.values?.[cls]) || 0;
+      totals[cls] += value;
+    });
+  });
+  return totals;
+};
+
+const toISODateString = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString();
+};
+
+const hydrateGroupUsers = async (users = []) => {
+  if (!Array.isArray(users) || !users.length) return [];
+  const idsNeedingLookup = Array.from(new Set(
+    users.filter((u) => u && (!u.sex || !u.birthDateISO) && u.id).map((u) => String(u.id))
+  ));
+  if (!idsNeedingLookup.length) return users;
+  const docs = await User.find({ _id: { $in: idsNeedingLookup } })
+    .select('sex birth_date displayname username email')
+    .lean();
+  const map = new Map(docs.map((doc) => [String(doc._id), doc]));
+  return users.map((user) => {
+    if (!user || !user.id) return user;
+    const doc = map.get(String(user.id));
+    if (!doc) return user;
+    return {
+      ...user,
+      sex: user.sex || doc.sex || '',
+      birthDateISO: user.birthDateISO || toISODateString(doc.birth_date)
+    };
+  });
+};
 
 passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
   try {
@@ -889,6 +1023,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     let currentGroupName = '';
     let currentGroupMembers = [];
     let currentGroupUsers = [];
+    let guidelineTotals = {};
 
     if (currentGroupId) {
       if (groupDocPopulated) {
@@ -900,12 +1035,22 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         currentUserIsGroupOwner = owner && String(owner._id) === String(req.user._id);
         if (owner && owner._id) {
           members.push(owner.displayname || owner.username || owner.email || '');
-          usersList.push({ id: String(owner._id), name: owner.displayname || owner.username || owner.email || '' });
+          usersList.push({
+            id: String(owner._id),
+            name: owner.displayname || owner.username || owner.email || '',
+            sex: owner.sex || '',
+            birthDateISO: toISODateString(owner.birth_date)
+          });
         }
         (groupDocPopulated.members || []).filter(Boolean).forEach((member) => {
           if (!owner || String(member._id) !== String(owner._id)) {
             members.push(member.displayname || member.username || member.email || '');
-            usersList.push({ id: String(member._id), name: member.displayname || member.username || member.email || '' });
+            usersList.push({
+              id: String(member._id),
+              name: member.displayname || member.username || member.email || '',
+              sex: member.sex || '',
+              birthDateISO: toISODateString(member.birth_date)
+            });
           }
         });
         currentGroupMembers = members;
@@ -920,7 +1065,12 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           const owner = targetGroup.createdBy;
           if (owner && (owner.displayname || owner.username || owner.email)) {
             members.push(owner.displayname || owner.username || owner.email || '');
-            usersList.push({ id: String(owner._id || owner), name: owner.displayname || owner.username || owner.email || '' });
+            usersList.push({
+              id: String(owner._id || owner),
+              name: owner.displayname || owner.username || owner.email || '',
+              sex: owner.sex || '',
+              birthDateISO: toISODateString(owner.birth_date)
+            });
           }
           currentUserIsGroupOwner = owner && String(owner._id || owner) === String(req.user._id);
           (targetGroup.members || []).filter(Boolean).forEach((member) => {
@@ -928,13 +1078,21 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
             if (owner && String(memberId) === String(owner._id || owner)) return;
             const name = member.displayname || member.username || member.email || '';
             if (name) members.push(name);
-            usersList.push({ id: String(memberId), name });
+            usersList.push({
+              id: String(memberId),
+              name,
+              sex: member.sex || '',
+              birthDateISO: toISODateString(member.birth_date)
+            });
           });
           currentGroupMembers = members;
           currentGroupUsers = usersList;
         }
       }
     }
+
+    currentGroupUsers = await hydrateGroupUsers(currentGroupUsers);
+    guidelineTotals = aggregateGuidelineTotals(currentGroupUsers);
 
     // グループ名・メンバー名の計算が終わったあと
     // console.log('currentGroupName:', currentGroupName);
@@ -1007,6 +1165,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     currentGroupName,
     currentGroupMembers,
     currentGroupUsers,
+    guidelineTotals,
     currentUserId: req.user?._id ? String(req.user._id) : '',
     currentUserIsGroupOwner,
     participantsMap,

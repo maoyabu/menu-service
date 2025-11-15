@@ -569,6 +569,7 @@
     // 参加者・ユーザー情報
     currentUserId: <%- serialize(typeof currentUserId !== 'undefined' ? currentUserId : '') %>,
     currentGroupUsers: JSON.parse('<%- serialize(typeof currentGroupUsers !== "undefined" ? currentGroupUsers : []) %>'),
+    guidelineTotals: JSON.parse('<%- serialize(typeof guidelineTotals !== "undefined" ? guidelineTotals : {}) %>'),
     currentUserIsGroupOwner: <%- serialize(typeof currentUserIsGroupOwner !== 'undefined' ? currentUserIsGroupOwner : false) %>,
     participantsByMeal: JSON.parse('<%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>'),
     doRecords: JSON.parse('<%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>')
