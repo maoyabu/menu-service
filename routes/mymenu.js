@@ -58,6 +58,13 @@ router.use(isLoggedIn);
 
 // ユーティリティ: 重複無し配列
 const unique = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
+// ユーティリティ: メニューに紐づく食材IDを取得
+const pickIngredientIds = (menuDoc) => {
+  if (!menuDoc || !Array.isArray(menuDoc.ingredients)) return [];
+  return menuDoc.ingredients
+    .map((ing) => ing?.name?.toString?.())
+    .filter(Boolean);
+};
 
 // ユーティリティ: 周辺のユニークリストを作成
 async function getFacetLists() {
@@ -160,8 +167,9 @@ router.get('/', async (req, res, next) => {
 // 共有メニューから登録 画面 + 検索
 router.get('/shared-register', async (req, res, next) => {
   try {
-    const { keyword = '', kind = '', junle = '', cook = '', fav = 'all' } = req.query;
-  const { kinds, junles, cooks } = await getFacetLists();
+    const { keyword = '', kind = '', junle = '', cook = '', fav = 'all', seasonal = '' } = req.query;
+    const onlySeasonal = ['1', 'true', 'on', 'yes'].includes(String(seasonal).toLowerCase());
+    const { kinds, junles, cooks } = await getFacetLists();
 
     // 管理者が登録した共有メニュー（share=true を優先、なければ全件）
     const menuFilter = [];
@@ -231,6 +239,7 @@ router.get('/shared-register', async (req, res, next) => {
     const combinedMap = new Map();
     (adminShared || []).forEach((m) => {
       if (!m || !m._id) return;
+      const ingredientIds = pickIngredientIds(m);
       combinedMap.set(m._id.toString(), {
         id: m._id.toString(),
         name: m.name || '',
@@ -241,7 +250,8 @@ router.get('/shared-register', async (req, res, next) => {
         imageUrl: m.imageUrl || '',
         url: m.url || '',
         by: null,
-        canEdit: myEditableMenuIds.has(m._id.toString())
+        canEdit: myEditableMenuIds.has(m._id.toString()),
+        ingredientIds
       });
     });
     (filteredSharedUserMenus || []).forEach((mm) => {
@@ -249,10 +259,15 @@ router.get('/shared-register', async (req, res, next) => {
       if (!m || !m._id) return;
       const id = m._id.toString();
       const byName = (mm.user?.displayname || mm.user?.username || '') || null;
+      const ingredientIds = pickIngredientIds(m);
       const existing = combinedMap.get(id);
       if (existing) {
         if (!existing.by && byName) existing.by = byName;
         existing.canEdit = existing.canEdit || myEditableMenuIds.has(id);
+        if (ingredientIds.length) {
+          const merged = new Set([...(existing.ingredientIds || []), ...ingredientIds]);
+          existing.ingredientIds = Array.from(merged);
+        }
       } else {
         combinedMap.set(id, {
           id,
@@ -264,12 +279,41 @@ router.get('/shared-register', async (req, res, next) => {
           imageUrl: m.imageUrl || '',
           url: m.url || '',
           by: byName,
-          canEdit: myEditableMenuIds.has(id)
+          canEdit: myEditableMenuIds.has(id),
+          ingredientIds
         });
       }
     });
 
     let list = Array.from(combinedMap.values());
+    if (onlySeasonal) {
+      const month = (new Date()).getMonth() + 1;
+      const currentSeason = (month >= 3 && month <= 6) ? '春'
+        : (month >= 7 && month <= 9) ? '夏'
+        : (month >= 10 && month <= 11) ? '秋'
+        : '冬';
+      const allIngredientIds = new Set();
+      list.forEach((it) => {
+        (it.ingredientIds || []).forEach((id) => allIngredientIds.add(id));
+      });
+      if (allIngredientIds.size > 0) {
+        const seasonalIngredients = await Ingredient.find({
+          _id: { $in: Array.from(allIngredientIds) },
+          season: { $exists: true, $ne: [] }
+        }).select('season').lean();
+        const seasonalIds = new Set(
+          (seasonalIngredients || [])
+            .filter((ing) => {
+              const seasons = Array.isArray(ing.season) ? ing.season : [];
+              return seasons.includes('all') || seasons.includes(currentSeason);
+            })
+            .map((ing) => ing._id.toString())
+        );
+        list = list.filter((it) => (it.ingredientIds || []).some((id) => seasonalIds.has(id)));
+      } else {
+        list = [];
+      }
+    }
     // 絞り込み：fav = all | mine | not
     const favSet = new Set(myMenuIds || []);
     if (fav === 'mine') {
@@ -283,7 +327,7 @@ router.get('/shared-register', async (req, res, next) => {
     // UI用：fav=mine の場合は種類/ジャンル/調理方法の選択状態を空にして表示
     res.render('users/myMenuShared', {
       kinds, junles, cooks,
-      selected: { kind, junle, cook, keyword, fav },
+      selected: { kind, junle, cook, keyword, fav, seasonal: onlySeasonal },
       list,
       resultCount,
       myMenuIds,

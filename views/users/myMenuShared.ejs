@@ -51,6 +51,14 @@
       </select>
     </div>
     <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-gray-600">旬の食材</label>
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" name="seasonal" value="1" <%= selected.seasonal ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
+        <span>旬な季節の食材を含むメニューのみ</span>
+      </label>
+      <p class="text-[11px] text-gray-500 leading-tight">春(3-6)、夏(7-9)、秋(10-11)、冬(12-2) にチェックされた食材</p>
+    </div>
+    <div class="flex flex-col gap-1">
       <label class="text-xs font-semibold text-gray-600">マイメニューの絞り込み</label>
       <select name="fav" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500">
         <option value="all" <%= (selected.fav||'all')==='all' ? 'selected' : '' %>>すべて</option>
@@ -81,6 +89,9 @@
       }
       form.querySelectorAll('select').forEach((select) => {
         select.addEventListener('change', submitAsync);
+      });
+      form.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.addEventListener('change', submitAsync);
       });
     })();
   </script>
