@@ -37,38 +37,57 @@
     </div>
   </form>
 
-  <div class="grid gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
     <% if (seasonings.length === 0) { %>
-      <p class="text-gray-500 text-sm">一致する調味料がありません</p>
+      <p class="text-gray-500 text-sm col-span-full">一致する調味料がありません</p>
     <% } else { %>
       <% seasonings.forEach(item => { %>
-        <div class="bg-white border border-gray-200 shadow-sm rounded-xl p-4 hover:shadow transition">
-          <div class="flex justify-between items-start gap-4">
-            <div>
-              <h2 class="text-lg font-medium text-gray-900"><%= item.seasoning %></h2>
-              <div class="mt-1 flex gap-2 flex-wrap text-sm text-gray-600">
-                <% if (item.classification) { %>
-                  <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-md text-xs font-medium">分類: <%= item.classification %></span>
-                <% } %>
-                <% if (item.unit && item.unit.length > 0) { %>
-                  <span class="px-2 py-1 bg-gray-100 rounded-md">単位: <%= item.unit.filter(u => u && u.trim() !== '').join(', ') %></span>
-                <% } %>
-                <% if (item.wikiUrl) { %>
-                  <a href="<%= item.wikiUrl %>" target="_blank" rel="noopener" class="px-2 py-1 text-xs rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100">WIKI</a>
-                <% } else { %>
-                  <span class="px-2 py-1 text-xs rounded-md bg-red-50 text-red-600">WIKI未登録</span>
-                <% } %>
+        <div class="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden hover:shadow transition flex flex-col">
+          <div class="h-32 bg-gray-100 relative">
+            <% if (item.imageUrl) { %>
+              <img src="<%= item.imageUrl %>" alt="<%= item.seasoning %>" class="object-cover w-full h-full">
+            <% } else { %>
+              <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>
+            <% } %>
+            <% if (item.classification) { %>
+              <span class="absolute top-2 left-2 inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-700"><%= item.classification %></span>
+            <% } %>
+          </div>
+          <div class="p-3 space-y-2 flex-1 flex flex-col">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="text-sm text-gray-500"><%= item.seasoning %></p>
+                <h2 class="text-lg font-semibold text-gray-900 leading-tight"><%= item.seasoning %></h2>
+              </div>
+              <div class="flex gap-2">
+                <a href="/admin/seasoning-edit/<%= item._id %><%= returnQuery %>" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+                  <i data-lucide="edit" class="w-4 h-4"></i>
+                </a>
+                <form action="/admin/seasoning-delete/<%= item._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');">
+                  <button type="submit" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+                    <i data-lucide="trash" class="w-4 h-4"></i>
+                  </button>
+                </form>
               </div>
             </div>
-            <div class="flex gap-2 shrink-0">
-              <a href="/admin/seasoning-edit/<%= item._id %><%= returnQuery %>" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
-                <i data-lucide="edit" class="w-4 h-4"></i>
-              </a>
-              <form action="/admin/seasoning-delete/<%= item._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');">
-                <button type="submit" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
-                  <i data-lucide="trash" class="w-4 h-4"></i>
-                </button>
-              </form>
+            <div class="text-xs text-gray-700 space-y-1">
+              <% if (item.unit && item.unit.length > 0) { %>
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-blue-700 font-semibold">単位</span>
+                  <span><%= item.unit.filter(u => u && u.trim() !== '').join(' / ') %></span>
+                </div>
+              <% } %>
+              <div class="flex items-center gap-2">
+                <% if (item.wikiUrl) { %>
+                  <a href="<%= item.wikiUrl %>" target="_blank" rel="noopener" class="px-2 py-1 text-xs rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 inline-flex items-center gap-1">
+                    <i data-lucide="external-link" class="w-3 h-3"></i>WIKI
+                  </a>
+                <% } else { %>
+                  <span class="px-2 py-1 text-xs rounded-md bg-red-50 text-red-600 inline-flex items-center gap-1">
+                    <i data-lucide="alert-circle" class="w-3 h-3"></i>WIKI未登録
+                  </span>
+                <% } %>
+              </div>
             </div>
           </div>
         </div>
