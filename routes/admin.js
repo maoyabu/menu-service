@@ -1,10 +1,13 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
 import Menu from '../models/menu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import { isAdmin } from '../middleware.js';
 import Equipment from '../models/equipment.js';
 import MyEquipment from '../models/myEquipment.js';
+import MailTemplateSetting from '../models/mailTemplateSetting.js';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
 import ExcelJS from 'exceljs';
@@ -73,8 +76,50 @@ router.get('/api/wiki-image', async (req, res) => {
 });
 
 // システム設定画面の表示
-router.get('/admin-setting', (req, res) => {
-  res.render('admin/admin-setting');
+router.get('/admin-setting', async (req, res) => {
+  try {
+    const tplDir = path.resolve(process.cwd(), 'utils', 'templates');
+    const files = fs.readdirSync(tplDir).filter((f) => f.endsWith('.ejs') && !f.startsWith('_'));
+    const settings = await MailTemplateSetting.find({ templateName: { $in: files } }).lean();
+    const settingMap = settings.reduce((acc, s) => {
+      acc[s.templateName] = s;
+      return acc;
+    }, {});
+    const templates = files.map((name) => ({
+      name,
+      enabled: settingMap[name]?.enabled || false,
+      timing: settingMap[name]?.timing || ''
+    }));
+    res.render('admin/admin-setting', { templates });
+  } catch (err) {
+    console.error('admin-setting load error:', err);
+    res.status(500).send('システム設定を読み込めませんでした');
+  }
+});
+
+router.post('/admin-setting/mail', async (req, res) => {
+  try {
+    const enabledMap = req.body?.enabled || {};
+    const timingMap = req.body?.timing || {};
+    const tplDir = path.resolve(process.cwd(), 'utils', 'templates');
+    const files = fs.readdirSync(tplDir).filter((f) => f.endsWith('.ejs') && !f.startsWith('_'));
+    const ops = files.map(async (name) => {
+      const enabled = enabledMap[name] === 'on';
+      const timing = (timingMap[name] || '').toString().trim();
+      await MailTemplateSetting.findOneAndUpdate(
+        { templateName: name },
+        { $set: { enabled, timing, updatedBy: req.user?._id || null } },
+        { upsert: true }
+      );
+    });
+    await Promise.all(ops);
+    req.flash('success', 'メール配信設定を保存しました');
+    return res.redirect('/admin/admin-setting');
+  } catch (err) {
+    console.error('admin-setting mail save error:', err);
+    req.flash('error', 'メール配信設定の保存に失敗しました');
+    return res.redirect('/admin/admin-setting');
+  }
 });
 
 // 管理者ダッシュボード表示

@@ -1,14 +1,64 @@
-<div class="mt-8">
-  <h2 class="text-lg font-semibold mb-4">ファイル書き出し</h2>
-  <div class="space-y-2">
-    <form action="/admin/export/menus" method="GET">
-      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">メニューのデータを書き出す</button>
-    </form>
-    <form action="/admin/export/ingredients" method="GET">
-      <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">食材のデータを書き出す</button>
-    </form>
-    <form action="/admin/export/seasonings" method="GET">
-      <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">調味料のデータを書き出す</button>
+<div class="mt-8 space-y-10">
+  <div>
+    <h2 class="text-lg font-semibold mb-4">ファイル書き出し</h2>
+    <div class="space-y-2">
+      <form action="/admin/export/menus" method="GET">
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">メニューのデータを書き出す</button>
+      </form>
+      <form action="/admin/export/ingredients" method="GET">
+        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">食材のデータを書き出す</button>
+      </form>
+      <form action="/admin/export/seasonings" method="GET">
+        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">調味料のデータを書き出す</button>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <h2 class="text-lg font-semibold mb-4">メール配信管理</h2>
+    <form action="/admin/admin-setting/mail" method="POST" class="space-y-4">
+      <div class="overflow-hidden border border-gray-200 rounded-xl bg-white">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+            <tr>
+              <th class="px-4 py-2 text-left">テンプレート</th>
+              <th class="px-4 py-2 text-left">配信</th>
+              <th class="px-4 py-2 text-left">配信タイミング（メモ）</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <% if (Array.isArray(templates) && templates.length) { %>
+              <% templates.forEach((tpl) => { %>
+                <tr>
+                  <td class="px-4 py-3 font-semibold text-gray-800"><%= tpl.name %></td>
+                  <td class="px-4 py-3">
+                    <label class="inline-flex items-center gap-2 text-xs font-medium text-gray-700">
+                      <input type="checkbox" name="enabled[<%= tpl.name %>]" class="rounded border-gray-300 text-blue-600 focus:ring-blue-200" <%= tpl.enabled ? 'checked' : '' %>>
+                      配信する
+                    </label>
+                  </td>
+                  <td class="px-4 py-3">
+                    <input
+                      type="text"
+                      name="timing[<%= tpl.name %>]"
+                      value="<%= tpl.timing || '' %>"
+                      placeholder="例: 毎週月曜 9:00 / 手動"
+                      class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
+                    >
+                  </td>
+                </tr>
+              <% }) %>
+            <% } else { %>
+              <tr>
+                <td colspan="3" class="px-4 py-6 text-center text-sm text-gray-500">テンプレートが見つかりません。</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-end">
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">保存する</button>
+      </div>
     </form>
   </div>
 </div>
