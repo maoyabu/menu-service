@@ -305,7 +305,8 @@ router.get('/shared-register', async (req, res, next) => {
           (seasonalIngredients || [])
             .filter((ing) => {
               const seasons = Array.isArray(ing.season) ? ing.season : [];
-              return seasons.includes('all') || seasons.includes(currentSeason);
+              // Exclude "all" and only pick ingredients that explicitly mark the current season
+              return !seasons.includes('all') && seasons.includes(currentSeason);
             })
             .map((ing) => ing._id.toString())
         );
