@@ -11,6 +11,7 @@ import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import MenuDo from '../models/menuDo.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
+import { shouldSendTemplate } from '../utils/mailSettings.js';
 import Stock from '../models/stock.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
@@ -1597,7 +1598,7 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
           });
 
           // immediate: one mail to all recipients with aggregated items
-          if (immediateItems.length) {
+          if (immediateItems.length && await shouldSendTemplate('planMenuAdded')) {
             const subject = '7 DAYS PLAN 【これ食べたい！】';
             const html = await renderTemplate('planMenuAdded', { actorName, items: immediateItems });
             const to = recipients.map(r => r.email);
@@ -1739,10 +1740,12 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
         if (!wantParticipate) {
           const immediate = diffDays <= 1;
           if (immediate) {
-            const html = await renderTemplate('notEating', { actorName, items: [{ dateLabel, mealLabel, reason: (typeof reason === 'string' ? reason.trim() : '') }] });
-            const subject = `${actorName}からの連絡`;
-            const to = toList.map((r) => r.email);
-            if (to.length) await sendMail({ to, subject, html });
+            if (await shouldSendTemplate('notEating')) {
+              const html = await renderTemplate('notEating', { actorName, items: [{ dateLabel, mealLabel, reason: (typeof reason === 'string' ? reason.trim() : '') }] });
+              const subject = `${actorName}からの連絡`;
+              const to = toList.map((r) => r.email);
+              if (to.length) await sendMail({ to, subject, html });
+            }
           } else {
             const scheduledAt = scheduleFor(false);
             for (const r of toList) {
@@ -1754,10 +1757,12 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
             }
           }
         } else {
-          const html = await renderTemplate('eatingAgain', { actorName, items: [{ dateLabel, mealLabel }] });
-          const subject = `${actorName}からの連絡`;
-          const to = toList.map((r) => r.email);
-          if (to.length) await sendMail({ to, subject, html });
+          if (await shouldSendTemplate('eatingAgain')) {
+            const html = await renderTemplate('eatingAgain', { actorName, items: [{ dateLabel, mealLabel }] });
+            const subject = `${actorName}からの連絡`;
+            const to = toList.map((r) => r.email);
+            if (to.length) await sendMail({ to, subject, html });
+          }
         }
       }
     } catch (mailErr) { console.error('notify mail error:', mailErr); }
