@@ -1317,6 +1317,9 @@ router.get('/export/menus', async (req, res) => {
       { header: '時間', key: 'time' },
       { header: '人数', key: 'people' },
       { header: '素材フラグ', key: 'material' },
+      { header: '非公開フラグ', key: 'isPrivate' },
+      { header: 'コメント', key: 'comment' },
+      { header: '作り方テキスト', key: 'instructionText' },
       { header: '食材', key: 'ingredientsText' },
       { header: '調味料', key: 'seasoningText' },
       { header: '共有', key: 'share' },
@@ -1364,6 +1367,9 @@ router.get('/export/menus', async (req, res) => {
         time: menu.time,
         people: menu.people,
         material: menu.material,
+        isPrivate: menu.isPrivate,
+        comment: menu.comment,
+        instructionText: menu.instructionText,
         ingredientsText,
         seasoningText,
         share: menu.share,
@@ -1398,7 +1404,19 @@ router.get('/export/ingredients', async (req, res) => {
       { header: 'たんぱく質', key: 'protein' },
       { header: '脂質', key: 'lipid' },
       { header: '炭水化物', key: 'carbohydrate' },
-      { header: '単位', key: 'unit' }
+      { header: '単位', key: 'unit' },
+      { header: '単位換算', key: 'unitConversions' },
+      { header: 'Wiki URL', key: 'wikiUrl' },
+      { header: '画像URL', key: 'imageUrl' },
+      { header: 'コメント', key: 'comment' },
+      { header: 'お気に入り', key: 'favorite' },
+      { header: '旬な季節', key: 'season' },
+      { header: '旬な月', key: 'month' },
+      { header: '登録日', key: 'entry_date' },
+      { header: '更新日', key: 'update_date' },
+      { header: '最終使用日', key: 'used_date' },
+      { header: 'グループID', key: 'group' },
+      { header: '登録者ID', key: 'createdBy' }
     ];
 
     ingredients.forEach(item => {
@@ -1411,7 +1429,19 @@ router.get('/export/ingredients', async (req, res) => {
         protein: item.protein,
         lipid: item.lipid,
         carbohydrate: item.carbohydrate,
-        unit: item.unit?.join(', ')
+        unit: item.unit?.join(', '),
+        unitConversions: Array.isArray(item.unitConversions) ? JSON.stringify(item.unitConversions) : '',
+        wikiUrl: item.wikiUrl,
+        imageUrl: item.imageUrl,
+        comment: item.comment,
+        favorite: item.favorite,
+        season: Array.isArray(item.season) ? item.season.join(', ') : '',
+        month: Array.isArray(item.month) ? item.month.join(', ') : '',
+        entry_date: item.entry_date,
+        update_date: item.update_date,
+        used_date: item.used_date,
+        group: item.group,
+        createdBy: item.createdBy
       });
     });
 
@@ -1441,7 +1471,17 @@ router.get('/export/seasonings', async (req, res) => {
       { header: 'たんぱく質', key: 'protein' },
       { header: '脂質', key: 'lipid' },
       { header: '炭水化物', key: 'carbohydrate' },
-      { header: '単位', key: 'unit' }
+      { header: '単位', key: 'unit' },
+      { header: '単位換算', key: 'unitConversions' },
+      { header: 'Wiki URL', key: 'wikiUrl' },
+      { header: '画像URL', key: 'imageUrl' },
+      { header: 'コメント', key: 'comment' },
+      { header: 'お気に入り', key: 'favorite' },
+      { header: '登録日', key: 'entry_date' },
+      { header: '更新日', key: 'update_date' },
+      { header: '最終使用日', key: 'used_date' },
+      { header: 'グループID', key: 'group' },
+      { header: '登録者ID', key: 'createdBy' }
     ];
 
     seasonings.forEach(item => {
@@ -1454,7 +1494,17 @@ router.get('/export/seasonings', async (req, res) => {
         protein: item.protein,
         lipid: item.lipid,
         carbohydrate: item.carbohydrate,
-        unit: item.unit?.join(', ')
+        unit: item.unit?.join(', '),
+        unitConversions: Array.isArray(item.unitConversions) ? JSON.stringify(item.unitConversions) : '',
+        wikiUrl: item.wikiUrl,
+        imageUrl: item.imageUrl,
+        comment: item.comment,
+        favorite: item.favorite,
+        entry_date: item.entry_date,
+        update_date: item.update_date,
+        used_date: item.used_date,
+        group: item.group,
+        createdBy: item.createdBy
       });
     });
 
