@@ -16,7 +16,12 @@ const myEquipmentSchema = new mongoose.Schema({
   productUrl: { type: String, default: '' },
   productImageUrl: { type: String, default: '' },
   expiryDate: { type: Date, default: null },
-  comment: { type: String, default: '' }
+  comment: { type: String, default: '' },
+  tracked: { type: Boolean, default: false },
+  lastCount: { type: Number, default: 0 },
+  lastComment: { type: String, default: '' },
+  lastInventoryAt: { type: Date, default: null },
+  lastInventoryBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
 
 const MyEquipment = mongoose.models.MyEquipment || mongoose.model('MyEquipment', myEquipmentSchema);

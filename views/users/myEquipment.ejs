@@ -4,6 +4,12 @@
       <h1 class="text-2xl font-bold leading-tight">マイ備品</h1>
       <p class="text-sm text-gray-500">自宅の備品を保管場所ごとに管理</p>
     </div>
+    <div class="flex items-center gap-2">
+      <a href="/users/my-equipment/inventory" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-semibold rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
+        <span class="lucide w-4 h-4" data-lucide="check-square"></span>
+        <span>棚卸しリスト</span>
+      </a>
+    </div>
   </header>
 
   <!-- Filter tabs (match myStock look) -->
@@ -47,7 +53,7 @@
         <% if (showGridView) { %>
           <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <% list.forEach(function(it){
-                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "" }).replace(/'/g,"\\\\'");
+                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "", tracked: !!it.tracked, lastCount: it.lastCount||0, lastComment: it.lastComment||"" }).replace(/'/g,"\\\\'");
                  const qtyNum = Number(it.quantity) || 0;
                  const wishlistItem = (!it.place) || qtyNum <= 0;
                  const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
@@ -107,7 +113,7 @@
               </summary>
               <div class="pb-2 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 <% items.forEach(function(it){
-                     const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "" }).replace(/'/g,"\\\\'");
+                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "", tracked: !!it.tracked, lastCount: it.lastCount||0, lastComment: it.lastComment||"" }).replace(/'/g,"\\\\'");
                      const qtyNum = Number(it.quantity) || 0;
                      const wishlistItem = (!it.place) || qtyNum <= 0;
                      const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
@@ -298,6 +304,23 @@
             </div>
           </div>
 
+          <div class="space-y-2">
+            <label class="inline-flex items-center gap-2 text-sm text-gray-800">
+              <input id="f-tracked" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-200">
+              <span>棚卸し対象として数量/コメントを記録する</span>
+            </label>
+            <div id="tracked-fields" class="grid grid-cols-1 md:grid-cols-2 gap-2 hidden">
+              <div>
+                <label class="block text-xs text-gray-600">棚卸し用 基準数量</label>
+                <input id="f-last-count" type="number" min="0" class="w-full border rounded px-2 py-1" value="0" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">棚卸しメモ</label>
+                <input id="f-last-comment" type="text" class="w-full border rounded px-2 py-1" placeholder="棚卸し時に記録するコメント" />
+              </div>
+            </div>
+          </div>
+
           <!-- Row: 家/防災/キャンプ -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
@@ -409,10 +432,15 @@ let presetTabState = 'preset';
 
 function updateOriginalPaneVisibility(){
   const pane = document.getElementById('original-pane');
+  const trackedFields = document.getElementById('tracked-fields');
+  const trackedToggle = document.getElementById('f-tracked');
   if (!pane) return;
   const shouldShow = !!(editingId || (selectedPreset && selectedPreset._id));
   pane.classList.toggle('hidden', !shouldShow);
   formActions?.classList.toggle('hidden', !shouldShow);
+  if (trackedFields && trackedToggle) {
+    trackedFields.classList.toggle('hidden', !trackedToggle.checked);
+  }
 }
 
 function resetCustomPresetForm(){
@@ -657,6 +685,10 @@ setTargetInfo('', '');
     }
   });
 });
+const trackedToggle = document.getElementById('f-tracked');
+if (trackedToggle) {
+  trackedToggle.addEventListener('change', updateOriginalPaneVisibility);
+}
 
 function openAddModal(placeName){
   editingId = null; selectedPreset = null;
@@ -690,6 +722,9 @@ function openEdit(data){
     document.getElementById('f-place-name').value = p ? (p.name || '') : '';
   }catch(_){ document.getElementById('f-place-name').value=''; }
   document.getElementById('f-consumable').checked = !!data.isConsumable;
+  document.getElementById('f-tracked').checked = !!data.tracked;
+  document.getElementById('f-last-count').value = data.lastCount || 0;
+  document.getElementById('f-last-comment').value = data.lastComment || '';
   document.getElementById('f-house').value = data.houseCategory||'';
   document.getElementById('f-disaster').value = data.disasterCategory||'';
   document.getElementById('f-camping').value = data.campingCategory||'';
@@ -697,7 +732,7 @@ function openEdit(data){
   document.getElementById('f-url').value = data.productUrl||'';
   document.getElementById('f-image-url').value = data.productImageUrl || '';
   document.getElementById('f-comment').value = data.comment||'';
-  document.getElementById('f-expiry').value = data.expiryDate||'';
+  document.getElementById('f-expiry').value = data.expiryDate ? new Date(data.expiryDate).toISOString().slice(0,10) : '';
   loadPlaces();
   const category = data.houseCategory || data.disasterCategory || data.campingCategory || '';
   selectedPreset = null;
@@ -722,9 +757,11 @@ async function loadPlaces(){
   }catch(_){ }
 }
 function resetForm(){
-  ['f-name','f-qty','f-unit','f-place-name','f-house','f-disaster','f-camping','f-maintenance','f-url','f-image-url','f-expiry','f-comment'].forEach(id=>{
+  ['f-name','f-qty','f-unit','f-place-name','f-house','f-disaster','f-camping','f-maintenance','f-url','f-image-url','f-expiry','f-comment','f-last-comment'].forEach(id=>{
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  document.getElementById('f-tracked').checked = false;
+  document.getElementById('f-last-count').value = 0;
   document.getElementById('f-consumable').checked = false;
   document.getElementById('preset-results').innerHTML='';
   selectedPreset = null;
@@ -802,6 +839,9 @@ async function submitEquipForm(){
     unit: document.getElementById('f-unit').value.trim(),
     placeName: document.getElementById('f-place-name').value.trim(),
     isConsumable: document.getElementById('f-consumable').checked,
+    tracked: document.getElementById('f-tracked').checked,
+    lastCount: Number(document.getElementById('f-last-count').value || 0),
+    lastComment: document.getElementById('f-last-comment').value.trim(),
     houseCategory: document.getElementById('f-house').value.trim(),
     disasterCategory: document.getElementById('f-disaster').value.trim(),
     campingCategory: document.getElementById('f-camping').value.trim(),

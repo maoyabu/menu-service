@@ -781,4 +781,30 @@ router.post('/groups/:groupId/inventory', async (req, res, next) => {
   }
 });
 
+// グループ基本設定：備品棚卸しサイクルの保存
+router.post('/groups/:groupId/equipment-inventory', async (req, res, next) => {
+  const { groupId } = req.params;
+  try {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      req.flash('error', 'グループが見つかりませんでした');
+      return res.redirect('/settings');
+    }
+    const userId = req.user._id.toString();
+    const isMember = group.createdBy?.toString() === userId || (group.members || []).some((m) => String(m) === userId);
+    if (!isMember) {
+      req.flash('error', 'このグループのメンバーではありません');
+      return res.redirect(`/settings?group=${groupId}`);
+    }
+
+    const cadence = ['monthly', 'quarter', 'half'].includes(String(req.body?.cadence)) ? String(req.body.cadence) : 'monthly';
+    const enabled = toBoolean(req.body?.enabled);
+    group.equipmentInventory = { enabled, cadence };
+    await group.save();
+
+    req.flash('success', '備品の棚卸し設定を更新しました');
+    res.redirect(`/settings?group=${groupId}&view=group-detail`);
+  } catch (err) { next(err); }
+});
+
 export default router;

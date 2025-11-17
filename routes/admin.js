@@ -4,9 +4,11 @@ import path from 'path';
 import Menu from '../models/menu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
+import Stock from '../models/stock.js';
+import MyEquipment from '../models/myEquipment.js';
+import StoragePlace from '../models/storagePlace.js';
 import { isAdmin } from '../middleware.js';
 import Equipment from '../models/equipment.js';
-import MyEquipment from '../models/myEquipment.js';
 import MailTemplateSetting from '../models/mailTemplateSetting.js';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
@@ -1514,6 +1516,145 @@ router.get('/export/seasonings', async (req, res) => {
     res.end();
   } catch (err) {
     console.error('調味料書き出しエラー:', err);
+    res.status(500).send('書き出しに失敗しました');
+  }
+});
+
+// マイストックのExcel書き出し
+router.get('/export/my-stock', async (req, res) => {
+  try {
+    const stocks = await Stock.find()
+      .populate('item')
+      .populate('place', 'name')
+      .populate('user', 'displayname username email')
+      .populate('group', 'group_name')
+      .lean();
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('MyStock');
+    worksheet.columns = [
+      { header: '種類', key: 'type' },
+      { header: 'アイテムID', key: 'itemId' },
+      { header: 'アイテム名', key: 'itemName' },
+      { header: 'グループ', key: 'group' },
+      { header: 'ユーザー', key: 'user' },
+      { header: '数量', key: 'amount' },
+      { header: '単位', key: 'unit' },
+      { header: '保管場所', key: 'place' },
+      { header: '賞味期限', key: 'expiryDate' },
+      { header: '備蓄品', key: 'stockpile' },
+      { header: '商品URL', key: 'productUrl' },
+      { header: '画像URL', key: 'productImageUrl' },
+      { header: 'コメント', key: 'comment' },
+      { header: '最終チェック日時', key: 'lastCheckedAt' },
+      { header: '最終チェックメモ', key: 'lastCheckedNote' },
+      { header: '最終チェック実施者', key: 'lastCheckedBy' },
+      { header: '登録日', key: 'entry_date' },
+      { header: '更新日', key: 'update_date' }
+    ];
+    stocks.forEach((s) => {
+      const isIng = s.type === 'ingredient';
+      const name = isIng ? s.item?.ingredient : s.item?.seasoning;
+      worksheet.addRow({
+        type: s.type,
+        itemId: s.item?._id?.toString() || '',
+        itemName: name || '',
+        group: s.group?.group_name || s.group || '',
+        user: s.user?.displayname || s.user?.username || '',
+        amount: s.amount,
+        unit: s.unit,
+        place: s.place?.name || '',
+        expiryDate: s.expiryDate,
+        stockpile: s.stockpile ? 'はい' : 'いいえ',
+        productUrl: s.productUrl,
+        productImageUrl: s.productImageUrl,
+        comment: s.comment,
+        lastCheckedAt: s.lastCheckedAt,
+        lastCheckedNote: s.lastCheckedNote,
+        lastCheckedBy: s.lastCheckedBy,
+        entry_date: s.createdAt,
+        update_date: s.updatedAt
+      });
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=my-stock.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('マイストック書き出しエラー:', err);
+    res.status(500).send('書き出しに失敗しました');
+  }
+});
+
+// マイ備品のExcel書き出し
+router.get('/export/my-equipment', async (req, res) => {
+  try {
+    const [items, places] = await Promise.all([
+      MyEquipment.find()
+        .populate('group', 'group_name')
+        .populate('createdBy', 'displayname username email')
+        .populate('place', 'name')
+        .lean(),
+      StoragePlace.find().select('name').lean()
+    ]);
+    const placeNameById = new Map((places || []).map((p) => [String(p._id), p.name]));
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('MyEquipment');
+    worksheet.columns = [
+      { header: 'グループ', key: 'group' },
+      { header: '登録者', key: 'user' },
+      { header: '備品名', key: 'name' },
+      { header: '数量', key: 'quantity' },
+      { header: '単位', key: 'unit' },
+      { header: '保管場所', key: 'place' },
+      { header: '消耗品', key: 'isConsumable' },
+      { header: '家ストック分類', key: 'houseCategory' },
+      { header: '防災対策分類', key: 'disasterCategory' },
+      { header: 'キャンプ分類', key: 'campingCategory' },
+      { header: 'メンテナンス周期', key: 'maintenance' },
+      { header: '商品URL', key: 'productUrl' },
+      { header: '画像URL', key: 'productImageUrl' },
+      { header: 'コメント', key: 'comment' },
+      { header: '消費期限', key: 'expiryDate' },
+      { header: '棚卸し日時', key: 'lastInventoryAt' },
+      { header: '棚卸し実施者', key: 'lastInventoryBy' },
+      { header: '棚卸し数量', key: 'lastCount' },
+      { header: '棚卸しコメント', key: 'lastComment' },
+      { header: '登録日', key: 'entry_date' },
+      { header: '更新日', key: 'update_date' }
+    ];
+    items.forEach((it) => {
+      const place = it.place ? (it.place.name || placeNameById.get(String(it.place)) || '') : '';
+      const by = it.lastInventoryBy?.displayname || it.lastInventoryBy?.username || '';
+      worksheet.addRow({
+        group: it.group?.group_name || '',
+        user: it.createdBy?.displayname || it.createdBy?.username || '',
+        name: it.name,
+        quantity: it.quantity,
+        unit: it.unit,
+        place,
+        isConsumable: it.isConsumable ? 'はい' : 'いいえ',
+        houseCategory: it.houseCategory,
+        disasterCategory: it.disasterCategory,
+        campingCategory: it.campingCategory,
+        maintenance: it.maintenance,
+        productUrl: it.productUrl,
+        productImageUrl: it.productImageUrl,
+        comment: it.comment,
+        expiryDate: it.expiryDate,
+        lastInventoryAt: it.lastInventoryAt,
+        lastInventoryBy: by || '',
+        lastCount: it.lastCount,
+        lastComment: it.lastComment,
+        entry_date: it.createdAt,
+        update_date: it.updatedAt
+      });
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=my-equipment.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('マイ備品書き出しエラー:', err);
     res.status(500).send('書き出しに失敗しました');
   }
 });

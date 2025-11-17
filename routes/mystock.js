@@ -298,6 +298,7 @@ router.get('/checklist', async (req, res, next) => {
       place: placeNameById.get(String(s.place||'')) || '未設定',
       amount: s.amount || 0,
       unit: s.unit || '',
+      imageUrl: s.productImageUrl || '',
       lastCheckedAt: s.lastCheckedAt ? new Date(s.lastCheckedAt) : null,
       lastCheckedNote: s.lastCheckedNote || '',
       lastCheckedBy: s.lastCheckedBy || ''

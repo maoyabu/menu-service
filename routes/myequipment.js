@@ -15,6 +15,19 @@ function getGroupId(res){
   return def || (groups[0]?._id?.toString?.() ?? null);
 }
 
+const getCycleStart = (cadence = 'monthly') => {
+  const now = new Date();
+  if (cadence === 'quarter') {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    return new Date(now.getFullYear(), quarterStartMonth, 1);
+  }
+  if (cadence === 'half') {
+    const halfStartMonth = now.getMonth() < 6 ? 0 : 6;
+    return new Date(now.getFullYear(), halfStartMonth, 1);
+  }
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+};
+
 // My Equipment main page
 router.get('/', async (req, res, next) => {
   try {
@@ -70,6 +83,96 @@ router.get('/', async (req, res, next) => {
 
     res.render('users/myEquipment', { places, placeMap, type, categories });
   } catch (e) { next(e); }
+});
+
+// Inventory checklist (equipment)
+router.get('/inventory', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.redirect('/users/my-equipment');
+    const group = await Group.findById(groupId).select('equipmentInventory group_name').lean();
+    const cadence = group?.equipmentInventory?.cadence || 'monthly';
+    const enabled = group?.equipmentInventory?.enabled !== false;
+    if (!enabled) {
+      req.flash('error', 'グループの備品棚卸しが無効になっています。設定から有効にしてください。');
+      return res.redirect('/settings');
+    }
+    const cycleStart = getCycleStart(cadence);
+    const [items, places] = await Promise.all([
+      MyEquipment.find({ group: groupId })
+        .populate('place', 'name')
+        .populate('lastInventoryBy', 'displayname username')
+        .lean(),
+      StoragePlace.find({ group: groupId }).lean()
+    ]);
+    const placeNameById = new Map((places || []).map((p) => [String(p._id), p.name]));
+    const entries = items.map((it) => {
+      const placeName = (!it.place && (Number(it.quantity) || 0) <= 0)
+        ? 'ウィッシュリスト'
+        : (placeNameById.get(String(it.place || '')) || '未設定');
+      const byName = it.lastInventoryBy
+        ? (it.lastInventoryBy.displayname || it.lastInventoryBy.username || '')
+        : '';
+      return {
+        id: String(it._id),
+        name: it.name || '',
+        quantity: Number(it.quantity) || 0,
+        unit: it.unit || '',
+        placeName,
+        lastInventoryAt: it.lastInventoryAt || null,
+        lastInventoryBy: byName || '',
+        lastCount: Number(it.lastCount) || 0,
+        lastComment: it.lastComment || '',
+        imageUrl: it.productImageUrl || ''
+      };
+    });
+    const monthLabel = (() => {
+      const y = cycleStart.getFullYear();
+      const m = cycleStart.getMonth() + 1;
+      return `${y}年${m}月`;
+    })();
+    res.render('users/myEquipmentInventory', {
+      groupName: group?.group_name || '',
+      cadence,
+      cycleStartISO: cycleStart.toISOString(),
+      items: entries,
+      monthLabel
+    });
+  } catch (e) { next(e); }
+});
+
+// Inventory toggle API
+router.post('/api/inventory/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const checked = !!req.body?.checked;
+    const countVal = Number(req.body?.count);
+    const noteVal = typeof req.body?.note === 'string' ? req.body.note : '';
+    const update = checked
+      ? {
+          lastInventoryAt: new Date(),
+          lastInventoryBy: req.user._id,
+          lastCount: Number.isFinite(countVal) ? countVal : 0,
+          lastComment: noteVal || ''
+        }
+      : { lastInventoryAt: null, lastInventoryBy: null, lastCount: 0, lastComment: '' };
+    const updated = await MyEquipment.findOneAndUpdate(
+      { _id: req.params.id, group: groupId },
+      { $set: update },
+      { new: true }
+    ).populate('lastInventoryBy', 'displayname username').lean();
+    if (!updated) return res.status(404).json({ error: 'not found' });
+    const byName = updated.lastInventoryBy
+      ? (updated.lastInventoryBy.displayname || updated.lastInventoryBy.username || '')
+      : '';
+    res.json({
+      id: updated._id.toString(),
+      lastInventoryAt: updated.lastInventoryAt,
+      lastInventoryBy: byName,
+      lastCount: updated.lastCount || 0,
+      lastComment: updated.lastComment || ''
+    });
+  } catch (_) { res.status(500).json({ error: 'failed' }); }
 });
 
 // Places API
@@ -175,6 +278,9 @@ router.post('/api/add', express.json(), async (req, res) => {
       productUrl: String(b.productUrl || '').trim(),
       productImageUrl: String(b.productImageUrl || '').trim(),
       comment: String(b.comment || '').trim(),
+      tracked: !!b.tracked,
+      lastCount: Number(b.lastCount) || 0,
+      lastComment: String(b.lastComment || '').trim(),
       expiryDate: b.expiryDate ? new Date(b.expiryDate) : null
     };
     if (!doc.name) return res.status(400).json({ error: 'name required' });
@@ -190,11 +296,13 @@ router.put('/api/:id', express.json(), async (req, res) => {
     const groupId = getGroupId(res); if(!groupId) return res.status(400).json({ error: 'no group' });
     const b = req.body || {};
     const update = {};
-    ['name','unit','houseCategory','disasterCategory','campingCategory','maintenance','productUrl','productImageUrl','comment'].forEach(k=>{
+    ['name','unit','houseCategory','disasterCategory','campingCategory','maintenance','productUrl','productImageUrl','comment','lastComment'].forEach(k=>{
       if (k in b) update[k] = String(b[k] || '').trim();
     });
     if ('isConsumable' in b) update.isConsumable = !!b.isConsumable;
     if ('quantity' in b) update.quantity = Number(b.quantity) || 0;
+    if ('tracked' in b) update.tracked = !!b.tracked;
+    if ('lastCount' in b) update.lastCount = Number(b.lastCount) || 0;
     if ('expiryDate' in b) update.expiryDate = b.expiryDate ? new Date(b.expiryDate) : null;
     if (b.placeId || b.placeName) {
       let pid = null;

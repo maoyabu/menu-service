@@ -54,13 +54,16 @@
       const left = document.createElement('div'); left.innerHTML='<h3 class="text-sm font-semibold text-gray-700">要チェック</h3>'; grid.appendChild(left);
       const right = document.createElement('div'); right.innerHTML='<h3 class="text-sm font-semibold text-gray-700">チェック済み</h3>'; grid.appendChild(right);
       const makeLi = (it, checked)=>{
-        const li = document.createElement('li'); li.className = 'flex items-start gap-2 border rounded-lg px-3 py-2 ' + (checked? 'bg-green-50 border-green-200': ''); li.dataset.id = it.id; li.dataset.checked = checked?'1':'0';
+        const li = document.createElement('li'); li.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 ' + (checked? 'bg-green-50 border-green-200': ''); li.dataset.id = it.id; li.dataset.checked = checked?'1':'0';
         const dateStr = it.lastCheckedAt ? fmt(it.lastCheckedAt) : '';
         const ago = it.lastCheckedAt ? `（${daysAgo(it.lastCheckedAt)}日前）` : '';
         li.innerHTML = `
-          <label class="flex items-start gap-2 w-full">
+          <label class="flex items-start gap-3 w-full">
             <input type="checkbox" ${checked?'checked':''} />
-            <span class="flex-1">
+            <span class="w-10 h-10 rounded border border-gray-200 bg-gray-50 flex-shrink-0 overflow-hidden flex items-center justify-center">
+              ${it.imageUrl ? `<img src="${it.imageUrl}" alt="${it.itemLabel || it.name || ''}" class="w-full h-full object-cover"/>` : `<span class="text-[10px] text-gray-400">No\nImage</span>`}
+            </span>
+            <span class="flex-1 min-w-0">
               <span class="text-sm font-medium text-gray-900">${it.itemLabel || it.name || ''}</span>
               <span class="ml-2 text-xs text-gray-600">${it.amount||''}${it.unit||''}</span>
               <div class="text-xs text-gray-500 mt-0.5">最終チェック: <span data-role="date">${dateStr || '未'}</span> <span data-role="ago">${dateStr? ago: ''}</span> ${it.lastCheckedBy ? `<span data-role="by" class=\"ml-2 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px]\">${it.lastCheckedBy}</span>` : `<span data-role=\"by\" class=\"hidden\"></span>`}</div>

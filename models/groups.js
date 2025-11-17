@@ -36,6 +36,10 @@ const groupSchema = new Schema({
     sendHour: { type: Number, default: 8 },
     // Suggested completion window (days)
     windowDays: { type: Number, default: 7 }
+  },
+  equipmentInventory: {
+    enabled: { type: Boolean, default: true },
+    cadence: { type: String, enum: ['monthly', 'quarter', 'half'], default: 'monthly' }
   }
 }, { timestamps: true });
 

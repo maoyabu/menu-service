@@ -1,0 +1,203 @@
+<section class="max-w-6xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-blue-800">
+      <h1 class="text-xl font-extrabold whitespace-nowrap"><%= monthLabel || '' %>の備品の棚卸しリスト</h1>
+      <p class="text-sm opacity-80"><%= groupName || '' %> / 周期: <%= cadence==='half' ? '半年' : cadence==='quarter' ? '3ヶ月' : '毎月' %></p>
+    </div>
+    <a href="/users/my-equipment" class="text-sm text-blue-600 font-semibold">マイ備品へ戻る</a>
+  </header>
+
+  <div id="equip-checklist" class="space-y-6"></div>
+  <div id="equip-pop" class="hidden fixed inset-0 z-50 flex items-start justify-center bg-black/30">
+    <div class="mt-16 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">チェック内容</h3>
+        <button type="button" id="equip-pop-close" class="text-gray-500 hover:text-gray-700">
+          <span class="lucide w-5 h-5" data-lucide="x"></span>
+        </button>
+      </div>
+      <div class="space-y-3">
+        <label class="block text-sm text-gray-700">
+          数量
+          <input type="number" step="0.01" min="0" id="equip-pop-count" class="mt-1 w-full border rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-200" />
+        </label>
+        <label class="block text-sm text-gray-700">
+          メモ
+          <input type="text" id="equip-pop-note" placeholder="残量など" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" id="equip-pop-cancel" class="px-4 py-2 rounded-lg border text-gray-700">キャンセル</button>
+        <button type="button" id="equip-pop-save" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">保存</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function(){
+    const items = <%- JSON.stringify(items || []) %>;
+    const cycleStart = new Date(<%- JSON.stringify(cycleStartISO || '') %>);
+    const root = document.getElementById('equip-checklist');
+
+    const isCheckedThisCycle = (dt) => {
+      if (!dt) return false;
+      const d = new Date(dt);
+      if (Number.isNaN(d.getTime())) return false;
+      return d >= cycleStart;
+    };
+    const fmt = (d) => {
+      try { const dt = new Date(d); if (Number.isNaN(dt.getTime())) return ''; return `${dt.getMonth()+1}月${dt.getDate()}日 ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`; } catch(_) { return ''; }
+    };
+
+    // group by place
+    const byPlace = new Map();
+    items.forEach((it) => {
+      const k = it.placeName || '未設定';
+      const arr = byPlace.get(k) || [];
+      arr.push(it);
+      byPlace.set(k, arr);
+    });
+
+    byPlace.forEach((list, place) => {
+      const pending = list.filter((it) => !isCheckedThisCycle(it.lastInventoryAt));
+      const done = list.filter((it) => isCheckedThisCycle(it.lastInventoryAt));
+      const sec = document.createElement('section');
+      sec.className = 'rounded-2xl border bg-white p-4';
+      sec.innerHTML = `<div class="flex items-center justify-between mb-3"><h2 class="font-semibold">${place}</h2></div>`;
+      const grid = document.createElement('div');
+      grid.className = 'grid md:grid-cols-2 gap-4';
+      sec.appendChild(grid);
+      const left = document.createElement('div'); left.innerHTML='<h3 class="text-sm font-semibold text-gray-700">要チェック</h3>'; grid.appendChild(left);
+      const right = document.createElement('div'); right.innerHTML='<h3 class="text-sm font-semibold text-gray-700">チェック済み</h3>'; grid.appendChild(right);
+
+      const makeItem = (it, checked) => {
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 ' + (checked ? 'bg-blue-50 border-blue-200' : '');
+        li.dataset.id = it.id; li.dataset.checked = checked ? '1' : '0';
+        li.innerHTML = `
+          <label class="flex items-start gap-3 w-full">
+            <input type="checkbox" ${checked ? 'checked' : ''} />
+            <span class="w-10 h-10 rounded border border-gray-200 bg-gray-50 flex-shrink-0 overflow-hidden flex items-center justify-center">
+              ${it.imageUrl ? `<img src="${it.imageUrl}" alt="${it.name || ''}" class="w-full h-full object-cover"/>` : `<span class="text-[10px] text-gray-400">No\nImage</span>`}
+            </span>
+            <span class="flex-1 min-w-0">
+              <span class="text-sm font-medium text-gray-900">${it.name || ''}</span>
+              <span class="ml-2 text-xs text-gray-600">${it.quantity || 0}${it.unit || ''}</span>
+              <div class="text-xs text-gray-500 mt-0.5">棚卸し記録: <span data-role="count">${it.lastCount || ''}</span> <span class="text-[11px]" data-role="note">${it.lastComment ? '('+it.lastComment+')' : ''}</span></div>
+              <div class="text-xs text-gray-500 mt-0.5">最終チェック: <span data-role="date">${it.lastInventoryAt ? fmt(it.lastInventoryAt) : '未'}</span> ${it.lastInventoryBy ? `<span data-role="by" class="ml-2 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px]">${it.lastInventoryBy}</span>` : `<span data-role="by" class="hidden"></span>`}</div>
+            </span>
+          </label>`;
+        li.dataset.count = it.lastCount || 0;
+        li.dataset.note = it.lastComment || '';
+        return li;
+      };
+
+      const ulL = document.createElement('ul'); ulL.className = 'space-y-2'; ulL.dataset.list = 'pending'; left.appendChild(ulL);
+      const ulR = document.createElement('ul'); ulR.className = 'space-y-2'; ulR.dataset.list = 'done'; right.appendChild(ulR);
+      pending.forEach((it) => ulL.appendChild(makeItem(it, false)));
+      done.forEach((it) => ulR.appendChild(makeItem(it, true)));
+
+      root.appendChild(sec);
+    });
+
+    const modal = document.getElementById('equip-pop');
+    const modalCount = document.getElementById('equip-pop-count');
+    const modalNote = document.getElementById('equip-pop-note');
+    const btnCancel = document.getElementById('equip-pop-cancel');
+    const btnSave = document.getElementById('equip-pop-save');
+    const btnClose = document.getElementById('equip-pop-close');
+    let currentCtx = null; // { li, cb }
+
+    const openModal = (li, cb) => {
+      currentCtx = { li, cb };
+      modalCount.value = li.dataset.count || 0;
+      modalNote.value = li.dataset.note || '';
+      modal.classList.remove('hidden');
+      modalCount.focus();
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    };
+    const closeModal = () => {
+      modal.classList.add('hidden');
+      currentCtx = null;
+    };
+
+    function listsOf(sec){
+      return {
+        left: sec.querySelector('[data-list="pending"]'),
+        right: sec.querySelector('[data-list="done"]')
+      };
+    }
+
+    root.addEventListener('change', async (ev) => {
+      const cb = ev.target.closest('input[type="checkbox"]'); if (!cb) return;
+      const li = cb.closest('li'); if (!li) return;
+      const checked = cb.checked;
+      if (checked) {
+        openModal(li, cb);
+      } else {
+        await applyInventoryChange(li, cb, false, { count: 0, note: '' });
+      }
+    });
+
+    async function applyInventoryChange(li, cb, checked, payload){
+      const sec = li.closest('section'); const { left, right } = listsOf(sec);
+      const id = li.dataset.id;
+      try {
+        const res = await fetch(`/users/my-equipment/api/inventory/${encodeURIComponent(id)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checked, count: payload.count, note: payload.note })
+        });
+        if (!res.ok) throw new Error('更新に失敗しました');
+        const json = await res.json();
+        const dateNode = li.querySelector('[data-role="date"]');
+        const byNode = li.querySelector('[data-role="by"]');
+        const countNode = li.querySelector('[data-role="count"]');
+        const noteNode = li.querySelector('[data-role="note"]');
+        if (checked) {
+          if (right) right.appendChild(li);
+          li.classList.add('bg-blue-50','border-blue-200');
+          li.dataset.checked = '1';
+          if (dateNode) dateNode.textContent = fmt(json.lastInventoryAt);
+          if (byNode) { byNode.textContent = json.lastInventoryBy || ''; byNode.classList.toggle('hidden', !json.lastInventoryBy); }
+          if (countNode) countNode.textContent = json.lastCount || '';
+          if (noteNode) noteNode.textContent = json.lastComment ? '('+json.lastComment+')' : '';
+          li.dataset.count = json.lastCount || 0;
+          li.dataset.note = json.lastComment || '';
+        } else {
+          if (left) left.appendChild(li);
+          li.classList.remove('bg-blue-50','border-blue-200');
+          li.dataset.checked = '0';
+          if (dateNode) dateNode.textContent = '未';
+          if (byNode) { byNode.textContent = ''; byNode.classList.add('hidden'); }
+          if (countNode) countNode.textContent = '';
+          if (noteNode) noteNode.textContent = '';
+          li.dataset.count = 0;
+          li.dataset.note = '';
+        }
+      } catch (e) {
+        alert(e.message || '更新に失敗しました');
+        cb.checked = !checked;
+      }
+    }
+
+    function handleSaveModal(){
+      if (!currentCtx) return;
+      const { li, cb } = currentCtx;
+      const countVal = Number(modalCount.value || 0) || 0;
+      const noteVal = modalNote.value ? modalNote.value.trim() : '';
+      applyInventoryChange(li, cb, true, { count: countVal, note: noteVal }).finally(closeModal);
+    }
+    function handleCancelModal(){
+      if (currentCtx && currentCtx.cb) currentCtx.cb.checked = false;
+      closeModal();
+    }
+    btnSave?.addEventListener('click', handleSaveModal);
+    btnCancel?.addEventListener('click', handleCancelModal);
+    btnClose?.addEventListener('click', handleCancelModal);
+    modal?.addEventListener('click', (e)=>{
+      if (e.target === modal) handleCancelModal();
+    });
+  })();
+</script>
