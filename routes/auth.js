@@ -2356,8 +2356,9 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
           const id = ingRef?.name?.toString?.() || '';
           if (!id || !targetIds.has(id)) return;
           const arr = menuUsage[id] || (menuUsage[id] = []);
-          if (arr.length >= 10) return;
-          arr.push({ id: String(menu._id), name: menu.name || '', url: menu.url || '' });
+          const menuId = String(menu._id);
+          if (arr.some((m) => m.id === menuId)) return;
+          arr.push({ id: menuId, name: menu.name || '', url: menu.url || '' });
         });
       });
     }
