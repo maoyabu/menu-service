@@ -2348,17 +2348,42 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
     const targetIds = new Set(monthlyList.map((ing) => String(ing._id)));
     const menuUsage = {};
     if (targetIds.size) {
-      const menus = await Menu.find({ 'ingredients.name': { $in: Array.from(targetIds) } })
-        .select('name ingredients url')
+      const menuDocs = await Menu.find({ 'ingredients.name': { $in: Array.from(targetIds) } })
+        .select('name ingredients url share')
         .lean();
-      menus.forEach((menu) => {
+      const mymenus = await Mymenu.find({ menu: { $in: menuDocs.map((m) => m._id) } })
+        .select('menu sourceType')
+        .lean();
+      const sourceTypePriority = { original: 3, url: 2, shared: 1, '': 0 };
+      const sourceTypeMap = new Map();
+      (mymenus || []).forEach((m) => {
+        const id = m.menu?.toString?.() || '';
+        const type = m.sourceType || '';
+        if (!id) return;
+        const existing = sourceTypeMap.get(id) || '';
+        if ((sourceTypePriority[type] || 0) >= (sourceTypePriority[existing] || 0)) {
+          sourceTypeMap.set(id, type);
+        }
+      });
+
+      menuDocs.forEach((menu) => {
         (menu.ingredients || []).forEach((ingRef) => {
           const id = ingRef?.name?.toString?.() || '';
           if (!id || !targetIds.has(id)) return;
           const arr = menuUsage[id] || (menuUsage[id] = []);
           const menuId = String(menu._id);
           if (arr.some((m) => m.id === menuId)) return;
-          arr.push({ id: menuId, name: menu.name || '', url: menu.url || '' });
+          let sourceType = sourceTypeMap.get(menuId) || '';
+          if (!sourceType) {
+            if (menu.share === true) {
+              sourceType = 'shared';
+            } else if (menu.url) {
+              sourceType = 'url';
+            } else {
+              sourceType = 'original';
+            }
+          }
+          arr.push({ id: menuId, name: menu.name || '', url: menu.url || '', sourceType });
         });
       });
     }
