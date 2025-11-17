@@ -140,14 +140,16 @@
                     <p class="text-xs text-gray-500">該当メニューはまだありません。</p>
                   <% } else { %>
                     <div class="flex flex-wrap gap-2">
-                      <% usage.slice(0,3).forEach((menu)=>{ const href = menu.url ? menu.url : `/users/menu/${menu.id}`; const external = !!menu.url; %>
-                        <a href="<%= href %>" <%= external ? 'target="_blank" rel="noopener noreferrer"' : '' %> class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs border border-gray-200 hover:bg-gray-200">
+                      <% usage.slice(0,3).forEach((menu)=>{ const href = menu.url ? menu.url : `/users/menu/${menu.id}`; const external = !!menu.url; const tagClass = external ? 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'; %>
+                        <a href="<%= href %>" <%= external ? 'target="_blank" rel="noopener noreferrer"' : '' %> class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border <%= tagClass %>">
                           <span class="lucide w-3 h-3" data-lucide="utensils-crossed"></span>
                           <span class="truncate max-w-[150px]"><%= menu.name %></span>
                         </a>
                       <% }); %>
                       <% if (extra > 0) { %>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full bg-gray-50 text-gray-600 text-xs border border-gray-200">+<%= extra %>件</span>
+                        <button type="button" data-action="show-usage" data-ingredient-id="<%= item._id %>" class="inline-flex items-center px-2 py-1 rounded-full bg-white text-gray-700 text-xs border border-gray-300 hover:bg-gray-50">
+                          +<%= extra %>件
+                        </button>
                       <% } %>
                     </div>
                   <% } %>
@@ -161,6 +163,86 @@
   </div>
 </section>
 
+<!-- Usage modal -->
+<div id="usage-modal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/40" data-action="close-usage"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-gray-200 overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3 border-b">
+        <div class="flex items-center gap-2">
+          <span class="lucide w-5 h-5 text-gray-600" data-lucide="utensils-crossed"></span>
+          <h3 class="font-semibold text-gray-800 text-sm">この食材を使うメニュー</h3>
+        </div>
+        <button type="button" class="text-gray-500 hover:text-gray-700" data-action="close-usage">
+          <span class="lucide w-5 h-5" data-lucide="x"></span>
+        </button>
+      </div>
+      <div class="p-5 max-h-[60vh] overflow-y-auto" id="usage-modal-body">
+        <p class="text-sm text-gray-500">読み込み中...</p>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.refreshLucideIcons && window.refreshLucideIcons();
+  </script>
+</div>
+
 <script>
+  (function(){
+    const usageMap = new Map(Object.entries(<%- JSON.stringify(menuUsage || {}) %>));
+    const modal = document.getElementById('usage-modal');
+    const body = document.getElementById('usage-modal-body');
+
+    const renderTags = (list = []) => {
+      if (!list.length) {
+        body.innerHTML = '<p class="text-sm text-gray-500">該当メニューはまだありません。</p>';
+        return;
+      }
+      const frag = document.createElement('div');
+      frag.className = 'flex flex-wrap gap-2';
+      list.forEach((m) => {
+        const external = !!m.url;
+        const href = external ? m.url : `/users/menu/${m.id}`;
+        const cls = external
+          ? 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200'
+          : 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100';
+        const a = document.createElement('a');
+        a.className = cls;
+        a.href = href;
+        if (external) {
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+        }
+        a.innerHTML = '<span class="lucide w-3 h-3" data-lucide="utensils-crossed"></span>' +
+          '<span class="truncate max-w-[220px]">' + (m.name || '') + '</span>';
+        frag.appendChild(a);
+      });
+      body.innerHTML = '';
+      body.appendChild(frag);
+      window.refreshLucideIcons && window.refreshLucideIcons();
+    };
+
+    const openModal = (ingredientId) => {
+      const key = String(ingredientId || '');
+      const list = usageMap.get(key) || [];
+      renderTags(list);
+      modal.classList.remove('hidden');
+    };
+    const closeModal = () => {
+      modal.classList.add('hidden');
+    };
+
+    document.addEventListener('click', (ev) => {
+      const showBtn = ev.target.closest('[data-action="show-usage"]');
+      if (showBtn && showBtn.dataset.ingredientId) {
+        openModal(showBtn.dataset.ingredientId);
+        return;
+      }
+      if (ev.target.closest('[data-action="close-usage"]')) {
+        closeModal();
+        return;
+      }
+    });
+  })();
   window.refreshLucideIcons && window.refreshLucideIcons();
 </script>
