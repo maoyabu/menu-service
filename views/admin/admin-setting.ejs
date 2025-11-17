@@ -1,22 +1,28 @@
 <div class="mt-8 space-y-10">
   <div>
     <h2 class="text-lg font-semibold mb-4">ファイル書き出し</h2>
-    <div class="space-y-2">
-      <form action="/admin/export/menus" method="GET">
-        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">メニューのデータを書き出す</button>
-      </form>
-      <form action="/admin/export/ingredients" method="GET">
-        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">食材のデータを書き出す</button>
-      </form>
-      <form action="/admin/export/seasonings" method="GET">
-        <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">調味料のデータを書き出す</button>
-      </form>
-      <form action="/admin/export/my-stock" method="GET">
-        <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700">マイストックのデータを書き出す</button>
-      </form>
-      <form action="/admin/export/my-equipment" method="GET">
-        <button type="submit" class="px-4 py-2 bg-cyan-600 text-white rounded hover:bg-cyan-700">マイ備品のデータを書き出す</button>
-      </form>
+    <div class="space-y-3">
+      <div class="grid sm:grid-cols-3 gap-3">
+        <form action="/admin/export/menus" method="GET">
+          <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">メニューのデータを書き出す</button>
+        </form>
+        <form action="/admin/export/ingredients" method="GET">
+          <button type="submit" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">食材のデータを書き出す</button>
+        </form>
+        <form action="/admin/export/seasonings" method="GET">
+          <button type="submit" class="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">調味料のデータを書き出す</button>
+        </form>
+      </div>
+      <div class="border-t pt-3">
+        <div class="grid sm:grid-cols-2 gap-3">
+          <form action="/admin/export/my-stock" method="GET">
+            <button type="submit" class="w-full px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700">マイストックのデータを書き出す</button>
+          </form>
+          <form action="/admin/export/my-equipment" method="GET">
+            <button type="submit" class="w-full px-4 py-2 bg-cyan-600 text-white rounded hover:bg-cyan-700">マイ備品のデータを書き出す</button>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 
