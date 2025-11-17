@@ -167,8 +167,9 @@ router.get('/', async (req, res, next) => {
 // 共有メニューから登録 画面 + 検索
 router.get('/shared-register', async (req, res, next) => {
   try {
-    const { keyword = '', kind = '', junle = '', cook = '', fav = 'all', seasonal = '' } = req.query;
+    const { keyword = '', kind = '', junle = '', cook = '', fav = 'all', seasonal = '', seasonalMonth = '' } = req.query;
     const onlySeasonal = ['1', 'true', 'on', 'yes'].includes(String(seasonal).toLowerCase());
+    const onlySeasonalByMonth = ['1', 'true', 'on', 'yes'].includes(String(seasonalMonth).toLowerCase());
     const { kinds, junles, cooks } = await getFacetLists();
 
     // 管理者が登録した共有メニュー（share=true を優先、なければ全件）
@@ -286,7 +287,32 @@ router.get('/shared-register', async (req, res, next) => {
     });
 
     let list = Array.from(combinedMap.values());
-    if (onlySeasonal) {
+    if (onlySeasonalByMonth) {
+      const month = (new Date()).getMonth() + 1;
+      const currentMonthLabel = `${month}月`;
+      const allIngredientIds = new Set();
+      list.forEach((it) => {
+        (it.ingredientIds || []).forEach((id) => allIngredientIds.add(id));
+      });
+      if (allIngredientIds.size > 0) {
+        const seasonalIngredients = await Ingredient.find({
+          _id: { $in: Array.from(allIngredientIds) },
+          month: { $exists: true, $ne: [] }
+        }).select('month').lean();
+        const seasonalIds = new Set(
+          (seasonalIngredients || [])
+            .filter((ing) => {
+              const months = Array.isArray(ing.month) ? ing.month : [];
+              // Ignore "all" — only explicit month match
+              return !months.includes('all') && months.includes(currentMonthLabel);
+            })
+            .map((ing) => ing._id.toString())
+        );
+        list = list.filter((it) => (it.ingredientIds || []).some((id) => seasonalIds.has(id)));
+      } else {
+        list = [];
+      }
+    } else if (onlySeasonal) {
       const month = (new Date()).getMonth() + 1;
       const currentSeason = (month >= 3 && month <= 6) ? '春'
         : (month >= 7 && month <= 9) ? '夏'
@@ -328,7 +354,7 @@ router.get('/shared-register', async (req, res, next) => {
     // UI用：fav=mine の場合は種類/ジャンル/調理方法の選択状態を空にして表示
     res.render('users/myMenuShared', {
       kinds, junles, cooks,
-      selected: { kind, junle, cook, keyword, fav, seasonal: onlySeasonal },
+      selected: { kind, junle, cook, keyword, fav, seasonal: onlySeasonal, seasonalMonth: onlySeasonalByMonth },
       list,
       resultCount,
       myMenuIds,

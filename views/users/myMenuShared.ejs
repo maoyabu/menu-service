@@ -51,12 +51,15 @@
       </select>
     </div>
     <div class="flex flex-col gap-1">
-      <label class="text-xs font-semibold text-gray-600">旬の食材</label>
+      <label class="text-xs font-semibold text-gray-600">季節の旬</label>
       <label class="inline-flex items-center gap-2 text-sm text-gray-700">
         <input type="checkbox" name="seasonal" value="1" <%= selected.seasonal ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
-        <span>旬な季節の食材を含むメニューのみ</span>
+        <span>季節の旬</span>
       </label>
-      <p class="text-[11px] text-gray-500 leading-tight">春(3-6)、夏(7-9)、秋(10-11)、冬(12-2) にチェックされた食材</p>
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" name="seasonalMonth" value="1" <%= selected.seasonalMonth ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
+        <span>今月の旬</span>
+      </label>
     </div>
     <div class="flex flex-col gap-1">
       <label class="text-xs font-semibold text-gray-600">マイメニューの絞り込み</label>
