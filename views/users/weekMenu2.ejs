@@ -613,6 +613,21 @@
       }
       return { picks, remaining };
     };
+    const addSuggestionToMeal = (menuId, mealKey, snapshot, feedbackEl) => {
+      if (!menuId) return;
+      const api = window.weekMenuAPI || {};
+      const dayIndex = Number(snapshot?.selectedIndex) || 0;
+      const ok = api.addMenuToMeal ? api.addMenuToMeal(dayIndex, mealKey, menuId) : false;
+      if (!feedbackEl) return;
+      if (ok) {
+        feedbackEl.textContent = '追加しました';
+        feedbackEl.className = 'text-[11px] text-emerald-700';
+        setTimeout(() => { feedbackEl.textContent = ''; }, 2000);
+      } else {
+        feedbackEl.textContent = '追加に失敗しました';
+        feedbackEl.className = 'text-[11px] text-red-600';
+      }
+    };
     const renderShortageSuggestions = async (container, snapshot, btn) => {
       if (!container) return;
       container.innerHTML = '';
@@ -675,6 +690,24 @@
             chips.appendChild(chip);
           });
           box.appendChild(chips);
+          const controls = document.createElement('div');
+          controls.className = 'flex flex-wrap gap-2 mt-2 items-center';
+          const note = document.createElement('span');
+          note.className = 'text-[11px] text-gray-500';
+          controls.appendChild(note);
+          [
+            { key: 'breakfast', label: '朝食に追加' },
+            { key: 'lunch', label: 'ランチに追加' },
+            { key: 'dinner', label: 'ディナーに追加' }
+          ].forEach(({ key, label }) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'px-2.5 py-1 text-[11px] font-semibold rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800';
+            b.textContent = label;
+            b.addEventListener('click', () => addSuggestionToMeal(pick.menu.id, key, snapshot, note));
+            controls.appendChild(b);
+          });
+          box.appendChild(controls);
           list.appendChild(box);
         });
         container.innerHTML = '';

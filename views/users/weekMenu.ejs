@@ -1640,6 +1640,35 @@
           return Math.max(0, Number(slot.prepExtra) || 0);
         } catch(_) { return 0; }
       };
+      window.weekMenuAPI.addMenuToMeal = (dayIndex, mealKey, menuId, categoryKey = '') => {
+        try {
+          const day = state.plan?.[dayIndex];
+          if (!day || !menuId) return false;
+          const menu = menuLookup[menuId];
+          if (!menu) return false;
+          if (mealKey === 'breakfast') {
+            const slots = ensureBreakfastSlots(day);
+            const slot = createEmptySlot('breakfastMain');
+            slot.menuId = menuId;
+            slots.push(slot);
+          } else if (mealKey === 'lunch') {
+            const slots = ensureLunchSlots(day);
+            const slot = createEmptySlot('lunchMain');
+            slot.menuId = menuId;
+            slots.push(slot);
+          } else {
+            const slots = ensureDinnerSlots(day);
+            const slot = createEmptySlot(categoryKey || 'dinnerFlexible');
+            slot.menuId = menuId;
+            slot.categoryKey = categoryKey || inferDinnerCategoryKey(menu) || 'dinnerFlexible';
+            slots.push(slot);
+          }
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave();
+          return true;
+        } catch(_) { return false; }
+      };
     } catch(_) { /* noop */ }
 
     // Favorite modal helpers
