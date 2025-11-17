@@ -445,7 +445,7 @@
         return btn;
       };
       wrap.appendChild(mkBtn('day', '当日'));
-      wrap.appendChild(mkBtn('week', '週合計'));
+      wrap.appendChild(mkBtn('week', '週累計'));
       return wrap;
     };
     const renderTopReqMode = () => {
@@ -1039,7 +1039,7 @@
       const classTitle = document.createElement('p');
       classTitle.className = 'text-sm font-semibold text-gray-800';
       classTitle.textContent = requirementsMode === 'week'
-        ? '食材分類別の合計 (週合計, g換算)'
+        ? '食材分類別の合計 (週累計, g換算)'
         : '食材分類別の合計 (g換算)';
       classHeader.appendChild(classTitle);
       const toggleHost = document.createElement('div');
