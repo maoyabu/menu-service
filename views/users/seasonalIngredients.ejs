@@ -140,8 +140,8 @@
                     <p class="text-xs text-gray-500">該当メニューはまだありません。</p>
                   <% } else { %>
                     <div class="flex flex-wrap gap-2">
-                      <% usage.slice(0,3).forEach((menu)=>{ %>
-                        <a href="/users/menu/<%= menu.id %>" class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs border border-gray-200 hover:bg-gray-200">
+                      <% usage.slice(0,3).forEach((menu)=>{ const href = menu.url ? menu.url : `/users/menu/${menu.id}`; const external = !!menu.url; %>
+                        <a href="<%= href %>" <%= external ? 'target="_blank" rel="noopener noreferrer"' : '' %> class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs border border-gray-200 hover:bg-gray-200">
                           <span class="lucide w-3 h-3" data-lucide="utensils-crossed"></span>
                           <span class="truncate max-w-[150px]"><%= menu.name %></span>
                         </a>

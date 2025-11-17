@@ -2349,7 +2349,7 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
     const menuUsage = {};
     if (targetIds.size) {
       const menus = await Menu.find({ 'ingredients.name': { $in: Array.from(targetIds) } })
-        .select('name ingredients')
+        .select('name ingredients url')
         .lean();
       menus.forEach((menu) => {
         (menu.ingredients || []).forEach((ingRef) => {
@@ -2357,7 +2357,7 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
           if (!id || !targetIds.has(id)) return;
           const arr = menuUsage[id] || (menuUsage[id] = []);
           if (arr.length >= 10) return;
-          arr.push({ id: String(menu._id), name: menu.name || '' });
+          arr.push({ id: String(menu._id), name: menu.name || '', url: menu.url || '' });
         });
       });
     }
