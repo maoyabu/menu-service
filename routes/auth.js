@@ -2339,21 +2339,13 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
 
     const monthActive = !!selectedMonth;
 
-    const seasonalList = ingredients.filter((ing) => {
-      const seasons = normalizeSeasonList(ing.season);
-      if (!seasons.length) return false;
-      const months = normalizeMonthList(ing.month);
-      const seasonOk = selectedSeason ? seasons.includes(selectedSeason) : true;
-      const monthOk = monthActive ? months.includes(selectedMonth) : true;
-      return seasonOk && monthOk;
-    });
     const monthlyList = ingredients.filter((ing) => {
       const months = normalizeMonthList(ing.month);
       if (!months.length) return false;
       return selectedMonth ? months.includes(selectedMonth) : true;
     });
 
-    const targetIds = new Set([...seasonalList, ...monthlyList].map((ing) => String(ing._id)));
+    const targetIds = new Set(monthlyList.map((ing) => String(ing._id)));
     const menuUsage = {};
     if (targetIds.size) {
       const menus = await Menu.find({ 'ingredients.name': { $in: Array.from(targetIds) } })
@@ -2382,7 +2374,6 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
       selectedMonth,
       currentMonthLabel,
       currentSeason: monthToSeason(currentMonthNumber),
-      seasonalList,
       monthlyList,
       seasonOptions,
       monthOptions,

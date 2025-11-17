@@ -74,112 +74,18 @@
     </div>
   </form>
 
-  <div class="space-y-8">
+  <div class="space-y-6">
     <section class="space-y-3">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-xs text-emerald-700 font-semibold mb-1">季節の旬</p>
-          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 text-sm">
-              <span class="lucide w-4 h-4" data-lucide="sun"></span>
-              <span><%= selectedSeason %></span>
-            </span>
-            <span class="text-sm text-gray-600">該当 <%= (seasonalList || []).length %> 件</span>
-          </h2>
-        </div>
-      </div>
-      <% if (!(seasonalList || []).length) { %>
-        <div class="border border-dashed border-emerald-200 rounded-xl bg-emerald-50 text-emerald-800 text-sm px-4 py-3">
-          選択した条件に一致する季節の旬の食材がありませんでした。
-        </div>
-      <% } else { %>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <% seasonalList.forEach((item)=>{ const seasons = Array.isArray(item.season) ? item.season.filter(Boolean) : []; const months = Array.isArray(item.month) ? item.month.filter(Boolean) : []; const usage = usageFor(item._id); const extra = Math.max(0, usage.length - 3); %>
-            <div class="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
-              <div class="h-40 bg-gray-100 relative">
-                <% if (item.imageUrl) { %>
-                  <img src="<%= item.imageUrl %>" alt="<%= item.ingredient %>" class="object-cover w-full h-full" />
-                <% } else { %>
-                  <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>
-                <% } %>
-                <% if (item.classification) { %>
-                  <span class="absolute top-2 left-2 inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-700"><%= item.classification %></span>
-                <% } %>
-              </div>
-              <div class="p-4 space-y-3 flex-1 flex flex-col">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <h3 class="text-lg font-semibold text-gray-900 leading-tight break-words"><%= item.ingredient %></h3>
-                    <% if (item.yomi) { %>
-                      <p class="text-xs text-gray-500 mt-0.5"><%= item.yomi %></p>
-                    <% } %>
-                  </div>
-                  <% if (item.wikiUrl) { %>
-                    <a href="<%= item.wikiUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200">
-                      <span class="lucide w-4 h-4" data-lucide="external-link"></span>
-                      Wiki
-                    </a>
-                  <% } %>
-                </div>
-                <div class="bg-gray-50 rounded-lg p-3 space-y-2 text-sm text-gray-700">
-                  <p class="text-xs text-gray-500 font-semibold">100gあたり</p>
-                  <p class="text-sm">エネルギー: <strong><%= fmtNumber(item.energy) %></strong> kcal</p>
-                  <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <span>水分量: <strong><%= fmtNumber(item.water) %></strong> g</span>
-                    <span>タンパク質: <strong><%= fmtNumber(item.protein) %></strong> g</span>
-                    <span>脂質: <strong><%= fmtNumber(item.lipid) %></strong> g</span>
-                    <span>炭水化物: <strong><%= fmtNumber(item.carbohydrate) %></strong> g</span>
-                  </div>
-                </div>
-                <div class="flex flex-wrap gap-2 text-xs text-gray-700">
-                  <% if (seasons.length) { %>
-                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-emerald-700 font-semibold">季節: <%= seasons.join(' / ') %></span>
-                  <% } %>
-                  <% if (months.length) { %>
-                    <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-blue-700 font-semibold">月: <%= months.join(' / ') %></span>
-                  <% } %>
-                </div>
-                <div class="space-y-1">
-                  <p class="text-xs text-gray-500 font-semibold">この食材を使うメニュー</p>
-                  <% if (!usage.length) { %>
-                    <p class="text-xs text-gray-500">該当メニューはまだありません。</p>
-                  <% } else { %>
-                    <div class="flex flex-wrap gap-2">
-                      <% usage.slice(0,3).forEach((menu)=>{ %>
-                        <a href="/users/menu/<%= menu.id %>" class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs border border-gray-200 hover:bg-gray-200">
-                          <span class="lucide w-3 h-3" data-lucide="utensils-crossed"></span>
-                          <span class="truncate max-w-[150px]"><%= menu.name %></span>
-                        </a>
-                      <% }); %>
-                      <% if (extra > 0) { %>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full bg-gray-50 text-gray-600 text-xs border border-gray-200">+<%= extra %>件</span>
-                      <% } %>
-                    </div>
-                  <% } %>
-                </div>
-              </div>
-            </div>
-          <% }); %>
-        </div>
-      <% } %>
-    </section>
-
-    <section class="space-y-3">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-xs text-sky-700 font-semibold mb-1">今月の旬</p>
-          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <span class="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-sky-700 text-sm">
-              <span class="lucide w-4 h-4" data-lucide="calendar"></span>
-              <span><%= selectedMonth %></span>
-            </span>
-            <span class="text-sm text-gray-600">該当 <%= (monthlyList || []).length %> 件</span>
-          </h2>
-        </div>
+      <div class="flex items-center gap-3 text-sm text-gray-700">
+        <span class="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-sky-700">
+          <span class="lucide w-4 h-4" data-lucide="calendar"></span>
+          <span><%= selectedMonth %></span>
+        </span>
+        <span class="text-sm text-gray-600">該当 <%= (monthlyList || []).length %> 件</span>
       </div>
       <% if (!(monthlyList || []).length) { %>
         <div class="border border-dashed border-sky-200 rounded-xl bg-sky-50 text-sky-800 text-sm px-4 py-3">
-          選択した条件に一致する今月の旬の食材がありませんでした。
+          選択した条件に一致する旬の食材がありませんでした。
         </div>
       <% } else { %>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
