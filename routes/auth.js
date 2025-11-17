@@ -7,6 +7,7 @@ import Mymenu from '../models/mymenu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import Group from '../models/groups.js';
 import Notification from '../models/notification.js';
+import SearchLog from '../models/searchLog.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import MenuDo from '../models/menuDo.js';
@@ -2206,6 +2207,44 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     } catch(_){ /* ignore */ }
   }
 
+  // 人気キーワード（直近7日）
+  const popularKeywords = await (async () => {
+    const since = new Date(); since.setDate(since.getDate() - 7);
+    const rows = await SearchLog.aggregate([
+      { $match: { type: 'keyword', createdAt: { $gte: since } } },
+      { $group: { _id: '$term', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+    return rows.map(r => ({ term: r._id, count: r.count })).filter(r => r.term);
+  })();
+
+  // 人気ジャンル（直近7日、WeeklyMenuPlanに含まれるメニューのジャンル集計）
+  const popularGenres = await (async () => {
+    const since = new Date(); since.setDate(since.getDate() - 7);
+    const plans = await WeeklyMenuPlan.find({ updatedAt: { $gte: since } })
+      .select('dayPlans')
+      .lean();
+    const menuIds = [];
+    (plans || []).forEach((p) => {
+      (p.dayPlans || []).forEach((dp) => {
+        (dp.slots || []).forEach((s) => { if (s.menu) menuIds.push(s.menu); });
+      });
+    });
+    if (!menuIds.length) return [];
+    const menus = await Menu.find({ _id: { $in: menuIds } }).select('junle').lean();
+    const counts = new Map();
+    menus.forEach((m) => {
+      const j = m.junle || '';
+      if (!j) return;
+      counts.set(j, (counts.get(j) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+  })();
+
   res.render('users/myTop', {
     nextWeekPlan,
     nextWeekRangeLabel,
@@ -2228,7 +2267,9 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     groupMemberItems,
     myOwnMyMenus,
     groupMemberMyMenus,
-    mystockCounts
+    mystockCounts,
+    popularKeywords,
+    popularGenres
   });
   } catch (err) {
     return next(err);

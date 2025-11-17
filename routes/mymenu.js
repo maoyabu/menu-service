@@ -11,6 +11,7 @@ import cloudinary from '../utils/cloudinary.js';
 import fs from 'fs/promises';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
+import SearchLog from '../models/searchLog.js';
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -183,6 +184,18 @@ router.get('/shared-register', async (req, res, next) => {
         $or: [ { name: rx }, { yomi: rx }, { kind: rx }, { junle: rx }, { cook: rx }, { menu: rx } ]
       });
     }
+    if (keyword) {
+      try {
+        await SearchLog.create({
+          term: keyword,
+          source: 'shared-list',
+          type: 'keyword',
+          user: req.user?._id || null,
+          group: res.locals.userDefaultGroupId || null
+        });
+      } catch(_) { /* ignore logging errors */ }
+    }
+
     const adminShared = await Menu.find(menuFilter.length ? { $and: [...menuFilter, { isPrivate: { $ne: true } }] } : { isPrivate: { $ne: true } })
       .lean();
 
