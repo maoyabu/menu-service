@@ -2276,6 +2276,125 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   }
 });
 
+// 旬の食材一覧（今月/季節）
+router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => {
+  try {
+    const { keyword = '', classification = '', season = '', month = '' } = req.query;
+    const keywordText = String(keyword || '').trim();
+    const classificationFilter = String(classification || '').trim();
+    const hasSeasonParam = Object.prototype.hasOwnProperty.call(req.query, 'season');
+    const hasMonthParam = Object.prototype.hasOwnProperty.call(req.query, 'month');
+
+    const escapeRegex = (text) => {
+      if (!text) return null;
+      return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    };
+    const normalizeMonthLabel = (value) => {
+      const raw = String(value || '').trim().replace(/月$/, '');
+      const num = Number(raw);
+      if (Number.isFinite(num) && num >= 1 && num <= 12) return `${num}月`;
+      return '';
+    };
+    const monthToSeason = (m) => {
+      if (m >= 3 && m <= 6) return '春';
+      if (m >= 7 && m <= 9) return '夏';
+      if (m >= 10 && m <= 11) return '秋';
+      return '冬';
+    };
+    const normalizeSeason = (value) => {
+      const raw = String(value || '').trim();
+      return ['春', '夏', '秋', '冬'].includes(raw) ? raw : '';
+    };
+    const normalizeSeasonList = (val) =>
+      (Array.isArray(val) ? val : [])
+        .map((s) => String(s || '').trim())
+        .filter(Boolean)
+        .filter((s) => s.toLowerCase() !== 'all');
+    const normalizeMonthList = (val) =>
+      (Array.isArray(val) ? val : [])
+        .map((m) => normalizeMonthLabel(m) || '')
+        .filter(Boolean)
+        .filter((m) => m.toLowerCase() !== 'all');
+
+    const now = new Date();
+    const currentMonthNumber = now.getMonth() + 1;
+    const currentMonthLabel = `${currentMonthNumber}月`;
+    const selectedSeason = hasSeasonParam ? normalizeSeason(season) : '';
+    // デフォルトは今月で絞り込む。monthパラメータが空で渡された場合は未選択扱い。
+    const selectedMonth = hasMonthParam ? normalizeMonthLabel(month) : currentMonthLabel;
+
+    const keywordRx = escapeRegex(keywordText);
+    const filters = [];
+    if (keywordRx) {
+      filters.push({ $or: [{ ingredient: keywordRx }, { yomi: keywordRx }, { classification: keywordRx }] });
+    }
+    if (classificationFilter) {
+      filters.push({ classification: classificationFilter });
+    }
+    const query = filters.length ? { $and: filters } : {};
+
+    const ingredients = await Ingredient.find(query)
+      .select('ingredient classification yomi energy water protein lipid carbohydrate wikiUrl imageUrl season month')
+      .lean();
+
+    const monthActive = !!selectedMonth;
+
+    const seasonalList = ingredients.filter((ing) => {
+      const seasons = normalizeSeasonList(ing.season);
+      if (!seasons.length) return false;
+      const months = normalizeMonthList(ing.month);
+      const seasonOk = selectedSeason ? seasons.includes(selectedSeason) : true;
+      const monthOk = monthActive ? months.includes(selectedMonth) : true;
+      return seasonOk && monthOk;
+    });
+    const monthlyList = ingredients.filter((ing) => {
+      const months = normalizeMonthList(ing.month);
+      if (!months.length) return false;
+      return selectedMonth ? months.includes(selectedMonth) : true;
+    });
+
+    const targetIds = new Set([...seasonalList, ...monthlyList].map((ing) => String(ing._id)));
+    const menuUsage = {};
+    if (targetIds.size) {
+      const menus = await Menu.find({ 'ingredients.name': { $in: Array.from(targetIds) } })
+        .select('name ingredients')
+        .lean();
+      menus.forEach((menu) => {
+        (menu.ingredients || []).forEach((ingRef) => {
+          const id = ingRef?.name?.toString?.() || '';
+          if (!id || !targetIds.has(id)) return;
+          const arr = menuUsage[id] || (menuUsage[id] = []);
+          if (arr.length >= 10) return;
+          arr.push({ id: String(menu._id), name: menu.name || '' });
+        });
+      });
+    }
+
+    const classifications = (await Ingredient.distinct('classification')).filter(Boolean).sort((a, b) => a.localeCompare(b, 'ja'));
+    const seasonOptions = ['春', '夏', '秋', '冬'];
+    const monthOptions = Array.from({ length: 12 }, (_, idx) => `${idx + 1}月`);
+    const seo = { title: '旬の食材リスト' };
+
+    return res.render('users/seasonalIngredients', {
+      keyword: keywordText,
+      classification: classificationFilter,
+      selectedSeason,
+      selectedMonth,
+      currentMonthLabel,
+      currentSeason: monthToSeason(currentMonthNumber),
+      seasonalList,
+      monthlyList,
+      seasonOptions,
+      monthOptions,
+      classifications,
+      menuUsage,
+      seo
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
   try {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
