@@ -2383,7 +2383,13 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
               sourceType = 'original';
             }
           }
-          arr.push({ id: menuId, name: menu.name || '', url: menu.url || '', sourceType });
+          arr.push({
+            id: menuId,
+            name: menu.name || '',
+            url: menu.url || '',
+            sourceType,
+            share: menu.share === true
+          });
         });
       });
     }

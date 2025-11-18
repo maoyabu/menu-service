@@ -140,7 +140,7 @@
                     <p class="text-xs text-gray-500">該当メニューはまだありません。</p>
                   <% } else { %>
                     <div class="flex flex-wrap gap-2">
-                      <% usage.slice(0,3).forEach((menu)=>{ const href = menu.url ? menu.url : `/users/menu/${menu.id}`; const external = !!menu.url; const tagClass = external ? 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'; %>
+                      <% usage.slice(0,3).forEach((menu)=>{ const href = menu.url ? menu.url : `/users/menu/${menu.id}`; const type = menu.sourceType || (menu.share ? 'shared' : (menu.url ? 'url' : 'original')); const tagClass = type === 'url' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : (type === 'shared' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'); %>
                         <a href="<%= href %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border <%= tagClass %>">
                           <span class="lucide w-3 h-3" data-lucide="utensils-crossed"></span>
                           <span class="truncate max-w-[150px]"><%= menu.name %></span>
@@ -203,9 +203,13 @@
       list.forEach((m) => {
         const external = !!m.url;
         const href = external ? m.url : `/users/menu/${m.id}`;
-        const cls = external
-          ? 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200'
-          : 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100';
+        const type = m.sourceType || (m.share ? 'shared' : (m.url ? 'url' : 'original'));
+        const cls =
+          type === 'url'
+            ? 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+            : type === 'shared'
+              ? 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+              : 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100';
         const a = document.createElement('a');
         a.className = cls;
         a.href = href;
