@@ -140,10 +140,11 @@
                     <p class="text-xs text-gray-500">該当メニューはまだありません。</p>
                   <% } else { %>
                     <div class="flex flex-wrap gap-2">
-                      <% usage.slice(0,3).forEach((menu)=>{ const href = menu.url ? menu.url : `/users/menu/${menu.id}`; const type = menu.sourceType || 'shared'; const tagClass = type === 'url' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : (type === 'shared' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'); %>
+                      <% usage.slice(0,3).forEach((menu)=>{ const href = menu.url ? menu.url : `/users/menu/${menu.id}`; const type = menu.sourceType || 'shared'; const tagClass = type === 'url' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : (type === 'shared' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'); const amt = (typeof menu.amountGrams === 'number') ? `${menu.amountGrams}g` : (typeof menu.amount === 'number' ? `${menu.amount}g` : ''); %>
                         <a href="<%= href %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border <%= tagClass %>">
                           <span class="lucide w-3 h-3" data-lucide="utensils-crossed"></span>
                           <span class="truncate max-w-[150px]"><%= menu.name %></span>
+                          <% if (amt) { %><span class="text-[11px] opacity-80">(<%= amt %>)</span><% } %>
                         </a>
                       <% }); %>
                       <% if (extra > 0) { %>
@@ -204,6 +205,7 @@
         const external = !!m.url;
         const href = external ? m.url : `/users/menu/${m.id}`;
         const type = m.sourceType || 'shared';
+        const amt = (typeof m.amountGrams === 'number') ? `${m.amountGrams}g` : (typeof m.amount === 'number' ? `${m.amount}g` : '');
         const cls =
           type === 'url'
             ? 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
@@ -216,7 +218,8 @@
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         a.innerHTML = '<span class="lucide w-3 h-3" data-lucide="utensils-crossed"></span>' +
-          '<span class="truncate max-w-[220px]">' + (m.name || '') + '</span>';
+          '<span class="truncate max-w-[220px]">' + (m.name || '') + '</span>' +
+          (amt ? ' <span class="text-[11px] opacity-80">(' + amt + ')</span>' : '');
         frag.appendChild(a);
       });
       body.innerHTML = '';

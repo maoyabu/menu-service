@@ -2347,6 +2347,37 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
 
     const targetIds = new Set(monthlyList.map((ing) => String(ing._id)));
     const menuUsage = {};
+    // g換算用に食材の単位変換マスタを取得
+    const ingredientConversions = new Map();
+    if (targetIds.size) {
+      const ingMeta = await Ingredient.find({ _id: { $in: Array.from(targetIds) } })
+        .select('unitConversions')
+        .lean();
+      (ingMeta || []).forEach((ing) => {
+        const convMap = new Map();
+        (ing.unitConversions || []).forEach((c) => {
+          if (!c || typeof c.label !== 'string') return;
+          if (typeof c.grams !== 'number') return;
+          convMap.set(c.label, c.grams);
+        });
+        ingredientConversions.set(String(ing._id), convMap);
+      });
+    }
+
+    const toGrams = (amount, unit, ingId) => {
+      const val = Number(amount);
+      if (!Number.isFinite(val)) return null;
+      const u = (unit || '').trim();
+      if (!u) return null;
+      if (u === 'g' || u === 'グラム' || u.toLowerCase() === 'gram') return val;
+      const conv = ingredientConversions.get(String(ingId));
+      if (conv && conv.has(u)) {
+        const per = conv.get(u);
+        if (Number.isFinite(per)) return Math.round(val * per * 100) / 100;
+      }
+      return null;
+    };
+
     if (targetIds.size) {
       const menuDocs = await Menu.find({ 'ingredients.name': { $in: Array.from(targetIds) } })
         .select('name ingredients url share')
@@ -2377,13 +2408,29 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
           if (!sourceType) {
             sourceType = 'shared';
           }
+          const grams = toGrams(ingRef?.amount, ingRef?.unit, id);
           arr.push({
             id: menuId,
             name: menu.name || '',
             url: menu.url || '',
             sourceType,
-            share: menu.share === true
+            share: menu.share === true,
+            amount: typeof ingRef?.amount === 'number' ? ingRef.amount : null,
+            amountGrams: grams
           });
+        });
+      });
+
+      // Sort each ingredient's menu list by descending usage amount (missing amounts last)
+      Object.keys(menuUsage).forEach((ingId) => {
+        menuUsage[ingId].sort((a, b) => {
+          const aAmt = typeof a.amountGrams === 'number'
+            ? a.amountGrams
+            : (typeof a.amount === 'number' ? a.amount : -1);
+          const bAmt = typeof b.amountGrams === 'number'
+            ? b.amountGrams
+            : (typeof b.amount === 'number' ? b.amount : -1);
+          return bAmt - aAmt;
         });
       });
     }
