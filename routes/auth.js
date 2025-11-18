@@ -2375,13 +2375,7 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
           if (arr.some((m) => m.id === menuId)) return;
           let sourceType = sourceTypeMap.get(menuId) || '';
           if (!sourceType) {
-            if (menu.share === true) {
-              sourceType = 'shared';
-            } else if (menu.url) {
-              sourceType = 'url';
-            } else {
-              sourceType = 'original';
-            }
+            sourceType = 'shared';
           }
           arr.push({
             id: menuId,
