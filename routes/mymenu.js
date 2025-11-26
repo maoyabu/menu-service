@@ -1005,6 +1005,7 @@ router.post('/from-url', async (req, res, next) => {
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
       favorite = 'false', frequency = '3',
+      makeAhead = 'false',
       share = 'false', shareScope = 'group'
     } = req.body;
 
@@ -1033,6 +1034,7 @@ router.post('/from-url', async (req, res, next) => {
       url, imageUrl, time, people: Number(people) || 1,
       ingredients, seasoning: seasonings,
       comment: req.body.comment || '',
+      makeAhead: String(makeAhead) === 'true',
       share: String(share) === 'true'
     });
 
@@ -1235,6 +1237,7 @@ router.get('/duplicate/:id', async (req, res, next) => {
       people: menu.people || 1,
       instruction: menu.instructionText || '',
       comment: menu.comment || '',
+      makeAhead: !!menu.makeAhead,
       ingredients: (menu.ingredients || []).map((x)=>({ id: String(x.name||''), amount: x.amount || '', unit: x.unit || '' })),
       seasonings: (menu.seasoning || []).map((x)=>({ id: String(x.name||''), amount: x.amount || '', unit: x.unit || '' }))
     };
@@ -1281,6 +1284,7 @@ router.post('/original', async (req, res, next) => {
       instruction = '',
       comment = '',
       favorite = 'false', frequency = '3',
+      makeAhead = 'false',
       hidden = 'false',
       share = 'false', shareScope = 'group'
     } = req.body;
@@ -1303,6 +1307,7 @@ router.post('/original', async (req, res, next) => {
       ingredients, seasoning: seasonings,
       instructionText: String(instruction || ''),
       comment: String(comment || ''),
+      makeAhead: String(makeAhead) === 'true',
       share: String(share) === 'true'
     });
 
@@ -1619,6 +1624,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       yomi,
       favorite = 'true',
       frequency = '3',
+      makeAhead = 'false',
       share = 'false',
       shareScope = 'group',
       ingredient_ids = [],
@@ -1642,6 +1648,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
     const updatePayload = {
       name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1,
       comment,
+      makeAhead: String(makeAhead) === 'true',
       ingredients, seasoning: seasonings
     };
     if (owned && owned.sourceType === 'original') {
