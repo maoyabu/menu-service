@@ -99,7 +99,21 @@
           <% }) %>
         </datalist>
       </div>
-      <!-- 7. 素材フラグ -->
+      <!-- 7. 基本メニュー -->
+      <div>
+        <p class="block mb-2 text-sm font-bold text-gray-700">基本メニュー</p>
+        <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer">
+          <input type="hidden" name="basicMenu" value="false">
+          <input type="checkbox" name="basicMenu" value="true" class="toggle-input sr-only" <%= menu.basicMenu ? 'checked' : '' %> aria-label="基本メニューフラグ">
+          <span class="toggle-track"><span class="toggle-knob"></span></span>
+          <span class="toggle-state">
+            <span class="state-off">OFF</span>
+            <span class="state-on">ON</span>
+          </span>
+          <span>基本メニューにする</span>
+        </label>
+      </div>
+      <!-- 8. 素材フラグ -->
       <div>
         <p class="block mb-2 text-sm font-bold text-gray-700">素材フラグ</p>
         <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer">

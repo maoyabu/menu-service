@@ -311,7 +311,7 @@ router.post('/equipment-delete/:id', async (req, res) => {
 // レシピ一覧画面（DBから取得）
 router.get('/menu-list', async (req, res) => {
   try {
-    const { kind, junle, cook, keyword, image: imageFilter, makeAhead } = req.query;
+    const { kind, junle, cook, keyword, image: imageFilter, makeAhead, basicMenu } = req.query;
 
     const filterConditions = [];
 
@@ -347,6 +347,9 @@ router.get('/menu-list', async (req, res) => {
     if (toBool(makeAhead)) {
       filterConditions.push({ makeAhead: true });
     }
+    if (toBool(basicMenu)) {
+      filterConditions.push({ basicMenu: true });
+    }
 
     const composedFilter = filterConditions.length ? { $and: filterConditions } : {};
 
@@ -369,6 +372,7 @@ router.get('/menu-list', async (req, res) => {
     if (keyword) appliedParams.append('keyword', keyword);
     if (imageFilter) appliedParams.append('image', imageFilter);
     if (toBool(makeAhead)) appliedParams.append('makeAhead', 'true');
+    if (toBool(basicMenu)) appliedParams.append('basicMenu', 'true');
     const filterQueryString = appliedParams.toString();
     const filterQueryEncoded = encodeURIComponent(filterQueryString);
 
@@ -383,6 +387,7 @@ router.get('/menu-list', async (req, res) => {
       keyword: keyword || '',
       selectedImageFilter: imageFilter || '',
       selectedMakeAhead: toBool(makeAhead) ? 'true' : '',
+      selectedBasicMenu: toBool(basicMenu) ? 'true' : '',
       menusJSON: JSON.stringify(menus), // 🔸追加
       ingredientList,
       seasoningList,
@@ -397,8 +402,7 @@ router.get('/menu-list', async (req, res) => {
 
 // レシピ一覧絞り込み処理（POST → GET へリダイレクト）
 router.post('/menu-list', (req, res) => {
-  const { kind, junle, cook, keyword, image } = req.body;
-  const { makeAhead } = req.body;
+  const { kind, junle, cook, keyword, image, makeAhead, basicMenu } = req.body;
 
   const query = new URLSearchParams();
   if (kind) query.append('kind', kind);
@@ -407,6 +411,7 @@ router.post('/menu-list', (req, res) => {
   if (keyword) query.append('keyword', keyword);
   if (image) query.append('image', image);
   if (makeAhead) query.append('makeAhead', makeAhead);
+  if (basicMenu) query.append('basicMenu', basicMenu);
 
   res.redirect(`/admin/menu-list?${query.toString()}`);
 });
@@ -611,6 +616,7 @@ router.post('/menu-new', async (req, res) => {
       yomi,
       material,
       makeAhead,
+      basicMenu,
       ingredient_ids = [],
       ingredient_amounts = [],
       ingredient_units = [],
@@ -647,6 +653,7 @@ router.post('/menu-new', async (req, res) => {
       yomi,
       material: toBool(material),
       makeAhead: toBool(makeAhead),
+      basicMenu: toBool(basicMenu),
       isPrivate: toBool(req.body.isPrivate),
       ingredients,
       seasoning: seasonings,
@@ -750,6 +757,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       yomi,
       material,
       makeAhead,
+      basicMenu,
       ingredient_ids = [],
       ingredient_amounts = [],
       ingredient_units = [],
@@ -787,6 +795,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       yomi,
       material: toBool(material),
       makeAhead: toBool(makeAhead),
+      basicMenu: toBool(basicMenu),
       isPrivate: toBool(req.body.isPrivate),
       ingredients,
       seasoning: seasonings

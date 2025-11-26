@@ -1006,6 +1006,7 @@ router.post('/from-url', async (req, res, next) => {
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
       favorite = 'false', frequency = '3',
       makeAhead = 'false',
+      basicMenu = 'false',
       share = 'false', shareScope = 'group'
     } = req.body;
 
@@ -1035,6 +1036,7 @@ router.post('/from-url', async (req, res, next) => {
       ingredients, seasoning: seasonings,
       comment: req.body.comment || '',
       makeAhead: String(makeAhead) === 'true',
+      basicMenu: String(basicMenu) === 'true',
       share: String(share) === 'true'
     });
 
@@ -1285,6 +1287,7 @@ router.post('/original', async (req, res, next) => {
       comment = '',
       favorite = 'false', frequency = '3',
       makeAhead = 'false',
+      basicMenu = 'false',
       hidden = 'false',
       share = 'false', shareScope = 'group'
     } = req.body;
@@ -1308,6 +1311,7 @@ router.post('/original', async (req, res, next) => {
       instructionText: String(instruction || ''),
       comment: String(comment || ''),
       makeAhead: String(makeAhead) === 'true',
+      basicMenu: String(basicMenu) === 'true',
       share: String(share) === 'true'
     });
 
@@ -1625,6 +1629,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       favorite = 'true',
       frequency = '3',
       makeAhead = 'false',
+      basicMenu = 'false',
       share = 'false',
       shareScope = 'group',
       ingredient_ids = [],
@@ -1649,6 +1654,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1,
       comment,
       makeAhead: String(makeAhead) === 'true',
+      basicMenu: String(basicMenu) === 'true',
       ingredients, seasoning: seasonings
     };
     if (owned && owned.sourceType === 'original') {

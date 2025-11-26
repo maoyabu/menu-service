@@ -70,6 +70,10 @@ const menuSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    basicMenu: {
+        type: Boolean,
+        default: false
+    },
     comment: {
         type: String
     },

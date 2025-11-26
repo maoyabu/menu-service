@@ -358,6 +358,7 @@ const formatMenuDocument = (doc) => ({
   junle: doc.junle,
   time: doc.time,
   makeAhead: !!doc.makeAhead,
+  basicMenu: !!doc.basicMenu,
   ingredients: (doc.ingredients || []).map((item) => ({
     id: item?.name?._id ? item.name._id.toString() : null,
     name: item?.name?.ingredient || '',
