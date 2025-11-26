@@ -11,6 +11,7 @@
     </a>
   </div>
   <style>
+    /* 基本トグル: OFF=グレー左, ON=ブルー右 */
     .toggle-track { position: relative; width: 48px; height: 24px; background: #d1d5db; border-radius: 9999px; display: inline-flex; align-items: center; padding: 0 2px; transition: background-color .2s ease; }
     .toggle-knob { width: 20px; height: 20px; border-radius: 9999px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); transition: transform .2s ease; transform: translateX(0); }
     .toggle-input:checked + .toggle-track { background: #3b82f6; }
@@ -22,19 +23,28 @@
     .toggle-input:checked ~ .toggle-state .state-off { background: #fff; color: #9ca3af; }
     .toggle-input:not(:checked) ~ .toggle-state .state-on { background: #fff; color: #9ca3af; }
     .toggle-input:not(:checked) ~ .toggle-state .state-off { background: #f3f4f6; border-color: #d1d5db; color: #374151; font-weight: 600; }
+    /* invert mode: 未チェック=公開(ON)を強調しトラックもブルー, チェックで非公開(OFF)強調 */
+    .toggle-invert .toggle-track { background: #3b82f6; }
+    .toggle-invert .toggle-knob { transform: translateX(24px); }
+    .toggle-invert .toggle-input:checked + .toggle-track { background: #d1d5db; }
+    .toggle-invert .toggle-input:checked + .toggle-track .toggle-knob { transform: translateX(0); }
+    .toggle-invert .toggle-input:not(:checked) ~ .toggle-state .state-on { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; font-weight: 600; }
+    .toggle-invert .toggle-input:not(:checked) ~ .toggle-state .state-off { background: #fff; color: #9ca3af; }
+    .toggle-invert .toggle-input:checked ~ .toggle-state .state-off { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; font-weight: 600; }
+    .toggle-invert .toggle-input:checked ~ .toggle-state .state-on { background: #fff; color: #9ca3af; }
   </style>
 
   <form action="/admin/menu-edit/<%= menu._id %>?_method=PUT" method="POST" class="space-y-8">
     <input type="hidden" name="filters" value="<%= filters || '' %>">
     <div class="flex flex-wrap items-center gap-4 p-4 bg-gray-50 border rounded-lg">
       <span class="text-sm font-bold text-gray-700">公開設定</span>
-      <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer">
+      <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer toggle-invert">
         <input type="hidden" name="isPrivate" value="false">
         <input type="checkbox" name="isPrivate" value="true" class="toggle-input sr-only" <%= menu.isPrivate ? 'checked' : '' %> aria-label="非公開フラグ">
         <span class="toggle-track"><span class="toggle-knob"></span></span>
         <span class="toggle-state">
-          <span class="state-off">公開</span>
-          <span class="state-on">非公開</span>
+          <span class="state-off">非公開</span>
+          <span class="state-on">公開</span>
         </span>
       </label>
     </div>

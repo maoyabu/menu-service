@@ -183,6 +183,12 @@
               <option value="">すべて</option>
             </select>
           </div>
+          <div class="flex items-end">
+            <label class="inline-flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+              <span>つくりおきのみ</span>
+            </label>
+          </div>
         </div>
 
         <div class="hidden rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800" data-menu-modal-current>
@@ -1774,6 +1780,7 @@
       kindSelect: document.querySelector('[data-menu-modal-kind]'),
       junleSelect: document.querySelector('[data-menu-modal-junle]'),
       cookSelect: document.querySelector('[data-menu-modal-cook]'),
+      prepOnly: document.querySelector('[data-menu-modal-prep]'),
       list: document.querySelector('[data-menu-modal-list]'),
       empty: document.querySelector('[data-menu-modal-empty]'),
       currentSection: document.querySelector('[data-menu-modal-current]'),
@@ -1791,7 +1798,8 @@
         search: '',
         kind: '',
         junle: '',
-        cook: ''
+        cook: '',
+        prepOnly: false
       }
     };
 
@@ -1838,7 +1846,7 @@
     };
 
     const applyModalFilters = () => {
-      const { search, kind, junle, cook } = modalState.filters;
+      const { search, kind, junle, cook, prepOnly } = modalState.filters;
       const query = search.trim().toLowerCase();
       const activeFilters = {
         kind: kind || '',
@@ -1851,6 +1859,7 @@
         if (activeFilters.kind && menu.kind !== activeFilters.kind) return false;
         if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
         if (activeFilters.cook && menu.cook !== activeFilters.cook) return false;
+        if (prepOnly && !menu.makeAhead) return false;
         if (!query) return true;
         // 検索対象を「レシピ名・よみ・メニュー」に限定
         const candidates = [
@@ -1936,7 +1945,7 @@
       modalState.categoryKey = '';
       modalState.options = [];
       modalState.currentMenu = null;
-      modalState.filters = { search: '', kind: '', junle: '', cook: '' };
+      modalState.filters = { search: '', kind: '', junle: '', cook: '', prepOnly: false };
       if (modalElements.overlay) {
         modalElements.overlay.classList.add('hidden');
         modalElements.overlay.setAttribute('aria-hidden', 'true');
@@ -2004,7 +2013,8 @@
         search: '',
         kind: '',
         junle: currentMenu?.junle || '',
-        cook: ''
+        cook: '',
+        prepOnly: false
       };
 
       // 種類(kind) はメニュー由来 + グローバル定義（デザート等）を統合
@@ -2045,6 +2055,9 @@
 
       if (modalElements.searchInput) {
         modalElements.searchInput.value = '';
+      }
+      if (modalElements.prepOnly) {
+        modalElements.prepOnly.checked = false;
       }
 
       modalElements.overlay.classList.remove('hidden');
@@ -2099,6 +2112,13 @@
     if (modalElements.cookSelect) {
       modalElements.cookSelect.addEventListener('change', (event) => {
         modalState.filters.cook = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.prepOnly) {
+      modalElements.prepOnly.addEventListener('change', (event) => {
+        modalState.filters.prepOnly = !!event.target.checked;
         renderModalList();
       });
     }
