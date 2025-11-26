@@ -715,6 +715,8 @@ router.get('/menu-edit/:id', async (req, res) => {
 
     const filters = typeof req.query.filters === 'string' ? req.query.filters : '';
     const backToListUrl = filters ? `/admin/menu-list?${filters}` : '/admin/menu-list';
+    const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
+    const menuUrlForForm = menu.url || `${baseUrl}/users/menu/${menu._id}`;
 
     res.render('admin/menu-edit', {
       menu,
@@ -732,7 +734,8 @@ router.get('/menu-edit/:id', async (req, res) => {
       initialIngredients,
       initialSeasonings,
       filters,
-      backToListUrl
+      backToListUrl,
+      menuUrlForForm
     });
   } catch (err) {
     console.error('レシピ編集画面表示エラー:', err);
