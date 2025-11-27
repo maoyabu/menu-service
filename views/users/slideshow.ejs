@@ -74,7 +74,8 @@
       </div>
     </div>
   </div>
-  <div class="absolute top-4 right-4 z-[2]">
+  <div class="absolute top-4 right-4 z-[2] flex flex-col items-end gap-2">
+    <span id="slideshow-type-label" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 text-white text-[11px] tracking-wide"></span>
     <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/50 text-white text-xs">
       <i data-lucide="x" class="w-4 h-4"></i> クリック/タップで終了
     </span>
@@ -185,11 +186,19 @@
 <script>
   (function(){
     const EFFECTS = ['fade','slide','zoom','blur','pan','flip','wipe','glow'];
+    const TYPE_LABEL = {
+      'favorites': 'お気に入りのメニュー',
+      'seasonal-menus': '旬なメニュー',
+      'seasonal-ingredients': '旬な食材',
+      'ingredients': '食材図鑑',
+      'seasonings': '調味料図鑑'
+    };
     const typeEl = document.getElementById('slideshow-type');
     const effectEl = document.getElementById('slideshow-effect');
     const intervalEl = document.getElementById('slideshow-interval');
     const startBtn = document.getElementById('start-slideshow');
     const statusEl = document.getElementById('slideshow-status');
+    const typeLabelEl = document.getElementById('slideshow-type-label');
 
     const overlay = document.getElementById('slideshow-overlay');
     const stage = document.getElementById('slideshow-stage');
@@ -270,6 +279,8 @@
       effectMode = effect || 'fade';
       const firstEffect = pickEffect();
       overlay.dataset.effect = firstEffect;
+      const label = TYPE_LABEL[typeEl.value] || 'スライドショー';
+      if (typeLabelEl) typeLabelEl.textContent = label;
       if (!slides.length) {
         statusEl.textContent = '対象のスライドが見つかりませんでした（画像未設定の可能性があります）';
         return;
