@@ -10,6 +10,8 @@ import StoragePlace from '../models/storagePlace.js';
 import { isAdmin } from '../middleware.js';
 import Equipment from '../models/equipment.js';
 import MailTemplateSetting from '../models/mailTemplateSetting.js';
+import Mymenu from '../models/mymenu.js';
+import AdminLog from '../models/adminLog.js';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
 import ExcelJS from 'exceljs';
@@ -18,6 +20,21 @@ import ExcelJS from 'exceljs';
 const router = express.Router();
 // 管理画面は管理者のみアクセス可能
 router.use(isAdmin);
+
+async function logAdminAction(action, payload = {}) {
+  try {
+    const { menuId = null, menuName = '', actorId = null, detail = '' } = payload;
+    await AdminLog.create({
+      action,
+      menu: menuId,
+      menuName,
+      actor: actorId,
+      detail
+    });
+  } catch (e) {
+    console.error('admin log save error:', e?.message || e);
+  }
+}
 
 const normalizeUnitPayload = (unitInput, gramsInput) => {
   const unitArray = Array.isArray(unitInput)
@@ -148,6 +165,38 @@ router.get('/admin-top', async (req, res) => {
   } catch (err) {
     console.error('ダッシュボード表示エラー:', err);
     res.status(500).send('ダッシュボードを表示できませんでした');
+  }
+});
+
+router.get('/logs', async (req, res) => {
+  try {
+    const pageSize = 50;
+    const page = Math.max(1, parseInt(req.query.page || '1', 10));
+    const selectedAction = (req.query.action || '').toString().trim();
+    const filter = {};
+    if (selectedAction) filter.action = selectedAction;
+
+    const [logs, total, actions] = await Promise.all([
+      AdminLog.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .populate('actor', 'displayname username email')
+        .lean(),
+      AdminLog.countDocuments(filter),
+      AdminLog.distinct('action')
+    ]);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    res.render('admin/admin-logs', {
+      logs,
+      actions,
+      selectedAction,
+      page,
+      totalPages
+    });
+  } catch (err) {
+    console.error('管理ログ表示エラー:', err);
+    res.status(500).send('ログを表示できませんでした');
   }
 });
 
@@ -662,6 +711,12 @@ router.post('/menu-new', async (req, res) => {
     });
 
     await newMenu.save();
+    await logAdminAction('menu:create', {
+      menuId: newMenu._id,
+      menuName: newMenu.name || '',
+      actorId: req.user?._id || null,
+      detail: `created by admin (${req.user?.username || req.user?.email || 'unknown'})`
+    });
     res.redirect('/admin/menu-list');
   } catch (err) {
     console.error('レシピ保存エラー:', err);
@@ -815,7 +870,24 @@ router.post('/menu-edit/:id', async (req, res) => {
 // レシピ削除処理
 router.post('/menu-delete/:id', async (req, res) => {
   try {
+    const targetMenu = await Menu.findById(req.params.id).lean();
+    await Mymenu.deleteMany({ menu: req.params.id }); // レシピ削除時に紐づくマイメニューも掃除
     await Menu.findByIdAndDelete(req.params.id);
+    if (targetMenu) {
+      await logAdminAction('menu:delete', {
+        menuId: targetMenu._id,
+        menuName: targetMenu.name || '',
+        actorId: req.user?._id || null,
+        detail: `deleted by admin (${req.user?.username || req.user?.email || 'unknown'})`
+      });
+    } else {
+      await logAdminAction('menu:delete', {
+        menuId: req.params.id,
+        menuName: '',
+        actorId: req.user?._id || null,
+        detail: 'delete attempted but menu not found'
+      });
+    }
     res.redirect('/admin/menu-list');
   } catch (err) {
     console.error('レシピ削除エラー:', err);

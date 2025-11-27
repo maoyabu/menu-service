@@ -1,0 +1,83 @@
+<div class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+  <header class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-900">管理ログ</h1>
+      <p class="text-sm text-gray-500 mt-1">管理画面でのメニュー登録・削除の履歴</p>
+    </div>
+    <a href="/admin/admin-top" class="text-sm text-blue-700 hover:underline flex items-center gap-1">
+      <span data-lucide="arrow-left" class="w-4 h-4"></span> ダッシュボードに戻る
+    </a>
+  </header>
+
+  <form method="get" class="bg-white border rounded-lg p-4 shadow-sm flex items-center gap-3 text-sm">
+    <label class="flex items-center gap-2">
+      <span class="text-gray-600">アクション</span>
+      <select name="action" class="border rounded px-3 py-1.5">
+        <option value="">すべて</option>
+        <% (actions || []).forEach(function(a){ %>
+          <option value="<%= a %>" <%= selectedAction === a ? 'selected' : '' %>><%= a %></option>
+        <% }); %>
+      </select>
+    </label>
+    <button class="px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700">絞り込む</button>
+    <a href="/admin/logs" class="px-3 py-1.5 rounded border">リセット</a>
+  </form>
+
+  <div class="bg-white border rounded-lg shadow-sm overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-gray-600 border-b">
+        <tr>
+          <th class="px-4 py-2 text-left">日時</th>
+          <th class="px-4 py-2 text-left">アクション</th>
+          <th class="px-4 py-2 text-left">メニュー名</th>
+          <th class="px-4 py-2 text-left">Menu ID</th>
+          <th class="px-4 py-2 text-left">実行者</th>
+          <th class="px-4 py-2 text-left">詳細</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!logs || !logs.length) { %>
+          <tr>
+            <td colspan="6" class="px-4 py-6 text-center text-gray-500">ログがありません</td>
+          </tr>
+        <% } else { %>
+          <% logs.forEach(function(log){ %>
+            <tr class="border-b last:border-0">
+              <td class="px-4 py-2 text-gray-700"><%= new Date(log.createdAt).toLocaleString('ja-JP') %></td>
+              <td class="px-4 py-2 font-mono text-xs text-blue-700"><%= log.action %></td>
+              <td class="px-4 py-2 text-gray-800"><%= log.menuName || '-' %></td>
+              <td class="px-4 py-2 font-mono text-xs text-gray-600"><%= log.menu ? log.menu.toString() : '-' %></td>
+              <td class="px-4 py-2 text-gray-800">
+                <% if (log.actor) { %>
+                  <%= log.actor.displayname || log.actor.username || log.actor.email || log.actor.toString() %>
+                <% } else { %>
+                  -
+                <% } %>
+              </td>
+              <td class="px-4 py-2 text-gray-700"><%= log.detail || '-' %></td>
+            </tr>
+          <% }); %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <% if (totalPages > 1) { %>
+    <div class="flex items-center justify-between text-sm">
+      <div>ページ <%= page %> / <%= totalPages %></div>
+      <div class="flex items-center gap-2">
+        <% const queryAction = selectedAction ? `&action=${encodeURIComponent(selectedAction)}` : ''; %>
+        <% if (page > 1) { %>
+          <a class="px-3 py-1.5 rounded border hover:bg-gray-50" href="/admin/logs?page=<%= page - 1 %><%= queryAction %>">前へ</a>
+        <% } else { %>
+          <span class="px-3 py-1.5 rounded border text-gray-400 cursor-not-allowed">前へ</span>
+        <% } %>
+        <% if (page < totalPages) { %>
+          <a class="px-3 py-1.5 rounded border hover:bg-gray-50" href="/admin/logs?page=<%= page + 1 %><%= queryAction %>">次へ</a>
+        <% } else { %>
+          <span class="px-3 py-1.5 rounded border text-gray-400 cursor-not-allowed">次へ</span>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+</div>
