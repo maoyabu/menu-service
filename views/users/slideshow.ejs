@@ -1,0 +1,312 @@
+<section class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+  <header class="space-y-1">
+    <p class="text-sm text-gray-500">設定 › スライドショー</p>
+    <h1 class="text-2xl font-bold text-gray-900">スライドショー</h1>
+    <p class="text-sm text-gray-600">お気に入り・旬メニュー/食材・図鑑をフルスクリーンでスライド表示します。クリック/タップで終了できます。</p>
+  </header>
+
+  <div class="bg-white border rounded-xl shadow-sm p-5 space-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <label class="block text-sm font-medium text-gray-700">
+        スライドショーの種類
+        <select id="slideshow-type" class="mt-1 w-full border rounded px-3 py-2 text-sm">
+          <option value="favorites">お気に入りのメニュー</option>
+          <option value="seasonal-menus">旬なメニュー（旬食材を含む）</option>
+          <option value="seasonal-ingredients">旬な食材（<%= monthLabel %>）</option>
+          <option value="ingredients">食材図鑑</option>
+          <option value="seasonings">調味料図鑑</option>
+        </select>
+      </label>
+      <label class="block text-sm font-medium text-gray-700">
+        切り替えエフェクト
+        <select id="slideshow-effect" class="mt-1 w-full border rounded px-3 py-2 text-sm">
+          <option value="fade">フェード</option>
+          <option value="slide">スライド</option>
+          <option value="zoom">ズーム</option>
+          <option value="blur">ブラー</option>
+          <option value="pan">パン / ケンバーンズ</option>
+          <option value="flip">フリップ</option>
+          <option value="wipe">ワイプ</option>
+          <option value="glow">グロー</option>
+          <option value="random">ランダム</option>
+        </select>
+      </label>
+      <label class="block text-sm font-medium text-gray-700">
+        間隔（秒）
+        <input id="slideshow-interval" type="number" min="2" max="20" value="5" class="mt-1 w-full border rounded px-3 py-2 text-sm" />
+      </label>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="start-slideshow" class="inline-flex items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+        <i data-lucide="play" class="w-4 h-4"></i> 開始
+      </button>
+      <p class="text-xs text-gray-500">開始を押すとフルスクリーンに近いオーバーレイで再生します。停止はクリック/タップ。</p>
+    </div>
+    <div id="slideshow-status" class="text-sm text-gray-600"></div>
+  </div>
+</section>
+
+<div id="slideshow-overlay" class="fixed inset-0 z-[70] hidden bg-black" data-effect="fade">
+  <div class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/70 pointer-events-none"></div>
+  <div id="slideshow-stage" class="absolute inset-0 overflow-hidden">
+    <div class="slide-layer" data-layer="0">
+      <img data-role="image" alt="" class="absolute inset-0 w-full h-full object-cover">
+      <div class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/70"></div>
+      <div class="absolute left-6 right-6 bottom-10 space-y-2 text-white drop-shadow-lg">
+        <div class="flex flex-wrap gap-2 text-xs font-semibold" data-role="tags"></div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight" data-role="title"></h2>
+        <p class="text-lg opacity-90" data-role="subtitle"></p>
+        <div class="text-sm opacity-80" data-role="detail"></div>
+        <div class="flex flex-wrap gap-2 text-xs" data-role="chips"></div>
+        <div class="text-xs text-amber-200" data-role="source"></div>
+      </div>
+    </div>
+    <div class="slide-layer" data-layer="1">
+      <img data-role="image" alt="" class="absolute inset-0 w-full h-full object-cover">
+      <div class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/70"></div>
+      <div class="absolute left-6 right-6 bottom-10 space-y-2 text-white drop-shadow-lg">
+        <div class="flex flex-wrap gap-2 text-xs font-semibold" data-role="tags"></div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight" data-role="title"></h2>
+        <p class="text-lg opacity-90" data-role="subtitle"></p>
+        <div class="text-sm opacity-80" data-role="detail"></div>
+        <div class="flex flex-wrap gap-2 text-xs" data-role="chips"></div>
+        <div class="text-xs text-amber-200" data-role="source"></div>
+      </div>
+    </div>
+  </div>
+  <div class="absolute top-4 right-4 z-[2]">
+    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/50 text-white text-xs">
+      <i data-lucide="x" class="w-4 h-4"></i> クリック/タップで終了
+    </span>
+  </div>
+</div>
+
+<style>
+  #slideshow-stage { perspective: 1200px; }
+  #slideshow-overlay .slide-layer {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: scale(1.02);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  #slideshow-overlay .slide-layer.is-active {
+    opacity: 1;
+    transform: scale(1);
+    z-index: 1;
+  }
+  #slideshow-overlay[data-effect="slide"] .slide-layer.is-enter {
+    transform: translateX(12%) scale(1.02);
+  }
+  #slideshow-overlay[data-effect="slide"] .slide-layer.is-leave {
+    transform: translateX(-8%) scale(0.98);
+    opacity: 0;
+  }
+  #slideshow-overlay[data-effect="zoom"] .slide-layer.is-enter {
+    transform: scale(1.06);
+  }
+  #slideshow-overlay[data-effect="zoom"] .slide-layer.is-leave {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  #slideshow-overlay[data-effect="fade"] .slide-layer.is-enter {
+    transform: scale(1.01);
+  }
+  #slideshow-overlay[data-effect="fade"] .slide-layer.is-leave {
+    transform: scale(1.01);
+    opacity: 0;
+  }
+  #slideshow-overlay[data-effect="blur"] .slide-layer.is-enter {
+    filter: blur(14px);
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  #slideshow-overlay[data-effect="blur"] .slide-layer.is-leave {
+    filter: blur(12px);
+    opacity: 0;
+    transform: scale(1.01);
+  }
+  #slideshow-overlay[data-effect="blur"] .slide-layer.is-active {
+    filter: blur(0);
+  }
+  #slideshow-overlay[data-effect="pan"] .slide-layer.is-active img {
+    animation: panZoom 10s ease-in-out infinite;
+    transform-origin: center;
+  }
+  #slideshow-overlay[data-effect="pan"] .slide-layer.is-enter {
+    transform: scale(1.08) translate(-2%, -2%);
+  }
+  #slideshow-overlay[data-effect="pan"] .slide-layer.is-leave {
+    transform: scale(1.02) translate(2%, 2%);
+    opacity: 0;
+  }
+  #slideshow-overlay[data-effect="flip"] .slide-layer {
+    backface-visibility: hidden;
+  }
+  #slideshow-overlay[data-effect="flip"] .slide-layer.is-enter {
+    transform: rotateY(-12deg) scale(0.98);
+    opacity: 0.1;
+  }
+  #slideshow-overlay[data-effect="flip"] .slide-layer.is-leave {
+    transform: rotateY(16deg) scale(0.98);
+    opacity: 0;
+  }
+  #slideshow-overlay[data-effect="wipe"] .slide-layer {
+    clip-path: inset(0 0 0 0);
+    transition: clip-path 0.8s ease, opacity 0.8s ease, transform 0.8s ease;
+  }
+  #slideshow-overlay[data-effect="wipe"] .slide-layer.is-enter {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.6;
+  }
+  #slideshow-overlay[data-effect="wipe"] .slide-layer.is-leave {
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+  }
+  #slideshow-overlay[data-effect="glow"] .slide-layer.is-enter {
+    filter: brightness(1.2) saturate(1.2);
+    opacity: 0.2;
+    transform: scale(1.04);
+  }
+  #slideshow-overlay[data-effect="glow"] .slide-layer.is-leave {
+    filter: brightness(0.7) saturate(0.8);
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  #slideshow-overlay[data-effect="glow"] .slide-layer.is-active {
+    filter: brightness(1) saturate(1);
+  }
+  @keyframes panZoom {
+    0% { transform: scale(1.08) translate(-2%, -2%); }
+    100% { transform: scale(1) translate(0, 0); }
+  }
+</style>
+
+<script>
+  (function(){
+    const EFFECTS = ['fade','slide','zoom','blur','pan','flip','wipe','glow'];
+    const typeEl = document.getElementById('slideshow-type');
+    const effectEl = document.getElementById('slideshow-effect');
+    const intervalEl = document.getElementById('slideshow-interval');
+    const startBtn = document.getElementById('start-slideshow');
+    const statusEl = document.getElementById('slideshow-status');
+
+    const overlay = document.getElementById('slideshow-overlay');
+    const stage = document.getElementById('slideshow-stage');
+    const layers = Array.from(stage.querySelectorAll('.slide-layer'));
+
+    let slides = [];
+    let timer = null;
+    let activeLayer = 0;
+    let pointer = 0;
+    let effectMode = 'fade';
+
+    const pickEffect = () => {
+      if (effectMode === 'random') {
+        return EFFECTS[Math.floor(Math.random() * EFFECTS.length)];
+      }
+      return effectMode;
+    };
+
+    function renderLayer(layerEl, slide) {
+      const img = layerEl.querySelector('[data-role="image"]');
+      img.src = slide.imageUrl || '';
+      img.alt = slide.title || '';
+
+      const setList = (root, items = []) => {
+        root.innerHTML = '';
+        (items || []).forEach((text) => {
+          const span = document.createElement('span');
+          span.textContent = text;
+          span.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/15 text-white';
+          root.appendChild(span);
+        });
+      };
+
+      const tagsEl = layerEl.querySelector('[data-role="tags"]');
+      const chipsEl = layerEl.querySelector('[data-role="chips"]');
+      setList(tagsEl, slide.tags || []);
+      setList(chipsEl, slide.chips || []);
+
+      layerEl.querySelector('[data-role="title"]').textContent = slide.title || '';
+      layerEl.querySelector('[data-role="subtitle"]').textContent = slide.subtitle || '';
+      layerEl.querySelector('[data-role="detail"]').textContent = slide.detail || '';
+      layerEl.querySelector('[data-role="source"]').textContent = slide.source || '';
+    }
+
+    function applySlide(slide, effect) {
+      const next = layers[1 - activeLayer];
+      const current = layers[activeLayer];
+
+      renderLayer(next, slide);
+      next.classList.remove('is-active', 'is-leave');
+      current.classList.remove('is-leave');
+
+      overlay.dataset.effect = effect || 'fade';
+      void next.offsetWidth; // force reflow
+      next.classList.add('is-enter');
+      requestAnimationFrame(() => {
+        next.classList.add('is-active');
+        next.classList.remove('is-enter');
+        current.classList.add('is-leave');
+        setTimeout(() => {
+          current.classList.remove('is-active', 'is-leave');
+          activeLayer = 1 - activeLayer;
+        }, 800);
+      });
+    }
+
+    function stopSlideshow() {
+      if (timer) clearInterval(timer);
+      timer = null;
+      overlay.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    function startSlideshow(data, effect, intervalSec) {
+      slides = data || [];
+      pointer = 0;
+      activeLayer = 0;
+      effectMode = effect || 'fade';
+      const firstEffect = pickEffect();
+      overlay.dataset.effect = firstEffect;
+      if (!slides.length) {
+        statusEl.textContent = '対象のスライドが見つかりませんでした（画像未設定の可能性があります）';
+        return;
+      }
+      document.body.classList.add('overflow-hidden');
+      overlay.classList.remove('hidden');
+      renderLayer(layers[activeLayer], slides[pointer]);
+      layers[activeLayer].classList.add('is-active');
+      const intervalMs = Math.max(2000, Math.min(20000, intervalSec * 1000));
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        pointer = (pointer + 1) % slides.length;
+        const eff = pickEffect();
+        applySlide(slides[pointer], eff);
+      }, intervalMs);
+    }
+
+    startBtn?.addEventListener('click', async () => {
+      const type = typeEl.value;
+      const effect = effectEl.value || 'fade';
+      const intervalSec = Number(intervalEl.value) || 5;
+      statusEl.textContent = 'ロード中...';
+      try {
+        const res = await fetch(`/slideshow/data?type=${encodeURIComponent(type)}`, { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('failed');
+        const json = await res.json();
+        statusEl.textContent = `${(json.slides || []).length}件のスライドを読み込みました`;
+        startSlideshow(json.slides || [], effect, intervalSec);
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = 'スライドの読み込みに失敗しました';
+      }
+    });
+
+    overlay?.addEventListener('click', () => stopSlideshow());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopSlideshow();
+    });
+  })();
+</script>

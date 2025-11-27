@@ -177,6 +177,15 @@
             <% } %>
           </a>
         </li>
+        <li>
+          <a href="/slideshow" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/slideshow') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/slideshow') ? 'page' : 'false' %>">
+            <i data-lucide="images" class="w-5 h-5 <%= isActive('/slideshow') ? 'text-blue-700' : 'text-red-600' %>"></i>
+            <span>スライドショー</span>
+            <% if (isActive('/slideshow')) { %>
+              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+            <% } %>
+          </a>
+        </li>
         <% if (user && user.isAdmin) { %>
         <li>
           <a href="/admin/admin-top" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/admin') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/admin') ? 'page' : 'false' %>">
