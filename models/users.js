@@ -75,6 +75,32 @@ const userSchema = new mongoose.Schema({
     finance: { type: Boolean, default: true },
     assets: { type: Boolean, default: true },
     menu: { type: Boolean, default: true }
+  },
+  slideshowSettings: {
+    type: {
+      type: String,
+      default: 'favorites'
+    },
+    effect: {
+      type: String,
+      default: 'fade'
+    },
+    interval: {
+      type: Number,
+      default: 5
+    },
+    bgmList: {
+      type: [String],
+      default: []
+    },
+    volume: {
+      type: Number,
+      default: 0.4
+    },
+    mute: {
+      type: Boolean,
+      default: false
+    }
   }
 });
 

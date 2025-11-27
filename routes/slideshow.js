@@ -4,6 +4,7 @@ import Menu from '../models/menu.js';
 import Mymenu from '../models/mymenu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
+import User from '../models/users.js';
 
 const router = express.Router();
 
@@ -154,7 +155,25 @@ async function buildSlides(type, userId) {
 }
 
 router.get('/', isLoggedIn, (req, res) => {
-  res.render('users/slideshow', { monthLabel: currentMonthLabel() });
+  const defaults = req.user?.slideshowSettings || {};
+  const presetBgm = [
+    'https://upload.wikimedia.org/wikipedia/commons/4/45/Beethoven_Moonlight_1st_movement.ogg',
+    'https://archive.org/download/testmp3testfile/mpthreetest.mp3'
+  ];
+  const bgmList = Array.isArray(defaults.bgmList) && defaults.bgmList.length
+    ? defaults.bgmList
+    : presetBgm;
+  res.render('users/slideshow', {
+    monthLabel: currentMonthLabel(),
+    defaults: {
+      type: defaults.type || 'favorites',
+      effect: defaults.effect || 'fade',
+      interval: defaults.interval || 5,
+      bgmList,
+      volume: typeof defaults.volume === 'number' ? defaults.volume : 0.4,
+      mute: !!defaults.mute
+    }
+  });
 });
 
 router.get('/data', isLoggedIn, async (req, res) => {
@@ -165,6 +184,43 @@ router.get('/data', isLoggedIn, async (req, res) => {
   } catch (err) {
     console.error('slideshow data error', err);
     return res.status(500).json({ error: 'failed to load slides' });
+  }
+});
+
+router.post('/settings', isLoggedIn, async (req, res) => {
+  try {
+    const {
+      type = 'favorites',
+      effect = 'fade',
+      interval = 5,
+      bgmList = [],
+      volume = 0.4,
+      mute = false
+    } = req.body || {};
+
+    const effectAllow = ['fade','slide','zoom','blur','pan','flip','wipe','glow','random'];
+    const typeAllow = ['favorites','seasonal-menus','seasonal-ingredients','ingredients','seasonings'];
+
+    const clean = {
+      type: typeAllow.includes(type) ? type : 'favorites',
+      effect: effectAllow.includes(effect) ? effect : 'fade',
+      interval: Math.max(2, Math.min(20, Number(interval) || 5)),
+      bgmList: Array.isArray(bgmList)
+        ? bgmList.map((s) => String(s || '').trim()).filter(Boolean)
+        : String(bgmList || '')
+            .split(/[\n,]/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+      volume: Math.max(0, Math.min(1, Number(volume) || 0.4)),
+      mute: !!mute
+    };
+
+    await User.findByIdAndUpdate(req.user._id, { slideshowSettings: clean });
+    if (req.user) req.user.slideshowSettings = clean;
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('slideshow settings save error', err);
+    return res.status(500).json({ error: 'failed to save settings' });
   }
 });
 

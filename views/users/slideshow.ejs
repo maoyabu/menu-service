@@ -10,35 +10,56 @@
       <label class="block text-sm font-medium text-gray-700">
         スライドショーの種類
         <select id="slideshow-type" class="mt-1 w-full border rounded px-3 py-2 text-sm">
-          <option value="favorites">お気に入りのメニュー</option>
-          <option value="seasonal-menus">旬なメニュー（旬食材を含む）</option>
-          <option value="seasonal-ingredients">旬な食材（<%= monthLabel %>）</option>
-          <option value="ingredients">食材図鑑</option>
-          <option value="seasonings">調味料図鑑</option>
+          <option value="favorites" <%= defaults && defaults.type === 'favorites' ? 'selected' : '' %>>お気に入りのメニュー</option>
+          <option value="seasonal-menus" <%= defaults && defaults.type === 'seasonal-menus' ? 'selected' : '' %>>旬なメニュー（旬食材を含む）</option>
+          <option value="seasonal-ingredients" <%= defaults && defaults.type === 'seasonal-ingredients' ? 'selected' : '' %>>旬な食材（<%= monthLabel %>）</option>
+          <option value="ingredients" <%= defaults && defaults.type === 'ingredients' ? 'selected' : '' %>>食材図鑑</option>
+          <option value="seasonings" <%= defaults && defaults.type === 'seasonings' ? 'selected' : '' %>>調味料図鑑</option>
         </select>
       </label>
       <label class="block text-sm font-medium text-gray-700">
         切り替えエフェクト
         <select id="slideshow-effect" class="mt-1 w-full border rounded px-3 py-2 text-sm">
-          <option value="fade">フェード</option>
-          <option value="slide">スライド</option>
-          <option value="zoom">ズーム</option>
-          <option value="blur">ブラー</option>
-          <option value="pan">パン / ケンバーンズ</option>
-          <option value="flip">フリップ</option>
-          <option value="wipe">ワイプ</option>
-          <option value="glow">グロー</option>
-          <option value="random">ランダム</option>
+          <option value="fade" <%= defaults && defaults.effect === 'fade' ? 'selected' : '' %>>フェード</option>
+          <option value="slide" <%= defaults && defaults.effect === 'slide' ? 'selected' : '' %>>スライド</option>
+          <option value="zoom" <%= defaults && defaults.effect === 'zoom' ? 'selected' : '' %>>ズーム</option>
+          <option value="blur" <%= defaults && defaults.effect === 'blur' ? 'selected' : '' %>>ブラー</option>
+          <option value="pan" <%= defaults && defaults.effect === 'pan' ? 'selected' : '' %>>パン / ケンバーンズ</option>
+          <option value="flip" <%= defaults && defaults.effect === 'flip' ? 'selected' : '' %>>フリップ</option>
+          <option value="wipe" <%= defaults && defaults.effect === 'wipe' ? 'selected' : '' %>>ワイプ</option>
+          <option value="glow" <%= defaults && defaults.effect === 'glow' ? 'selected' : '' %>>グロー</option>
+          <option value="random" <%= defaults && defaults.effect === 'random' ? 'selected' : '' %>>ランダム</option>
         </select>
       </label>
       <label class="block text-sm font-medium text-gray-700">
         間隔（秒）
-        <input id="slideshow-interval" type="number" min="2" max="20" value="5" class="mt-1 w-full border rounded px-3 py-2 text-sm" />
+        <input id="slideshow-interval" type="number" min="2" max="20" value="<%= defaults ? defaults.interval : 5 %>" class="mt-1 w-full border rounded px-3 py-2 text-sm" />
       </label>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <label class="block text-sm font-medium text-gray-700 md:col-span-2">
+        BGMのURLリスト（改行 or カンマ区切り）
+        <textarea id="slideshow-bgm-list" rows="3" class="mt-1 w-full border rounded px-3 py-2 text-sm" placeholder="https://upload.wikimedia.org/wikipedia/commons/4/45/Beethoven_Moonlight_1st_movement.ogg
+https://archive.org/download/testmp3testfile/mpthreetest.mp3"><%= (defaults && defaults.bgmList) ? defaults.bgmList.join('\n') : '' %></textarea>
+        <p class="text-xs text-gray-500 mt-1">直リンクで再生できる音源（MP3/OGGなど）を入力してください。上からランダムに選びます。CORS非対応や再生不可のURLはスキップします。</p>
+      </label>
+      <div class="space-y-2 text-sm text-gray-700">
+        <label class="flex items-center gap-2">
+          <span class="w-16 shrink-0">音量</span>
+          <input id="slideshow-bgm-volume" type="range" min="0" max="1" step="0.05" value="<%= defaults ? defaults.volume : 0.4 %>" class="flex-1" />
+        </label>
+        <label class="flex items-center gap-2">
+          <input id="slideshow-bgm-mute" type="checkbox" class="rounded" <%= defaults && defaults.mute ? 'checked' : '' %> />
+          <span>ミュートで開始</span>
+        </label>
+      </div>
     </div>
     <div class="flex items-center gap-3">
       <button id="start-slideshow" class="inline-flex items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
         <i data-lucide="play" class="w-4 h-4"></i> 開始
+      </button>
+      <button id="save-slideshow" type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded border border-gray-300 text-sm font-semibold hover:bg-gray-50">
+        <i data-lucide="save" class="w-4 h-4"></i> 設定を保存
       </button>
       <p class="text-xs text-gray-500">開始を押すとフルスクリーンに近いオーバーレイで再生します。停止はクリック/タップ。</p>
     </div>
@@ -197,8 +218,12 @@
     const effectEl = document.getElementById('slideshow-effect');
     const intervalEl = document.getElementById('slideshow-interval');
     const startBtn = document.getElementById('start-slideshow');
+    const saveBtn = document.getElementById('save-slideshow');
     const statusEl = document.getElementById('slideshow-status');
     const typeLabelEl = document.getElementById('slideshow-type-label');
+    const bgmListEl = document.getElementById('slideshow-bgm-list');
+    const bgmVolumeEl = document.getElementById('slideshow-bgm-volume');
+    const bgmMuteEl = document.getElementById('slideshow-bgm-mute');
 
     const overlay = document.getElementById('slideshow-overlay');
     const stage = document.getElementById('slideshow-stage');
@@ -209,6 +234,8 @@
     let activeLayer = 0;
     let pointer = 0;
     let effectMode = 'fade';
+    const bgm = new Audio();
+    bgm.loop = true;
 
     const pickEffect = () => {
       if (effectMode === 'random') {
@@ -270,6 +297,7 @@
       timer = null;
       overlay.classList.add('hidden');
       document.body.classList.remove('overflow-hidden');
+      try { bgm.pause(); bgm.currentTime = 0; } catch (_) {}
     }
 
     function startSlideshow(data, effect, intervalSec) {
@@ -296,6 +324,32 @@
         const eff = pickEffect();
         applySlide(slides[pointer], eff);
       }, intervalMs);
+      // BGM
+      const listRaw = (bgmListEl?.value || '').trim();
+      const list = listRaw
+        .split(/[\n,]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      bgm.volume = Math.max(0, Math.min(1, Number(bgmVolumeEl?.value) || 0.4));
+      bgm.muted = !!(bgmMuteEl?.checked);
+      if (list.length) {
+        const pick = () => list[Math.floor(Math.random() * list.length)];
+        const tryPlay = (retry = 0) => {
+          const url = pick();
+          bgm.src = url;
+          bgm.play().then(() => {
+            statusEl.textContent = `${list.length}件のBGMから再生中`;
+          }).catch((e) => {
+            console.warn('bgm play error', e);
+            if (retry < list.length - 1) {
+              tryPlay(retry + 1);
+            } else {
+              statusEl.textContent = 'BGMの再生に失敗しました（URLや自動再生設定をご確認ください）';
+            }
+          });
+        };
+        tryPlay(0);
+      }
     }
 
     startBtn?.addEventListener('click', async () => {
@@ -312,6 +366,31 @@
       } catch (e) {
         console.error(e);
         statusEl.textContent = 'スライドの読み込みに失敗しました';
+      }
+    });
+
+    saveBtn?.addEventListener('click', async () => {
+      const payload = {
+        type: typeEl.value,
+        effect: effectEl.value,
+        interval: Number(intervalEl.value) || 5,
+        bgmList: (bgmListEl?.value || '').split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
+        volume: Number(bgmVolumeEl?.value) || 0.4,
+        mute: !!(bgmMuteEl?.checked)
+      };
+      statusEl.textContent = '保存中...';
+      try {
+        const res = await fetch('/slideshow/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('save failed');
+        statusEl.textContent = '設定を保存しました';
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = '設定の保存に失敗しました';
       }
     });
 
