@@ -406,9 +406,13 @@
       const amount = entry.amount;
       if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
       const unit = entry.unit || '';
-      const meta = getIngredientMeta(entry.id, entry.name);
-      let gPerUnit = gramsPerUnit(meta, unit);
-      if (!gPerUnit) gPerUnit = gramsFallbackByUnit(unit);
+      // Always honor direct重量単位（g/kg/mg）優先で換算し、誤ったマスタ設定で上書きされないようにする
+      let gPerUnit = gramsFallbackByUnit(unit);
+      if (!gPerUnit) {
+        const meta = getIngredientMeta(entry.id, entry.name);
+        gPerUnit = gramsPerUnit(meta, unit);
+        if (!gPerUnit) gPerUnit = gramsFallbackByUnit(unit);
+      }
       if (!gPerUnit || !Number.isFinite(gPerUnit) || gPerUnit <= 0) return null;
       return amount * gPerUnit;
     };
@@ -417,9 +421,13 @@
       const amount = entry.amount;
       if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
       const unit = entry.unit || '';
-      const meta = getSeasoningMeta(entry.id, entry.name);
-      let gPerUnit = gramsPerUnit(meta, unit);
-      if (!gPerUnit) gPerUnit = gramsFallbackByUnit(unit);
+      // Seasoningsも同様に基本のg換算を優先する
+      let gPerUnit = gramsFallbackByUnit(unit);
+      if (!gPerUnit) {
+        const meta = getSeasoningMeta(entry.id, entry.name);
+        gPerUnit = gramsPerUnit(meta, unit);
+        if (!gPerUnit) gPerUnit = gramsFallbackByUnit(unit);
+      }
       if (!gPerUnit || !Number.isFinite(gPerUnit) || gPerUnit <= 0) return null;
       return amount * gPerUnit;
     };

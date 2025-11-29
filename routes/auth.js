@@ -793,7 +793,6 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       const combined = new Map();
       (kinds || []).forEach((kind) => {
         (menusByKind[kind] || []).forEach((menu) => {
-          if (menu.material) return;
           if (!combined.has(menu.id)) {
             combined.set(menu.id, menu);
           }
@@ -1240,7 +1239,7 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     const combineMenusByKinds = (kinds) => {
       const combined = new Map();
       (kinds||[]).forEach((kind)=>{
-        (menusByKind[kind]||[]).forEach((menu)=>{ if(!menu.material && !combined.has(menu.id)) combined.set(menu.id, menu); });
+        (menusByKind[kind]||[]).forEach((menu)=>{ if(!combined.has(menu.id)) combined.set(menu.id, menu); });
       });
       return Array.from(combined.values());
     };
