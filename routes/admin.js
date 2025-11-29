@@ -60,6 +60,21 @@ const normalizeUnitPayload = (unitInput, gramsInput) => {
   return { units, conversions };
 };
 
+const buildIngredientCategoryList = async () => {
+  const classifications = await Ingredient.distinct('classification');
+  const set = new Set((classifications || []).filter(Boolean));
+  // Always include 飲料 and show it above その他
+  set.add('飲料');
+  const list = Array.from(set);
+  const middle = list
+    .filter((v) => v !== '飲料' && v !== 'その他')
+    .sort((a, b) => String(a).localeCompare(String(b), 'ja'));
+  const result = [...middle];
+  if (list.includes('飲料')) result.push('飲料');
+  if (list.includes('その他')) result.push('その他');
+  return result;
+};
+
 const toBool = (val) => {
   if (Array.isArray(val)) return val.some((v) => toBool(v));
   if (val === undefined || val === null) return false;
@@ -957,10 +972,7 @@ router.get('/ingredient-list', async (req, res) => {
     const filter = and.length ? { $and: and } : {};
 
     const ingredients = await Ingredient.find(filter);
-
-    // 分類一覧のユニーク値を取得
-    const allIngredients = await Ingredient.find();
-    const categoryList = [...new Set(allIngredients.map(item => item.classification).filter(Boolean))];
+    const categoryList = await buildIngredientCategoryList();
 
     const currentQuery = req.originalUrl.includes('?')
       ? req.originalUrl.slice(req.originalUrl.indexOf('?') + 1)
@@ -1008,11 +1020,12 @@ router.post('/ingredient-list', (req, res) => {
 // 食材新規作成画面の表示
 router.get('/ingredient-new', async (req, res) => {
   try {
-    const allIngredients = await Ingredient.find();
-    const classificationList = [...new Set(allIngredients.map(item => item.classification).filter(Boolean))];
+    const classificationList = await buildIngredientCategoryList();
+    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
 
     res.render('admin/ingredient-new', {
-      classificationList
+      classificationList,
+      returnTo
     });
   } catch (err) {
     console.error('食材新規作成ページ表示エラー:', err);
@@ -1028,8 +1041,7 @@ router.get('/ingredient-edit/:id', async (req, res) => {
       return res.status(404).send('該当の食材が見つかりません');
     }
 
-    const allIngredients = await Ingredient.find();
-    const classificationList = [...new Set(allIngredients.map(item => item.classification).filter(Boolean))];
+    const classificationList = await buildIngredientCategoryList();
     const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
 
     res.render('admin/ingredient-edit', {
@@ -1061,7 +1073,8 @@ router.post('/ingredient-new', async (req, res) => {
       month,
       comment,
       wikiUrl,
-      imageUrl
+      imageUrl,
+      returnTo
     } = req.body;
 
     const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
@@ -1084,7 +1097,12 @@ router.post('/ingredient-new', async (req, res) => {
     });
 
     await newIngredient.save();
-    res.redirect('/admin/ingredient-list');
+    if (returnTo && typeof returnTo === 'string') {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/ingredient-list${sanitized ? '?' + sanitized : ''}`);
+    } else {
+      res.redirect('/admin/ingredient-list');
+    }
   } catch (err) {
     console.error('食材保存エラー:', err);
     res.status(500).send('食材を保存できませんでした');
@@ -1148,8 +1166,14 @@ router.post('/ingredient-edit/:id', async (req, res) => {
 // 食材削除処理
 router.post('/ingredient-delete/:id', async (req, res) => {
   try {
+    const returnTo = typeof req.body.returnTo === 'string' ? req.body.returnTo : '';
     await Ingredient.findByIdAndDelete(req.params.id);
-    res.redirect('/admin/ingredient-list');
+    if (returnTo) {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/ingredient-list${sanitized ? '?' + sanitized : ''}`);
+    } else {
+      res.redirect('/admin/ingredient-list');
+    }
   } catch (err) {
     console.error('食材削除エラー:', err);
     res.status(500).send('食材を削除できませんでした');
