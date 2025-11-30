@@ -5,7 +5,7 @@
       <i data-lucide="chef-hat" class="w-6 h-6 text-gray-700"></i>
       調味料一覧
     </h1>
-    <a href="/admin/seasoning-new" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-gray-900 text-white text-sm hover:bg-gray-800">
+    <a href="/admin/seasoning-new<%= returnQuery %>" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-gray-900 text-white text-sm hover:bg-gray-800">
       <i data-lucide="plus" class="w-4 h-4"></i>
       新規登録
     </a>
@@ -64,6 +64,7 @@
                   <i data-lucide="edit" class="w-4 h-4"></i>
                 </a>
                 <form action="/admin/seasoning-delete/<%= item._id %>" method="POST" onsubmit="return confirm('本当に削除しますか？');">
+                  <input type="hidden" name="returnTo" value="<%= currentQuery || '' %>">
                   <button type="submit" class="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
                     <i data-lucide="trash" class="w-4 h-4"></i>
                   </button>

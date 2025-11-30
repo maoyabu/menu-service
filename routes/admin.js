@@ -487,6 +487,9 @@ router.get('/menu-new', async (req, res) => {
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
     const junleList = [...new Set(allMenus.map(menu => menu.junle).filter(Boolean))];
     const cookList = [...new Set(allMenus.map(menu => menu.cook).filter(Boolean))];
+    const filterParam = typeof req.query.filters === 'string' ? req.query.filters : '';
+    let filters = '';
+    try { filters = filterParam ? decodeURIComponent(filterParam) : ''; } catch (_) { filters = filterParam; }
 
     // Fetch all existing menu names from DB (distinct)
     const menuList = await Menu.find().distinct('menu');
@@ -528,7 +531,8 @@ router.get('/menu-new', async (req, res) => {
       initialIngredients,
       initialSeasonings,
       genreList,
-      seasoningGenreList
+      seasoningGenreList,
+      filters
     });
   } catch (err) {
     console.error('新規作成ページ表示エラー:', err);
@@ -686,8 +690,10 @@ router.post('/menu-new', async (req, res) => {
       ingredient_units = [],
       seasoning_ids = [],
       seasoning_amounts = [],
-      seasoning_units = []
+      seasoning_units = [],
+      filters: filtersRaw = ''
     } = req.body;
+    const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
     // 食材の構造を整える
     const ingredients = ingredient_ids.map((id, index) => ({
@@ -732,7 +738,11 @@ router.post('/menu-new', async (req, res) => {
       actorId: req.user?._id || null,
       detail: `created by admin (${req.user?.username || req.user?.email || 'unknown'})`
     });
-    res.redirect('/admin/menu-list');
+    if (filters) {
+      res.redirect(`/admin/menu-list?${filters}`);
+    } else {
+      res.redirect('/admin/menu-list');
+    }
   } catch (err) {
     console.error('レシピ保存エラー:', err);
     res.status(500).send('レシピを保存できませんでした');
@@ -783,7 +793,9 @@ router.get('/menu-edit/:id', async (req, res) => {
     const initialIngredients = ingredients.slice(0, 10);
     const initialSeasonings = seasonings.slice(0, 10);
 
-    const filters = typeof req.query.filters === 'string' ? req.query.filters : '';
+    const filtersRaw = typeof req.query.filters === 'string' ? req.query.filters : '';
+    let filters = '';
+    try { filters = filtersRaw ? decodeURIComponent(filtersRaw) : ''; } catch (_) { filters = filtersRaw; }
     const backToListUrl = filters ? `/admin/menu-list?${filters}` : '/admin/menu-list';
     const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
     const menuUrlForForm = menu.url || `${baseUrl}/users/menu/${menu._id}`;
@@ -837,8 +849,9 @@ router.post('/menu-edit/:id', async (req, res) => {
       seasoning_ids = [],
       seasoning_amounts = [],
       seasoning_units = [],
-      filters = ''
+      filters: filtersRaw = ''
     } = req.body;
+    const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
     // 食材の構造を整える
     const ingredients = ingredient_ids.map((id, index) => ({
@@ -885,6 +898,10 @@ router.post('/menu-edit/:id', async (req, res) => {
 // レシピ削除処理
 router.post('/menu-delete/:id', async (req, res) => {
   try {
+    const filtersRaw = typeof req.body.filters === 'string'
+      ? req.body.filters
+      : (typeof req.query.filters === 'string' ? req.query.filters : '');
+    const filters = filtersRaw ? filtersRaw.replace(/^\?/, '') : '';
     const targetMenu = await Menu.findById(req.params.id).lean();
     await Mymenu.deleteMany({ menu: req.params.id }); // レシピ削除時に紐づくマイメニューも掃除
     await Menu.findByIdAndDelete(req.params.id);
@@ -903,7 +920,11 @@ router.post('/menu-delete/:id', async (req, res) => {
         detail: 'delete attempted but menu not found'
       });
     }
-    res.redirect('/admin/menu-list');
+    if (filters) {
+      res.redirect(`/admin/menu-list?${filters}`);
+    } else {
+      res.redirect('/admin/menu-list');
+    }
   } catch (err) {
     console.error('レシピ削除エラー:', err);
     res.status(500).send('レシピを削除できませんでした');
@@ -1252,9 +1273,11 @@ router.get('/seasoning-new', async (req, res) => {
   try {
     const allSeasonings = await Seasoning.find();
     const classificationList = [...new Set(allSeasonings.map(item => item.classification).filter(Boolean))];
+    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
 
     res.render('admin/seasoning-new', {
-      classificationList
+      classificationList,
+      returnTo
     });
   } catch (err) {
     console.error('調味料新規作成ページ表示エラー:', err);
@@ -1301,7 +1324,8 @@ router.post('/seasoning-new', async (req, res) => {
       unitGrams,
       comment,
       wikiUrl,
-      imageUrl
+      imageUrl,
+      returnTo
     } = req.body;
 
     const { units, conversions } = normalizeUnitPayload(unit, unitGrams);
@@ -1322,7 +1346,12 @@ router.post('/seasoning-new', async (req, res) => {
     });
 
     await newSeasoning.save();
-    res.redirect('/admin/seasoning-list');
+    if (returnTo && typeof returnTo === 'string') {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/seasoning-list${sanitized ? `?${sanitized}` : ''}`);
+    } else {
+      res.redirect('/admin/seasoning-list');
+    }
   } catch (err) {
     console.error('調味料保存エラー:', err);
     res.status(500).send('調味料を保存できませんでした');
@@ -1381,8 +1410,14 @@ router.post('/seasoning-edit/:id', async (req, res) => {
 // 調味料削除処理
 router.post('/seasoning-delete/:id', async (req, res) => {
   try {
+    const returnTo = typeof req.body.returnTo === 'string' ? req.body.returnTo : '';
     await Seasoning.findByIdAndDelete(req.params.id);
-    res.redirect('/admin/seasoning-list');
+    if (returnTo) {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/seasoning-list${sanitized ? `?${sanitized}` : ''}`);
+    } else {
+      res.redirect('/admin/seasoning-list');
+    }
   } catch (err) {
     console.error('調味料削除エラー:', err);
     res.status(500).send('調味料を削除できませんでした');

@@ -29,6 +29,7 @@
   </style>
 
   <form action="/admin/menu-new" method="POST" class="space-y-8">
+    <input type="hidden" name="filters" value="<%= filters || '' %>">
     <div class="flex flex-wrap items-center gap-4 p-4 bg-gray-50 border rounded-lg">
       <span class="text-sm font-bold text-gray-700">公開設定</span>
       <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer toggle-invert">
