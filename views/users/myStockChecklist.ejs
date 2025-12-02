@@ -7,6 +7,7 @@
     <a href="/users/my-stock" class="text-sm text-blue-600 font-semibold">マイストックへ戻る</a>
   </header>
 
+  <div id="stock-tabs" class="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-y py-2 hidden"></div>
   <div id="checklist" class="space-y-6"></div>
   <!-- inline popover for note/amount -->
   <div id="stock-pop" class="hidden fixed z-50 bg-white border rounded-xl shadow p-3 w-72">
@@ -32,29 +33,132 @@
   (function(){
     const monthStart = new Date(<%- JSON.stringify(monthStartISO || '') %>);
     const items = <%- JSON.stringify(items || []) %>;
-    // group by place
     const byPlace = new Map();
     items.forEach((it)=>{
       const k = it.place || '未設定';
       const arr = byPlace.get(k) || []; arr.push(it); byPlace.set(k, arr);
     });
-    // helpers
     const fmt = (d)=>{ try{ const dt = new Date(d); if (!dt || isNaN(dt.getTime())) return ''; const m = dt.getMonth()+1, day = dt.getDate(); return `${m}月${day}日`; }catch(_){ return ''; } };
     const isCheckedThisMonth = (d)=>{ if (!d) return false; try{ const dt = new Date(d); return dt.getFullYear()===monthStart.getFullYear() && dt.getMonth()===monthStart.getMonth(); }catch(_){ return false; } };
     const daysAgo = (d)=>{ if (!d) return 99999; const dt = new Date(d); return Math.floor((Date.now()-dt.getTime())/86400000); };
 
     const root = document.getElementById('checklist');
+    const tabs = document.getElementById('stock-tabs');
+    const sections = [];
+
+    const pop = document.getElementById('stock-pop');
+    const popAmt = document.getElementById('stock-pop-amount');
+    const popNote = document.getElementById('stock-pop-note');
+    const popCancel = document.getElementById('stock-pop-cancel');
+    const popSave = document.getElementById('stock-pop-save');
+    let currentCtx = null; // { li, cb }
+
+    function openPopNear(cbEl, amount, note){
+      const r = cbEl.getBoundingClientRect();
+      pop.style.left = Math.min(window.innerWidth - 320, r.left + 24) + 'px';
+      pop.style.top = Math.min(window.innerHeight - 180, r.top + 8) + 'px';
+      popAmt.value = String(amount || 0);
+      popNote.value = note || '';
+      pop.classList.remove('hidden');
+    }
+    function closePop(){ pop.classList.add('hidden'); currentCtx = null; }
+
+    const statusOf = (pending, done) => {
+      const total = pending + done;
+      if (total === 0) return 'idle';
+      if (pending === 0) return 'done';
+      if (done === 0) return 'todo';
+      return 'progress';
+    };
+    const applyTabStyle = (btn, sec, active = false) => {
+      if (!btn || !sec) return;
+      const st = statusOf(sec.pendingCount, sec.doneCount);
+      btn.className = 'whitespace-nowrap w-40 sm:w-44 text-center px-3 py-1.5 rounded-full border text-sm transition-colors';
+      btn.classList.toggle('ring-2', active);
+      btn.classList.toggle('ring-blue-200', active);
+      if (st === 'done') {
+        btn.classList.add('bg-blue-600','border-blue-700','text-white');
+      } else if (st === 'progress') {
+        btn.classList.add('bg-blue-50','border-blue-200','text-blue-900');
+      } else {
+        btn.classList.add('bg-white','border-gray-300','text-gray-800');
+      }
+      if (active) {
+        btn.classList.remove('bg-white');
+        btn.classList.add('shadow');
+      }
+    };
+    const updateTabLabel = (place) => {
+      if (!tabs) return;
+      const sec = sections.find((s) => s.place === place);
+      if (!sec) return;
+      const btn = tabs.querySelector(`button[data-place="${place}"]`);
+      if (!btn) return;
+      const label = btn.querySelector('[data-role="counts"]');
+      if (label) label.textContent = `未:${sec.pendingCount} / 済:${sec.doneCount}`;
+      applyTabStyle(btn, sec, btn.dataset.active === '1');
+    };
+    const adjustCounts = (place, deltaPending, deltaDone) => {
+      const sec = sections.find((s) => s.place === place);
+      if (!sec) return;
+      sec.pendingCount += deltaPending;
+      sec.doneCount += deltaDone;
+      if (sec.pendingCount < 0) sec.pendingCount = 0;
+      if (sec.doneCount < 0) sec.doneCount = 0;
+      updateTabLabel(place);
+    };
+    const activate = (place) => {
+      sections.forEach(({ sec }) => {
+        sec.classList.toggle('hidden', sec.dataset.place !== place);
+      });
+      if (!tabs) return;
+      tabs.querySelectorAll('button').forEach((btn) => {
+        const active = btn.dataset.place === place;
+        btn.dataset.active = active ? '1' : '0';
+        const sec = sections.find((s) => s.place === btn.dataset.place);
+        applyTabStyle(btn, sec, active);
+      });
+      closePop();
+    };
+    const renderTabs = () => {
+      if (!tabs) return;
+      tabs.innerHTML = '';
+      if (!sections.length) {
+        tabs.classList.add('hidden');
+        return;
+      }
+      tabs.classList.remove('hidden');
+      const wrap = document.createElement('div');
+      wrap.className = 'flex flex-wrap gap-2 px-1';
+      tabs.appendChild(wrap);
+      sections.forEach((s, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.place = s.place;
+        btn.className = 'whitespace-nowrap w-40 sm:w-44 text-center px-3 py-1.5 rounded-full border text-sm';
+        btn.innerHTML = `<span>${s.place}</span><span data-role="counts" class="ml-2 text-[11px] text-gray-500">未:${s.pendingCount} / 済:${s.doneCount}</span>`;
+        btn.addEventListener('click', () => activate(s.place));
+        wrap.appendChild(btn);
+        if (idx === 0) btn.dataset.active = '1';
+        applyTabStyle(btn, s, idx === 0);
+      });
+    };
+    function getLists(sec){
+      const leftUl = sec?.querySelector('[data-list="pending"]');
+      const rightUl = sec?.querySelector('[data-list="done"]');
+      return { leftUl, rightUl };
+    }
+
     byPlace.forEach((list, placeName)=>{
-      // split
       const pending = list.filter(it => !isCheckedThisMonth(it.lastCheckedAt)).sort((a,b)=> (a.lastCheckedAt? new Date(a.lastCheckedAt):0) - (b.lastCheckedAt? new Date(b.lastCheckedAt):0));
       const done = list.filter(it => isCheckedThisMonth(it.lastCheckedAt)).sort((a,b)=> new Date(b.lastCheckedAt||0) - new Date(a.lastCheckedAt||0));
-      const sec = document.createElement('section'); sec.className='rounded-2xl border bg-white p-4';
+      const sec = document.createElement('section'); sec.className='rounded-2xl border bg-white p-4'; sec.dataset.place = placeName;
       sec.innerHTML = `<div class="flex items-center justify-between mb-3"><h2 class="font-semibold">${placeName}</h2></div>`;
       const grid = document.createElement('div'); grid.className='grid md:grid-cols-2 gap-4'; sec.appendChild(grid);
       const left = document.createElement('div'); left.innerHTML='<h3 class="text-sm font-semibold text-gray-700">要チェック</h3>'; grid.appendChild(left);
       const right = document.createElement('div'); right.innerHTML='<h3 class="text-sm font-semibold text-gray-700">チェック済み</h3>'; grid.appendChild(right);
       const makeLi = (it, checked)=>{
-        const li = document.createElement('li'); li.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 ' + (checked? 'bg-green-50 border-green-200': ''); li.dataset.id = it.id; li.dataset.checked = checked?'1':'0';
+        const li = document.createElement('li'); li.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 ' + (checked? 'bg-green-50 border-green-200': ''); li.dataset.id = it.id; li.dataset.checked = checked?'1':'0'; li.dataset.place = placeName; li.dataset.amount = it.amount || 0;
         const dateStr = it.lastCheckedAt ? fmt(it.lastCheckedAt) : '';
         const ago = it.lastCheckedAt ? `（${daysAgo(it.lastCheckedAt)}日前）` : '';
         li.innerHTML = `
@@ -76,58 +180,38 @@
       const ulR = document.createElement('ul'); ulR.className='space-y-2'; ulR.setAttribute('data-list','done'); right.appendChild(ulR);
       pending.forEach(it=> ulL.appendChild(makeLi(it,false)));
       done.forEach(it=> ulR.appendChild(makeLi(it,true)));
-      root.appendChild(sec);
+      sections.push({ place: placeName, sec, pendingCount: pending.length, doneCount: done.length });
     });
-
-    // inline popover controls
-    const pop = document.getElementById('stock-pop');
-    const popAmt = document.getElementById('stock-pop-amount');
-    const popNote = document.getElementById('stock-pop-note');
-    const popCancel = document.getElementById('stock-pop-cancel');
-    const popSave = document.getElementById('stock-pop-save');
-    let currentCtx = null; // { li, cb }
-
-    function openPopNear(cbEl, amount, note){
-      const r = cbEl.getBoundingClientRect();
-      pop.style.left = Math.min(window.innerWidth - 320, r.left + 24) + 'px';
-      pop.style.top = Math.min(window.innerHeight - 180, r.top + 8) + 'px';
-      popAmt.value = String(amount || 0);
-      popNote.value = note || '';
-      pop.classList.remove('hidden');
-    }
-    function closePop(){ pop.classList.add('hidden'); currentCtx = null; }
-
-    function getLists(sec){
-      const leftUl = sec.querySelector('[data-list="pending"]');
-      const rightUl = sec.querySelector('[data-list="done"]');
-      return { leftUl, rightUl };
-    }
+    sections.forEach(({ sec }) => root.appendChild(sec));
+    renderTabs();
+    if (sections[0]) activate(sections[0].place);
 
     root.addEventListener('change', async (ev)=>{
       const cb = ev.target.closest('input[type="checkbox"]'); if (!cb) return;
       const li = cb.closest('li'); if (!li) return;
       if (cb.checked){
-        // open popover for input (move after save)
         const amountText = (li.querySelector('.text-xs .ml-2') ? li.querySelector('.text-xs .ml-2').textContent : '').trim();
         const amountNum = Number((amountText||'').split(/\s|[^0-9.]+/)[0]) || Number(li.dataset.amount||0);
         currentCtx = { li, cb };
         openPopNear(cb, amountNum, (li.querySelector('[data-role="note"]')||{}).textContent||'');
       } else {
-        // unchecked: move back to left
         const sec = li.closest('section'); const lists = getLists(sec);
+        const placeName = sec?.dataset?.place || li.dataset.place || '';
         if (lists.leftUl) lists.leftUl.appendChild(li);
         li.classList.remove('bg-green-50','border-green-200'); li.dataset.checked='0';
+        adjustCounts(placeName, 1, -1);
       }
     });
 
     popCancel.addEventListener('click', ()=>{
       if (currentCtx){
         const { li, cb } = currentCtx;
-        // If it was already in checked area, move back; otherwise just uncheck
         if (li.dataset.checked === '1'){
           const sec = li.closest('section'); const lists = getLists(sec);
+          const placeName = sec?.dataset?.place || li.dataset.place || '';
           if (lists.leftUl) lists.leftUl.appendChild(li);
           li.classList.remove('bg-green-50','border-green-200'); li.dataset.checked='0';
+          adjustCounts(placeName, 1, -1);
         }
         cb.checked = false; closePop();
       }
@@ -139,16 +223,17 @@
         const res = await fetch(`/users/my-stock/api/check/${encodeURIComponent(id)}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         if (!res.ok) throw new Error('更新に失敗しました');
         const json = await res.json(); const item = json.item;
-        // update UI
         const dateNode = li.querySelector('[data-role="date"]'); if (dateNode) { const d=new Date(item.lastCheckedAt); dateNode.textContent = (d.getMonth()+1)+'月'+d.getDate()+'日'; }
         const agoNode = li.querySelector('[data-role="ago"]'); if (agoNode) agoNode.textContent = '';
         const noteNode = li.querySelector('[data-role="note"]'); if (noteNode){ noteNode.textContent = item.lastCheckedNote || ''; noteNode.classList.toggle('hidden', !item.lastCheckedNote); }
         const byNode = li.querySelector('[data-role="by"]'); if (byNode){ byNode.textContent = item.lastCheckedBy || ''; byNode.classList.toggle('hidden', !item.lastCheckedBy); byNode.className = 'ml-2 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px]'; }
         const amtSpan = li.querySelector('.text-xs.text-gray-600'); if (amtSpan){ amtSpan.textContent = `${item.amount||0}${item.unit||''}`; }
-        // move to right
         const sec = li.closest('section'); const lists = getLists(sec);
+        const placeName = sec?.dataset?.place || li.dataset.place || '';
         if (lists.rightUl) lists.rightUl.appendChild(li);
         li.classList.add('bg-green-50','border-green-200'); li.dataset.checked='1';
+        li.dataset.amount = item.amount || 0;
+        adjustCounts(placeName, -1, 1);
       }catch(e){ alert(e.message||'更新に失敗しました'); cb.checked=false; }
       closePop();
     });
