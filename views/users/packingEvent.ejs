@@ -6,7 +6,7 @@
       <p class="text-xs text-gray-500">参加メンバー: <%= (event.participants || []).map((id)=> (memberNameById.get(id) || '')).filter(Boolean).join(' / ') || '未設定' %></p>
     </div>
     <a href="/users/packing" class="text-sm text-blue-600 font-semibold inline-flex items-center gap-1">
-      <i data-lucide="arrow-left" class="w-4 h-4"></i> 持ち物チェックリストへ戻る
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> 持ち物チェックトップ
     </a>
   </header>
 
@@ -17,8 +17,8 @@
         <p class="text-xs text-gray-500">収納タグを選択して持ち物タグをクリックすると紐づきます</p>
       </div>
       <div class="flex gap-2">
-        <button type="button" id="open-storage-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-gray-50 hover:bg-gray-100">収納を追加</button>
-        <button type="button" id="open-item-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-gray-50 hover:bg-gray-100">持ち物を追加</button>
+        <button type="button" id="open-storage-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-amber-50 text-amber-800 hover:bg-amber-100">収納を追加</button>
+        <button type="button" id="open-item-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-purple-50 text-purple-800 hover:bg-purple-100">持ち物を追加</button>
         <a href="/users/packing/check/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">チェックリストへ</a>
       </div>
     </div>
