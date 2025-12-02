@@ -10,7 +10,7 @@ import fs from 'fs';
 import multer from 'multer';
 import cloudinary from '../utils/cloudinary.js';
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
@@ -230,7 +230,10 @@ router.post('/profile', async (req, res, next) => {
     user.sex = sex || undefined;
     user.blood = blood || undefined;
     user.rh = rh || undefined;
-    user.avatar = avatar?.trim() || undefined;
+    const newAvatar = (avatar || '').trim();
+    if (newAvatar) {
+      user.avatar = newAvatar;
+    }
     user.isMail = toBoolean(isMail);
     user.services = {
       allaboutme: toBoolean(services.allaboutme),
@@ -303,16 +306,18 @@ router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
       return res.redirect('/settings?view=profile');
     }
 
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'profile_avatars'
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: 'profile_avatars', resource_type: 'image' },
+        (err, uploadResult) => {
+          if (err) return reject(err);
+          return resolve(uploadResult);
+        }
+      );
+      stream.end(req.file.buffer);
     });
 
     await User.findByIdAndUpdate(req.user._id, { avatar: result.secure_url });
-
-    // ローカルファイルを削除
-    fs.unlink(req.file.path, (err) => {
-      if (err) console.error('ローカル画像削除エラー:', err);
-    });
 
     req.flash('success', 'プロフィール画像を更新しました');
     res.redirect('/settings?view=profile');
