@@ -1,0 +1,533 @@
+import express from 'express';
+import mongoose from 'mongoose';
+import { isLoggedIn } from '../middleware.js';
+import Group from '../models/groups.js';
+import PackingEvent from '../models/packingEvent.js';
+import PackingItem from '../models/packingItem.js';
+import PackingStorage from '../models/packingStorage.js';
+import PackingMasterItem from '../models/packingMasterItem.js';
+
+const router = express.Router();
+router.use(isLoggedIn);
+router.use(express.json());
+
+function getGroupId(res){
+  const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+  const def = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+  return def || (groups[0]?._id?.toString?.() ?? null);
+}
+
+const userLabel = (user) => (user?.displayname || user?.username || user?.email || '').toString();
+
+async function getMemberOptions(groupId){
+  if (!groupId) return { list: [], idSet: new Set(), labelMap: new Map() };
+  const group = await Group.findById(groupId)
+    .populate('createdBy members', 'displayname username email')
+    .lean();
+  if (!group) return { list: [], idSet: new Set(), labelMap: new Map() };
+  const map = new Map();
+  const pushUser = (u) => {
+    if (!u) return;
+    const id = u._id?.toString?.() || (typeof u === 'string' ? u : '');
+    if (!id || map.has(id)) return;
+    map.set(id, { id, name: userLabel(u) });
+  };
+  pushUser(group.createdBy);
+  (group.members || []).forEach(pushUser);
+  const list = Array.from(map.values());
+  return { list, idSet: new Set(list.map((u)=>u.id)), labelMap: new Map(list.map((u)=>[u.id, u.name])) };
+}
+
+router.get('/', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.render('users/packingChecklist', { members: [], events: [], storages: [], masterItems: [] });
+    const [memberInfo, eventsRaw, storagesRaw, masterItemsRaw] = await Promise.all([
+      getMemberOptions(groupId),
+      PackingEvent.find({ group: groupId }).sort({ createdAt: -1 }).lean(),
+      PackingStorage.find({ group: groupId }).sort({ createdAt: -1 }).lean(),
+      PackingMasterItem.find({ group: groupId }).sort({ createdAt: -1 }).lean()
+    ]);
+    const events = eventsRaw.map((ev)=>({
+      id: String(ev._id),
+      name: ev.name,
+      participants: (ev.participants || []).map(String)
+    }));
+    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const masterItems = (masterItemsRaw || []).map((it)=> ({
+      id: String(it._id),
+      name: it.name,
+      owner: it.owner || 'all',
+      defaultQuantity: it.defaultQuantity || 1,
+      comment: it.comment || ''
+    }));
+    res.render('users/packingChecklist', { members: memberInfo.list, events, storages, masterItems });
+  } catch (e) { next(e); }
+});
+
+// Storages master
+router.get('/api/storages', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.json([]);
+    const list = await PackingStorage.find({ group: groupId }).sort({ createdAt: -1 }).lean();
+    res.json(list);
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.post('/api/storages', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const created = await PackingStorage.create({ name, group: groupId, createdBy: req.user._id });
+    res.json({ id: created._id, name: created.name });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.patch('/api/storages/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const updated = await PackingStorage.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: { name } }, { new: true }).lean();
+    if (!updated) return res.status(404).json({ error: 'not found' });
+    // update items storage name snapshots
+    await PackingItem.updateMany({ group: groupId, storageId: updated._id }, { $set: { storageName: updated.name } });
+    res.json({ id: String(updated._id), name: updated.name });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.delete('/api/storages/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const deleted = await PackingStorage.findOneAndDelete({ _id: req.params.id, group: groupId });
+    if (!deleted) return res.status(404).json({ error: 'not found' });
+    await PackingItem.updateMany({ group: groupId, storageId: deleted._id }, { $set: { storageId: null, storageName: '' } });
+    res.json({ ok: true });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+// Master items
+router.post('/api/master-items', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const defaultQuantity = Math.max(0, Number(req.body?.defaultQuantity) || 0);
+    const owner = String(req.body?.owner || 'all');
+    const comment = String(req.body?.comment || '').trim();
+    const created = await PackingMasterItem.create({ name, defaultQuantity, owner, comment, group: groupId, createdBy: req.user._id });
+    res.json({
+      id: created._id,
+      name: created.name,
+      owner: created.owner,
+      defaultQuantity: created.defaultQuantity,
+      comment: created.comment
+    });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.patch('/api/master-items/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const update = {};
+    if (typeof req.body?.name === 'string') update.name = String(req.body.name || '').trim();
+    if (typeof req.body?.owner === 'string') update.owner = String(req.body.owner || 'all');
+    if (typeof req.body?.comment === 'string') update.comment = String(req.body.comment || '').trim();
+    if (typeof req.body?.defaultQuantity !== 'undefined') update.defaultQuantity = Math.max(0, Number(req.body.defaultQuantity) || 0);
+    const updated = await PackingMasterItem.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: update }, { new: true }).lean();
+    if (!updated) return res.status(404).json({ error: 'not found' });
+    res.json({
+      id: String(updated._id),
+      name: updated.name,
+      owner: updated.owner,
+      defaultQuantity: updated.defaultQuantity,
+      comment: updated.comment
+    });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.delete('/api/master-items/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const deleted = await PackingMasterItem.findOneAndDelete({ _id: req.params.id, group: groupId });
+    if (!deleted) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+// Events
+router.post('/api/events', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const name = String(req.body?.name || '').trim();
+    const participantIds = Array.isArray(req.body?.participants) ? req.body.participants.map(String) : [];
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const memberInfo = await getMemberOptions(groupId);
+    const participantSet = new Set(participantIds.filter((id)=> memberInfo.idSet.has(id)));
+    const created = await PackingEvent.create({
+      name,
+      storageContainers: [], // legacy field unused now
+      participants: Array.from(participantSet),
+      group: groupId,
+      createdBy: req.user._id
+    });
+    res.json({
+      id: created._id,
+      name: created.name,
+      participants: created.participants.map(String)
+    });
+  } catch (_) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+router.patch('/api/events/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const id = req.params.id;
+    const event = await PackingEvent.findOne({ _id: id, group: groupId });
+    if (!event) return res.status(404).json({ error: 'not found' });
+
+    const memberInfo = await getMemberOptions(groupId);
+    const participantIds = Array.isArray(req.body?.participants) ? req.body.participants.map(String) : [];
+    const participants = participantIds.filter((pid)=> memberInfo.idSet.has(pid));
+    event.participants = participants;
+
+    // storage selection
+    const hasStorageIds = Array.isArray(req.body?.storageIds);
+    const rawStorageIds = hasStorageIds ? req.body.storageIds : [];
+    const prevStorageIds = (event.storageIds || []).map((x)=> x.toString());
+    if (hasStorageIds) {
+      let storageIds = [];
+      if (rawStorageIds.length) {
+        const valid = await PackingStorage.find({ _id: { $in: rawStorageIds }, group: groupId }).select('_id').lean();
+        storageIds = valid.map((s)=> s._id.toString());
+      }
+      event.storageIds = storageIds;
+    }
+
+    if (typeof req.body?.name === 'string') {
+      const nm = String(req.body.name || '').trim();
+      if (nm) event.name = nm;
+    }
+    await event.save();
+
+    // detach items from removed storages
+    const removedStorageIds = hasStorageIds ? prevStorageIds.filter((sid)=> !(event.storageIds || []).map(String).includes(sid)) : [];
+    if (removedStorageIds.length) {
+      await PackingItem.updateMany(
+        { group: groupId, event: event._id, storageId: { $in: removedStorageIds } },
+        { $set: { storageId: null, storageName: '' } }
+      );
+    }
+
+    res.json({
+      id: event._id.toString(),
+      name: event.name,
+      participants: event.participants.map(String),
+      storageIds: event.storageIds ? event.storageIds.map((x)=> x.toString()) : undefined
+    });
+  } catch (_) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+router.get('/check/:eventId', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.redirect('/users/packing');
+    const eventId = req.params.eventId;
+    const [ev, storagesRaw, itemsRaw] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      PackingStorage.find({ group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean()
+    ]);
+    if (!ev) return res.redirect('/users/packing');
+    const storageIds = (ev.storageIds || []).map((x)=> x.toString());
+    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
+    const items = (itemsRaw || []).map((it)=> ({
+      id: String(it._id),
+      name: it.name,
+      storageId: it.storageId ? String(it.storageId) : '',
+      storageName: it.storageName || '',
+      checked: !!it.checked,
+      checkedAt: it.checkedAt,
+      checkedBy: it.checkedBy,
+      quantity: it.quantity || 0,
+      owner: it.owner || 'all',
+      comment: it.comment || ''
+    }));
+    res.render('users/packingCheck', {
+      event: { id: String(ev._id), name: ev.name },
+      storages: filteredStorages,
+      items
+    });
+  } catch(e){ next(e); }
+});
+
+// Event detail
+router.get('/:eventId', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.redirect('/users/packing');
+    const eventId = req.params.eventId;
+    const [ev, memberInfo, storagesRaw, masterItemsRaw, itemsRaw] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      getMemberOptions(groupId),
+      PackingStorage.find({ group: groupId }).lean(),
+      PackingMasterItem.find({ group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean()
+    ]);
+    if (!ev) return res.redirect('/users/packing');
+    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const eventStorageIds = (ev.storageIds || []).map((id)=> id.toString());
+    const masterItems = (masterItemsRaw || []).map((it)=> ({
+      id: String(it._id),
+      name: it.name,
+      owner: it.owner || 'all',
+      defaultQuantity: it.defaultQuantity || 1,
+      comment: it.comment || ''
+    }));
+    let items = (itemsRaw || []).map((it)=>({
+      id: String(it._id),
+      name: it.name,
+      owner: it.owner || 'all',
+      quantity: it.quantity || 0,
+      comment: it.comment || '',
+      storageId: it.storageId ? String(it.storageId) : '',
+      storageName: it.storageName || '',
+      checked: !!it.checked,
+      checkedAt: it.checkedAt,
+      checkedBy: it.checkedBy,
+      thingId: it.thingId ? String(it.thingId) : null
+    }));
+    // auto-reflect master items: create missing items (unassigned) per master
+    const existingThingIds = new Set(items.map((it)=> it.thingId).filter(Boolean));
+    const toCreate = masterItems.filter((m)=> !existingThingIds.has(m.id));
+    if (toCreate.length){
+      const docs = await PackingItem.insertMany(toCreate.map((m)=> ({
+        name: m.name,
+        thingId: m.id,
+        storageId: null,
+        storageName: '',
+        owner: m.owner || 'all',
+        quantity: m.defaultQuantity || 0,
+        comment: m.comment || '',
+        group: groupId,
+        event: ev._id,
+        createdBy: req.user._id
+      })));
+      const appended = docs.map((d)=> ({
+        id: String(d._id),
+        name: d.name,
+        owner: d.owner || 'all',
+        quantity: d.quantity || 0,
+        comment: d.comment || '',
+        storageId: '',
+        storageName: '',
+        checked: !!d.checked,
+        checkedAt: d.checkedAt,
+        checkedBy: d.checkedBy,
+        thingId: d.thingId ? String(d.thingId) : null
+      }));
+      items = items.concat(appended);
+    }
+    const memberNameById = new Map(memberInfo.list.map((m)=> [m.id, m.name]));
+    res.render('users/packingEvent', {
+      event: {
+        id: String(ev._id),
+        name: ev.name,
+        participants: (ev.participants || []).map(String),
+        storageIds: eventStorageIds
+      },
+      members: memberInfo.list,
+      memberNameById,
+      storages,
+      masterItems,
+      items
+    });
+  } catch(e) { next(e); }
+});
+
+router.get('/check/:eventId', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.redirect('/users/packing');
+    const eventId = req.params.eventId;
+    const [ev, storagesRaw, itemsRaw] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      PackingStorage.find({ group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean()
+    ]);
+    if (!ev) return res.redirect('/users/packing');
+    const storageIds = (ev.storageIds || []).map((x)=> x.toString());
+    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
+    const items = (itemsRaw || []).map((it)=> ({
+      id: String(it._id),
+      name: it.name,
+      storageId: it.storageId ? String(it.storageId) : '',
+      storageName: it.storageName || '',
+      checked: !!it.checked,
+      checkedAt: it.checkedAt,
+      checkedBy: it.checkedBy,
+      quantity: it.quantity || 0,
+      owner: it.owner || 'all',
+      comment: it.comment || ''
+    }));
+    res.render('users/packingCheck', {
+      event: { id: String(ev._id), name: ev.name },
+      storages: filteredStorages,
+      items
+    });
+  } catch(e){ next(e); }
+});
+
+// Event items (assignment)
+router.post('/api/items', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const { eventId, name, storageId, owner, quantity, comment, thingId } = req.body || {};
+    const itemName = String(name || '').trim();
+    if (!eventId || !itemName) return res.status(400).json({ error: 'bad request' });
+    const [event, storage, thing, memberInfo] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      storageId ? PackingStorage.findOne({ _id: storageId, group: groupId }).lean() : null,
+      thingId ? PackingMasterItem.findOne({ _id: thingId, group: groupId }).lean() : null,
+      getMemberOptions(groupId)
+    ]);
+    if (!event) return res.status(404).json({ error: 'event not found' });
+    const storageName = storage ? storage.name : '';
+    const ownerId = memberInfo.idSet.has(String(owner || '')) ? String(owner) : 'all';
+    const qtyNum = Math.max(0, Number(quantity) || 0);
+    let master = thing;
+    if (!master) {
+      master = await PackingMasterItem.create({
+        name: itemName,
+        owner: ownerId || 'all',
+        defaultQuantity: qtyNum,
+        comment: String(comment || '').trim(),
+        group: groupId,
+        createdBy: req.user._id
+      });
+    }
+    const created = await PackingItem.create({
+      name: itemName,
+      thingId: master?._id || null,
+      storageId: storage?._id || null,
+      storageName,
+      owner: ownerId || 'all',
+      quantity: qtyNum,
+      comment: String(comment || '').trim(),
+      group: groupId,
+      event: event._id,
+      createdBy: req.user._id,
+      reusedFrom: null
+    });
+    res.json({
+      id: created._id,
+      eventId: String(created.event),
+      name: created.name,
+      thingId: created.thingId ? String(created.thingId) : '',
+      storageId: created.storageId ? String(created.storageId) : '',
+      storageName: created.storageName || '',
+      owner: created.owner,
+      quantity: created.quantity,
+      comment: created.comment,
+      checked: created.checked,
+      checkedAt: created.checkedAt,
+      checkedBy: created.checkedBy
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+router.patch('/api/items/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const id = req.params.id;
+    const item = await PackingItem.findOne({ _id: id, group: groupId }).lean();
+    if (!item) return res.status(404).json({ error: 'not found' });
+    const [storage, thing, memberInfo] = await Promise.all([
+      req.body?.storageId ? PackingStorage.findOne({ _id: req.body.storageId, group: groupId }).lean() : null,
+      req.body?.thingId ? PackingMasterItem.findOne({ _id: req.body.thingId, group: groupId }).lean() : null,
+      getMemberOptions(groupId)
+    ]);
+    const ownerId = memberInfo.idSet.has(String(req.body?.owner || '')) ? String(req.body.owner) : 'all';
+    const update = {
+      name: String(req.body?.name || item.name || '').trim(),
+      owner: ownerId,
+      quantity: Math.max(0, Number(req.body?.quantity) || 0),
+      comment: String(req.body?.comment || '').trim(),
+      thingId: thing?._id || item.thingId || null,
+      storageId: storage ? storage._id : null,
+      storageName: storage ? storage.name : ''
+    };
+    const updated = await PackingItem.findOneAndUpdate(
+      { _id: id, group: groupId },
+      { $set: update },
+      { new: true }
+    ).lean();
+    res.json({
+      id: String(updated._id),
+      eventId: updated.event ? String(updated.event) : '',
+      name: updated.name,
+      owner: updated.owner,
+      quantity: updated.quantity,
+      comment: updated.comment,
+      storageId: updated.storageId ? String(updated.storageId) : '',
+      storageName: updated.storageName || '',
+      checked: updated.checked,
+      checkedAt: updated.checkedAt,
+      checkedBy: updated.checkedBy
+    });
+  } catch (_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.delete('/api/items/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const id = req.params.id;
+    const deleted = await PackingItem.findOneAndDelete({ _id: id, group: groupId });
+    if (!deleted) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.post('/api/items/:id/check', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const id = req.params.id;
+    const checked = !!req.body?.checked;
+    const update = {
+      checked,
+      checkedAt: checked ? new Date() : null,
+      checkedBy: checked ? userLabel(req.user) : ''
+    };
+    const updated = await PackingItem.findOneAndUpdate(
+      { _id: id, group: groupId },
+      { $set: update },
+      { new: true }
+    ).lean();
+    if (!updated) return res.status(404).json({ error: 'not found' });
+    res.json({
+      id: String(updated._id),
+      checked: updated.checked,
+      checkedAt: updated.checkedAt,
+      checkedBy: updated.checkedBy
+    });
+  } catch (_) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+export default router;

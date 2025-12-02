@@ -1,0 +1,130 @@
+<section class="max-w-5xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold"><%= event.name || '' %> の持ち物チェック</h1>
+      <p class="text-sm text-gray-600">収納先を切り替えながらチェックできます</p>
+    </div>
+    <a href="/users/packing/<%= event.id %>" class="text-sm text-blue-600 font-semibold inline-flex items-center gap-1">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> イベントへ戻る
+    </a>
+  </header>
+
+  <div class="space-y-3">
+    <div class="text-xs text-gray-500">収納先</div>
+    <div id="storage-tabs" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <div id="storage-view" class="border rounded-2xl bg-white p-4 space-y-3 hidden">
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-800 mb-2">チェックすべきリスト</h3>
+        <ul id="pending-list" class="space-y-2"></ul>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-800 mb-2">チェック済み</h3>
+        <ul id="done-list" class="space-y-2"></ul>
+      </div>
+    </div>
+  </div>
+  <p id="empty-text" class="text-sm text-gray-500">持ち物がありません。イベントページで収納に紐付けてください。</p>
+</section>
+
+<script>
+  (function(){
+    const storages = <%- JSON.stringify(storages || []) %>;
+    const items = <%- JSON.stringify(items || []) %>;
+    const tabs = document.getElementById('storage-tabs');
+    const view = document.getElementById('storage-view');
+    const pendingList = document.getElementById('pending-list');
+    const doneList = document.getElementById('done-list');
+    const emptyText = document.getElementById('empty-text');
+    let activeStorageId = storages[0]?.id || '';
+
+    function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+
+    function renderTabs(){
+      if (!tabs) return;
+      tabs.innerHTML = '';
+      storages.forEach((s, idx)=>{
+        const btn = document.createElement('button');
+        const active = s.id === activeStorageId || (!activeStorageId && idx===0);
+        if (active) activeStorageId = s.id;
+        btn.type='button';
+        btn.dataset.id = s.id;
+        btn.className = 'px-3 py-1.5 rounded-full border text-sm ' + (active ? 'bg-blue-600 text-white border-blue-700 shadow' : 'bg-white text-gray-800 border-gray-300 hover:border-blue-300');
+        btn.textContent = s.name;
+        btn.addEventListener('click', ()=> { activeStorageId = s.id; renderTabs(); renderLists(); });
+        tabs.appendChild(btn);
+      });
+      renderLists();
+    }
+
+    function renderLists(){
+      if (!pendingList || !doneList) return;
+      pendingList.innerHTML = ''; doneList.innerHTML = '';
+      if (!activeStorageId){
+        view.classList.add('hidden'); emptyText.classList.remove('hidden'); return;
+      }
+      const list = items.filter((it)=> (it.storageId || '') === activeStorageId);
+      if (!list.length){
+        view.classList.add('hidden'); emptyText.classList.remove('hidden'); return;
+      }
+      view.classList.remove('hidden'); emptyText.classList.add('hidden');
+      const pending = list.filter((it)=> !it.checked);
+      const done = list.filter((it)=> it.checked);
+      const makeLi = (it, checked)=>{
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 ' + (checked ? 'bg-green-50 border-green-200' : '');
+        const checkedStr = it.checkedAt ? new Date(it.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+        li.innerHTML = `
+          <label class="flex items-start gap-3 w-full">
+            <input type="checkbox" data-id="${it.id}" ${checked ? 'checked' : ''} class="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500" />
+            <div class="flex-1 min-w-0 space-y-0.5">
+              <div class="flex items-center justify-between gap-2">
+                <p class="font-semibold text-gray-900 truncate">${it.name}</p>
+                <span class="text-xs text-gray-500">数量: ${it.quantity || 0}</span>
+              </div>
+              ${it.comment ? `<div class="text-xs text-gray-600">${it.comment}</div>` : ''}
+              ${checked ? `<div class="text-[11px] text-green-700">チェック済み${checkedStr ? ' / ' + checkedStr : ''}${it.checkedBy ? ' / ' + it.checkedBy : ''}</div>` : ''}
+            </div>
+          </label>
+        `;
+        return li;
+      };
+      pending.forEach((it)=> pendingList.appendChild(makeLi(it,false)));
+      done.forEach((it)=> doneList.appendChild(makeLi(it,true)));
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+
+    tabs?.addEventListener('click', (ev)=>{
+      const btn = ev.target.closest('button[data-id]');
+      if (!btn) return;
+      activeStorageId = btn.dataset.id;
+      renderTabs();
+    });
+
+    view?.addEventListener('change', async (ev)=>{
+      const cb = ev.target.closest('input[type="checkbox"][data-id]');
+      if (!cb) return;
+      const id = cb.dataset.id;
+      const checked = cb.checked;
+      try{
+        const res = await fetch(`/users/packing/api/items/${encodeURIComponent(id)}/check`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ checked }) });
+        if (!res.ok) throw new Error('更新に失敗しました');
+        const json = await res.json();
+        const it = items.find((x)=> x.id === id);
+        if (it){
+          it.checked = json.checked;
+          it.checkedAt = json.checkedAt;
+          it.checkedBy = json.checkedBy;
+        }
+        renderLists();
+      }catch(e){
+        toast(e.message || '更新に失敗しました');
+        cb.checked = !checked;
+      }
+    });
+
+    renderTabs();
+  })();
+</script>

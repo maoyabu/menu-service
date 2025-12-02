@@ -19,6 +19,7 @@ import settingsRoutes from './routes/settings.js';
 import mymenuRoutes from './routes/mymenu.js';
 import mystockRoutes from './routes/mystock.js';
 import myequipmentRoutes from './routes/myequipment.js';
+import packingRoutes from './routes/packing.js';
 import slideshowRoutes from './routes/slideshow.js';
 import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
@@ -119,6 +120,7 @@ app.use('/settings', settingsRoutes);
 app.use('/users/my-menu', mymenuRoutes);
 app.use('/users/my-stock', mystockRoutes);
 app.use('/users/my-equipment', myequipmentRoutes);
+app.use('/users/packing', packingRoutes);
 app.use('/slideshow', slideshowRoutes);
 
 app.set('views', path.join(__dirname, 'views'));
