@@ -44,21 +44,31 @@ router.get('/', async (req, res, next) => {
     if (!groupId) return res.render('users/packingChecklist', { members: [], events: [], storages: [], masterItems: [] });
     const [memberInfo, eventsRaw, storagesRaw, masterItemsRaw] = await Promise.all([
       getMemberOptions(groupId),
-      PackingEvent.find({ group: groupId }).sort({ createdAt: -1 }).lean(),
-      PackingStorage.find({ group: groupId }).sort({ createdAt: -1 }).lean(),
+      PackingEvent.find({ group: groupId }).lean(),
+      PackingStorage.find({ group: groupId }).lean(),
       PackingMasterItem.find({ group: groupId }).sort({ createdAt: -1 }).lean()
     ]);
-    const events = eventsRaw.map((ev)=>({
+    const eventsSorted = (eventsRaw || []).slice().sort((a,b)=>{
+      const ta = new Date(a.lastOpenedAt || a.updatedAt || a.createdAt || 0).getTime();
+      const tb = new Date(b.lastOpenedAt || b.updatedAt || b.createdAt || 0).getTime();
+      return tb - ta;
+    });
+    const events = eventsSorted.map((ev)=>({
       id: String(ev._id),
       name: ev.name,
-      participants: (ev.participants || []).map(String)
+      participants: (ev.participants || []).map(String),
+      lastOpenedAt: ev.lastOpenedAt || null
     }));
-    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const storages = (storagesRaw || [])
+      .slice()
+      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
       name: it.name,
       owner: it.owner || 'all',
       defaultQuantity: it.defaultQuantity || 1,
+      defaultWeight: it.defaultWeight || 0,
       comment: it.comment || ''
     }));
     res.render('users/packingChecklist', { members: memberInfo.list, events, storages, masterItems });
@@ -79,8 +89,9 @@ router.post('/api/storages', async (req, res) => {
     const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'name required' });
-    const created = await PackingStorage.create({ name, group: groupId, createdBy: req.user._id });
-    res.json({ id: created._id, name: created.name });
+    const maxWeight = Math.max(0, Number(req.body?.maxWeight) || 0);
+    const created = await PackingStorage.create({ name, maxWeight, group: groupId, createdBy: req.user._id });
+    res.json({ id: created._id, name: created.name, maxWeight: created.maxWeight || 0 });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
@@ -89,11 +100,12 @@ router.patch('/api/storages/:id', async (req, res) => {
     const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'name required' });
-    const updated = await PackingStorage.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: { name } }, { new: true }).lean();
+    const maxWeight = Math.max(0, Number(req.body?.maxWeight) || 0);
+    const updated = await PackingStorage.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: { name, maxWeight } }, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'not found' });
     // update items storage name snapshots
     await PackingItem.updateMany({ group: groupId, storageId: updated._id }, { $set: { storageName: updated.name } });
-    res.json({ id: String(updated._id), name: updated.name });
+    res.json({ id: String(updated._id), name: updated.name, maxWeight: updated.maxWeight || 0 });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
@@ -114,14 +126,16 @@ router.post('/api/master-items', async (req, res) => {
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'name required' });
     const defaultQuantity = Math.max(0, Number(req.body?.defaultQuantity) || 0);
+    const defaultWeight = Math.max(0, Number(req.body?.defaultWeight) || 0);
     const owner = String(req.body?.owner || 'all');
     const comment = String(req.body?.comment || '').trim();
-    const created = await PackingMasterItem.create({ name, defaultQuantity, owner, comment, group: groupId, createdBy: req.user._id });
+    const created = await PackingMasterItem.create({ name, defaultQuantity, defaultWeight, owner, comment, group: groupId, createdBy: req.user._id });
     res.json({
       id: created._id,
       name: created.name,
       owner: created.owner,
       defaultQuantity: created.defaultQuantity,
+      defaultWeight: created.defaultWeight,
       comment: created.comment
     });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
@@ -135,6 +149,7 @@ router.patch('/api/master-items/:id', async (req, res) => {
     if (typeof req.body?.owner === 'string') update.owner = String(req.body.owner || 'all');
     if (typeof req.body?.comment === 'string') update.comment = String(req.body.comment || '').trim();
     if (typeof req.body?.defaultQuantity !== 'undefined') update.defaultQuantity = Math.max(0, Number(req.body.defaultQuantity) || 0);
+    if (typeof req.body?.defaultWeight !== 'undefined') update.defaultWeight = Math.max(0, Number(req.body.defaultWeight) || 0);
     const updated = await PackingMasterItem.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: update }, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'not found' });
     res.json({
@@ -142,6 +157,7 @@ router.patch('/api/master-items/:id', async (req, res) => {
       name: updated.name,
       owner: updated.owner,
       defaultQuantity: updated.defaultQuantity,
+      defaultWeight: updated.defaultWeight,
       comment: updated.comment
     });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
@@ -247,7 +263,10 @@ router.get('/check/:eventId', async (req, res, next) => {
     ]);
     if (!ev) return res.redirect('/users/packing');
     const storageIds = (ev.storageIds || []).map((x)=> x.toString());
-    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const storages = (storagesRaw || [])
+      .slice()
+      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
     const items = (itemsRaw || []).map((it)=> ({
       id: String(it._id),
@@ -258,9 +277,11 @@ router.get('/check/:eventId', async (req, res, next) => {
       checkedAt: it.checkedAt,
       checkedBy: it.checkedBy,
       quantity: it.quantity || 0,
+      weight: it.weight || 0,
       owner: it.owner || 'all',
       comment: it.comment || ''
     }));
+    await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
     res.render('users/packingCheck', {
       event: { id: String(ev._id), name: ev.name },
       storages: filteredStorages,
@@ -297,6 +318,7 @@ router.get('/:eventId', async (req, res, next) => {
       name: it.name,
       owner: it.owner || 'all',
       quantity: it.quantity || 0,
+      weight: it.weight || 0,
       comment: it.comment || '',
       storageId: it.storageId ? String(it.storageId) : '',
       storageName: it.storageName || '',
@@ -316,6 +338,7 @@ router.get('/:eventId', async (req, res, next) => {
         storageName: '',
         owner: m.owner || 'all',
         quantity: m.defaultQuantity || 0,
+        weight: m.defaultWeight || 0,
         comment: m.comment || '',
         group: groupId,
         event: ev._id,
@@ -326,6 +349,7 @@ router.get('/:eventId', async (req, res, next) => {
         name: d.name,
         owner: d.owner || 'all',
         quantity: d.quantity || 0,
+        weight: d.weight || 0,
         comment: d.comment || '',
         storageId: '',
         storageName: '',
@@ -337,6 +361,7 @@ router.get('/:eventId', async (req, res, next) => {
       items = items.concat(appended);
     }
     const memberNameById = new Map(memberInfo.list.map((m)=> [m.id, m.name]));
+    await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
     res.render('users/packingEvent', {
       event: {
         id: String(ev._id),
@@ -365,7 +390,10 @@ router.get('/check/:eventId', async (req, res, next) => {
     ]);
     if (!ev) return res.redirect('/users/packing');
     const storageIds = (ev.storageIds || []).map((x)=> x.toString());
-    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const storages = (storagesRaw || [])
+      .slice()
+      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
     const items = (itemsRaw || []).map((it)=> ({
       id: String(it._id),
@@ -405,12 +433,14 @@ router.post('/api/items', async (req, res) => {
     const storageName = storage ? storage.name : '';
     const ownerId = memberInfo.idSet.has(String(owner || '')) ? String(owner) : 'all';
     const qtyNum = Math.max(0, Number(quantity) || 0);
+    const weightNum = Math.max(0, Number(req.body?.weight || (thing?.defaultWeight ?? 0)) || 0);
     let master = thing;
     if (!master) {
       master = await PackingMasterItem.create({
         name: itemName,
         owner: ownerId || 'all',
         defaultQuantity: qtyNum,
+        defaultWeight: weightNum,
         comment: String(comment || '').trim(),
         group: groupId,
         createdBy: req.user._id
@@ -423,6 +453,7 @@ router.post('/api/items', async (req, res) => {
       storageName,
       owner: ownerId || 'all',
       quantity: qtyNum,
+      weight: weightNum,
       comment: String(comment || '').trim(),
       group: groupId,
       event: event._id,
@@ -438,6 +469,7 @@ router.post('/api/items', async (req, res) => {
       storageName: created.storageName || '',
       owner: created.owner,
       quantity: created.quantity,
+      weight: created.weight,
       comment: created.comment,
       checked: created.checked,
       checkedAt: created.checkedAt,
@@ -465,6 +497,7 @@ router.patch('/api/items/:id', async (req, res) => {
       name: String(req.body?.name || item.name || '').trim(),
       owner: ownerId,
       quantity: Math.max(0, Number(req.body?.quantity) || 0),
+      weight: Math.max(0, Number(req.body?.weight) || item.weight || 0),
       comment: String(req.body?.comment || '').trim(),
       thingId: thing?._id || item.thingId || null,
       storageId: storage ? storage._id : null,

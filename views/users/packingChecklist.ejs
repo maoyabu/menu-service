@@ -6,90 +6,40 @@
     </div>
   </header>
 
-  <div class="grid lg:grid-cols-2 gap-4">
-    <section class="border rounded-2xl bg-white p-4 space-y-3">
-      <div class="flex items-center gap-2">
-        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">イベント作成</span>
-        <p class="text-xs text-gray-500">イベント名と参加メンバーを登録します</p>
+  <section class="border rounded-2xl bg-white p-4 space-y-4">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">イベント一覧</span>
+        <p class="text-xs text-gray-500 mt-1">イベント名をクリックで編集、チェックリストへ遷移できます</p>
       </div>
-      <form id="event-form" class="space-y-3">
-        <label class="block text-sm">イベント名
-          <input type="text" name="name" required class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 2泊3日旅行" />
-        </label>
-        <div class="text-sm">
-          参加メンバー
-          <div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <% (members || []).forEach((m)=> { %>
-              <label class="flex items-center gap-2 text-sm text-gray-700 border rounded-lg px-2 py-1">
-                <input type="checkbox" name="participants" value="<%= m.id %>" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                <span class="truncate"><%= m.name %></span>
-              </label>
-            <% }) %>
-            <% if (!(members||[]).length) { %>
-              <p class="text-xs text-gray-500 col-span-full">グループメンバーがいません</p>
-            <% } %>
-          </div>
-        </div>
-        <div class="flex justify-end">
-          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">イベントを追加</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="border rounded-2xl bg-white p-4 space-y-3">
-      <div class="flex items-center gap-2">
-        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-50 text-green-700 border border-green-100">イベント一覧</span>
-        <p class="text-xs text-gray-500">イベント名をクリックで編集、チェックリストへ遷移</p>
-      </div>
-      <div id="event-list" class="space-y-2"></div>
-      <div class="text-sm text-gray-500" id="event-empty">まだイベントがありません。左で追加してください。</div>
-    </section>
-  </div>
+      <button type="button" id="event-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">イベントを追加</button>
+    </div>
+    <div id="event-list" class="grid gap-2 grid-cols-1 sm:grid-cols-2"></div>
+    <div class="text-sm text-gray-500" id="event-empty">まだイベントがありません。追加してください。</div>
+  </section>
 
   <div class="grid lg:grid-cols-2 gap-4">
     <section class="border rounded-2xl bg-white p-4 space-y-3">
-      <div class="flex items-center gap-2">
-        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 border border-amber-100">収納リスト</span>
-        <p class="text-xs text-gray-500">旅行用収納を登録・編集します</p>
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <span class="px-2 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 border border-amber-100">収納リスト</span>
+          <p class="text-xs text-gray-500 mt-1">旅行用収納を登録・編集します</p>
+        </div>
+        <button type="button" id="storage-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">収納を追加</button>
       </div>
-      <form id="storage-form" class="flex gap-2">
-        <input type="text" name="name" required class="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: スーツケース" />
-        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">追加</button>
-      </form>
-      <div id="storage-list" class="space-y-2"></div>
+      <div id="storage-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
       <div class="text-sm text-gray-500" id="storage-empty">収納がありません。追加してください。</div>
     </section>
 
     <section class="border rounded-2xl bg-white p-4 space-y-3">
-      <div class="flex items-center gap-2">
-        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-50 text-purple-700 border border-purple-100">持ち物リスト</span>
-        <p class="text-xs text-gray-500">イベントとは別に持ち物を登録・編集します</p>
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-50 text-purple-700 border border-purple-100">持ち物リスト</span>
+          <p class="text-xs text-gray-500 mt-1">イベントとは別に持ち物を登録・編集します</p>
+        </div>
+        <button type="button" id="master-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">持ち物を追加</button>
       </div>
-      <form id="master-item-form" class="space-y-2">
-        <label class="block text-sm">持ち物名
-          <input type="text" name="name" required class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 着替え" />
-        </label>
-        <div class="grid sm:grid-cols-3 gap-2">
-          <label class="block text-sm">誰のもの
-            <select name="owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
-              <option value="all">全員</option>
-              <% (members || []).forEach((m)=> { %>
-                <option value="<%= m.id %>"><%= m.name %></option>
-              <% }) %>
-            </select>
-          </label>
-          <label class="block text-sm">基準数量
-            <input type="number" step="1" min="0" name="defaultQuantity" value="1" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
-          </label>
-          <label class="block text-sm">コメント
-            <input type="text" name="comment" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="メモ" />
-          </label>
-        </div>
-        <div class="flex justify-end">
-          <button type="submit" class="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700">追加</button>
-        </div>
-      </form>
-      <div id="master-item-list" class="space-y-2"></div>
+      <div id="master-item-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
       <div class="text-sm text-gray-500" id="master-item-empty">持ち物がありません。追加してください。</div>
     </section>
   </div>
@@ -98,7 +48,7 @@
 <div id="event-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
   <div class="mt-10 w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
     <div class="flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-gray-900">イベントを編集</h3>
+      <h3 class="text-lg font-semibold text-gray-900" id="event-modal-title">イベントを編集</h3>
       <button type="button" data-event-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
     </div>
     <div class="space-y-3">
@@ -117,6 +67,62 @@
   </div>
 </div>
 
+<div id="storage-edit-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
+  <div class="mt-16 w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900">収納を編集</h3>
+      <button type="button" data-storage-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <label class="block text-sm">収納名
+      <input type="text" id="storage-edit-name" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+    </label>
+    <label class="block text-sm">制限重量(g)
+      <input type="number" min="0" id="storage-edit-weight" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+    </label>
+    <div class="flex justify-end gap-2">
+      <button type="button" data-storage-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
+      <button type="button" id="storage-edit-save" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="master-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
+  <div class="mt-12 w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900" id="master-modal-title">持ち物を追加</h3>
+      <button type="button" data-master-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <form id="master-modal-form" class="space-y-2">
+      <label class="block text-sm">持ち物名
+        <input type="text" name="name" required class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 着替え" />
+      </label>
+      <div class="grid sm:grid-cols-3 gap-2">
+        <label class="block text-sm">誰のもの
+          <select name="owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <option value="all">全員</option>
+            <% (members || []).forEach((m)=> { %>
+              <option value="<%= m.id %>"><%= m.name %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label class="block text-sm">基準数量
+          <input type="number" step="1" min="0" name="defaultQuantity" value="1" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+        </label>
+        <label class="block text-sm">重量(g)
+          <input type="number" step="1" min="0" name="defaultWeight" value="0" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+        </label>
+      </div>
+      <label class="block text-sm">コメント
+        <input type="text" name="comment" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="メモ" />
+      </label>
+      <div class="flex justify-end gap-2">
+        <button type="button" data-master-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
   (function(){
     const events = <%- JSON.stringify(events || []) %>;
@@ -128,19 +134,31 @@
     const eventEmpty = document.getElementById('event-empty');
     const storageList = document.getElementById('storage-list');
     const storageEmpty = document.getElementById('storage-empty');
-    const masterItemList = document.getElementById('master-item-list');
-    const masterItemEmpty = document.getElementById('master-item-empty');
+  const masterItemList = document.getElementById('master-item-list');
+  const masterItemEmpty = document.getElementById('master-item-empty');
 
-    const eventForm = document.getElementById('event-form');
-    const storageForm = document.getElementById('storage-form');
-    const masterItemForm = document.getElementById('master-item-form');
+    const eventAddOpen = document.getElementById('event-add-open');
+    const storageAddOpen = document.getElementById('storage-add-open');
+  const masterItemForm = document.getElementById('master-modal-form');
 
     const modal = document.getElementById('event-modal');
+    const modalTitle = document.getElementById('event-modal-title');
     const modalName = document.getElementById('modal-name');
     const modalParticipants = document.getElementById('modal-participants');
     const modalSave = document.getElementById('modal-save');
     let modalEventId = '';
     let modalParticipantsChecked = [];
+
+    const storageEditModal = document.getElementById('storage-edit-modal');
+    const storageEditName = document.getElementById('storage-edit-name');
+    const storageEditWeight = document.getElementById('storage-edit-weight');
+    const storageEditSave = document.getElementById('storage-edit-save');
+    let storageEditId = '';
+
+    const masterModal = document.getElementById('master-modal');
+    const masterModalTitle = document.getElementById('master-modal-title');
+    const masterAddOpen = document.getElementById('master-add-open');
+    let masterEditId = '';
 
     function toast(msg){
       if (!msg) return;
@@ -162,16 +180,18 @@
       }
       eventEmpty.classList.add('hidden');
       events.forEach((ev)=>{
-        const row = document.createElement('div');
-        row.className = 'flex items-center justify-between border rounded-lg px-3 py-2';
-        row.innerHTML = `
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between border-2 border-blue-200 rounded-xl px-3 py-3 bg-white shadow-sm';
+      row.innerHTML = `
           <div class="flex items-center gap-2">
-            <button type="button" class="text-left text-sm font-semibold text-blue-700 hover:underline" data-event-edit="${ev.id}">${ev.name}</button>
-            <span class="text-xs text-gray-500">${(ev.participants||[]).length}人</span>
+            <button type="button" class="text-left text-sm font-semibold text-blue-700 hover:underline" data-event-edit="${ev.id}">${ev.name} のパッキングプラン</button>
+            <span class="text-sm text-gray-900 flex items-center gap-1">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-[11px] text-gray-700 whitespace-nowrap">参加 ${(ev.participants||[]).length} 人</span>
+            </span>
           </div>
           <div class="flex items-center gap-2">
-            <a href="/users/packing/${encodeURIComponent(ev.id)}" class="px-3 py-1 rounded-lg border text-sm text-blue-700 hover:bg-blue-50">編集</a>
-            <a href="/users/packing/check/${encodeURIComponent(ev.id)}" class="px-3 py-1 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">チェックリスト</a>
+            <a href="/users/packing/${encodeURIComponent(ev.id)}" class="px-3 py-1 rounded-lg border border-amber-200 text-sm text-amber-800 bg-amber-50 hover:bg-amber-100 whitespace-nowrap">編集</a>
+            <a href="/users/packing/check/${encodeURIComponent(ev.id)}" class="px-3 py-1 rounded-lg border border-green-200 text-sm text-green-700 bg-green-50 hover:bg-green-100 whitespace-nowrap">チェックリスト</a>
           </div>
         `;
         eventList.appendChild(row);
@@ -189,13 +209,20 @@
       storageEmpty.classList.add('hidden');
       storages.forEach((s)=>{
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-2 border rounded-lg px-3 py-2';
+        row.className = 'flex items-center gap-3 border rounded-lg px-3 py-2 bg-white';
         row.innerHTML = `
-          <input type="text" value="${s.name}" data-storage-id="${s.id}" class="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"/>
-          <button type="button" class="text-sm text-red-600 hover:text-red-800" data-storage-del="${s.id}">削除</button>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm text-gray-900">${s.name}</p>
+            <p class="text-xs text-gray-500">制限重量: ${s.maxWeight || 0} g</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" class="text-gray-600 hover:text-gray-800" data-storage-edit="${s.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+            <button type="button" class="text-red-600 hover:text-red-800" data-storage-del="${s.id}" aria-label="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </div>
         `;
         storageList.appendChild(row);
       });
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
     function renderMasterItemList(){
@@ -209,25 +236,27 @@
       masterItems.forEach((it)=>{
         const ownerLabel = it.owner === 'all' ? '全員' : (members.find((m)=> m.id === it.owner)?.name || 'メンバー');
         const row = document.createElement('div');
-        row.className = 'flex items-start gap-3 border rounded-lg px-3 py-2';
+        row.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 bg-white';
         row.innerHTML = `
           <div class="flex-1 min-w-0 space-y-1">
             <div class="flex items-center justify-between gap-2">
-              <p class="font-semibold text-gray-900 truncate">${it.name}</p>
-              <span class="text-xs text-gray-500">数量: ${it.defaultQuantity || 0}</span>
+              <p class="font-semibold text-gray-900">${it.name}</p>
             </div>
             <div class="text-xs text-gray-600 flex flex-wrap gap-2">
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 border border-gray-200">${ownerLabel}</span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 border border-gray-200">数量: ${it.defaultQuantity || 0}</span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 border border-gray-200">重量: ${it.defaultWeight || 0}g</span>
               ${it.comment ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100">${it.comment}</span>` : ''}
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button type="button" class="text-blue-600 hover:text-blue-800 text-sm" data-master-edit="${it.id}">編集</button>
-            <button type="button" class="text-red-600 hover:text-red-800 text-sm" data-master-del="${it.id}">削除</button>
+            <button type="button" class="text-blue-600 hover:text-blue-800" data-master-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+            <button type="button" class="text-red-600 hover:text-red-800" data-master-del="${it.id}" aria-label="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
           </div>
         `;
         masterItemList.appendChild(row);
       });
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
     // Event edit modal
@@ -253,12 +282,12 @@
     });
     function openEventModal(id){
       const ev = events.find((x)=> x.id === id);
-      if (!ev || !modal) return;
-      modalEventId = id;
-      modalName.value = ev.name || '';
-      modalParticipantsChecked = [...(ev.participants || [])];
+      modalEventId = ev ? ev.id : '';
+      modalName.value = ev ? ev.name || '' : '';
+      modalParticipantsChecked = ev ? [...(ev.participants || [])] : [];
+      if (modalTitle) modalTitle.textContent = ev ? 'イベントを編集' : 'イベントを追加';
       renderModalParticipants();
-      modal.classList.remove('hidden'); modal.classList.add('flex');
+      modal?.classList.remove('hidden'); modal?.classList.add('flex');
     }
     function closeEventModal(){
       modal?.classList.add('hidden'); modal?.classList.remove('flex'); modalEventId='';
@@ -266,41 +295,36 @@
     modal?.addEventListener('click', (ev)=> { if (ev.target === modal) closeEventModal(); });
     modal.querySelectorAll('[data-event-close]')?.forEach((b)=> b.addEventListener('click', closeEventModal));
     modalSave?.addEventListener('click', async ()=>{
-      if (!modalEventId) return;
       try{
-        const res = await fetch(`/users/packing/api/events/${encodeURIComponent(modalEventId)}`, {
-          method:'PATCH',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ name: modalName.value || '', participants: modalParticipantsChecked })
-        });
-        if (!res.ok) throw new Error('更新に失敗しました');
-        const json = await res.json();
-        const target = events.find((e)=> e.id === modalEventId);
-        if (target){ target.name = json.name; target.participants = json.participants || []; }
+        const payload = { name: modalName.value || '', participants: modalParticipantsChecked };
+        if (modalEventId){
+          const res = await fetch(`/users/packing/api/events/${encodeURIComponent(modalEventId)}`, {
+            method:'PATCH',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error('更新に失敗しました');
+          const json = await res.json();
+          const target = events.find((e)=> e.id === modalEventId);
+          if (target){ target.name = json.name; target.participants = json.participants || []; }
+          toast('イベントを更新しました');
+        } else {
+          const res = await fetch('/users/packing/api/events', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error('イベント作成に失敗しました');
+          const json = await res.json();
+          events.unshift({ ...json, id: json.id.toString() });
+          toast('イベントを追加しました');
+        }
         renderEventList();
-        toast('イベントを更新しました');
         closeEventModal();
-      }catch(e){ toast(e.message || '更新に失敗しました'); }
+      }catch(e){ toast(e.message || '保存に失敗しました'); }
     });
 
-    // Event create
-    eventForm?.addEventListener('submit', async (ev)=>{
-      ev.preventDefault();
-      const fd = new FormData(eventForm);
-      const payload = {
-        name: fd.get('name') || '',
-        participants: fd.getAll('participants') || []
-      };
-      try{
-        const res = await fetch('/users/packing/api/events', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
-        if (!res.ok) throw new Error('イベント作成に失敗しました');
-        const json = await res.json();
-        events.unshift({ ...json, id: json.id.toString() });
-        eventForm.reset();
-        renderEventList();
-        toast('イベントを追加しました');
-      }catch(e){ toast(e.message || 'イベント作成に失敗しました'); }
-    });
+    eventAddOpen?.addEventListener('click', ()=> openEventModal(null));
 
     // Event list click
     eventList?.addEventListener('click', (ev)=>{
@@ -309,63 +333,103 @@
     });
 
     // Storage add/edit/delete
-    storageForm?.addEventListener('submit', async (ev)=>{
-      ev.preventDefault();
-      const fd = new FormData(storageForm);
-      const name = (fd.get('name') || '').toString().trim();
-      if (!name) return;
-      try{
-        const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name }) });
-        if (!res.ok) throw new Error('追加に失敗しました');
-        const json = await res.json();
-        storages.unshift({ id: json.id.toString(), name: json.name });
-        storageForm.reset();
-        renderStorageList();
-        toast('収納を追加しました');
-      }catch(e){ toast(e.message || '追加に失敗しました'); }
-    });
-    storageList?.addEventListener('input', async (ev)=>{
-      const input = ev.target.closest('input[data-storage-id]');
-      if (!input) return;
-      const id = input.dataset.storageId;
-      try{
-        const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(id)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name: input.value || '' }) });
-        if (!res.ok) throw new Error('更新に失敗しました');
-        const json = await res.json();
-        const target = storages.find((s)=> s.id === id); if (target) target.name = json.name;
-        toast('更新しました');
-      }catch(e){ toast(e.message || '更新に失敗しました'); }
+    storageAddOpen?.addEventListener('click', ()=>{
+      storageEditId = '';
+      storageEditName.value = '';
+      storageEditWeight.value = 0;
+      storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
     });
     storageList?.addEventListener('click', async (ev)=>{
-      const btn = ev.target.closest('button[data-storage-del]');
-      if (!btn) return;
-      const id = btn.dataset.storageDel;
-      if (!confirm('削除してよろしいですか？')) return;
+      const editBtn = ev.target.closest('button[data-storage-edit]');
+      const delBtn = ev.target.closest('button[data-storage-del]');
+      if (editBtn){
+        const id = editBtn.dataset.storageEdit;
+        const target = storages.find((s)=> s.id === id); if (!target) return;
+        storageEditId = id;
+        storageEditName.value = target.name || '';
+        storageEditWeight.value = target.maxWeight || 0;
+        storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
+        if (window.refreshLucideIcons) window.refreshLucideIcons();
+      } else if (delBtn){
+        const id = delBtn.dataset.storageDel;
+        if (!confirm('削除してよろしいですか？')) return;
+        try{
+          const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(id)}`, { method:'DELETE' });
+          if (!res.ok) throw new Error('削除に失敗しました');
+          const idx = storages.findIndex((s)=> s.id === id);
+          if (idx>=0) storages.splice(idx,1);
+          renderStorageList();
+          toast('削除しました');
+        }catch(e){ toast(e.message || '削除に失敗しました'); }
+      }
+    });
+    storageEditModal?.addEventListener('click', (ev)=> { if (ev.target === storageEditModal) { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); } });
+    storageEditModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); }));
+    storageEditSave?.addEventListener('click', async ()=>{
+      if (!storageEditId) return;
       try{
-        const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(id)}`, { method:'DELETE' });
-        if (!res.ok) throw new Error('削除に失敗しました');
-        const idx = storages.findIndex((s)=> s.id === id);
-        if (idx>=0) storages.splice(idx,1);
+        if (storageEditId){
+          const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0 }) });
+          if (!res.ok) throw new Error('更新に失敗しました');
+          const json = await res.json();
+          const target = storages.find((s)=> s.id === storageEditId);
+          if (target){ target.name = json.name; target.maxWeight = json.maxWeight || 0; }
+          toast('更新しました');
+        } else {
+          const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0 }) });
+          if (!res.ok) throw new Error('追加に失敗しました');
+          const json = await res.json();
+          storages.unshift({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0 });
+          toast('収納を追加しました');
+        }
         renderStorageList();
-        toast('削除しました');
-      }catch(e){ toast(e.message || '削除に失敗しました'); }
+        storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex');
+      }catch(e){ toast(e.message || '更新に失敗しました'); }
     });
 
     // Master items add/edit/delete
+    function openMasterModal(target){
+      masterModal?.classList.remove('hidden'); masterModal?.classList.add('flex');
+      masterModalTitle.textContent = target ? '持ち物を編集' : '持ち物を追加';
+      masterEditId = target?.id || '';
+      const form = masterItemForm;
+      if (!form) return;
+      form.name.value = target?.name || '';
+      form.owner.value = target?.owner || 'all';
+      form.defaultQuantity.value = target?.defaultQuantity || 0;
+      form.defaultWeight.value = target?.defaultWeight || 0;
+      form.comment.value = target?.comment || '';
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+    masterAddOpen?.addEventListener('click', ()=> openMasterModal(null));
+    masterModal?.addEventListener('click', (ev)=> { if (ev.target === masterModal) { masterModal.classList.add('hidden'); masterModal.classList.remove('flex'); } });
+    masterModal?.querySelectorAll('[data-master-close]')?.forEach((b)=> b.addEventListener('click', ()=> { masterModal.classList.add('hidden'); masterModal.classList.remove('flex'); }));
+
     masterItemForm?.addEventListener('submit', async (ev)=>{
       ev.preventDefault();
       const fd = new FormData(masterItemForm);
       const payload = Object.fromEntries(fd.entries());
+      const isEdit = !!masterEditId;
+      const url = isEdit ? `/users/packing/api/master-items/${encodeURIComponent(masterEditId)}` : '/users/packing/api/master-items';
+      const method = isEdit ? 'PATCH' : 'POST';
       try{
-        const res = await fetch('/users/packing/api/master-items', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
-        if (!res.ok) throw new Error('追加に失敗しました');
+        const res = await fetch(url, { method, headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(isEdit ? '更新に失敗しました' : '追加に失敗しました');
         const json = await res.json();
-        masterItems.unshift({ ...json, id: json.id.toString() });
+        if (isEdit){
+          const target = masterItems.find((m)=> m.id === masterEditId);
+          if (target) Object.assign(target, { ...json, id: json.id.toString() });
+        } else {
+          masterItems.unshift({ ...json, id: json.id.toString() });
+        }
         masterItemForm.reset();
+        masterModal.classList.add('hidden'); masterModal.classList.remove('flex');
         renderMasterItemList();
-        toast('持ち物を追加しました');
-      }catch(e){ toast(e.message || '追加に失敗しました'); }
+        toast(isEdit ? '更新しました' : '持ち物を追加しました');
+      }catch(e){ toast(e.message || '保存に失敗しました'); }
     });
+
     masterItemList?.addEventListener('click', async (ev)=>{
       const delBtn = ev.target.closest('button[data-master-del]');
       const editBtn = ev.target.closest('button[data-master-edit]');
@@ -382,21 +446,7 @@
       } else if (editBtn){
         const id = editBtn.dataset.masterEdit;
         const target = masterItems.find((m)=> m.id === id); if (!target) return;
-        const name = prompt('持ち物名', target.name) ?? target.name;
-        const qty = prompt('基準数量', String(target.defaultQuantity || 0)) ?? target.defaultQuantity;
-        const comment = prompt('コメント', target.comment || '') ?? target.comment;
-        try{
-          const res = await fetch(`/users/packing/api/master-items/${encodeURIComponent(id)}`, {
-            method:'PATCH',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ name, defaultQuantity: qty, comment, owner: target.owner })
-          });
-          if (!res.ok) throw new Error('更新に失敗しました');
-          const json = await res.json();
-          Object.assign(target, json);
-          renderMasterItemList();
-          toast('更新しました');
-        }catch(e){ toast(e.message || '更新に失敗しました'); }
+        openMasterModal(target);
       }
     });
 

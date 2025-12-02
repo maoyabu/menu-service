@@ -7,6 +7,7 @@ const packingItemSchema = new Schema({
   thingId: { type: Schema.Types.ObjectId, ref: 'PackingMasterItem', default: null },
   storageId: { type: Schema.Types.ObjectId, ref: 'PackingStorage', default: null },
   storageName: { type: String, default: '' },
+  weight: { type: Number, default: 0 }, // grams
   owner: { type: String, default: 'all' }, // 'all' or userId
   quantity: { type: Number, default: 1 },
   comment: { type: String, default: '' },

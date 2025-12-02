@@ -1,12 +1,18 @@
 <section class="max-w-5xl mx-auto py-8 space-y-6">
-  <header class="flex items-center justify-between flex-wrap gap-3">
-    <div>
-      <h1 class="text-2xl font-bold"><%= event.name || '' %> の持ち物チェックリスト</h1>
-      <p class="text-sm text-gray-600">収納先を切り替えながらチェックできます</p>
+  <header class="space-y-2">
+    <div class="text-xs text-gray-500 flex items-center gap-1">
+      <a href="/users/packing" class="text-blue-600 hover:underline">トップ</a>
+      <span>＞</span>
+      <a href="/users/packing/<%= event.id %>" class="text-blue-600 hover:underline"><%= event.name || '' %> のパッキングプラン</a>
+      <span>＞</span>
+      <span class="text-gray-800">チェックリスト</span>
     </div>
-    <a href="/users/packing/<%= event.id %>" class="text-sm text-blue-600 font-semibold inline-flex items-center gap-1">
-      <i data-lucide="arrow-left" class="w-4 h-4"></i> イベントの編集
-    </a>
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-bold"><%= event.name || '' %> の持ち物チェックリスト</h1>
+        <p class="text-sm text-gray-600">収納先を切り替えながらチェックできます</p>
+      </div>
+    </div>
   </header>
 
   <div class="space-y-3">
@@ -81,8 +87,8 @@
             <input type="checkbox" data-id="${it.id}" ${checked ? 'checked' : ''} class="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500" />
             <div class="flex-1 min-w-0 space-y-0.5">
               <div class="flex items-center justify-between gap-2">
-                <p class="font-semibold text-gray-900 truncate">${it.name}</p>
-                <span class="text-xs text-gray-500">数量: ${it.quantity || 0}</span>
+                <p class="font-semibold text-gray-900">${it.name}</p>
+                <span class="text-xs text-gray-500">数量: ${it.quantity || 0} / 重量: ${it.weight || 0}g</span>
               </div>
               ${it.comment ? `<div class="text-xs text-gray-600">${it.comment}</div>` : ''}
               ${checked ? `<div class="text-[11px] text-green-700">チェック済み${checkedStr ? ' / ' + checkedStr : ''}${it.checkedBy ? ' / ' + it.checkedBy : ''}</div>` : ''}

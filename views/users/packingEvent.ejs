@@ -1,13 +1,18 @@
 <section class="max-w-6xl mx-auto py-8 space-y-6">
-  <header class="flex items-center justify-between flex-wrap gap-3">
-    <div>
-      <h1 class="text-2xl font-bold"><%= event.name || '' %></h1>
-      <p class="text-sm text-gray-600">このイベントで使用する収納に持ち物を入れてチェックできます</p>
-      <p class="text-xs text-gray-500">参加メンバー: <%= (event.participants || []).map((id)=> (memberNameById.get(id) || '')).filter(Boolean).join(' / ') || '未設定' %></p>
+  <header class="space-y-2">
+    <div class="text-xs text-gray-500 flex items-center gap-1">
+      <a href="/users/packing" class="text-blue-600 hover:underline">トップ</a>
+      <span>＞</span>
+      <span class="text-gray-800"><%= event.name || '' %> のパッキングプラン</span>
     </div>
-    <a href="/users/packing" class="text-sm text-blue-600 font-semibold inline-flex items-center gap-1">
-      <i data-lucide="arrow-left" class="w-4 h-4"></i> 持ち物チェックトップ
-    </a>
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-bold"><%= event.name || '' %> のパッキングプラン</h1>
+        <p class="text-sm text-gray-600">このイベントで使用する収納に持ち物を入れてチェックできます</p>
+        <p class="text-xs text-gray-500">参加メンバー: <%= (event.participants || []).map((id)=> (memberNameById.get(id) || '')).filter(Boolean).join(' / ') || '未設定' %></p>
+      </div>
+      <a href="/users/packing/check/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">チェックリストへ</a>
+    </div>
   </header>
 
   <section class="border rounded-2xl bg-white p-4 space-y-3">
@@ -19,7 +24,6 @@
       <div class="flex gap-2">
         <button type="button" id="open-storage-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-amber-50 text-amber-800 hover:bg-amber-100">収納を追加</button>
         <button type="button" id="open-item-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-purple-50 text-purple-800 hover:bg-purple-100">持ち物を追加</button>
-        <a href="/users/packing/check/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">チェックリストへ</a>
       </div>
     </div>
     <div class="space-y-2">
@@ -64,6 +68,9 @@
     <label class="block text-sm">収納名
       <input type="text" id="storage-modal-name" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: スーツケース" />
     </label>
+    <label class="block text-sm">制限重量(g)
+      <input type="number" min="0" id="storage-modal-max" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" value="0" />
+    </label>
     <div class="flex justify-end gap-2">
       <button type="button" data-storage-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
       <button type="button" id="storage-modal-save" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">追加</button>
@@ -92,6 +99,9 @@
       </label>
       <label class="block text-sm">数量
         <input type="number" step="1" min="0" id="item-modal-qty" value="1" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+      </label>
+      <label class="block text-sm">重量(g)
+        <input type="number" step="1" min="0" id="item-modal-weight" value="0" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
       </label>
     </div>
     <label class="block text-sm">コメント
@@ -124,11 +134,13 @@
 
     const storageModal = document.getElementById('storage-modal');
     const storageModalName = document.getElementById('storage-modal-name');
+    const storageModalMax = document.getElementById('storage-modal-max');
     const storageModalSave = document.getElementById('storage-modal-save');
     const itemModal = document.getElementById('item-modal');
     const itemModalName = document.getElementById('item-modal-name');
     const itemModalOwner = document.getElementById('item-modal-owner');
     const itemModalQty = document.getElementById('item-modal-qty');
+    const itemModalWeight = document.getElementById('item-modal-weight');
     const itemModalComment = document.getElementById('item-modal-comment');
     const itemModalSave = document.getElementById('item-modal-save');
 
@@ -251,16 +263,19 @@
       storages.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
         const list = items.filter((it)=> it.storageId === s.id);
+        const totalWeight = list.reduce((sum, it)=> sum + (Number(it.weight || 0) || 0), 0);
+        const max = Number(s.maxWeight || 0);
+        const remain = max ? (max - totalWeight) : null;
         const sec = document.createElement('section');
         sec.className = 'border rounded-lg px-3 py-2';
-        sec.innerHTML = `<div class="font-semibold text-sm mb-2">${s.name}</div>`;
+        sec.innerHTML = `<div class="flex items-center justify-between mb-2"><span class="font-semibold text-sm">${s.name}</span><span class="text-xs text-gray-500">重量合計: ${totalWeight} g${max ? ` / 残り: ${Math.max(0, remain)} g` : ''}</span></div>`;
         const wrap = document.createElement('div');
         wrap.className = 'flex flex-wrap gap-2';
         list.forEach((it)=>{
           const tag = document.createElement('button');
           tag.type='button';
           tag.className='px-3 py-1.5 rounded-full border bg-green-50 text-green-800 text-sm hover:border-green-300';
-          tag.innerHTML = `${it.name} <span class="text-[11px] text-gray-500">(×)</span>`;
+          tag.innerHTML = `${it.name} <span class="text-[11px] text-gray-500">${it.weight || 0}g</span> <span class="text-[11px] text-gray-500">(×)</span>`;
           tag.addEventListener('click', ()=> assignItemToStorage(it.id, ''));
           wrap.appendChild(tag);
         });
@@ -340,11 +355,11 @@
       const name = (storageModalName?.value || '').trim();
       if (!name) return;
       try{
-        const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name }) });
+        const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0 }) });
         if (!res.ok) throw new Error('追加に失敗しました');
         const json = await res.json();
-        storages.push({ id: json.id.toString(), name: json.name });
-        storageModalName.value = '';
+        storages.push({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0 });
+        storageModalName.value = ''; if (storageModalMax) storageModalMax.value = '0';
         closeModal(storageModal);
         if (!selectedStorageIds.includes(json.id.toString())) selectedStorageIds.push(json.id.toString());
         renderStorages();
@@ -361,6 +376,7 @@
         name,
         owner: itemModalOwner?.value || 'all',
         quantity: itemModalQty?.value || 0,
+        weight: itemModalWeight?.value || 0,
         comment: itemModalComment?.value || '',
         eventId,
         storageId: '',
