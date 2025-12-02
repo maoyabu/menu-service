@@ -21,7 +21,8 @@ const myEquipmentSchema = new mongoose.Schema({
   lastCount: { type: Number, default: 0 },
   lastComment: { type: String, default: '' },
   lastInventoryAt: { type: Date, default: null },
-  lastInventoryBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  lastInventoryBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
 
 const MyEquipment = mongoose.models.MyEquipment || mongoose.model('MyEquipment', myEquipmentSchema);

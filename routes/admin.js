@@ -1753,6 +1753,7 @@ router.get('/export/my-equipment', async (req, res) => {
       MyEquipment.find()
         .populate('group', 'group_name')
         .populate('createdBy', 'displayname username email')
+        .populate('owner', 'displayname username email')
         .populate('place', 'name')
         .lean(),
       StoragePlace.find().select('name').lean()
@@ -1763,6 +1764,7 @@ router.get('/export/my-equipment', async (req, res) => {
     worksheet.columns = [
       { header: 'グループ', key: 'group' },
       { header: '登録者', key: 'user' },
+      { header: '所有者', key: 'owner' },
       { header: '備品名', key: 'name' },
       { header: '数量', key: 'quantity' },
       { header: '単位', key: 'unit' },
@@ -1786,9 +1788,11 @@ router.get('/export/my-equipment', async (req, res) => {
     items.forEach((it) => {
       const place = it.place ? (it.place.name || placeNameById.get(String(it.place)) || '') : '';
       const by = it.lastInventoryBy?.displayname || it.lastInventoryBy?.username || '';
+      const owner = it.owner ? (it.owner.displayname || it.owner.username || '') : '全員';
       worksheet.addRow({
         group: it.group?.group_name || '',
         user: it.createdBy?.displayname || it.createdBy?.username || '',
+        owner,
         name: it.name,
         quantity: it.quantity,
         unit: it.unit,

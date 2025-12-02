@@ -15,6 +15,31 @@ function getGroupId(res){
   return def || (groups[0]?._id?.toString?.() ?? null);
 }
 
+const getUserDisplayName = (user) => (user?.displayname || user?.username || user?.email || '').trim();
+
+async function getOwnerOptions(groupId) {
+  if (!groupId) return { list: [], idSet: new Set(), labelMap: new Map() };
+  const group = await Group.findById(groupId)
+    .populate('createdBy members', 'displayname username email')
+    .lean();
+  if (!group) return { list: [], idSet: new Set(), labelMap: new Map() };
+
+  const userMap = new Map();
+  const pushUser = (user) => {
+    if (!user) return;
+    const id = user._id?.toString?.() || (typeof user === 'string' ? user : '');
+    if (!id || userMap.has(id)) return;
+    userMap.set(id, { id, name: getUserDisplayName(user) });
+  };
+
+  pushUser(group.createdBy);
+  (group.members || []).forEach(pushUser);
+  const list = Array.from(userMap.values());
+  const idSet = new Set(list.map((u) => u.id));
+  const labelMap = new Map(list.map((u) => [u.id, u.name]));
+  return { list, idSet, labelMap };
+}
+
 const getCycleStart = (cadence = 'monthly') => {
   const now = new Date();
   if (cadence === 'quarter') {
@@ -34,13 +59,25 @@ router.get('/', async (req, res, next) => {
     const groupId = getGroupId(res);
     const allowedTypes = ['house', 'disaster', 'camping', 'wishlist'];
     const type = allowedTypes.includes(String(req.query?.type)) ? String(req.query.type) : 'all';
-    if (!groupId) return res.render('users/myEquipment', { places: [], placeMap: {}, type, categories: { house: [], disaster: [], camping: [], maintenance: [], units: [] } });
+    if (!groupId) return res.render('users/myEquipment', { places: [], placeMap: {}, type, categories: { house: [], disaster: [], camping: [], maintenance: [], units: [] }, ownerOptions: [{ id: 'all', name: '全員' }] });
 
-    const [items, places] = await Promise.all([
+    const [itemsRaw, places, ownerData] = await Promise.all([
       MyEquipment.find({ group: groupId }).lean(),
-      StoragePlace.find({ group: groupId }).lean()
+      StoragePlace.find({ group: groupId }).lean(),
+      getOwnerOptions(groupId)
     ]);
+    const { list: ownerList, labelMap: ownerLabelMap } = ownerData;
+    const ownerOptions = [{ id: 'all', name: '全員' }, ...ownerList];
     const placeNameById = new Map((places||[]).map(p=> [String(p._id), p.name]));
+
+    const items = (itemsRaw || []).map((it) => {
+      const ownerId = it.owner ? String(it.owner) : 'all';
+      return {
+        ...it,
+        ownerId,
+        ownerName: ownerId === 'all' ? '全員' : (ownerLabelMap.get(ownerId) || '')
+      };
+    });
 
     const filtered = items.filter(it => {
       if (type === 'wishlist') {
@@ -81,7 +118,7 @@ router.get('/', async (req, res, next) => {
       maintenance: uniq([...(maintE||[]), ...(maintM||[])])
     };
 
-    res.render('users/myEquipment', { places, placeMap, type, categories });
+    res.render('users/myEquipment', { places, placeMap, type, categories, ownerOptions });
   } catch (e) { next(e); }
 });
 
@@ -98,18 +135,14 @@ router.get('/inventory', async (req, res, next) => {
       return res.redirect('/settings');
     }
     const cycleStart = getCycleStart(cadence);
-    const [items, places] = await Promise.all([
-      MyEquipment.find({ group: groupId })
-        .populate('place', 'name')
-        .populate('lastInventoryBy', 'displayname username')
-        .lean(),
-      StoragePlace.find({ group: groupId }).lean()
-    ]);
-    const placeNameById = new Map((places || []).map((p) => [String(p._id), p.name]));
+    const items = await MyEquipment.find({ group: groupId })
+      .populate('place', 'name')
+      .populate('lastInventoryBy', 'displayname username')
+      .lean();
     const entries = items.map((it) => {
       const placeName = (!it.place && (Number(it.quantity) || 0) <= 0)
         ? 'ウィッシュリスト'
-        : (placeNameById.get(String(it.place || '')) || '未設定');
+        : (it.place?.name || '未設定');
       const byName = it.lastInventoryBy
         ? (it.lastInventoryBy.displayname || it.lastInventoryBy.username || '')
         : '';
@@ -262,6 +295,14 @@ router.post('/api/add', express.json(), async (req, res) => {
       placeId = b.placeId;
     }
 
+    const ownerRaw = typeof b.owner === 'string' ? b.owner.trim() : '';
+    let owner = null;
+    if (ownerRaw && ownerRaw !== 'all') {
+      const { idSet } = await getOwnerOptions(groupId);
+      if (!idSet.has(ownerRaw)) return res.status(400).json({ error: 'invalid owner' });
+      owner = ownerRaw;
+    }
+
     const doc = {
       group: groupId,
       createdBy: req.user._id,
@@ -281,7 +322,8 @@ router.post('/api/add', express.json(), async (req, res) => {
       tracked: !!b.tracked,
       lastCount: Number(b.lastCount) || 0,
       lastComment: String(b.lastComment || '').trim(),
-      expiryDate: b.expiryDate ? new Date(b.expiryDate) : null
+      expiryDate: b.expiryDate ? new Date(b.expiryDate) : null,
+      owner
     };
     if (!doc.name) return res.status(400).json({ error: 'name required' });
 
@@ -314,6 +356,16 @@ router.put('/api/:id', express.json(), async (req, res) => {
         pid = place._id || place;
       }
       update.place = pid;
+    }
+    if ('owner' in b) {
+      const ownerRaw = typeof b.owner === 'string' ? b.owner.trim() : '';
+      if (ownerRaw && ownerRaw !== 'all') {
+        const { idSet } = await getOwnerOptions(groupId);
+        if (!idSet.has(ownerRaw)) return res.status(400).json({ error: 'invalid owner' });
+        update.owner = ownerRaw;
+      } else {
+        update.owner = null;
+      }
     }
     const updated = await MyEquipment.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: update }, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'not found' });

@@ -7,6 +7,7 @@
     <a href="/users/my-equipment" class="text-sm text-blue-600 font-semibold">マイ備品へ戻る</a>
   </header>
 
+  <div id="equip-tabs" class="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-y py-2 hidden"></div>
   <div id="equip-checklist" class="space-y-6"></div>
   <div id="equip-pop" class="hidden fixed inset-0 z-50 flex items-start justify-center bg-black/30">
     <div class="mt-16 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
@@ -39,6 +40,7 @@
     const items = <%- JSON.stringify(items || []) %>;
     const cycleStart = new Date(<%- JSON.stringify(cycleStartISO || '') %>);
     const root = document.getElementById('equip-checklist');
+    const tabs = document.getElementById('equip-tabs');
 
     const isCheckedThisCycle = (dt) => {
       if (!dt) return false;
@@ -59,11 +61,13 @@
       byPlace.set(k, arr);
     });
 
+    const sections = [];
     byPlace.forEach((list, place) => {
       const pending = list.filter((it) => !isCheckedThisCycle(it.lastInventoryAt));
       const done = list.filter((it) => isCheckedThisCycle(it.lastInventoryAt));
       const sec = document.createElement('section');
       sec.className = 'rounded-2xl border bg-white p-4';
+      sec.dataset.place = place;
       sec.innerHTML = `<div class="flex items-center justify-between mb-3"><h2 class="font-semibold">${place}</h2></div>`;
       const grid = document.createElement('div');
       grid.className = 'grid md:grid-cols-2 gap-4';
@@ -98,8 +102,95 @@
       pending.forEach((it) => ulL.appendChild(makeItem(it, false)));
       done.forEach((it) => ulR.appendChild(makeItem(it, true)));
 
-      root.appendChild(sec);
+      sections.push({ place, sec, pendingCount: pending.length, doneCount: done.length });
     });
+
+    const statusOf = (pending, done) => {
+      const total = pending + done;
+      if (total === 0) return 'idle';
+      if (pending === 0) return 'done';
+      if (done === 0) return 'todo';
+      return 'progress';
+    };
+
+    const applyTabStyle = (btn, sec, active = false) => {
+      if (!btn || !sec) return;
+      const st = statusOf(sec.pendingCount, sec.doneCount);
+      btn.className = 'whitespace-nowrap w-40 sm:w-44 text-center px-3 py-1.5 rounded-full border text-sm transition-colors';
+      btn.classList.toggle('ring-2', active);
+      btn.classList.toggle('ring-blue-200', active);
+      if (st === 'done') {
+        btn.classList.add('bg-blue-600','border-blue-700','text-white');
+      } else if (st === 'progress') {
+        btn.classList.add('bg-blue-50','border-blue-200','text-blue-900');
+      } else {
+        btn.classList.add('bg-white','border-gray-300','text-gray-800');
+      }
+      if (active) {
+        btn.classList.remove('bg-white');
+        btn.classList.add('shadow');
+      }
+    };
+
+    const updateTabLabel = (place) => {
+      if (!tabs) return;
+      const sec = sections.find((s) => s.place === place);
+      if (!sec) return;
+      const btn = tabs.querySelector(`button[data-place="${place}"]`);
+      if (!btn) return;
+      const label = btn.querySelector('[data-role="counts"]');
+      if (label) label.textContent = `未:${sec.pendingCount} / 済:${sec.doneCount}`;
+      applyTabStyle(btn, sec, btn.dataset.active === '1');
+    };
+
+    const adjustCounts = (place, deltaPending, deltaDone) => {
+      const sec = sections.find((s) => s.place === place);
+      if (!sec) return;
+      sec.pendingCount += deltaPending;
+      sec.doneCount += deltaDone;
+      updateTabLabel(place);
+    };
+
+    const renderTabs = () => {
+      if (!tabs) return;
+      if (!sections.length) {
+        tabs.classList.add('hidden');
+        return;
+      }
+      tabs.classList.remove('hidden');
+      tabs.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'flex flex-wrap gap-2 px-1';
+      tabs.appendChild(wrap);
+      sections.forEach((s, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.place = s.place;
+        btn.className = 'whitespace-nowrap w-40 sm:w-44 text-center px-3 py-1.5 rounded-full border text-sm';
+        btn.innerHTML = `<span>${s.place}</span><span data-role="counts" class="ml-2 text-[11px] text-gray-500">未:${s.pendingCount} / 済:${s.doneCount}</span>`;
+        btn.addEventListener('click', () => activate(s.place));
+        wrap.appendChild(btn);
+        if (idx === 0) btn.dataset.active = '1';
+        applyTabStyle(btn, s, idx === 0);
+      });
+    };
+
+    const activate = (place) => {
+      sections.forEach(({ sec }) => {
+        sec.classList.toggle('hidden', sec.dataset.place !== place);
+      });
+      if (!tabs) return;
+      tabs.querySelectorAll('button').forEach((btn) => {
+        const active = btn.dataset.place === place;
+        btn.dataset.active = active ? '1' : '0';
+        const sec = sections.find((s) => s.place === btn.dataset.place);
+        applyTabStyle(btn, sec, active);
+      });
+    };
+
+    sections.forEach(({ sec }) => root.appendChild(sec));
+    renderTabs();
+    if (sections[0]) activate(sections[0].place);
 
     const modal = document.getElementById('equip-pop');
     const modalCount = document.getElementById('equip-pop-count');
@@ -142,6 +233,7 @@
 
     async function applyInventoryChange(li, cb, checked, payload){
       const sec = li.closest('section'); const { left, right } = listsOf(sec);
+      const placeName = sec?.dataset?.place || '';
       const id = li.dataset.id;
       try {
         const res = await fetch(`/users/my-equipment/api/inventory/${encodeURIComponent(id)}`, {
@@ -159,6 +251,7 @@
           if (right) right.appendChild(li);
           li.classList.add('bg-blue-50','border-blue-200');
           li.dataset.checked = '1';
+          adjustCounts(placeName, -1, 1);
           if (dateNode) dateNode.textContent = fmt(json.lastInventoryAt);
           if (byNode) { byNode.textContent = json.lastInventoryBy || ''; byNode.classList.toggle('hidden', !json.lastInventoryBy); }
           if (countNode) countNode.textContent = json.lastCount || '';
@@ -169,6 +262,7 @@
           if (left) left.appendChild(li);
           li.classList.remove('bg-blue-50','border-blue-200');
           li.dataset.checked = '0';
+          adjustCounts(placeName, 1, -1);
           if (dateNode) dateNode.textContent = '未';
           if (byNode) { byNode.textContent = ''; byNode.classList.add('hidden'); }
           if (countNode) countNode.textContent = '';

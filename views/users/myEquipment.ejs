@@ -53,7 +53,7 @@
         <% if (showGridView) { %>
           <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <% list.forEach(function(it){
-                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "", tracked: !!it.tracked, lastCount: it.lastCount||0, lastComment: it.lastComment||"" }).replace(/'/g,"\\\\'");
+                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "", tracked: !!it.tracked, lastCount: it.lastCount||0, lastComment: it.lastComment||"", ownerId: it.ownerId || "all" }).replace(/'/g,"\\\\'");
                  const qtyNum = Number(it.quantity) || 0;
                  const wishlistItem = (!it.place) || qtyNum <= 0;
                  const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
@@ -85,6 +85,9 @@
                     <div class="text-xs text-gray-600">
                       <span class="align-middle"><%= it.quantity || '' %><%= it.unit || '' %></span>
                     </div>
+                    <div class="text-[11px] text-gray-600">
+                      所有: <span class="font-medium text-gray-800"><%= it.ownerName || '全員' %></span>
+                    </div>
                     <div class="text-[11px] text-gray-500 flex items-center gap-1 flex-wrap">
                       <% if (it.houseCategory) { %><span class="px-2 py-0.5 text-[11px] bg-gray-100 rounded"><%= it.houseCategory %></span><% } %>
                       <% if (it.disasterCategory) { %><span class="px-2 py-0.5 text-[11px] bg-orange-100 rounded"><%= it.disasterCategory %></span><% } %>
@@ -113,7 +116,7 @@
               </summary>
               <div class="pb-2 pt-1 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 <% items.forEach(function(it){
-                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "", tracked: !!it.tracked, lastCount: it.lastCount||0, lastComment: it.lastComment||"" }).replace(/'/g,"\\\\'");
+                 const editPayload = JSON.stringify({ id: String(it._id), equipmentId: it.equipment ? String(it.equipment) : "", name: it.name||"", quantity: it.quantity||0, unit: it.unit||"", placeId: String(it.place||""), isConsumable: !!it.isConsumable, houseCategory: it.houseCategory||"", disasterCategory: it.disasterCategory||"", campingCategory: it.campingCategory||"", maintenance: it.maintenance||"", productUrl: it.productUrl||"", productImageUrl: it.productImageUrl||"", comment: it.comment||"", expiryDate: it.expiryDate ? new Date(it.expiryDate).toISOString().slice(0,10) : "", tracked: !!it.tracked, lastCount: it.lastCount||0, lastComment: it.lastComment||"", ownerId: it.ownerId || "all" }).replace(/'/g,"\\\\'");
                      const qtyNum = Number(it.quantity) || 0;
                      const wishlistItem = (!it.place) || qtyNum <= 0;
                      const hasImage = !!(it.productImageUrl && it.productImageUrl.trim());
@@ -144,6 +147,9 @@
                         <% } %>
                         <div class="text-xs text-gray-600">
                           <span class="align-middle"><%= it.quantity || '' %><%= it.unit || '' %></span>
+                        </div>
+                        <div class="text-[11px] text-gray-600">
+                          所有: <span class="font-medium text-gray-800"><%= it.ownerName || '全員' %></span>
                         </div>
                         <div class="text-[11px] text-gray-500 flex items-center gap-1 flex-wrap">
                           <% if (it.houseCategory) { %><span class="px-2 py-0.5 text-[11px] bg-gray-100 rounded"><%= it.houseCategory %></span><% } %>
@@ -285,6 +291,15 @@
             </div>
           </div>
           <input id="f-name" type="hidden" />
+          <div>
+            <label class="block text-xs text-gray-600">所有者</label>
+            <select id="f-owner" class="w-full border rounded px-2 py-1">
+              <% (ownerOptions || [{ id: 'all', name: '全員' }]).forEach(function(opt){ %>
+                <option value="<%= opt.id %>"><%= opt.name || '名前未設定' %></option>
+              <% }) %>
+            </select>
+            <p class="text-[11px] text-gray-500 mt-0.5">「全員」またはグループメンバーから選択</p>
+          </div>
 
           <!-- Row: 数量/単位/消耗品 -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -402,6 +417,7 @@ const equipImagePreview = document.getElementById('equip-image-preview');
 const equipImagePlaceholder = document.getElementById('equip-image-placeholder');
 const productUrlInputEl = document.getElementById('f-url');
 const manualImageInputEl = document.getElementById('f-image-url');
+const ownerSelectEl = document.getElementById('f-owner');
 const equipTargetBox = document.getElementById('equip-target');
 const equipTargetName = document.getElementById('equip-target-name');
 const equipTargetCategory = document.getElementById('equip-target-category');
@@ -722,6 +738,13 @@ function openEdit(data){
     document.getElementById('f-place-name').value = p ? (p.name || '') : '';
   }catch(_){ document.getElementById('f-place-name').value=''; }
   document.getElementById('f-consumable').checked = !!data.isConsumable;
+  if (ownerSelectEl) {
+    ownerSelectEl.value = 'all';
+    const hasOwnerOption = Array.from(ownerSelectEl.options || []).some(opt => String(opt.value) === String(data.ownerId || ''));
+    if (hasOwnerOption && data.ownerId) {
+      ownerSelectEl.value = data.ownerId;
+    }
+  }
   document.getElementById('f-tracked').checked = !!data.tracked;
   document.getElementById('f-last-count').value = data.lastCount || 0;
   document.getElementById('f-last-comment').value = data.lastComment || '';
@@ -760,6 +783,7 @@ function resetForm(){
   ['f-name','f-qty','f-unit','f-place-name','f-house','f-disaster','f-camping','f-maintenance','f-url','f-image-url','f-expiry','f-comment','f-last-comment'].forEach(id=>{
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  if (ownerSelectEl) ownerSelectEl.value = 'all';
   document.getElementById('f-tracked').checked = false;
   document.getElementById('f-last-count').value = 0;
   document.getElementById('f-consumable').checked = false;
@@ -849,7 +873,8 @@ async function submitEquipForm(){
     comment: document.getElementById('f-comment').value.trim(),
     productUrl: document.getElementById('f-url').value.trim(),
     productImageUrl: document.getElementById('f-image-url').value.trim(),
-    expiryDate: document.getElementById('f-expiry').value || null
+    expiryDate: document.getElementById('f-expiry').value || null,
+    owner: ownerSelectEl ? ownerSelectEl.value : 'all'
   };
   if (!payload.name){ alert('備品名は必須です'); return; }
   try{
