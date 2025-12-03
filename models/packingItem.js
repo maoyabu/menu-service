@@ -10,6 +10,7 @@ const packingItemSchema = new Schema({
   weight: { type: Number, default: 0 }, // grams
   owner: { type: String, default: 'all' }, // 'all' or userId
   quantity: { type: Number, default: 1 },
+  category: { type: String, default: '', trim: true },
   comment: { type: String, default: '' },
   checked: { type: Boolean, default: false },
   checkedAt: { type: Date, default: null },

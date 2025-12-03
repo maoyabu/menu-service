@@ -52,6 +52,18 @@
         </div>
         <button type="button" id="master-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">持ち物を追加</button>
       </div>
+      <div id="owner-filter" class="flex flex-wrap gap-2 text-sm">
+        <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+          <input type="checkbox" value="all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
+          <span>全員</span>
+        </label>
+        <% (members || []).forEach((m)=> { %>
+          <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+            <input type="checkbox" value="<%= m.id %>" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
+            <span><%= m.name %></span>
+          </label>
+        <% }) %>
+      </div>
       <div id="master-item-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
       <div class="text-sm text-gray-500" id="master-item-empty">持ち物がありません。追加してください。</div>
     </section>
@@ -140,6 +152,9 @@
           <input type="number" step="1" min="0" name="defaultWeight" value="0" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
         </label>
       </div>
+      <label class="block text-sm">カテゴリー
+        <input type="text" list="category-datalist" name="category" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 衣類 / 洗面・メイク / ガジェット" />
+      </label>
       <label class="block text-sm">コメント
         <input type="text" name="comment" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="メモ" />
       </label>
@@ -150,23 +165,26 @@
     </form>
   </div>
 </div>
+<datalist id="category-datalist"></datalist>
 
 <script>
   (function(){
     const events = <%- JSON.stringify(events || []) %>;
     const storages = <%- JSON.stringify(storages || []) %>;
     const masterItems = <%- JSON.stringify(masterItems || []) %>;
-  const members = <%- JSON.stringify(members || []) %>;
+    let masterCategories = <%- JSON.stringify(masterCategories || []) %>;
+    const members = <%- JSON.stringify(members || []) %>;
 
   const eventList = document.getElementById('event-list');
   const eventEmpty = document.getElementById('event-empty');
   const storageList = document.getElementById('storage-list');
   const storageEmpty = document.getElementById('storage-empty');
-const masterItemList = document.getElementById('master-item-list');
-const masterItemEmpty = document.getElementById('master-item-empty');
+  const masterItemList = document.getElementById('master-item-list');
+  const masterItemEmpty = document.getElementById('master-item-empty');
   const guideWrapper = document.getElementById('guide-wrapper');
   const guideHide = document.getElementById('guide-hide');
   const guideShow = document.getElementById('guide-show');
+  const ownerFilter = document.getElementById('owner-filter');
   const deleteModal = document.getElementById('event-delete-modal');
   const deleteName = document.getElementById('event-delete-name');
   const deleteConfirm = document.getElementById('event-delete-confirm');
@@ -189,13 +207,14 @@ const masterItemForm = document.getElementById('master-modal-form');
     const storageEditModal = document.getElementById('storage-edit-modal');
     const storageEditName = document.getElementById('storage-edit-name');
     const storageEditWeight = document.getElementById('storage-edit-weight');
-    const storageEditSave = document.getElementById('storage-edit-save');
-    let storageEditId = '';
+  const storageEditSave = document.getElementById('storage-edit-save');
+  let storageEditId = '';
 
-    const masterModal = document.getElementById('master-modal');
-    const masterModalTitle = document.getElementById('master-modal-title');
-    const masterAddOpen = document.getElementById('master-add-open');
-    let masterEditId = '';
+  const masterModal = document.getElementById('master-modal');
+  const masterModalTitle = document.getElementById('master-modal-title');
+  const masterAddOpen = document.getElementById('master-add-open');
+  const categoryDatalist = document.getElementById('category-datalist');
+  let masterEditId = '';
 
     function toast(msg){
       if (!msg) return;
@@ -267,7 +286,18 @@ const masterItemForm = document.getElementById('master-modal-form');
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
-    function renderMasterItemList(){
+    
+    function renderCategoryDatalist(){
+      if (!categoryDatalist) return;
+      categoryDatalist.innerHTML = '';
+      Array.from(new Set(masterCategories || [])).forEach((c)=> {
+        const opt = document.createElement('option');
+        opt.value = c;
+        categoryDatalist.appendChild(opt);
+      });
+    }
+
+function renderMasterItemList(){
       if (!masterItemList) return;
       masterItemList.innerHTML = '';
       if (!masterItems.length){
@@ -275,28 +305,41 @@ const masterItemForm = document.getElementById('master-modal-form');
         return;
       }
       masterItemEmpty.classList.add('hidden');
-      masterItems.forEach((it)=>{
-        const ownerLabel = it.owner === 'all' ? '全員' : (members.find((m)=> m.id === it.owner)?.name || 'メンバー');
-        const row = document.createElement('div');
-        row.className = 'flex items-start gap-3 border-2 border-gray-300 rounded-xl px-4 py-3 bg-slate-50 shadow-md';
-        row.innerHTML = `
-          <div class="flex-1 min-w-0 space-y-1">
-            <div class="flex items-center justify-between gap-2">
-              <p class="font-semibold text-gray-900">${it.name}</p>
-            </div>
-            <div class="text-xs text-gray-600 flex flex-wrap gap-2">
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 border border-gray-200">${ownerLabel}</span>
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 border border-gray-200">数量: ${it.defaultQuantity || 0}</span>
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-800 border border-gray-200">重量: ${it.defaultWeight || 0}g</span>
-              ${it.comment ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100">${it.comment}</span>` : ''}
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
+      const checkedOwners = Array.from(ownerFilter?.querySelectorAll('input[type="checkbox"]:checked') || []).map(el=> el.value);
+      const grouped = {};
+      masterItems
+        .filter(it=> {
+          if (!checkedOwners.length) return true;
+          if (checkedOwners.includes('all') && it.owner === 'all') return true;
+          return checkedOwners.includes(it.owner);
+        })
+        .forEach(it => {
+        const cat = (it.category || '').trim() || '未分類';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(it);
+      });
+      const cats = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'ja'));
+      cats.forEach(cat=>{
+        const section = document.createElement('div');
+        section.className = 'space-y-2';
+        const title = document.createElement('div');
+        title.className = 'text-xs font-semibold text-gray-700';
+        title.textContent = cat;
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-wrap gap-2';
+        grouped[cat].forEach((it)=>{
+          const tag = document.createElement('div');
+          tag.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-300 bg-white text-sm shadow-sm';
+          tag.innerHTML = `
+            <span class="font-semibold text-gray-900">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800" data-master-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-red-600 hover:text-red-800" data-master-del="${it.id}" aria-label="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-          </div>
-        `;
-        masterItemList.appendChild(row);
+          `;
+          wrap.appendChild(tag);
+        });
+        section.appendChild(title);
+        section.appendChild(wrap);
+        masterItemList.appendChild(section);
       });
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
@@ -488,6 +531,7 @@ const masterItemForm = document.getElementById('master-modal-form');
       form.owner.value = target?.owner || 'all';
       form.defaultQuantity.value = (target && typeof target.defaultQuantity !== 'undefined') ? target.defaultQuantity : 1;
       form.defaultWeight.value = target?.defaultWeight || 0;
+      if (form.category) form.category.value = target?.category || '';
       form.comment.value = target?.comment || '';
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
@@ -509,11 +553,14 @@ const masterItemForm = document.getElementById('master-modal-form');
         if (isEdit){
           const target = masterItems.find((m)=> m.id === masterEditId);
           if (target) Object.assign(target, { ...json, id: json.id.toString() });
+          if (json.category && !masterCategories.includes(json.category)) masterCategories.push(json.category);
         } else {
           masterItems.unshift({ ...json, id: json.id.toString() });
+          if (json.category && !masterCategories.includes(json.category)) masterCategories.push(json.category);
         }
         masterItemForm.reset();
         masterModal.classList.add('hidden'); masterModal.classList.remove('flex');
+        renderCategoryDatalist();
         renderMasterItemList();
         toast(isEdit ? '更新しました' : '持ち物を追加しました');
       }catch(e){ toast(e.message || '保存に失敗しました'); }
@@ -541,6 +588,8 @@ const masterItemForm = document.getElementById('master-modal-form');
 
     renderEventList();
     renderStorageList();
+    renderCategoryDatalist();
     renderMasterItemList();
+    ownerFilter?.addEventListener('change', renderMasterItemList);
   })();
 </script>

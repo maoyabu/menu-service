@@ -7,6 +7,7 @@ const packingMasterItemSchema = new Schema({
   owner: { type: String, default: 'all' }, // 'all' or userId
   defaultQuantity: { type: Number, default: 1 },
   defaultWeight: { type: Number, default: 0 }, // grams
+  category: { type: String, default: '', trim: true },
   comment: { type: String, default: '' },
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
