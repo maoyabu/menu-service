@@ -447,7 +447,6 @@ const masterItemForm = document.getElementById('master-modal-form');
     storageEditModal?.addEventListener('click', (ev)=> { if (ev.target === storageEditModal) { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); } });
     storageEditModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); }));
     storageEditSave?.addEventListener('click', async ()=>{
-      if (!storageEditId) return;
       try{
         if (storageEditId){
           const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0 }) });

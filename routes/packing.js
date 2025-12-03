@@ -424,10 +424,11 @@ router.get('/check/:eventId', async (req, res, next) => {
     const groupId = getGroupId(res);
     if (!groupId) return res.redirect('/users/packing');
     const eventId = req.params.eventId;
-    const [ev, storagesRaw, itemsRaw] = await Promise.all([
+    const [ev, storagesRaw, itemsRaw, masterItemsRaw] = await Promise.all([
       PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
       PackingStorage.find({ group: groupId }).lean(),
-      PackingItem.find({ group: groupId, event: eventId }).lean()
+      PackingItem.find({ group: groupId, event: eventId }).lean(),
+      PackingMasterItem.find({ group: groupId }).lean()
     ]);
     if (!ev) return res.redirect('/users/packing');
     const storageIds = (ev.storageIds || []).map((x)=> x.toString());
