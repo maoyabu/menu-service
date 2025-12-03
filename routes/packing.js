@@ -38,6 +38,28 @@ async function getMemberOptions(groupId){
   return { list, idSet: new Set(list.map((u)=>u.id)), labelMap: new Map(list.map((u)=>[u.id, u.name])) };
 }
 
+async function hydrateItemWeights(itemsRaw, masterMap, groupId){
+  if (!Array.isArray(itemsRaw) || !itemsRaw.length) return [];
+  const updates = [];
+  const items = itemsRaw.map((it)=>{
+    const weightNum = Number(it.weight || 0) || 0;
+    if (weightNum > 0) return it;
+    const master = it.thingId ? masterMap.get(it.thingId.toString()) : null;
+    const fallback = Number(master?.defaultWeight || 0) || 0;
+    if (fallback > 0){
+      updates.push({ id: it._id, weight: fallback });
+      return { ...it, weight: fallback };
+    }
+    return it;
+  });
+  if (updates.length){
+    try{
+      await Promise.all(updates.map((u)=> PackingItem.updateOne({ _id: u.id, group: groupId }, { $set: { weight: u.weight } })));
+    } catch(_) { /* best effort */ }
+  }
+  return items;
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const groupId = getGroupId(res);
@@ -256,10 +278,11 @@ router.get('/check/:eventId', async (req, res, next) => {
     const groupId = getGroupId(res);
     if (!groupId) return res.redirect('/users/packing');
     const eventId = req.params.eventId;
-    const [ev, storagesRaw, itemsRaw] = await Promise.all([
+    const [ev, storagesRaw, itemsRaw, masterItemsRaw] = await Promise.all([
       PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
       PackingStorage.find({ group: groupId }).lean(),
-      PackingItem.find({ group: groupId, event: eventId }).lean()
+      PackingItem.find({ group: groupId, event: eventId }).lean(),
+      PackingMasterItem.find({ group: groupId }).lean()
     ]);
     if (!ev) return res.redirect('/users/packing');
     const storageIds = (ev.storageIds || []).map((x)=> x.toString());
@@ -304,16 +327,19 @@ router.get('/:eventId', async (req, res, next) => {
       PackingItem.find({ group: groupId, event: eventId }).lean()
     ]);
     if (!ev) return res.redirect('/users/packing');
-    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name }));
+    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const eventStorageIds = (ev.storageIds || []).map((id)=> id.toString());
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
       name: it.name,
       owner: it.owner || 'all',
       defaultQuantity: it.defaultQuantity || 1,
+      defaultWeight: it.defaultWeight || 0,
       comment: it.comment || ''
     }));
-    let items = (itemsRaw || []).map((it)=>({
+    const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0 }]));
+    const hydratedItemsRaw = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
+    let items = (hydratedItemsRaw || []).map((it)=>({
       id: String(it._id),
       name: it.name,
       owner: it.owner || 'all',
@@ -395,7 +421,9 @@ router.get('/check/:eventId', async (req, res, next) => {
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const items = (itemsRaw || []).map((it)=> ({
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0 }]));
+    const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
+    const items = (hydratedItems || []).map((it)=> ({
       id: String(it._id),
       name: it.name,
       storageId: it.storageId ? String(it.storageId) : '',
@@ -404,6 +432,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       checkedAt: it.checkedAt,
       checkedBy: it.checkedBy,
       quantity: it.quantity || 0,
+      weight: it.weight || 0,
       owner: it.owner || 'all',
       comment: it.comment || ''
     }));

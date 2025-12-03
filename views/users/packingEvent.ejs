@@ -263,12 +263,18 @@
       storages.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
         const list = items.filter((it)=> it.storageId === s.id);
-        const totalWeight = list.reduce((sum, it)=> sum + (Number(it.weight || 0) || 0), 0);
+        const totalWeight = list.reduce((sum, it)=> {
+          const qty = Number(it.quantity || 0) || 1;
+          const w = Number(it.weight || 0) || 0;
+          return sum + (w * qty);
+        }, 0);
         const max = Number(s.maxWeight || 0);
         const remain = max ? (max - totalWeight) : null;
+        const remainClass = remain !== null && remain < 0 ? 'text-red-600 font-semibold' : 'text-gray-600';
+        const remainLabel = remain === null ? '' : ` / 残り: ${remain} g`;
         const sec = document.createElement('section');
         sec.className = 'border rounded-lg px-3 py-2';
-        sec.innerHTML = `<div class="flex items-center justify-between mb-2"><span class="font-semibold text-sm">${s.name}</span><span class="text-xs text-gray-500">重量合計: ${totalWeight} g${max ? ` / 残り: ${Math.max(0, remain)} g` : ''}</span></div>`;
+        sec.innerHTML = `<div class="flex items-center justify-between mb-2"><span class="font-semibold text-sm">${s.name}</span><span class="text-xs ${remainClass}">重量合計: ${totalWeight} g${max ? remainLabel : ''}</span></div>`;
         const wrap = document.createElement('div');
         wrap.className = 'flex flex-wrap gap-2';
         list.forEach((it)=>{
