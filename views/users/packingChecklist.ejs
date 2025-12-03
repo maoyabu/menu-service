@@ -180,12 +180,12 @@
       }
       eventEmpty.classList.add('hidden');
       events.forEach((ev)=>{
-      const row = document.createElement('div');
-      row.className = 'flex items-center justify-between border-2 border-blue-200 rounded-xl px-3 py-3 bg-white shadow-sm';
-      row.innerHTML = `
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between border-2 border-blue-200 rounded-xl px-3 py-3 bg-white shadow-sm';
+        row.innerHTML = `
           <div class="flex items-center gap-2">
-            <button type="button" class="text-left text-sm font-semibold text-blue-700 hover:underline" data-event-edit="${ev.id}">${ev.name} のパッキングプラン</button>
-            <span class="text-sm text-gray-900 flex items-center gap-1">
+            <span class="flex items-center gap-2">
+              <button type="button" class="text-left text-sm font-semibold text-blue-700 hover:underline" data-event-edit="${ev.id}">${ev.name} のパッキングプラン</button>
               <span class="inline-flex items-center px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-[11px] text-gray-700 whitespace-nowrap">参加 ${(ev.participants||[]).length} 人</span>
             </span>
           </div>
@@ -209,7 +209,7 @@
       storageEmpty.classList.add('hidden');
       storages.forEach((s)=>{
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-3 border rounded-lg px-3 py-2 bg-white';
+        row.className = 'flex items-center gap-3 border-2 border-gray-300 rounded-xl px-4 py-3 bg-slate-50 shadow-md';
         row.innerHTML = `
           <div class="flex-1 min-w-0">
             <p class="font-semibold text-sm text-gray-900">${s.name}</p>
@@ -236,7 +236,7 @@
       masterItems.forEach((it)=>{
         const ownerLabel = it.owner === 'all' ? '全員' : (members.find((m)=> m.id === it.owner)?.name || 'メンバー');
         const row = document.createElement('div');
-        row.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 bg-white';
+        row.className = 'flex items-start gap-3 border-2 border-gray-300 rounded-xl px-4 py-3 bg-slate-50 shadow-md';
         row.innerHTML = `
           <div class="flex-1 min-w-0 space-y-1">
             <div class="flex items-center justify-between gap-2">
