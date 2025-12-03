@@ -477,7 +477,7 @@ const masterItemForm = document.getElementById('master-modal-form');
       if (!form) return;
       form.name.value = target?.name || '';
       form.owner.value = target?.owner || 'all';
-      form.defaultQuantity.value = target?.defaultQuantity || 0;
+      form.defaultQuantity.value = (target && typeof target.defaultQuantity !== 'undefined') ? target.defaultQuantity : 1;
       form.defaultWeight.value = target?.defaultWeight || 0;
       form.comment.value = target?.comment || '';
       if (window.refreshLucideIcons) window.refreshLucideIcons();

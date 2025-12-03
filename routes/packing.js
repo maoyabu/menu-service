@@ -147,7 +147,7 @@ router.post('/api/master-items', async (req, res) => {
     const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'name required' });
-    const defaultQuantity = Math.max(0, Number(req.body?.defaultQuantity) || 0);
+    const defaultQuantity = Math.max(0, Number(req.body?.defaultQuantity ?? 1) || 1);
     const defaultWeight = Math.max(0, Number(req.body?.defaultWeight) || 0);
     const owner = String(req.body?.owner || 'all');
     const comment = String(req.body?.comment || '').trim();
@@ -476,7 +476,7 @@ router.post('/api/items', async (req, res) => {
     if (!event) return res.status(404).json({ error: 'event not found' });
     const storageName = storage ? storage.name : '';
     const ownerId = memberInfo.idSet.has(String(owner || '')) ? String(owner) : 'all';
-    const qtyNum = Math.max(0, Number(quantity) || 0);
+    const qtyNum = Math.max(0, Number(quantity ?? thing?.defaultQuantity ?? 1) || 1);
     const weightNum = Math.max(0, Number(req.body?.weight || (thing?.defaultWeight ?? 0)) || 0);
     let master = thing;
     if (!master) {
