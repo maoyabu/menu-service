@@ -273,6 +273,21 @@ router.patch('/api/events/:id', async (req, res) => {
   }
 });
 
+router.delete('/api/events/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const id = req.params.id;
+    const ev = await PackingEvent.findOne({ _id: id, group: groupId }).lean();
+    if (!ev) return res.status(404).json({ error: 'not found' });
+    await PackingItem.deleteMany({ group: groupId, event: ev._id });
+    await PackingEvent.deleteOne({ _id: ev._id, group: groupId });
+    res.json({ ok: true });
+  } catch (_) {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
 router.get('/check/:eventId', async (req, res, next) => {
   try {
     const groupId = getGroupId(res);
