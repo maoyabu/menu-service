@@ -106,7 +106,7 @@
         <select id="item-modal-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
           <option value="all">全員</option>
           <% (members || []).forEach((m)=> { %>
-            <option value="<%= m.id %>"><%= m.name %></option>
+            <option value="<%= m.id %>" <%= String(m.id) === String((user && user._id) || '') ? 'selected' : '' %>><%= m.name %></option>
           <% }) %>
         </select>
       </label>
@@ -130,15 +130,16 @@
   </div>
 </div>
 
-<script>
-  (function(){
-    const eventId = <%- JSON.stringify(event.id || '') %>;
-    const members = <%- JSON.stringify(members || []) %>;
-    const storages = <%- JSON.stringify(storages || []) %>;
-    const selectedStorageIds = (<%- JSON.stringify(event.storageIds || []) %>).length ? <%- JSON.stringify(event.storageIds || []) %> : storages.map((s)=> s.id);
-    const masterItems = <%- JSON.stringify(masterItems || []) %>;
-    const memberMap = new Map((members||[]).map((m)=> [m.id, m.name]));
-    const items = <%- JSON.stringify(items || []) %>;
+  <script>
+    (function(){
+      const eventId = <%- JSON.stringify(event.id || '') %>;
+      const members = <%- JSON.stringify(members || []) %>;
+      const currentUserId = <%- JSON.stringify((user && user._id) ? String(user._id) : '') %>;
+      const storages = <%- JSON.stringify(storages || []) %>;
+      const selectedStorageIds = (<%- JSON.stringify(event.storageIds || []) %>).length ? <%- JSON.stringify(event.storageIds || []) %> : storages.map((s)=> s.id);
+      const masterItems = <%- JSON.stringify(masterItems || []) %>;
+      const memberMap = new Map((members||[]).map((m)=> [m.id, m.name]));
+      const items = <%- JSON.stringify(items || []) %>;
 
     const storageTags = document.getElementById('storage-tags');
     const storageUnused = document.getElementById('storage-unused');
@@ -251,6 +252,14 @@
       itemCategoryDatalist.innerHTML = '';
       categoryOptions = Array.from(new Set(categoryOptions.filter(Boolean)));
       categoryOptions.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; itemCategoryDatalist.appendChild(opt); });
+    }
+
+    function openStorageModal(){
+      if (storageModalName) storageModalName.value = '';
+      if (storageModalMax) storageModalMax.value = 0;
+      storageModal?.classList.remove('hidden'); storageModal?.classList.add('flex');
+      storageModalName?.focus();
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
     function renderItemPool(){
@@ -427,8 +436,8 @@
       modalEl?.classList.add('hidden'); modalEl?.classList.remove('flex');
     }
 
-    document.getElementById('open-storage-modal')?.addEventListener('click', ()=> openModal(storageModal));
-    document.getElementById('open-item-modal')?.addEventListener('click', ()=> openModal(itemModal));
+    document.getElementById('open-storage-modal')?.addEventListener('click', openStorageModal);
+    document.getElementById('open-item-modal')?.addEventListener('click', ()=> openItemModal(null));
     storageModal?.addEventListener('click', (ev)=> { if (ev.target === storageModal) closeModal(storageModal); });
     itemModal?.addEventListener('click', (ev)=> { if (ev.target === itemModal) closeModal(itemModal); });
     storageModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> closeModal(storageModal)));
@@ -455,12 +464,13 @@
     function openItemModal(target){
       itemEditId = target?.id || '';
       itemModalName.value = target?.name || '';
-      itemModalOwner.value = target?.owner || 'all';
+      itemModalOwner.value = target?.owner || (currentUserId || 'all');
       itemModalQty.value = target?.quantity || 0;
       itemModalWeight.value = target?.weight || 0;
       if (itemModalCategory) itemModalCategory.value = target?.category || '';
       itemModalComment.value = target?.comment || '';
       openModal(itemModal);
+      itemModalName?.focus();
     }
 
     itemModalSave?.addEventListener('click', async ()=>{

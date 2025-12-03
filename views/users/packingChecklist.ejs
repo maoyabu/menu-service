@@ -138,10 +138,10 @@
       </label>
       <div class="grid sm:grid-cols-3 gap-2">
         <label class="block text-sm">誰のもの
-          <select name="owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+          <select name="owner" id="master-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
             <option value="all">全員</option>
             <% (members || []).forEach((m)=> { %>
-              <option value="<%= m.id %>"><%= m.name %></option>
+              <option value="<%= m.id %>" <%= String(m.id) === String((user && user._id) || '') ? 'selected' : '' %>><%= m.name %></option>
             <% }) %>
           </select>
         </label>
@@ -210,11 +210,12 @@ const masterItemForm = document.getElementById('master-modal-form');
   const storageEditSave = document.getElementById('storage-edit-save');
   let storageEditId = '';
 
-  const masterModal = document.getElementById('master-modal');
-  const masterModalTitle = document.getElementById('master-modal-title');
-  const masterAddOpen = document.getElementById('master-add-open');
-  const categoryDatalist = document.getElementById('category-datalist');
-  let masterEditId = '';
+    const masterModal = document.getElementById('master-modal');
+    const masterModalTitle = document.getElementById('master-modal-title');
+    const masterAddOpen = document.getElementById('master-add-open');
+    const categoryDatalist = document.getElementById('category-datalist');
+    const masterOwner = document.getElementById('master-owner');
+    let masterEditId = '';
 
     function toast(msg){
       if (!msg) return;
@@ -471,6 +472,7 @@ function renderMasterItemList(){
       storageEditName.value = '';
       storageEditWeight.value = 0;
       storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
+      storageEditName?.focus();
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     });
     storageList?.addEventListener('click', async (ev)=>{
@@ -528,11 +530,12 @@ function renderMasterItemList(){
       const form = masterItemForm;
       if (!form) return;
       form.name.value = target?.name || '';
-      form.owner.value = target?.owner || 'all';
+      form.owner.value = target?.owner || (masterOwner?.value || 'all');
       form.defaultQuantity.value = (target && typeof target.defaultQuantity !== 'undefined') ? target.defaultQuantity : 1;
       form.defaultWeight.value = target?.defaultWeight || 0;
       if (form.category) form.category.value = target?.category || '';
       form.comment.value = target?.comment || '';
+      form.name.focus();
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
     masterAddOpen?.addEventListener('click', ()=> openMasterModal(null));
