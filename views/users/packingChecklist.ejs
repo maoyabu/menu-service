@@ -7,15 +7,15 @@
   </header>
 
   <section class="space-y-2">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div></div>
-      <div class="flex gap-2">
-        <button type="button" id="guide-hide" class="px-3 py-1.5 rounded border text-sm bg-gray-100 text-gray-700 hover:bg-gray-200">非表示</button>
-        <button type="button" id="guide-show" class="px-3 py-1.5 rounded border text-sm bg-blue-50 text-blue-700 hover:bg-blue-100">ガイド表示</button>
+    <div class="relative min-h-[48px]">
+      <button
+        type="button"
+        id="guide-toggle"
+        class="absolute top-3 left-3 px-3 py-1.5 rounded border text-sm bg-white/90 text-gray-800 shadow-sm hover:bg-white"
+      >非表示</button>
+      <div id="guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
+        <img src="/pict/packPlan.jpg" alt="パッキングプランガイド" class="w-full h-auto object-cover">
       </div>
-    </div>
-    <div id="guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
-      <img src="/pict/packPlan.jpg" alt="パッキングプランガイド" class="w-full h-auto object-cover">
     </div>
   </section>
 
@@ -182,8 +182,7 @@
   const masterItemList = document.getElementById('master-item-list');
   const masterItemEmpty = document.getElementById('master-item-empty');
   const guideWrapper = document.getElementById('guide-wrapper');
-  const guideHide = document.getElementById('guide-hide');
-  const guideShow = document.getElementById('guide-show');
+  const guideToggle = document.getElementById('guide-toggle');
   const ownerFilter = document.getElementById('owner-filter');
   const deleteModal = document.getElementById('event-delete-modal');
   const deleteName = document.getElementById('event-delete-name');
@@ -414,14 +413,24 @@ function renderMasterItemList(){
     function applyGuideVisibility(hidden){
       if (!guideWrapper) return;
       guideWrapper.classList.toggle('hidden', hidden);
+      if (guideToggle){
+        guideToggle.textContent = hidden ? 'ガイド表示' : '非表示';
+        guideToggle.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+      }
       try { localStorage.setItem(GUIDE_KEY, hidden ? '1' : '0'); } catch(_) {}
     }
     try {
       const saved = localStorage.getItem(GUIDE_KEY);
-      if (saved === '1') applyGuideVisibility(true);
+      if (saved === '1') {
+        applyGuideVisibility(true);
+      } else {
+        applyGuideVisibility(false);
+      }
     } catch(_) {}
-    guideHide?.addEventListener('click', ()=> applyGuideVisibility(true));
-    guideShow?.addEventListener('click', ()=> applyGuideVisibility(false));
+    guideToggle?.addEventListener('click', ()=> {
+      const hidden = guideWrapper?.classList.contains('hidden');
+      applyGuideVisibility(!hidden);
+    });
 
     deleteCancel?.addEventListener('click', ()=> {
       deleteTargetId = '';
