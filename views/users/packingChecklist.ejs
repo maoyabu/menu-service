@@ -226,10 +226,14 @@ const masterItemForm = document.getElementById('master-modal-form');
               <span class="inline-flex items-center px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-[11px] text-gray-700 whitespace-nowrap">参加 ${(ev.participants||[]).length} 人</span>
             </span>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-3">
             <a href="/users/packing/${encodeURIComponent(ev.id)}" class="px-3 py-1 rounded-lg border border-amber-200 text-sm text-amber-800 bg-amber-50 hover:bg-amber-100 whitespace-nowrap">編集</a>
-            <a href="/users/packing/check/${encodeURIComponent(ev.id)}" class="px-3 py-1 rounded-lg border border-green-200 text-sm text-green-700 bg-green-50 hover:bg-green-100 whitespace-nowrap">チェックリスト</a>
-            <button type="button" class="px-3 py-1 rounded-lg border border-red-200 text-sm text-red-700 bg-red-50 hover:bg-red-100 whitespace-nowrap" data-event-delete="${ev.id}">削除</button>
+            <button type="button" class="p-2 rounded-lg border border-green-200 text-green-700 bg-green-50 hover:bg-green-100" aria-label="チェックリスト" onclick="window.location.href='/users/packing/check/${encodeURIComponent(ev.id)}'">
+              <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+            </button>
+            <button type="button" class="p-2 rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100" data-event-delete="${ev.id}" aria-label="削除">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
           </div>
         `;
         eventList.appendChild(row);
