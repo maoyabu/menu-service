@@ -768,6 +768,7 @@ router.post('/logout', (req, res, next) => {
   });
 });
 
+
 //weekMenu.ejsを開く
 router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   try {
