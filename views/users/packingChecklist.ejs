@@ -366,12 +366,18 @@ const masterItemForm = document.getElementById('master-modal-form');
       }catch(e){ toast(e.message || '保存に失敗しました'); }
     });
 
-    guideHide?.addEventListener('click', ()=> {
-      if (guideWrapper) guideWrapper.classList.add('hidden');
-    });
-    guideShow?.addEventListener('click', ()=> {
-      if (guideWrapper) guideWrapper.classList.remove('hidden');
-    });
+    const GUIDE_KEY = 'packing:guide:hidden';
+    function applyGuideVisibility(hidden){
+      if (!guideWrapper) return;
+      guideWrapper.classList.toggle('hidden', hidden);
+      try { localStorage.setItem(GUIDE_KEY, hidden ? '1' : '0'); } catch(_) {}
+    }
+    try {
+      const saved = localStorage.getItem(GUIDE_KEY);
+      if (saved === '1') applyGuideVisibility(true);
+    } catch(_) {}
+    guideHide?.addEventListener('click', ()=> applyGuideVisibility(true));
+    guideShow?.addEventListener('click', ()=> applyGuideVisibility(false));
 
     deleteCancel?.addEventListener('click', ()=> {
       deleteTargetId = '';

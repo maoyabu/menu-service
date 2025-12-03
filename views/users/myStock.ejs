@@ -30,6 +30,19 @@
     </a>
   </div>
 
+  <section class="space-y-2">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <p class="text-sm text-gray-600">マイストックのガイド</p>
+      <div class="flex gap-2">
+        <button type="button" id="stock-guide-hide" class="px-3 py-1.5 rounded border text-sm bg-gray-100 text-gray-700 hover:bg-gray-200">非表示</button>
+        <button type="button" id="stock-guide-show" class="px-3 py-1.5 rounded border text-sm bg-blue-50 text-blue-700 hover:bg-blue-100">ガイド表示</button>
+      </div>
+    </div>
+    <div id="stock-guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
+      <img src="/pict/mystock.jpg" alt="マイストックガイド" class="w-full h-auto object-cover">
+    </div>
+  </section>
+
   <div data-view="class" class="space-y-6">
     <!-- 食材 -->
     <section class="rounded-2xl border bg-white" data-class-section="ingredient">
@@ -618,14 +631,17 @@
     // View toggle
     const tabClass = document.querySelector('[data-view-tab="class"]');
     const tabPlace = document.querySelector('[data-view-tab="place"]');
-    const viewClass = document.querySelector('[data-view="class"]');
-    const viewPlace = document.querySelector('[data-view="place"]');
-    const VIEW_KEY = 'mystock:view';
-    function switchView(which){
-      if (which==='place'){
-        tabPlace.classList.add('bg-white','shadow','text-gray-900');
-        tabClass.classList.remove('bg-white','shadow','text-gray-900');
-        viewPlace.classList.remove('hidden'); viewClass.classList.add('hidden');
+  const viewClass = document.querySelector('[data-view="class"]');
+  const viewPlace = document.querySelector('[data-view="place"]');
+  const VIEW_KEY = 'mystock:view';
+  const stockGuideWrapper = document.getElementById('stock-guide-wrapper');
+  const stockGuideHide = document.getElementById('stock-guide-hide');
+  const stockGuideShow = document.getElementById('stock-guide-show');
+  function switchView(which){
+    if (which==='place'){
+      tabPlace.classList.add('bg-white','shadow','text-gray-900');
+      tabClass.classList.remove('bg-white','shadow','text-gray-900');
+      viewPlace.classList.remove('hidden'); viewClass.classList.add('hidden');
         try{ localStorage.setItem(VIEW_KEY, 'place'); }catch(_){ }
       } else {
         tabClass.classList.add('bg-white','shadow','text-gray-900');
@@ -634,13 +650,26 @@
         try{ localStorage.setItem(VIEW_KEY, 'class'); }catch(_){ }
       }
     }
-    tabClass?.addEventListener('click', ()=>switchView('class'));
-    tabPlace?.addEventListener('click', ()=>switchView('place'));
-    // 初期表示: 前回の選択を復元
-    (function(){ try{ const v=localStorage.getItem(VIEW_KEY); if (v==='place'){ switchView('place'); } else { switchView('class'); } }catch(_){ switchView('class'); } })();
+  tabClass?.addEventListener('click', ()=>switchView('class'));
+  tabPlace?.addEventListener('click', ()=>switchView('place'));
+  // 初期表示: 前回の選択を復元
+  (function(){ try{ const v=localStorage.getItem(VIEW_KEY); if (v==='place'){ switchView('place'); } else { switchView('class'); } }catch(_){ switchView('class'); } })();
 
-    // 食材/調味料フィルター
-    const FILTER_KEY = 'mystock:class-filter';
+  const GUIDE_KEY_STOCK = 'mystock:guide:hidden';
+  function applyStockGuide(hidden){
+    if (!stockGuideWrapper) return;
+    stockGuideWrapper.classList.toggle('hidden', hidden);
+    try { localStorage.setItem(GUIDE_KEY_STOCK, hidden ? '1' : '0'); } catch(_){}
+  }
+  try {
+    const saved = localStorage.getItem(GUIDE_KEY_STOCK);
+    if (saved === '1') applyStockGuide(true);
+  } catch(_) {}
+  stockGuideHide?.addEventListener('click', ()=> applyStockGuide(true));
+  stockGuideShow?.addEventListener('click', ()=> applyStockGuide(false));
+
+  // 食材/調味料フィルター
+  const FILTER_KEY = 'mystock:class-filter';
     const filterButtons = Array.from(document.querySelectorAll('[data-filter-tab]'));
     const classSections = Array.from(document.querySelectorAll('[data-class-section]'));
     const placeSections = Array.from(document.querySelectorAll('[data-place-section]'));

@@ -12,6 +12,19 @@
     </div>
   </header>
 
+  <section class="space-y-2">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <p class="text-sm text-gray-600">マイ備品のガイド</p>
+      <div class="flex gap-2">
+        <button type="button" id="equip-guide-hide" class="px-3 py-1.5 rounded border text-sm bg-gray-100 text-gray-700 hover:bg-gray-200">非表示</button>
+        <button type="button" id="equip-guide-show" class="px-3 py-1.5 rounded border text-sm bg-blue-50 text-blue-700 hover:bg-blue-100">ガイド表示</button>
+      </div>
+    </div>
+    <div id="equip-guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
+      <img src="/pict/myequipment.jpg" alt="マイ備品ガイド" class="w-full h-auto object-cover">
+    </div>
+  </section>
+
   <!-- Filter tabs (match myStock look) -->
   <% const t = type || 'all'; const showGridView = (t === 'all' || t === 'wishlist'); %>
   <div class="mt-1">
@@ -422,6 +435,9 @@ const equipTargetBox = document.getElementById('equip-target');
 const equipTargetName = document.getElementById('equip-target-name');
 const equipTargetCategory = document.getElementById('equip-target-category');
 const presetSection = document.getElementById('preset-section');
+const equipGuideWrapper = document.getElementById('equip-guide-wrapper');
+const equipGuideHide = document.getElementById('equip-guide-hide');
+const equipGuideShow = document.getElementById('equip-guide-show');
 let equipImageFetchTimer = null;
 let equipImageFetchId = 0;
 const nameInputEl = document.getElementById('f-name');
@@ -830,6 +846,19 @@ document.getElementById('preset-clear').addEventListener('click', ()=>{
   ['q-keyword','q-house','q-disaster','q-camping'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   selectedPreset = null; updatePresetButtons?.(); searchPresets();
 });
+
+const GUIDE_KEY_EQUIP = 'myequipment:guide:hidden';
+function applyEquipGuide(hidden){
+  if (!equipGuideWrapper) return;
+  equipGuideWrapper.classList.toggle('hidden', hidden);
+  try { localStorage.setItem(GUIDE_KEY_EQUIP, hidden ? '1' : '0'); } catch(_){}
+}
+try {
+  const saved = localStorage.getItem(GUIDE_KEY_EQUIP);
+  if (saved === '1') applyEquipGuide(true);
+} catch(_) {}
+equipGuideHide?.addEventListener('click', ()=> applyEquipGuide(true));
+equipGuideShow?.addEventListener('click', ()=> applyEquipGuide(false));
 
 function selectPreset(e){
   selectedPreset = { ...e, category: getPresetCategory(e) };
