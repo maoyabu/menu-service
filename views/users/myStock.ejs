@@ -255,7 +255,7 @@
       const modal=document.createElement('div'); modal.className='fixed inset-0 z-50 hidden overflow-y-auto';
       modal.innerHTML=`
         <div class=\"absolute inset-0 bg-black/40\" data-close></div>
-        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-2 py-1\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-48 overflow-auto border rounded p-2.5 bg-green-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-2 py-1\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-2 py-1\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div class=\"col-span-3 space-y-2\">\n                <div data-role=\"selected\" class=\"hidden rounded border border-blue-200 bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-900 flex flex-wrap gap-2\">\n                  <span data-role=\"selected-name\"></span>\n                  <span data-role=\"selected-class\" class=\"text-xs font-normal text-blue-800\"></span>\n                </div>\n                <div>\n                  <label class=\"text-xs text-gray-500\">ストックの補足（任意）</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                    <input data-x=\"productImageManual\" type=\"url\" class=\"w-full border rounded px-2 py-1 text-xs\" placeholder=\"画像URLを直接入力（任意）\">\n                    <p class=\"text-[11px] text-gray-400\">取得できない場合はこちらに画像URLを入力してください</p>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n              </div>\n            <div class=\"grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3\">
+        <div class=\"relative mx-auto mt-10 w-full max-w-3xl rounded-xl bg-white shadow-xl\">\n          <div class=\"flex items-center justify-between border-b px-5 py-3\">\n            <h3 class=\"font-semibold\">${type==='ingredient'?'食材を追加':'調味料を追加'}</h3>\n            <button type=\"button\" data-close class=\"text-gray-500\">✕</button>\n          </div>\n          <div class=\"p-4 space-y-3\">\n            <div class=\"inline-flex p-1 bg-gray-100 rounded-full text-sm\">\n              <button type=\"button\" data-tab=\"preset\" class=\"px-4 py-1 rounded-full bg-white shadow text-gray-900\">プリセットから選択</button>\n              <button type=\"button\" data-tab=\"original\" class=\"px-4 py-1 rounded-full text-gray-600\">オリジナル追加</button>\n            </div>\n            <div data-view=\"preset\" class=\"space-y-3\">\n              <input data-role=\"kw\" placeholder=\"検索...\" class=\"w-full border rounded px-2 py-1\"/>\n              <div data-role=\"genres\" class=\"flex flex-wrap gap-2\"></div>\n              <div data-role=\"tags\" class=\"flex flex-wrap gap-2 max-h-48 overflow-auto border rounded p-2.5 bg-green-50\"></div>\n            </div>\n            <div data-view=\"original\" class=\"hidden space-y-3\">\n              <div class=\"grid grid-cols-4 gap-3\">\n                <div class=\"col-span-2\"><label class=\"text-xs text-gray-500\">名前</label><input data-o=\"name\" class=\"w-full border rounded px-2 py-1\"></div>\n                <div><label class=\"text-xs text-gray-500\">カテゴリー</label><select data-o=\"cat\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select></div>\n                <div><label class=\"text-xs text-gray-500\">単位</label><input data-o=\"units\" class=\"w-full border rounded px-2 py-1\" placeholder=\"g, ml, 本\"></div>\n              </div>\n              <div class=\"text-right\"><button data-role=\"create\" class=\"px-4 py-1.5 rounded bg-emerald-600 text-white text-sm\">作成して追加</button></div>\n            </div>\n            <div class=\"grid grid-cols-3 gap-3\">\n              <div class=\"col-span-3 space-y-2\">\n                <div data-role=\"selected\" class=\"hidden rounded border border-blue-200 bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-900 flex flex-wrap gap-2\">\n                  <span data-role=\"selected-name\"></span>\n                  <span data-role=\"selected-class\" class=\"text-xs font-normal text-blue-800\"></span>\n                </div>\n                <div>\n                  <label class=\"text-xs text-gray-500\">ストックの補足（任意）</label>\n                  <input data-x=\"comment\" class=\"w-full border rounded px-2 py-1\" placeholder=\"メモなど\">\n                </div>\n              </div>\n              <div><label class=\"text-xs text-gray-500\">数量</label><input data-x=\"amount\" type=\"number\" step=\"0.1\" min=\"0\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">単位</label><input data-x=\"unit\" class=\"w-full border rounded px-2 py-1\"></div>\n              <div><label class=\"text-xs text-gray-500\">保管場所</label><select data-x=\"place\" class=\"w-full border rounded px-2 py-1\"><option value=\"\">選択してください</option></select><button type=\"button\" data-x=\"placeAdd\" class=\"ml-2 text-xs text-emerald-700 underline\">新規追加</button></div>\n              <div class=\"col-span-3 space-y-1\">\n                <label class=\"text-xs text-gray-500\">商品URL（任意）</label>\n                <div class=\"flex flex-col gap-3 md:flex-row md:items-start\">\n                  <div class=\"flex-1 min-w-0 space-y-1\">\n                    <input data-x=\"productUrl\" type=\"url\" class=\"w-full border rounded px-2 py-1\" placeholder=\"例: https://www.amazon.co.jp/...\">\n                    <div class=\"text-[11px] text-gray-500\">\n                      画像URL：\n                      <span data-role=\"image-url-text\" class=\"break-all\">未取得</span>\n                    </div>\n                    <input data-x=\"productImageManual\" type=\"url\" class=\"w-full border rounded px-2 py-1 text-xs\" placeholder=\"画像URLを直接入力（任意）\">\n                    <p class=\"text-[11px] text-gray-400\">取得できない場合はこちらに画像URLを入力してください</p>\n                  </div>\n                  <div class=\"w-full md:w-28\">\n                    <div class=\"border border-dashed border-gray-300 rounded bg-white h-28 flex items-center justify-center overflow-hidden\">\n                      <img data-role=\"image-preview\" class=\"max-w-full max-h-full object-contain hidden\" alt=\"商品画像\">\n                      <span data-role=\"image-placeholder\" class=\"text-[11px] text-gray-400\">プレビュー</span>\n                    </div>\n                  </div>\n                </div>\n              </div>\n              <div class=\"col-span-3\">\n                <label class=\"inline-flex items-center gap-2 text-xs text-gray-700\">\n                  <input type=\"checkbox\" data-x=\"stockpile\" class=\"rounded\">\n                  備蓄\n                </label>\n              </div>\n            <div class=\"grid grid-cols-3 gap-3 border rounded bg-blue-50 p-3\">
               <div class=\"col-span-3\">\n                <label class=\"text-xs text-gray-500\">賞味期限</label>\n                <input data-x=\"exp\" type=\"date\" class=\"w-full border rounded px-2 py-1\">\n              </div>\n            </div>\n            <div class=\"flex items-center justify-end gap-2 pt-3\">\n              <button type=\"button\" data-x=\"save\" class=\"px-4 py-1.5 rounded bg-blue-600 text-white text-sm\">ストックに追加</button>\n            </div>\n          </div>\n        </div>`;
       document.body.appendChild(modal);
       const productUrlInput = modal.querySelector('[data-x="productUrl"]');
@@ -266,6 +266,9 @@
       const selectedBanner = modal.querySelector('[data-role="selected"]');
       const selectedNameText = modal.querySelector('[data-role="selected-name"]');
       const selectedClassText = modal.querySelector('[data-role="selected-class"]');
+      const renderSelectedPresetTag = null;
+      const updatePresetButtons = null;
+      const setTargetInfo = null;
       let cachedImageUrl = '';
       let imageFetchTimer = null;
       let imageFetchId = 0;
@@ -533,37 +536,47 @@
       buildGenres(); run();
       // tabs
       const preset=modal.querySelector('[data-view="preset"]'); const original=modal.querySelector('[data-view="original"]'); const tabP=modal.querySelector('[data-tab="preset"]'); const tabO=modal.querySelector('[data-tab="original"]');
+      let tabState = 'preset';
+      console.debug('[mystock] modal built for', type);
       function switchTab(tab){
-        if(tab==='preset'){
+        tabState = (tab === 'original') ? 'original' : 'preset';
+        console.debug('[mystock] switchTab', tabState);
+        if(tabState === 'preset'){
           resetOriginalInputs();
-          resetDetailFields();
-          resetPresetSelection();
         } else {
           resetPresetSelection();
           resetDetailFields();
           resetOriginalInputs();
         }
-        if(tab==='preset'){
-          tabP.classList.add('bg-white','shadow','text-gray-900');
-          tabO.classList.remove('bg-white','shadow','text-gray-900');
-          preset.classList.remove('hidden');
-          original.classList.add('hidden');
-        } else {
-          tabO.classList.add('bg-white','shadow','text-gray-900');
-          tabP.classList.remove('bg-white','shadow','text-gray-900');
-          original.classList.remove('hidden');
-          preset.classList.add('hidden');
-        }
+        tabP?.classList.toggle('bg-white', tabState==='preset');
+        tabP?.classList.toggle('shadow', tabState==='preset');
+        tabP?.classList.toggle('text-gray-900', tabState==='preset');
+        tabP?.classList.toggle('text-gray-600', tabState!=='preset');
+        tabO?.classList.toggle('bg-white', tabState==='original');
+        tabO?.classList.toggle('shadow', tabState==='original');
+        tabO?.classList.toggle('text-gray-900', tabState==='original');
+        tabO?.classList.toggle('text-gray-600', tabState!=='original');
+        preset?.classList.toggle('hidden', tabState!=='preset');
+        original?.classList.toggle('hidden', tabState!=='original');
+        if (preset) preset.style.display = tabState==='preset' ? '' : 'none';
+        if (original) original.style.display = tabState==='original' ? '' : 'none';
         const box=modal.querySelector('div.grid.grid-cols-3');
-        if(box){
-          if(tab==='original' && !state.selectedId){
-            box.classList.add('hidden');
-          } else {
-            box.classList.remove('hidden');
-          }
+        if(box) box.classList.remove('hidden');
+        if (tabState === 'original') {
+          const nameInput = modal.querySelector('[data-o=\"name\"]');
+          nameInput?.focus();
         }
       }
-      tabP.addEventListener('click', ()=>switchTab('preset')); tabO.addEventListener('click', ()=>switchTab('original'));
+      tabP?.addEventListener('click', (e)=>{ console.debug('[mystock] click preset tab'); e.preventDefault(); switchTab('preset'); });
+      tabO?.addEventListener('click', (e)=>{ console.debug('[mystock] click original tab'); e.preventDefault(); switchTab('original'); });
+      modal.querySelectorAll('[data-tab]').forEach(btn=>{
+        btn.addEventListener('click', (ev)=>{
+          console.debug('[mystock] click data-tab', btn.dataset.tab);
+          ev.preventDefault();
+          const dest = (btn.dataset.tab === 'original') ? 'original' : 'preset';
+          switchTab(dest);
+        });
+      });
       modal.querySelector('[data-role="create"]').addEventListener('click', async ()=>{
         const name=modal.querySelector('[data-o="name"]').value.trim();
         const cat=modal.querySelector('[data-o="cat"]').value.trim();
@@ -573,8 +586,7 @@
         const res=await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, classification: cat, units }) });
         if(!res.ok){ alert('作成に失敗しました'); return; }
         const created = await res.json();
-        // 直後のフロー: 追加したアイテムを選択済みにし、ストック入力へ
-        switchTab('preset');
+        // 直後のフロー: 追加したアイテムを選択済みにし、ストック入力へ（タブはそのまま保持）
         state.selectedId = String(created._id);
         const label = created.ingredient || created.seasoning || name;
         const cls = created.classification || '';
