@@ -23,7 +23,7 @@
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div class="flex items-center gap-2">
         <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">イベント一覧</span>
-        <button type="button" id="event-filter-toggle" class="px-3 py-1.5 rounded-full border text-xs bg-white text-gray-800 hover:border-blue-300">全てのイベントを表示</button>
+        <button type="button" id="event-filter-toggle" class="text-xs font-semibold text-blue-700 hover:text-blue-900">全てのイベントを表示</button>
       </div>
       <button type="button" id="event-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">イベントを追加</button>
     </div>
@@ -606,7 +606,7 @@ function renderMasterItemList(){
     function updateFilterButton(){
       if (!eventFilterToggle) return;
       eventFilterToggle.textContent = showAllEvents ? '参加イベントのみ表示' : '全てのイベントを表示';
-      eventFilterToggle.className = 'px-3 py-1.5 rounded-full border text-xs ' + (showAllEvents ? 'bg-blue-600 text-white border-blue-700 shadow' : 'bg-white text-gray-800 hover:border-blue-300');
+      eventFilterToggle.className = 'text-xs font-semibold ' + (showAllEvents ? 'text-blue-900' : 'text-blue-700 hover:text-blue-900');
     }
     eventFilterToggle?.addEventListener('click', ()=> {
       showAllEvents = !showAllEvents;
