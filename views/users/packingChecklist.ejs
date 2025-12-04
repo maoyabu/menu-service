@@ -21,11 +21,11 @@
 
   <section class="border rounded-2xl bg-white p-4 space-y-4">
     <div class="flex items-center justify-between gap-3 flex-wrap">
-      <div>
+      <div class="flex items-center gap-2">
         <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">イベント一覧</span>
-        <p class="text-xs text-gray-500 mt-1">イベント名をクリックで編集、チェックリストへ遷移できます</p>
+        <button type="button" id="event-filter-toggle" class="px-3 py-1.5 rounded-full border text-xs bg-white text-gray-800 hover:border-blue-300">全てのイベントを表示</button>
       </div>
-      <button type="button" id="event-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">イベントを追加</button>
+      <button type="button" id="event-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">イベントを追加</button>
     </div>
     <div id="event-list" class="grid gap-2 grid-cols-1 sm:grid-cols-2"></div>
     <div class="text-sm text-gray-500" id="event-empty">まだイベントがありません。追加してください。</div>
@@ -198,9 +198,11 @@
     const masterItems = <%- JSON.stringify(masterItems || []) %>;
     let masterCategories = <%- JSON.stringify(masterCategories || []) %>;
     const members = <%- JSON.stringify(members || []) %>;
+    const currentUserId = <%- JSON.stringify(currentUserId || '') %>;
 
   const eventList = document.getElementById('event-list');
   const eventEmpty = document.getElementById('event-empty');
+  const eventFilterToggle = document.getElementById('event-filter-toggle');
   const storageList = document.getElementById('storage-list');
   const storageEmpty = document.getElementById('storage-empty');
   const masterItemList = document.getElementById('master-item-list');
@@ -214,6 +216,8 @@
   const deleteCancel = document.getElementById('event-delete-cancel');
   const deleteClose = document.getElementById('event-delete-close');
   let deleteTargetId = '';
+  const EVENT_FILTER_KEY = 'packing:events:showAll';
+  let showAllEvents = false;
 
   const eventAddOpen = document.getElementById('event-add-open');
   const storageAddOpen = document.getElementById('storage-add-open');
@@ -260,12 +264,15 @@ const masterItemForm = document.getElementById('master-modal-form');
     function renderEventList(){
       if (!eventList) return;
       eventList.innerHTML = '';
-      if (!events.length){
+      const filtered = showAllEvents || !currentUserId
+        ? events
+        : events.filter((ev)=> (ev.participants || []).includes(currentUserId));
+      if (!filtered.length){
         eventEmpty.classList.remove('hidden');
         return;
       }
       eventEmpty.classList.add('hidden');
-      events.forEach((ev)=>{
+      filtered.forEach((ev)=>{
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between border-2 border-blue-200 rounded-xl px-3 py-3 bg-white shadow-sm';
         row.innerHTML = `
@@ -503,7 +510,7 @@ function renderMasterItemList(){
     }
     function closeEventModal(){
       modal?.classList.add('hidden'); modal?.classList.remove('flex'); modalEventId='';
-    }
+  }
     modal?.addEventListener('click', (ev)=> { if (ev.target === modal) closeEventModal(); });
     modal.querySelectorAll('[data-event-close]')?.forEach((b)=> b.addEventListener('click', closeEventModal));
     modalSave?.addEventListener('click', async ()=>{
@@ -588,6 +595,25 @@ function renderMasterItemList(){
     });
 
     eventAddOpen?.addEventListener('click', ()=> openEventModal(null));
+    function restoreEventFilter(){
+      try{
+        const saved = localStorage.getItem(EVENT_FILTER_KEY);
+        showAllEvents = saved === '1';
+      } catch(_) {}
+      updateFilterButton();
+    }
+    function updateFilterButton(){
+      if (!eventFilterToggle) return;
+      eventFilterToggle.textContent = showAllEvents ? '参加イベントのみ表示' : '全てのイベントを表示';
+      eventFilterToggle.className = 'px-3 py-1.5 rounded-full border text-xs ' + (showAllEvents ? 'bg-blue-600 text-white border-blue-700 shadow' : 'bg-white text-gray-800 hover:border-blue-300');
+    }
+    eventFilterToggle?.addEventListener('click', ()=> {
+      showAllEvents = !showAllEvents;
+      try{ localStorage.setItem(EVENT_FILTER_KEY, showAllEvents ? '1' : '0'); }catch(_){}
+      updateFilterButton();
+      renderEventList();
+    });
+    restoreEventFilter();
 
     // Event list click
     eventList?.addEventListener('click', (ev)=>{

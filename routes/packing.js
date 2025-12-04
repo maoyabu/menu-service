@@ -107,7 +107,14 @@ router.get('/', async (req, res, next) => {
       comment: it.comment || ''
     }));
     const masterCategories = Array.from(new Set((masterItemsRaw || []).map((m)=> (m.category || '').trim()).filter(Boolean)));
-    res.render('users/packingChecklist', { members: memberInfo.list, events, storages, masterItems, masterCategories });
+    res.render('users/packingChecklist', {
+      members: memberInfo.list,
+      events,
+      storages,
+      masterItems,
+      masterCategories,
+      currentUserId: (req.user?._id?.toString?.() || '')
+    });
   } catch (e) { next(e); }
 });
 
