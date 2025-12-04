@@ -43,7 +43,7 @@
       <div id="owner-filter" class="flex flex-wrap gap-2 text-xs">
         <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
           <input type="checkbox" value="all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
-          <span>全員</span>
+          <span>共有</span>
         </label>
         <% (members || []).forEach((m)=> { %>
           <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
@@ -104,7 +104,7 @@
     <div class="grid sm:grid-cols-2 gap-2">
       <label class="block text-sm">誰のもの
         <select id="item-modal-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
-          <option value="all">全員</option>
+          <option value="all">共有</option>
           <% (members || []).forEach((m)=> { %>
             <option value="<%= m.id %>" <%= String(m.id) === String((user && user._id) || '') ? 'selected' : '' %>><%= m.name %></option>
           <% }) %>
@@ -266,8 +266,9 @@
       if (!itemPool) return;
       itemPool.innerHTML = '';
       const checkedOwners = Array.from(ownerFilter?.querySelectorAll('input[type=\"checkbox\"]:checked') || []).map(el=> el.value);
+      const hasOwnerSelection = checkedOwners.length > 0;
       const unassigned = items.filter((it)=> !it.storageId).filter((it)=>{
-        if (!checkedOwners.length) return true;
+        if (!hasOwnerSelection) return false;
         if (checkedOwners.includes('all') && it.owner === 'all') return true;
         return checkedOwners.includes(it.owner);
       });

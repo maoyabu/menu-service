@@ -51,17 +51,22 @@ async function hydrateItemWeights(itemsRaw, masterMap, groupId){
         next.weight = fallback;
       }
     }
+    if (master?.owner && String(master.owner) !== String(it.owner || '')){
+      next.owner = String(master.owner);
+    } else {
+      next.owner = String(it.owner || 'all');
+    }
     if ((!it.category || !it.category.trim()) && master?.category){
       next.category = master.category;
     }
-    if (next.weight !== it.weight || next.category !== it.category){
-      updates.push({ id: it._id, weight: next.weight, category: next.category });
+    if (next.weight !== it.weight || next.category !== it.category || String(next.owner || '') !== String(it.owner || '')){
+      updates.push({ id: it._id, weight: next.weight, category: next.category, owner: next.owner });
     }
     return next;
   });
   if (updates.length){
     try{
-      await Promise.all(updates.map((u)=> PackingItem.updateOne({ _id: u.id, group: groupId }, { $set: { weight: u.weight, category: u.category } })));
+      await Promise.all(updates.map((u)=> PackingItem.updateOne({ _id: u.id, group: groupId }, { $set: { weight: u.weight, category: u.category, owner: u.owner } })));
     } catch(_) { /* best effort */ }
   }
   return items;
@@ -319,7 +324,9 @@ router.get('/check/:eventId', async (req, res, next) => {
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const items = (itemsRaw || []).map((it)=> ({
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all' }]));
+    const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
+    const items = (hydratedItems || []).map((it)=> ({
       id: String(it._id),
       name: it.name,
       storageId: it.storageId ? String(it.storageId) : '',
@@ -330,7 +337,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       quantity: it.quantity || 0,
       weight: it.weight || 0,
       category: it.category || '',
-      owner: it.owner || 'all',
+      owner: it.owner ? String(it.owner) : 'all',
       comment: it.comment || ''
     }));
     await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
@@ -361,18 +368,18 @@ router.get('/:eventId', async (req, res, next) => {
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
       name: it.name,
-      owner: it.owner || 'all',
+      owner: it.owner ? String(it.owner) : 'all',
       defaultQuantity: it.defaultQuantity || 1,
       defaultWeight: it.defaultWeight || 0,
       category: it.category || '',
       comment: it.comment || ''
     }));
-    const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '' }]));
+    const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all' }]));
     const hydratedItemsRaw = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     let items = (hydratedItemsRaw || []).map((it)=>({
       id: String(it._id),
       name: it.name,
-      owner: it.owner || 'all',
+      owner: it.owner ? String(it.owner) : 'all',
       quantity: it.quantity || 0,
       weight: it.weight || 0,
       category: it.category || '',
@@ -405,7 +412,7 @@ router.get('/:eventId', async (req, res, next) => {
       const appended = docs.map((d)=> ({
         id: String(d._id),
         name: d.name,
-        owner: d.owner || 'all',
+        owner: d.owner ? String(d.owner) : 'all',
         quantity: d.quantity || 0,
         weight: d.weight || 0,
         category: d.category || '',
@@ -455,7 +462,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '' }]));
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all' }]));
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || []).map((it)=> ({
       id: String(it._id),
@@ -468,7 +475,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       quantity: it.quantity || 0,
       weight: it.weight || 0,
       category: it.category || '',
-      owner: it.owner || 'all',
+      owner: it.owner ? String(it.owner) : 'all',
       comment: it.comment || ''
     }));
     res.render('users/packingCheck', {

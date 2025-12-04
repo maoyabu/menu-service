@@ -20,17 +20,13 @@
     <div id="storage-tabs" class="flex flex-wrap gap-2"></div>
   </div>
 
+  <div id="category-block" class="space-y-2 hidden">
+    <div class="text-xs text-gray-500">カテゴリー</div>
+    <div id="category-filter" class="flex flex-wrap gap-2"></div>
+  </div>
+
   <div id="storage-view" class="border rounded-2xl bg-white p-4 space-y-3 hidden">
-    <div class="grid md:grid-cols-2 gap-4">
-      <div>
-        <h3 class="text-sm font-semibold text-gray-800 mb-2">チェックすべきリスト</h3>
-        <ul id="pending-list" class="space-y-2"></ul>
-      </div>
-      <div>
-        <h3 class="text-sm font-semibold text-gray-800 mb-2">チェック済み</h3>
-        <ul id="done-list" class="space-y-2"></ul>
-      </div>
-    </div>
+    <div id="category-view" class="space-y-4"></div>
   </div>
   <p id="empty-text" class="text-sm text-gray-500">持ち物がありません。イベントページで収納に紐付けてください。</p>
 </section>
@@ -41,12 +37,20 @@
     const items = <%- JSON.stringify(items || []) %>;
     const tabs = document.getElementById('storage-tabs');
     const view = document.getElementById('storage-view');
-    const pendingList = document.getElementById('pending-list');
-    const doneList = document.getElementById('done-list');
+    const categoryView = document.getElementById('category-view');
+    const categoryBlock = document.getElementById('category-block');
+    const categoryFilter = document.getElementById('category-filter');
     const emptyText = document.getElementById('empty-text');
+    const emptyTextDefault = emptyText?.textContent || '';
     let activeStorageId = storages[0]?.id || '';
+    let activeCategories = new Set();
 
     function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+
+    const normalizeCategory = (cat) => {
+      const trimmed = (cat || '').trim();
+      return trimmed || '未分類';
+    };
 
     function renderTabs(){
       if (!tabs) return;
@@ -59,25 +63,96 @@
         btn.dataset.id = s.id;
         btn.className = 'px-3 py-1.5 rounded-full border text-sm ' + (active ? 'bg-blue-600 text-white border-blue-700 shadow' : 'bg-white text-gray-800 border-gray-300 hover:border-blue-300');
         btn.textContent = s.name;
-        btn.addEventListener('click', ()=> { activeStorageId = s.id; renderTabs(); renderLists(); });
+        btn.addEventListener('click', ()=> {
+          const changed = activeStorageId !== s.id;
+          activeStorageId = s.id;
+          renderTabs();
+          renderCategoryFilter(changed);
+          renderLists();
+        });
         tabs.appendChild(btn);
       });
+      renderCategoryFilter(true);
       renderLists();
     }
 
+    function renderCategoryFilter(storageChanged){
+      if (!categoryFilter || !categoryBlock) return;
+      categoryFilter.innerHTML = '';
+      const list = items.filter((it)=> (it.storageId || '') === activeStorageId);
+      if (!list.length){
+        categoryBlock.classList.add('hidden');
+        activeCategories = new Set();
+        return;
+      }
+      const categories = Array.from(new Set(list.map((it)=> normalizeCategory(it.category)))).sort((a,b)=> a.localeCompare(b,'ja'));
+      if (!categories.length){
+        categoryBlock.classList.add('hidden');
+        activeCategories = new Set();
+        return;
+      }
+      categoryBlock.classList.remove('hidden');
+      if (storageChanged){
+        activeCategories = new Set(categories);
+      } else {
+        activeCategories = new Set([...activeCategories].filter((c)=> categories.includes(c)));
+      }
+      categories.forEach((cat)=>{
+        const selected = activeCategories.has(cat);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.category = cat;
+        btn.className = 'px-3 py-1.5 rounded-full border text-sm ' + (selected ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300');
+        btn.textContent = cat;
+        btn.addEventListener('click', ()=>{
+          if (activeCategories.has(cat)){
+            activeCategories.delete(cat);
+          } else {
+            activeCategories.add(cat);
+          }
+          renderCategoryFilter(false);
+          renderLists();
+        });
+        categoryFilter.appendChild(btn);
+      });
+    }
+
     function renderLists(){
-      if (!pendingList || !doneList) return;
-      pendingList.innerHTML = ''; doneList.innerHTML = '';
+      if (!categoryView) return;
+      categoryView.innerHTML = '';
       if (!activeStorageId){
-        view.classList.add('hidden'); emptyText.classList.remove('hidden'); return;
+        view.classList.add('hidden');
+        emptyText.textContent = emptyTextDefault;
+        emptyText.classList.remove('hidden');
+        return;
       }
       const list = items.filter((it)=> (it.storageId || '') === activeStorageId);
       if (!list.length){
-        view.classList.add('hidden'); emptyText.classList.remove('hidden'); return;
+        view.classList.add('hidden');
+        emptyText.textContent = emptyTextDefault;
+        emptyText.classList.remove('hidden');
+        return;
       }
-      view.classList.remove('hidden'); emptyText.classList.add('hidden');
-      const pending = list.filter((it)=> !it.checked);
-      const done = list.filter((it)=> it.checked);
+      const hasSelection = activeCategories.size > 0;
+      const filtered = hasSelection ? list.filter((it)=> activeCategories.has(normalizeCategory(it.category))) : [];
+      if (!hasSelection){
+        view.classList.add('hidden');
+        emptyText.textContent = 'カテゴリーを選択してください。';
+        emptyText.classList.remove('hidden');
+        return;
+      }
+      if (!filtered.length){
+        view.classList.add('hidden');
+        emptyText.textContent = '選択されたカテゴリーの持ち物がありません。カテゴリーを変更してください。';
+        emptyText.classList.remove('hidden');
+        return;
+      }
+      const grouped = {};
+      filtered.forEach((it)=>{
+        const cat = normalizeCategory(it.category);
+        if (!grouped[cat]) grouped[cat] = { pending: [], done: [] };
+        (it.checked ? grouped[cat].done : grouped[cat].pending).push(it);
+      });
       const makeLi = (it, checked)=>{
         const li = document.createElement('li');
         li.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 ' + (checked ? 'bg-green-50 border-green-200' : '');
@@ -97,17 +172,51 @@
         `;
         return li;
       };
-      pending.forEach((it)=> pendingList.appendChild(makeLi(it,false)));
-      done.forEach((it)=> doneList.appendChild(makeLi(it,true)));
+      Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'ja')).forEach((cat)=>{
+        const { pending, done } = grouped[cat];
+        const section = document.createElement('div');
+        section.className = 'border rounded-xl p-3 space-y-3';
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between';
+        header.innerHTML = `<h3 class="text-sm font-semibold text-gray-800">${cat}</h3><span class="text-xs text-gray-500">未チェック ${pending.length} / チェック済み ${done.length}</span>`;
+        section.appendChild(header);
+        const grid = document.createElement('div');
+        grid.className = 'grid md:grid-cols-2 gap-3';
+        const pendingWrap = document.createElement('div');
+        pendingWrap.innerHTML = '<p class="text-xs font-semibold text-gray-700 mb-1">チェックすべき</p>';
+        const pendingUl = document.createElement('ul');
+        pendingUl.className = 'space-y-2';
+        if (!pending.length){
+          const empty = document.createElement('div');
+          empty.className = 'text-xs text-gray-500';
+          empty.textContent = '未チェックのアイテムはありません。';
+          pendingUl.appendChild(empty);
+        } else {
+          pending.forEach((it)=> pendingUl.appendChild(makeLi(it,false)));
+        }
+        pendingWrap.appendChild(pendingUl);
+        const doneWrap = document.createElement('div');
+        doneWrap.innerHTML = '<p class="text-xs font-semibold text-gray-700 mb-1">チェック済み</p>';
+        const doneUl = document.createElement('ul');
+        doneUl.className = 'space-y-2';
+        if (!done.length){
+          const empty = document.createElement('div');
+          empty.className = 'text-xs text-gray-500';
+          empty.textContent = 'チェック済みはありません。';
+          doneUl.appendChild(empty);
+        } else {
+          done.forEach((it)=> doneUl.appendChild(makeLi(it,true)));
+        }
+        doneWrap.appendChild(doneUl);
+        grid.appendChild(pendingWrap);
+        grid.appendChild(doneWrap);
+        section.appendChild(grid);
+        categoryView.appendChild(section);
+      });
+      view.classList.remove('hidden');
+      emptyText.classList.add('hidden');
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
-
-    tabs?.addEventListener('click', (ev)=>{
-      const btn = ev.target.closest('button[data-id]');
-      if (!btn) return;
-      activeStorageId = btn.dataset.id;
-      renderTabs();
-    });
 
     view?.addEventListener('change', async (ev)=>{
       const cb = ev.target.closest('input[type="checkbox"][data-id]');
