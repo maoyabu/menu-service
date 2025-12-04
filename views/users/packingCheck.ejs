@@ -33,6 +33,7 @@
 
 <script>
   (function(){
+    const eventId = <%- JSON.stringify(event.id || '') %>;
     const storages = <%- JSON.stringify(storages || []) %>;
     const items = <%- JSON.stringify(items || []) %>;
     const tabs = document.getElementById('storage-tabs');
@@ -44,6 +45,8 @@
     const emptyTextDefault = emptyText?.textContent || '';
     let activeStorageId = storages[0]?.id || '';
     let activeCategories = new Set();
+    const STORAGE_KEY = `packing:check:${eventId}:storage`;
+    const CATEGORY_KEY = `packing:check:${eventId}:cats`;
 
     function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
 
@@ -51,6 +54,34 @@
       const trimmed = (cat || '').trim();
       return trimmed || '未分類';
     };
+
+    function restoreActiveStorage(){
+      try{
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved && storages.find((s)=> s.id === saved)) activeStorageId = saved;
+      } catch(_) {}
+    }
+    function saveActiveStorage(id){
+      try{ localStorage.setItem(STORAGE_KEY, id || ''); }catch(_) {}
+    }
+    function loadCategorySelection(storageId, available){
+      try{
+        const raw = localStorage.getItem(CATEGORY_KEY);
+        if (!raw) return null;
+        const map = JSON.parse(raw);
+        const arr = Array.isArray(map?.[storageId]) ? map[storageId] : null;
+        if (!arr) return null;
+        return arr.filter((c)=> available.includes(c));
+      } catch(_) { return null; }
+    }
+    function saveCategorySelection(storageId, set){
+      try{
+        const raw = localStorage.getItem(CATEGORY_KEY);
+        const map = raw ? (JSON.parse(raw) || {}) : {};
+        map[storageId] = Array.from(set || []);
+        localStorage.setItem(CATEGORY_KEY, JSON.stringify(map));
+      } catch(_) {}
+    }
 
     function renderTabs(){
       if (!tabs) return;
@@ -66,12 +97,14 @@
         btn.addEventListener('click', ()=> {
           const changed = activeStorageId !== s.id;
           activeStorageId = s.id;
+          saveActiveStorage(activeStorageId);
           renderTabs();
           renderCategoryFilter(changed);
           renderLists();
         });
         tabs.appendChild(btn);
       });
+      saveActiveStorage(activeStorageId);
       renderCategoryFilter(true);
       renderLists();
     }
@@ -93,9 +126,15 @@
       }
       categoryBlock.classList.remove('hidden');
       if (storageChanged){
-        activeCategories = new Set(categories);
+        const saved = loadCategorySelection(activeStorageId, categories);
+        if (saved !== null) {
+          activeCategories = new Set(saved);
+        } else {
+          activeCategories = new Set(categories);
+        }
       } else {
         activeCategories = new Set([...activeCategories].filter((c)=> categories.includes(c)));
+        if (!activeCategories.size) activeCategories = new Set(categories);
       }
       categories.forEach((cat)=>{
         const selected = activeCategories.has(cat);
@@ -110,6 +149,7 @@
           } else {
             activeCategories.add(cat);
           }
+          saveCategorySelection(activeStorageId, activeCategories);
           renderCategoryFilter(false);
           renderLists();
         });
@@ -240,6 +280,7 @@
       }
     });
 
+    restoreActiveStorage();
     renderTabs();
   })();
 </script>

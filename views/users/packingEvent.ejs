@@ -36,10 +36,7 @@
       <% } %>
     </div>
     <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs text-gray-500">持ち物</span>
-        <span id="active-storage-label" class="text-xs text-gray-600"></span>
-      </div>
+      <div class="text-xs text-gray-500">持ち物</div>
       <div id="owner-filter" class="flex flex-wrap gap-2 text-xs">
         <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
           <input type="checkbox" value="all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
@@ -146,7 +143,6 @@
     const itemPool = document.getElementById('item-pool');
     const poolEmpty = document.getElementById('pool-empty');
     const storageLists = document.getElementById('storage-lists');
-    const activeStorageLabel = document.getElementById('active-storage-label');
     const masterPool = document.getElementById('master-pool');
     const ownerFilter = document.getElementById('owner-filter');
 
@@ -167,8 +163,39 @@
     let categoryOptions = Array.from(new Set([...(masterItems||[]).map(m=> (m.category||'').trim()).filter(Boolean), ...(items||[]).map(i=> (i.category||'').trim()).filter(Boolean)])).filter(Boolean);
 
     let activeStorageId = selectedStorageIds[0] || '';
+    const ACTIVE_STORAGE_KEY = `packing:event:${eventId}:activeStorage`;
+    const OWNER_KEY = `packing:event:${eventId}:owners`;
 
     function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+
+    function restoreActiveStorage(){
+      try{
+        const saved = localStorage.getItem(ACTIVE_STORAGE_KEY);
+        if (saved && selectedStorageIds.includes(saved)) activeStorageId = saved;
+      } catch(_) {}
+    }
+    function saveActiveStorage(id){
+      try{ localStorage.setItem(ACTIVE_STORAGE_KEY, id || ''); }catch(_) {}
+    }
+
+    function restoreOwnerSelections(){
+      if (!ownerFilter) return;
+      try{
+        const saved = JSON.parse(localStorage.getItem(OWNER_KEY) || '[]');
+        if (Array.isArray(saved) && saved.length){
+          ownerFilter.querySelectorAll('input[type="checkbox"]').forEach((cb)=>{
+            cb.checked = saved.includes(cb.value);
+          });
+        }
+      } catch(_) {}
+    }
+    function saveOwnerSelections(){
+      if (!ownerFilter) return;
+      try{
+        const checked = Array.from(ownerFilter.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
+        localStorage.setItem(OWNER_KEY, JSON.stringify(checked));
+      } catch(_) {}
+    }
 
     async function saveEventStorages(newIds){
       try{
@@ -219,8 +246,9 @@
             return;
           }
           activeStorageId = s.id;
+          saveActiveStorage(activeStorageId);
           renderStorages();
-          updateActiveLabel();
+          renderItemPool();
         });
         storageTags.appendChild(btn);
       });
@@ -238,13 +266,7 @@
         });
       }
       if (!activeStorageId && selectedStorageIds[0]) activeStorageId = selectedStorageIds[0];
-      updateActiveLabel();
-    }
-
-    function updateActiveLabel(){
-      if (!activeStorageLabel) return;
-      const name = storages.find((s)=> s.id === activeStorageId)?.name || '';
-      activeStorageLabel.textContent = name ? `選択中: ${name}` : '収納未選択';
+      saveActiveStorage(activeStorageId);
     }
 
     function renderCategoryOptions(){
@@ -536,8 +558,10 @@
       }
     });
 
-    ownerFilter?.addEventListener('change', renderItemPool);
+    ownerFilter?.addEventListener('change', ()=> { saveOwnerSelections(); renderItemPool(); });
 
+    restoreActiveStorage();
+    restoreOwnerSelections();
     renderStorages();
     renderCategoryOptions();
     renderItemPool();
