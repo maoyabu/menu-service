@@ -318,8 +318,9 @@
           const tag = document.createElement('div');
           tag.className='inline-flex items-center gap-1 px-3 py-1 rounded-full border bg-white text-sm hover:border-blue-300';
           tag.innerHTML = `
-            <span class="font-semibold text-gray-900">${it.name}</span>
+            <span class="font-semibold text-gray-900 cursor-pointer" data-item-edit="${it.id}" title="クリックで編集">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800" data-item-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+            <button type="button" class="text-green-700 hover:text-green-900" data-item-clone="${it.id}" aria-label="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
             <button type="button" class="text-red-600 hover:text-red-800" data-item-del="${it.id}" aria-label="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             <button type="button" class="text-gray-400 hover:text-gray-600" data-item-assign="${it.id}" aria-label="収納に入れる"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
           `;
@@ -484,10 +485,15 @@
       }catch(e){ toast(e.message || '追加に失敗しました'); }
     });
 
-    function openItemModal(target){
-      itemEditId = target?.id || '';
+    function openItemModal(target, opts = {}){
+      const mode = opts.mode || (target ? 'edit' : 'create');
+      itemEditId = target && mode !== 'clone' ? target.id : '';
       itemModalName.value = target?.name || '';
-      itemModalOwner.value = target?.owner || (currentUserId || 'all');
+      if (mode === 'clone'){
+        itemModalOwner.value = currentUserId || 'all';
+      } else {
+        itemModalOwner.value = target?.owner || (currentUserId || 'all');
+      }
       itemModalQty.value = target?.quantity || 0;
       itemModalWeight.value = target?.weight || 0;
       if (itemModalCategory) itemModalCategory.value = target?.category || '';
@@ -538,10 +544,18 @@
       const editBtn = ev.target.closest('button[data-item-edit]');
       const delBtn = ev.target.closest('button[data-item-del]');
       const assignBtn = ev.target.closest('button[data-item-assign]');
-      if (editBtn){
-        const id = editBtn.dataset.itemEdit;
+      const cloneBtn = ev.target.closest('button[data-item-clone]');
+      const nameClick = ev.target.closest('span[data-item-edit]');
+      if (editBtn || nameClick){
+        const id = (editBtn || nameClick).dataset.itemEdit;
         const target = items.find((i)=> i.id === id);
         if (target) openItemModal(target);
+      } else if (cloneBtn){
+        const id = cloneBtn.dataset.itemClone;
+        const target = items.find((i)=> i.id === id);
+        if (!target) return;
+        if (!confirm('この持ち物を複製しますか？')) return;
+        openItemModal(target, { mode: 'clone' });
       } else if (delBtn){
         const id = delBtn.dataset.itemDel;
         if (!confirm('削除しますか？')) return;
