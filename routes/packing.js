@@ -19,6 +19,13 @@ function getGroupId(res){
 
 const userLabel = (user) => (user?.displayname || user?.username || user?.email || '').toString();
 
+const parseBool = (val) => {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'string') return ['1', 'true', 'on', 'yes'].includes(val.toLowerCase());
+  if (typeof val === 'number') return val === 1;
+  return false;
+};
+
 async function getMemberOptions(groupId){
   if (!groupId) return { list: [], idSet: new Set(), labelMap: new Map() };
   const group = await Group.findById(groupId)
@@ -59,14 +66,28 @@ async function hydrateItemWeights(itemsRaw, masterMap, groupId){
     if ((!it.category || !it.category.trim()) && master?.category){
       next.category = master.category;
     }
-    if (next.weight !== it.weight || next.category !== it.category || String(next.owner || '') !== String(it.owner || '')){
-      updates.push({ id: it._id, weight: next.weight, category: next.category, owner: next.owner });
+    if (next.wish && (it.storageId || it.storageName)) {
+      next.storageId = null;
+      next.storageName = '';
+    }
+    if (next.weight !== it.weight || next.category !== it.category || String(next.owner || '') !== String(it.owner || '') || next.wish !== it.wish || next.storageId !== it.storageId || next.storageName !== it.storageName){
+      updates.push({ id: it._id, weight: next.weight, category: next.category, owner: next.owner, wish: next.wish, storageId: next.storageId, storageName: next.storageName });
     }
     return next;
   });
   if (updates.length){
     try{
-      await Promise.all(updates.map((u)=> PackingItem.updateOne({ _id: u.id, group: groupId }, { $set: { weight: u.weight, category: u.category, owner: u.owner } })));
+      await Promise.all(updates.map((u)=> {
+        const set = { weight: u.weight, category: u.category, owner: u.owner, wish: u.wish };
+        if (u.wish && (u.storageId || u.storageName)) {
+          set.storageId = null;
+          set.storageName = '';
+        } else {
+          set.storageId = u.storageId;
+          set.storageName = u.storageName;
+        }
+        return PackingItem.updateOne({ _id: u.id, group: groupId }, { $set: set });
+      }));
     } catch(_) { /* best effort */ }
   }
   return items;
@@ -104,7 +125,8 @@ router.get('/', async (req, res, next) => {
       defaultQuantity: it.defaultQuantity || 1,
       defaultWeight: it.defaultWeight || 0,
       category: it.category || '',
-      comment: it.comment || ''
+      comment: it.comment || '',
+      wish: !!it.wish
     }));
     const masterCategories = Array.from(new Set((masterItemsRaw || []).map((m)=> (m.category || '').trim()).filter(Boolean)));
     res.render('users/packingChecklist', {
@@ -173,7 +195,8 @@ router.post('/api/master-items', async (req, res) => {
     const owner = String(req.body?.owner || 'all');
     const category = String(req.body?.category || '').trim();
     const comment = String(req.body?.comment || '').trim();
-    const created = await PackingMasterItem.create({ name, defaultQuantity, defaultWeight, owner, category, comment, group: groupId, createdBy: req.user._id });
+    const wish = parseBool(req.body?.wish);
+    const created = await PackingMasterItem.create({ name, defaultQuantity, defaultWeight, owner, category, comment, wish, group: groupId, createdBy: req.user._id });
     res.json({
       id: created._id,
       name: created.name,
@@ -181,7 +204,8 @@ router.post('/api/master-items', async (req, res) => {
       defaultQuantity: created.defaultQuantity,
       defaultWeight: created.defaultWeight,
       category: created.category || '',
-      comment: created.comment
+      comment: created.comment,
+      wish: !!created.wish
     });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
@@ -196,8 +220,17 @@ router.patch('/api/master-items/:id', async (req, res) => {
     if (typeof req.body?.category === 'string') update.category = String(req.body.category || '').trim();
     if (typeof req.body?.defaultQuantity !== 'undefined') update.defaultQuantity = Math.max(0, Number(req.body.defaultQuantity) || 0);
     if (typeof req.body?.defaultWeight !== 'undefined') update.defaultWeight = Math.max(0, Number(req.body.defaultWeight) || 0);
+    if (typeof req.body?.wish !== 'undefined') update.wish = parseBool(req.body.wish);
     const updated = await PackingMasterItem.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: update }, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'not found' });
+    if (typeof update.wish === 'boolean') {
+      const set = { wish: update.wish };
+      if (update.wish) {
+        set.storageId = null;
+        set.storageName = '';
+      }
+      await PackingItem.updateMany({ group: groupId, thingId: updated._id }, { $set: set });
+    }
     res.json({
       id: String(updated._id),
       name: updated.name,
@@ -205,7 +238,8 @@ router.patch('/api/master-items/:id', async (req, res) => {
       defaultQuantity: updated.defaultQuantity,
       defaultWeight: updated.defaultWeight,
       category: updated.category || '',
-      comment: updated.comment
+      comment: updated.comment,
+      wish: !!updated.wish
     });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
@@ -331,7 +365,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all' }]));
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || []).map((it)=> ({
       id: String(it._id),
@@ -345,12 +379,44 @@ router.get('/check/:eventId', async (req, res, next) => {
       weight: it.weight || 0,
       category: it.category || '',
       owner: it.owner ? String(it.owner) : 'all',
+      wish: !!it.wish,
       comment: it.comment || ''
     }));
     await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
     res.render('users/packingCheck', {
       event: { id: String(ev._id), name: ev.name },
       storages: filteredStorages,
+      items
+    });
+  } catch(e){ next(e); }
+});
+
+router.get('/shop/:eventId', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.redirect('/users/packing');
+    const eventId = req.params.eventId;
+    const [ev, itemsRaw, masterItemsRaw] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean(),
+      PackingMasterItem.find({ group: groupId }).lean()
+    ]);
+    if (!ev) return res.redirect('/users/packing');
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
+    const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
+    const items = (hydratedItems || [])
+      .filter((it)=> !!it.wish)
+      .map((it)=> ({
+        id: String(it._id),
+        name: it.name,
+        quantity: it.quantity || 0,
+        weight: it.weight || 0,
+        category: it.category || '',
+        owner: it.owner ? String(it.owner) : 'all',
+        comment: it.comment || ''
+      }));
+    res.render('users/packingShop', {
+      event: { id: String(ev._id), name: ev.name },
       items
     });
   } catch(e){ next(e); }
@@ -379,9 +445,10 @@ router.get('/:eventId', async (req, res, next) => {
       defaultQuantity: it.defaultQuantity || 1,
       defaultWeight: it.defaultWeight || 0,
       category: it.category || '',
-      comment: it.comment || ''
+      comment: it.comment || '',
+      wish: !!it.wish
     }));
-    const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all' }]));
+    const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
     const hydratedItemsRaw = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     let items = (hydratedItemsRaw || []).map((it)=>({
       id: String(it._id),
@@ -393,6 +460,7 @@ router.get('/:eventId', async (req, res, next) => {
       comment: it.comment || '',
       storageId: it.storageId ? String(it.storageId) : '',
       storageName: it.storageName || '',
+      wish: !!it.wish,
       checked: !!it.checked,
       checkedAt: it.checkedAt,
       checkedBy: it.checkedBy,
@@ -408,29 +476,31 @@ router.get('/:eventId', async (req, res, next) => {
         storageId: null,
         storageName: '',
         owner: m.owner || 'all',
-        quantity: m.defaultQuantity || 0,
-        weight: m.defaultWeight || 0,
-        category: m.category || '',
-        comment: m.comment || '',
-        group: groupId,
-        event: ev._id,
-        createdBy: req.user._id
-      })));
-      const appended = docs.map((d)=> ({
+      quantity: m.defaultQuantity || 0,
+      weight: m.defaultWeight || 0,
+      category: m.category || '',
+      comment: m.comment || '',
+      wish: !!m.wish,
+      group: groupId,
+      event: ev._id,
+      createdBy: req.user._id
+    })));
+    const appended = docs.map((d)=> ({
         id: String(d._id),
         name: d.name,
         owner: d.owner ? String(d.owner) : 'all',
         quantity: d.quantity || 0,
-        weight: d.weight || 0,
-        category: d.category || '',
-        comment: d.comment || '',
-        storageId: '',
-        storageName: '',
-        checked: !!d.checked,
-        checkedAt: d.checkedAt,
-        checkedBy: d.checkedBy,
-        thingId: d.thingId ? String(d.thingId) : null
-      }));
+      weight: d.weight || 0,
+      category: d.category || '',
+      comment: d.comment || '',
+      storageId: '',
+      storageName: '',
+      wish: !!d.wish,
+      checked: !!d.checked,
+      checkedAt: d.checkedAt,
+      checkedBy: d.checkedBy,
+      thingId: d.thingId ? String(d.thingId) : null
+    }));
       items = items.concat(appended);
     }
     const memberNameById = new Map(memberInfo.list.map((m)=> [m.id, m.name]));
@@ -469,7 +539,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all' }]));
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || []).map((it)=> ({
       id: String(it._id),
@@ -483,6 +553,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       weight: it.weight || 0,
       category: it.category || '',
       owner: it.owner ? String(it.owner) : 'all',
+      wish: !!it.wish,
       comment: it.comment || ''
     }));
     res.render('users/packingCheck', {
@@ -508,7 +579,8 @@ router.post('/api/items', async (req, res) => {
       getMemberOptions(groupId)
     ]);
     if (!event) return res.status(404).json({ error: 'event not found' });
-    const storageName = storage ? storage.name : '';
+    const wish = typeof req.body?.wish !== 'undefined' ? parseBool(req.body.wish) : !!thing?.wish;
+    const storageName = !wish && storage ? storage.name : '';
     const ownerId = memberInfo.idSet.has(String(owner || '')) ? String(owner) : 'all';
     const qtyNum = Math.max(0, Number(quantity ?? thing?.defaultQuantity ?? 1) || 1);
     const weightNum = Math.max(0, Number(req.body?.weight || (thing?.defaultWeight ?? 0)) || 0);
@@ -522,6 +594,7 @@ router.post('/api/items', async (req, res) => {
         defaultWeight: weightNum,
         category: String(req.body?.category || '').trim(),
         comment: String(comment || '').trim(),
+        wish,
         group: groupId,
         createdBy: req.user._id
       });
@@ -532,13 +605,14 @@ router.post('/api/items', async (req, res) => {
     const created = await PackingItem.create({
       name: itemName,
       thingId: master?._id || null,
-      storageId: storage?._id || null,
+      storageId: wish ? null : (storage?._id || null),
       storageName,
       owner: ownerId || 'all',
       quantity: qtyNum,
       weight: weightNum,
       category,
       comment: String(comment || '').trim(),
+      wish,
       group: groupId,
       event: event._id,
       createdBy: req.user._id,
@@ -556,6 +630,7 @@ router.post('/api/items', async (req, res) => {
       weight: created.weight,
       category: created.category || '',
       comment: created.comment,
+      wish: !!created.wish,
       checked: created.checked,
       checkedAt: created.checkedAt,
       checkedBy: created.checkedBy
@@ -577,7 +652,11 @@ router.patch('/api/items/:id', async (req, res) => {
       req.body?.thingId ? PackingMasterItem.findOne({ _id: req.body.thingId, group: groupId }).lean() : null,
       getMemberOptions(groupId)
     ]);
+    const masterWish = typeof thing?.wish === 'boolean' ? thing.wish : item.wish;
+    const wish = typeof req.body?.wish !== 'undefined' ? parseBool(req.body.wish) : !!masterWish;
+    if (wish && req.body?.storageId) return res.status(400).json({ error: 'wish item cannot have storage' });
     const ownerId = memberInfo.idSet.has(String(req.body?.owner || '')) ? String(req.body.owner) : 'all';
+    const storageAllowed = !wish && storage;
     const update = {
       name: String(req.body?.name || item.name || '').trim(),
       owner: ownerId,
@@ -586,8 +665,9 @@ router.patch('/api/items/:id', async (req, res) => {
       category: typeof req.body?.category === 'string' ? String(req.body.category || '').trim() : item.category || '',
       comment: String(req.body?.comment || '').trim(),
       thingId: thing?._id || item.thingId || null,
-      storageId: storage ? storage._id : null,
-      storageName: storage ? storage.name : ''
+      storageId: storageAllowed ? storage._id : null,
+      storageName: storageAllowed ? storage.name : '',
+      wish
     };
     if (update.category && item.thingId) {
       await PackingMasterItem.updateOne({ _id: item.thingId, group: groupId }, { $set: { category: update.category } });
@@ -609,7 +689,8 @@ router.patch('/api/items/:id', async (req, res) => {
       checked: updated.checked,
       checkedAt: updated.checkedAt,
       checkedBy: updated.checkedBy,
-      category: updated.category || ''
+      category: updated.category || '',
+      wish: !!updated.wish
     });
   } catch (_) { res.status(500).json({ error: 'failed' }); }
 });

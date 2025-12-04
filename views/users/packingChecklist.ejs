@@ -161,6 +161,10 @@
       <label class="block text-sm">コメント
         <input type="text" name="comment" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="メモ" />
       </label>
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" name="wish" id="master-wish" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+        <span>買い物リストに入れる（収納には入れません）</span>
+      </label>
       <div class="flex justify-end gap-2">
         <button type="button" data-master-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
         <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">保存</button>
@@ -242,6 +246,7 @@ const masterItemForm = document.getElementById('master-modal-form');
   const masterAddOpen = document.getElementById('master-add-open');
   const categoryDatalist = document.getElementById('category-datalist');
   const masterOwner = document.getElementById('master-owner');
+  const masterWish = document.getElementById('master-wish');
   let masterEditId = '';
   const OWNER_KEY = 'packing:master:owners';
   const categoryModal = document.getElementById('category-modal');
@@ -463,8 +468,10 @@ function renderMasterItemList(){
         wrap.className = 'flex flex-wrap gap-2';
         grouped[cat].forEach((it)=>{
           const tag = document.createElement('div');
-          tag.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-300 bg-white text-sm shadow-sm';
+          const wishClass = it.wish ? 'bg-gray-100 border-gray-300' : 'bg-white';
+          tag.className = `inline-flex items-center gap-1 px-2 py-1 rounded-full border text-sm shadow-sm ${wishClass}`;
           tag.innerHTML = `
+            ${it.wish ? '<span class="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1 rounded">買い物</span>' : ''}
             <span class="font-semibold text-gray-900 cursor-pointer" title="クリックで編集" data-master-edit="${it.id}">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800" data-master-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-green-700 hover:text-green-900" data-master-clone="${it.id}" aria-label="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
@@ -697,12 +704,13 @@ function renderMasterItemList(){
       if (mode === 'clone'){
         form.owner.value = currentUserId || 'all';
       } else {
-        form.owner.value = target?.owner || (masterOwner?.value || 'all');
+      form.owner.value = target?.owner || (masterOwner?.value || 'all');
       }
       form.defaultQuantity.value = (target && typeof target.defaultQuantity !== 'undefined') ? target.defaultQuantity : 1;
       form.defaultWeight.value = target?.defaultWeight || 0;
       if (form.category) form.category.value = target?.category || '';
       form.comment.value = target?.comment || '';
+      if (masterWish) masterWish.checked = !!target?.wish;
       form.name.focus();
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
@@ -714,6 +722,7 @@ function renderMasterItemList(){
       ev.preventDefault();
       const fd = new FormData(masterItemForm);
       const payload = Object.fromEntries(fd.entries());
+      payload.wish = fd.has('wish');
       const isEdit = !!masterEditId;
       const url = isEdit ? `/users/packing/api/master-items/${encodeURIComponent(masterEditId)}` : '/users/packing/api/master-items';
       const method = isEdit ? 'PATCH' : 'POST';

@@ -12,6 +12,7 @@ const packingItemSchema = new Schema({
   quantity: { type: Number, default: 1 },
   category: { type: String, default: '', trim: true },
   comment: { type: String, default: '' },
+  wish: { type: Boolean, default: false },
   checked: { type: Boolean, default: false },
   checkedAt: { type: Date, default: null },
   checkedBy: { type: String, default: '' },

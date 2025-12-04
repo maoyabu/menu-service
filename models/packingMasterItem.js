@@ -9,6 +9,7 @@ const packingMasterItemSchema = new Schema({
   defaultWeight: { type: Number, default: 0 }, // grams
   category: { type: String, default: '', trim: true },
   comment: { type: String, default: '' },
+  wish: { type: Boolean, default: false },
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });

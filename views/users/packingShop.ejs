@@ -1,0 +1,109 @@
+<section class="max-w-5xl mx-auto py-8 space-y-6">
+  <header class="space-y-2">
+    <div class="text-xs text-gray-500 flex items-center gap-1">
+      <a href="/users/packing" class="text-blue-600 hover:underline">トップ</a>
+      <span>＞</span>
+      <a href="/users/packing/<%= event.id %>" class="text-blue-600 hover:underline"><%= event.name || '' %> のパッキングプラン</a>
+      <span>＞</span>
+      <span class="text-gray-800">買い物リスト</span>
+    </div>
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-bold"><%= event.name || '' %> の買い物リスト</h1>
+        <p class="text-sm text-gray-600">買ったものはチェックするとリストから消えます</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/users/packing/check/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-800 text-sm font-semibold border border-gray-300 hover:bg-gray-200">チェックリストへ戻る</a>
+      </div>
+    </div>
+  </header>
+
+  <div id="list-view" class="space-y-4"></div>
+  <p id="empty-text" class="text-sm text-gray-500">買い物リストは空です。パッキング編集で買い物をONにすると表示されます。</p>
+</section>
+
+<script>
+  (function(){
+    const eventId = <%- JSON.stringify(event.id || '') %>;
+    const items = <%- JSON.stringify(items || []) %>;
+    const view = document.getElementById('list-view');
+    const emptyText = document.getElementById('empty-text');
+
+    function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+
+    const normalizeCategory = (cat) => {
+      const trimmed = (cat || '').trim();
+      return trimmed || '未分類';
+    };
+
+    async function markPurchased(id){
+      try{
+        const res = await fetch(`/users/packing/api/items/${encodeURIComponent(id)}`, {
+          method:'PATCH',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ wish: false })
+        });
+        if (!res.ok) throw new Error('更新に失敗しました');
+        const idx = items.findIndex((i)=> i.id === id);
+        if (idx >= 0) items.splice(idx,1);
+        render();
+        toast('購入済みにしました');
+      }catch(e){ toast(e.message || '更新に失敗しました'); }
+    }
+
+    function makeCard(it){
+      const card = document.createElement('div');
+      card.className = 'border rounded-xl p-3 bg-white shadow-sm space-y-2';
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div class="space-y-1">
+            <p class="font-semibold text-gray-900">${it.name}</p>
+            <p class="text-xs text-gray-600">数量: ${it.quantity || 0} / 重量: ${it.weight || 0}g</p>
+            ${it.comment ? `<p class="text-xs text-gray-600">${it.comment}</p>` : ''}
+          </div>
+          <button type="button" class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700" data-buy="${it.id}">購入済みにする</button>
+        </div>
+      `;
+      return card;
+    }
+
+    function render(){
+      if (!view) return;
+      view.innerHTML = '';
+      if (!items.length){
+        emptyText?.classList.remove('hidden');
+        return;
+      }
+      emptyText?.classList.add('hidden');
+      const grouped = {};
+      items.forEach((it)=>{
+        const cat = normalizeCategory(it.category);
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(it);
+      });
+      Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'ja')).forEach((cat)=>{
+        const sec = document.createElement('div');
+        sec.className = 'space-y-2';
+        const title = document.createElement('div');
+        title.className = 'text-sm font-semibold text-gray-800';
+        title.textContent = cat;
+        const wrap = document.createElement('div');
+        wrap.className = 'grid sm:grid-cols-2 gap-3';
+        grouped[cat].forEach((it)=> wrap.appendChild(makeCard(it)));
+        sec.appendChild(title);
+        sec.appendChild(wrap);
+        view.appendChild(sec);
+      });
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+
+    view?.addEventListener('click', (ev)=>{
+      const btn = ev.target.closest('button[data-buy]');
+      if (!btn) return;
+      const id = btn.dataset.buy;
+      markPurchased(id);
+    });
+
+    render();
+  })();
+</script>

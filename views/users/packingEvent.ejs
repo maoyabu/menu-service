@@ -9,9 +9,22 @@
       <div>
         <h1 class="text-2xl font-bold"><%= event.name || '' %> のパッキングプラン</h1>
         <p class="text-sm text-gray-600">このイベントで使用する収納に持ち物を入れてチェックできます</p>
-        <p class="text-xs text-gray-500">参加メンバー: <%= (event.participants || []).map((id)=> (memberNameById.get(id) || '')).filter(Boolean).join(' / ') || '未設定' %></p>
+        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+          <span>参加メンバー:</span>
+          <% const participantLabels = (event.participants || []).map((id)=> (memberNameById.get(id) || '')).filter(Boolean); %>
+          <% if (participantLabels.length) { %>
+            <% participantLabels.forEach((name)=> { %>
+              <span class="inline-flex items-center px-2 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-100"><%= name %></span>
+            <% }) %>
+          <% } else { %>
+            <span class="text-gray-400">未設定</span>
+          <% } %>
+        </div>
       </div>
-      <a href="/users/packing/check/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">チェックリストへ</a>
+      <div class="flex flex-wrap gap-2">
+        <a href="/users/packing/shop/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 text-sm font-semibold border border-amber-200 hover:bg-amber-100">買い物リストへ</a>
+        <a href="/users/packing/check/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">チェックリストへ</a>
+      </div>
     </div>
   </header>
 
@@ -51,6 +64,14 @@
       </div>
       <div class="space-y-2" id="item-pool"></div>
       <p class="text-xs text-gray-500" id="pool-empty">持ち物がありません。追加してください。</p>
+      <div class="space-y-1">
+        <div class="flex items-center gap-2 text-xs text-gray-600">
+          <span>買い物リスト</span>
+          <span class="text-[11px] text-gray-400">収納には入れられません</span>
+        </div>
+        <div id="wish-list" class="flex flex-wrap gap-2"></div>
+        <p class="text-xs text-gray-500" id="wish-empty">買い物リストは空です。持ち物編集で買い物をONにできます。</p>
+      </div>
     </div>
     <div class="space-y-2">
       <div class="text-xs text-gray-500">マスター持ち物（クリックでプールに追加）</div>
@@ -120,6 +141,10 @@
     <label class="block text-sm">コメント
       <input type="text" id="item-modal-comment" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="メモ" />
     </label>
+    <label class="inline-flex items-center gap-2 text-sm">
+      <input type="checkbox" id="item-modal-wish" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+      <span>買い物リストに入れる（収納には入れられません）</span>
+    </label>
     <div class="flex justify-end gap-2">
       <button type="button" data-item-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
       <button type="button" id="item-modal-save" class="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700">追加</button>
@@ -142,6 +167,8 @@
     const storageUnused = document.getElementById('storage-unused');
     const itemPool = document.getElementById('item-pool');
     const poolEmpty = document.getElementById('pool-empty');
+    const wishList = document.getElementById('wish-list');
+    const wishEmpty = document.getElementById('wish-empty');
     const storageLists = document.getElementById('storage-lists');
     const masterPool = document.getElementById('master-pool');
     const ownerFilter = document.getElementById('owner-filter');
@@ -157,6 +184,7 @@
     const itemModalWeight = document.getElementById('item-modal-weight');
     const itemModalCategory = document.getElementById('item-modal-category');
     const itemModalComment = document.getElementById('item-modal-comment');
+    const itemModalWish = document.getElementById('item-modal-wish');
     const itemModalSave = document.getElementById('item-modal-save');
     const itemCategoryDatalist = document.getElementById('item-category-datalist');
     let itemEditId = '';
@@ -195,6 +223,15 @@
         const checked = Array.from(ownerFilter.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
         localStorage.setItem(OWNER_KEY, JSON.stringify(checked));
       } catch(_) {}
+    }
+
+    function normalizeWishItems(){
+      items.forEach((it)=>{
+        if (it.wish && (it.storageId || it.storageName)){
+          it.storageId = '';
+          it.storageName = '';
+        }
+      });
     }
 
     async function saveEventStorages(newIds){
@@ -284,12 +321,63 @@
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
+    function renderWishList(){
+      if (!wishList) return;
+      wishList.innerHTML = '';
+      const checkedOwners = Array.from(ownerFilter?.querySelectorAll('input[type="checkbox"]:checked') || []).map(el=> el.value);
+      const hasOwnerSelection = checkedOwners.length > 0;
+      const list = items
+        .filter((it)=> !!it.wish)
+        .filter((it)=>{
+          if (!hasOwnerSelection) return false;
+          if (checkedOwners.includes('all') && it.owner === 'all') return true;
+          return checkedOwners.includes(it.owner);
+        });
+      if (!list.length){
+        wishEmpty?.classList.remove('hidden');
+        return;
+      }
+      wishEmpty?.classList.add('hidden');
+      const grouped = {};
+      list.forEach((it)=>{
+        const cat = (it.category || '').trim() || '未分類';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(it);
+      });
+      Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'ja')).forEach((cat)=>{
+        const sec = document.createElement('div');
+        sec.className = 'space-y-1';
+        const title = document.createElement('div');
+        title.className = 'text-[11px] text-gray-600';
+        title.textContent = cat;
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-wrap gap-2';
+        grouped[cat].forEach((it)=>{
+          const tag = document.createElement('div');
+          tag.className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full border bg-gray-100 text-gray-800 text-sm border-gray-300';
+          tag.innerHTML = `
+            <span class="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1 rounded">買い物</span>
+            <span class="font-semibold cursor-pointer" data-item-edit="${it.id}" title="クリックで編集">${it.name}</span>
+            <button type="button" class="text-blue-600 hover:text-blue-800" data-item-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+            <button type="button" class="text-green-700 hover:text-green-900" data-item-clone="${it.id}" aria-label="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
+            <button type="button" class="text-red-600 hover:text-red-800" data-item-del="${it.id}" aria-label="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          `;
+          wrap.appendChild(tag);
+        });
+        sec.appendChild(title);
+        sec.appendChild(wrap);
+        wishList.appendChild(sec);
+      });
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+
     function renderItemPool(){
       if (!itemPool) return;
+      normalizeWishItems();
       itemPool.innerHTML = '';
       const checkedOwners = Array.from(ownerFilter?.querySelectorAll('input[type=\"checkbox\"]:checked') || []).map(el=> el.value);
       const hasOwnerSelection = checkedOwners.length > 0;
-      const unassigned = items.filter((it)=> !it.storageId).filter((it)=>{
+      const unassigned = items.filter((it)=> !it.storageId && !it.wish).filter((it)=>{
         if (!hasOwnerSelection) return false;
         if (checkedOwners.includes('all') && it.owner === 'all') return true;
         return checkedOwners.includes(it.owner);
@@ -331,6 +419,7 @@
         itemPool.appendChild(section);
       });
       if (window.refreshLucideIcons) window.refreshLucideIcons();
+      renderWishList();
     }
 
     function renderMasterPool(){
@@ -354,8 +443,10 @@
         grouped[cat].forEach((it)=>{
           const tag = document.createElement('button');
           tag.type='button';
-          tag.className='px-3 py-1.5 rounded-full border bg-gray-50 text-gray-800 text-sm hover:border-blue-300';
-          tag.textContent = it.name;
+          const isWish = !!it.wish;
+          const baseClass = isWish ? 'bg-gray-200 border-gray-300 text-gray-800' : 'bg-gray-50 text-gray-800';
+          tag.className=`px-3 py-1.5 rounded-full border text-sm hover:border-blue-300 ${baseClass}`;
+          tag.innerHTML = isWish ? `<span class="text-[10px] font-semibold text-gray-700 bg-gray-300 px-1 rounded mr-1">買い物</span>${it.name}` : it.name;
           tag.addEventListener('click', ()=> addItemFromMaster(it));
           wrap.appendChild(tag);
         });
@@ -367,10 +458,11 @@
 
     function renderStorageLists(){
       if (!storageLists) return;
+      normalizeWishItems();
       storageLists.innerHTML = '';
       storages.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
-        const list = items.filter((it)=> it.storageId === s.id);
+        const list = items.filter((it)=> !it.wish && it.storageId === s.id);
         const totalWeight = list.reduce((sum, it)=> {
           const qty = Number(it.quantity || 0) || 1;
           const w = Number(it.weight || 0) || 0;
@@ -406,6 +498,11 @@
 
     async function assignItemToStorage(id, storageId){
       if (!id) return;
+      const target = items.find((i)=> i.id === id);
+      if (target?.wish && storageId){
+        toast('買い物リストの持ち物は収納に入れられません');
+        return;
+      }
       if (storageId && !selectedStorageIds.includes(storageId)){
         toast('このイベントで使用しない収納先です');
         return;
@@ -498,6 +595,7 @@
       itemModalWeight.value = target?.weight || 0;
       if (itemModalCategory) itemModalCategory.value = target?.category || '';
       itemModalComment.value = target?.comment || '';
+      if (itemModalWish) itemModalWish.checked = !!target?.wish;
       openModal(itemModal);
       itemModalName?.focus();
     }
@@ -514,7 +612,8 @@
         comment: itemModalComment?.value || '',
         eventId,
         storageId: '',
-        thingId: ''
+        thingId: '',
+        wish: itemModalWish?.checked || false
       };
       try{
         let json;
@@ -531,7 +630,7 @@
           items.push({ ...json, id: json.id.toString() });
         }
         if (json.category && !categoryOptions.includes(json.category)) { categoryOptions.push(json.category); renderCategoryOptions(); }
-        itemModalName.value=''; itemModalComment.value=''; itemModalQty.value='1'; itemModalOwner.value='all'; if (itemModalCategory) itemModalCategory.value='';
+        itemModalName.value=''; itemModalComment.value=''; itemModalQty.value='1'; itemModalOwner.value='all'; if (itemModalCategory) itemModalCategory.value=''; if (itemModalWish) itemModalWish.checked = false;
         itemEditId='';
         closeModal(itemModal);
         renderItemPool();
@@ -540,7 +639,7 @@
       }catch(e){ toast(e.message || '追加に失敗しました'); }
     });
 
-    itemPool?.addEventListener('click', (ev)=>{
+    function handleItemActions(ev){
       const editBtn = ev.target.closest('button[data-item-edit]');
       const delBtn = ev.target.closest('button[data-item-del]');
       const assignBtn = ev.target.closest('button[data-item-assign]');
@@ -570,7 +669,10 @@
         const id = assignBtn.dataset.itemAssign;
         assignItemToStorage(id, activeStorageId);
       }
-    });
+    }
+
+    itemPool?.addEventListener('click', handleItemActions);
+    wishList?.addEventListener('click', handleItemActions);
 
     ownerFilter?.addEventListener('change', ()=> { saveOwnerSelections(); renderItemPool(); });
 
