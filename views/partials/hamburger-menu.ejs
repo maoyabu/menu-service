@@ -62,7 +62,7 @@
           <label class="text-sm w-full">
             <span class="sr-only">グループを選択</span>
             <select class="w-full border border-gray-300 rounded px-2 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-              onchange="if (this.value) { window.location.href = '/settings?group=' + this.value; }">
+              data-group-switch>
               <option value="" <%= effectiveGroupId === '' ? 'selected' : '' %>>グループ一覧</option>
               <% groups.forEach((group) => { %>
                 <%
@@ -215,7 +215,33 @@
         <% } %>
       </ul>
     </div>
-  </nav>
+</nav>
+
+<script>
+  (() => {
+    const selects = document.querySelectorAll('select[data-group-switch]');
+    if (!selects.length) return;
+    const reloadSamePage = () => {
+      try{
+        const url = new URL(window.location.href);
+        url.searchParams.delete('group');
+        window.location.href = url.toString();
+      }catch(_){
+        window.location.reload();
+      }
+    };
+    selects.forEach((sel)=>{
+      sel.addEventListener('change', async (ev)=>{
+        const id = ev.target.value;
+        if (!id) return;
+        try{
+          await fetch(`/settings/groups/${encodeURIComponent(id)}/default`, { method:'POST', headers:{ 'Content-Type':'application/json' } });
+        }catch(_){}
+        reloadSamePage();
+      });
+    });
+  })();
+</script>
 
   <div class="p-4 border-t border-gray-100">
     <% if (user) { %>
