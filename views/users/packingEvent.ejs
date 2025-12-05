@@ -26,6 +26,11 @@
         <a href="/users/packing/check/<%= event.id %>" class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">チェックリストへ</a>
       </div>
     </div>
+    <% if (event.completed) { %>
+      <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+        このイベントは完了済みです。復活は「完了イベント一覧」から行えます。
+      </div>
+    <% } %>
   </header>
 
   <section class="border rounded-2xl bg-white p-4 space-y-3">
@@ -85,6 +90,18 @@
       <p class="text-xs text-gray-500">タグをクリックして外すと持ち物プールに戻ります</p>
     </div>
     <div id="storage-lists" class="space-y-3"></div>
+  </section>
+
+  <section class="border rounded-2xl bg-white p-4 space-y-2">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 border border-gray-200">イベント完了</span>
+        <p class="text-xs text-gray-500 mt-1">完了するとイベント一覧に表示されなくなり、完了一覧から復活できます</p>
+      </div>
+      <button type="button" id="event-complete-open" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed" <%= event.completed ? 'disabled' : '' %>>
+        <%= event.completed ? '完了済み' : 'イベントを完了' %>
+      </button>
+    </div>
   </section>
 </section>
 
@@ -152,11 +169,28 @@
   </div>
 </div>
 
+<!-- 完了確認モーダル -->
+<div id="event-complete-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
+  <div class="mt-24 w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900">イベントを完了しますか？</h3>
+      <button type="button" data-complete-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <p class="text-sm text-gray-700">完了するとイベント一覧には表示されず、完了イベント一覧から復活できます。</p>
+    <p class="text-sm font-semibold text-gray-900"><%= event.name || '' %></p>
+    <div class="flex justify-end gap-2">
+      <button type="button" data-complete-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
+      <button type="button" id="event-complete-confirm" class="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800">完了にする</button>
+    </div>
+  </div>
+</div>
+
   <script>
     (function(){
       const eventId = <%- JSON.stringify(event.id || '') %>;
       const members = <%- JSON.stringify(members || []) %>;
       const currentUserId = <%- JSON.stringify((user && user._id) ? String(user._id) : '') %>;
+      let eventCompleted = !!<%- JSON.stringify(event.completed || false) %>;
       const storages = <%- JSON.stringify(storages || []) %>;
       const selectedStorageIds = (<%- JSON.stringify(event.storageIds || []) %>).length ? <%- JSON.stringify(event.storageIds || []) %> : storages.map((s)=> s.id);
       const masterItems = <%- JSON.stringify(masterItems || []) %>;
@@ -187,6 +221,9 @@
     const itemModalWish = document.getElementById('item-modal-wish');
     const itemModalSave = document.getElementById('item-modal-save');
     const itemCategoryDatalist = document.getElementById('item-category-datalist');
+    const completeOpen = document.getElementById('event-complete-open');
+    const completeModal = document.getElementById('event-complete-modal');
+    const completeConfirm = document.getElementById('event-complete-confirm');
     let itemEditId = '';
     let categoryOptions = Array.from(new Set([...(masterItems||[]).map(m=> (m.category||'').trim()).filter(Boolean), ...(items||[]).map(i=> (i.category||'').trim()).filter(Boolean)])).filter(Boolean);
 
@@ -556,6 +593,34 @@
     function closeModal(modalEl){
       modalEl?.classList.add('hidden'); modalEl?.classList.remove('flex');
     }
+
+    function openCompleteModal(){
+      if (eventCompleted) return;
+      completeModal?.classList.remove('hidden'); completeModal?.classList.add('flex');
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+    function closeCompleteModal(){
+      completeModal?.classList.add('hidden'); completeModal?.classList.remove('flex');
+    }
+    completeOpen?.addEventListener('click', openCompleteModal);
+    completeModal?.addEventListener('click', (ev)=> { if (ev.target === completeModal) closeCompleteModal(); });
+    completeModal?.querySelectorAll('[data-complete-close]')?.forEach((b)=> b.addEventListener('click', closeCompleteModal));
+    completeConfirm?.addEventListener('click', async ()=>{
+      try{
+        const res = await fetch(`/users/packing/api/events/${encodeURIComponent(eventId)}`, {
+          method:'PATCH',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ completed: true })
+        });
+        if (!res.ok) throw new Error('完了に失敗しました');
+        eventCompleted = true;
+        completeOpen?.setAttribute('disabled','true');
+        completeOpen?.classList.add('opacity-60','cursor-not-allowed');
+        closeCompleteModal();
+        toast('イベントを完了しました');
+        setTimeout(()=> { window.location.href = '/users/packing/completed'; }, 400);
+      }catch(e){ toast(e.message || '完了に失敗しました'); }
+    });
 
     document.getElementById('open-storage-modal')?.addEventListener('click', openStorageModal);
     document.getElementById('open-item-modal')?.addEventListener('click', ()=> openItemModal(null));
