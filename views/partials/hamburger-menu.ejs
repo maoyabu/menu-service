@@ -6,8 +6,7 @@
 <% const activeNext = (isWeekRoute && wmView === 'next'); %>
 <% const wmMode = (typeof weekMenuMode !== 'undefined' ? weekMenuMode : null); %>
 <% const activeNextSupplies = (isWeekRoute && wmView === 'next' && wmMode === 'supplies'); %>
-<% const activePackingCompleted = isActive('/users/packing/completed'); %>
-<% const activePacking = isActive('/users/packing') && !activePackingCompleted; %>
+<% const activePacking = isActive('/users/packing'); %>
 <% /* Compute next week's Monday (week start) in ISO, same logic as server */ %>
 <% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); const _afterNextMon = new Date(_nextMon); _afterNextMon.setDate(_afterNextMon.getDate() + 7); const afterNextWeekStartISO = _afterNextMon.toISOString(); %>
 
@@ -174,15 +173,6 @@
             <i data-lucide="clipboard-list" class="w-5 h-5 <%= activePacking ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
             <span>パッキングプラン</span>
             <% if (activePacking) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/packing/completed" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activePackingCompleted ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="archive" class="w-5 h-5 <%= activePackingCompleted ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>完了したイベント</span>
-            <% if (activePackingCompleted) { %>
               <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
             <% } %>
           </a>
