@@ -1,0 +1,204 @@
+<section class="max-w-6xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">そろそろ購入リスト</h1>
+      <p class="text-sm text-gray-600">期限が近いストック・備品をまとめて確認し、購入済みにしたら次の期限を登録します。</p>
+    </div>
+    <a href="/users/my-top" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-white text-gray-800 hover:bg-gray-50">
+      <span class="lucide w-4 h-4" data-lucide="home"></span>
+      マイトップへ
+    </a>
+  </header>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <section class="border rounded-2xl bg-white p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">ストック</span>
+          <p class="text-xs text-gray-500">賞味・消費期限が1か月以内</p>
+        </div>
+      </div>
+      <div id="stock-list" class="space-y-2"></div>
+      <p id="stock-empty" class="text-xs text-gray-500">期限が近いストックはありません。</p>
+    </section>
+
+    <section class="border rounded-2xl bg-white p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-800 border border-amber-100">備品</span>
+          <p class="text-xs text-gray-500">消費期限が1か月以内</p>
+        </div>
+      </div>
+      <div id="equipment-list" class="space-y-2"></div>
+      <p id="equipment-empty" class="text-xs text-gray-500">期限が近い備品はありません。</p>
+    </section>
+  </div>
+
+  <section class="border rounded-2xl bg-white p-4 space-y-3">
+    <div class="flex items-center gap-2">
+      <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 border border-gray-200">購入済み履歴</span>
+      <p class="text-xs text-gray-500">最近登録した購入履歴を表示します</p>
+    </div>
+    <div id="history-list" class="space-y-2"></div>
+    <p id="history-empty" class="text-xs text-gray-500">まだ購入履歴がありません。</p>
+  </section>
+</section>
+
+<div id="purchase-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
+  <div class="mt-24 w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900">購入済みにする</h3>
+      <button type="button" data-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <div>
+      <p class="text-sm text-gray-700" id="purchase-target-name"></p>
+      <label class="block text-sm mt-2">次の期限
+        <input type="date" id="purchase-next-expiry" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+      </label>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button type="button" data-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
+      <button type="button" id="purchase-save" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const stockList = document.getElementById('stock-list');
+    const equipmentList = document.getElementById('equipment-list');
+    const stockEmpty = document.getElementById('stock-empty');
+    const equipmentEmpty = document.getElementById('equipment-empty');
+    const historyList = document.getElementById('history-list');
+    const historyEmpty = document.getElementById('history-empty');
+
+    const purchaseModal = document.getElementById('purchase-modal');
+    const purchaseName = document.getElementById('purchase-target-name');
+    const purchaseNext = document.getElementById('purchase-next-expiry');
+    const purchaseSave = document.getElementById('purchase-save');
+    let purchaseTarget = null;
+
+    const createTag = (item, accent) => {
+      const wrap = document.createElement('div');
+      wrap.className = `flex items-center justify-between gap-3 border rounded-lg px-3 py-2 ${accent}`;
+      wrap.innerHTML = `
+        <div class="min-w-0">
+          <p class="font-semibold text-sm text-gray-900 truncate">${item.name}</p>
+          <p class="text-xs text-gray-600 mt-0.5">期限: ${item.expiryLabel || '未設定'}</p>
+        </div>
+        <button type="button" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700" data-purchase="${item.type}:${item.id}">
+          <span class="lucide w-4 h-4" data-lucide="shopping-bag"></span>
+          購入済み
+        </button>
+      `;
+      return wrap;
+    };
+
+    function renderList(items, listEl, emptyEl, accent){
+      listEl.innerHTML = '';
+      if (!items.length){
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+      emptyEl.classList.add('hidden');
+      items.forEach((it)=> listEl.appendChild(createTag(it, accent)));
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+
+    function renderHistory(rows){
+      historyList.innerHTML = '';
+      if (!rows.length){
+        historyEmpty.classList.remove('hidden');
+        return;
+      }
+      historyEmpty.classList.add('hidden');
+      rows.forEach((r)=>{
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-3 border rounded-lg px-3 py-2 bg-gray-50';
+        const typeLabel = r.itemType === 'equipment' ? '備品' : 'ストック';
+        row.innerHTML = `
+          <div class="min-w-0">
+            <p class="font-semibold text-sm text-gray-900 truncate">${r.name || '(名称未設定)'}</p>
+            <p class="text-[11px] text-gray-600 mt-0.5">${typeLabel} / 購入日: ${r.purchasedAtLabel || ''}</p>
+            <p class="text-[11px] text-gray-500">前回期限: ${r.prevExpiryLabel || '-'} → 次回期限: ${r.nextExpiryLabel || '-'}</p>
+          </div>
+        `;
+        historyList.appendChild(row);
+      });
+    }
+
+    function openModal(target){
+      purchaseTarget = target;
+      purchaseName.textContent = target?.name || '';
+      purchaseNext.value = '';
+      purchaseModal.classList.remove('hidden'); purchaseModal.classList.add('flex');
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+      purchaseNext.focus();
+    }
+    function closeModal(){
+      purchaseModal.classList.add('hidden'); purchaseModal.classList.remove('flex');
+      purchaseTarget = null;
+    }
+
+    async function fetchList(){
+      const res = await fetch('/users/purchase-reminder/api/list');
+      if (!res.ok) throw new Error('failed');
+      return res.json();
+    }
+
+    async function savePurchase(){
+      if (!purchaseTarget) return;
+      const body = {
+        type: purchaseTarget.type,
+        id: purchaseTarget.id,
+        nextExpiry: purchaseNext.value || null
+      };
+      const res = await fetch('/users/purchase-reminder/api/purchase', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('failed');
+    }
+
+    function attachEvents(){
+      document.addEventListener('click', (ev)=>{
+        const btn = ev.target.closest('button[data-purchase]');
+        if (btn){
+          const data = btn.dataset.purchase.split(':');
+          const type = data[0]; const id = data[1];
+          const target = [...(window.__purchaseStocks||[]), ...(window.__purchaseEquipments||[])].find((i)=> i.type === type && i.id === id);
+          if (target) openModal(target);
+        }
+      });
+      purchaseModal?.addEventListener('click', (ev)=> { if (ev.target === purchaseModal) closeModal(); });
+      purchaseModal?.querySelectorAll('[data-close]')?.forEach((b)=> b.addEventListener('click', closeModal));
+      purchaseSave?.addEventListener('click', async ()=>{
+        try{
+          await savePurchase();
+          closeModal();
+          await bootstrap();
+        } catch(_){
+          alert('保存に失敗しました');
+        }
+      });
+    }
+
+    async function bootstrap(){
+      try{
+        const json = await fetchList();
+        window.__purchaseStocks = (json.stocks || []).map((s)=> ({ ...s, type: 'stock' }));
+        window.__purchaseEquipments = (json.equipments || []).map((s)=> ({ ...s, type: 'equipment' }));
+        renderList(window.__purchaseStocks, stockList, stockEmpty, 'bg-blue-50 border-blue-200');
+        renderList(window.__purchaseEquipments, equipmentList, equipmentEmpty, 'bg-amber-50 border-amber-200');
+        renderHistory(json.history || []);
+      } catch(_){
+        stockEmpty.textContent = '読み込みに失敗しました';
+        equipmentEmpty.textContent = '読み込みに失敗しました';
+      }
+    }
+
+    attachEvents();
+    bootstrap();
+  })();
+</script>

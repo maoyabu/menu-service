@@ -14,6 +14,7 @@ import MenuDo from '../models/menuDo.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { shouldSendTemplate } from '../utils/mailSettings.js';
 import Stock from '../models/stock.js';
+import MyEquipment from '../models/myEquipment.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
@@ -414,6 +415,19 @@ const formatDisplayDate = (date) => {
   const month = String(date.getMonth() + 1);
   const day = String(date.getDate());
   return `${month}/${day}`;
+};
+
+const getEquipmentCycleStart = (cadence = 'monthly') => {
+  const now = new Date();
+  if (cadence === 'quarter') {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    return new Date(now.getFullYear(), quarterStartMonth, 1);
+  }
+  if (cadence === 'half') {
+    const halfStartMonth = now.getMonth() < 6 ? 0 : 6;
+    return new Date(now.getFullYear(), halfStartMonth, 1);
+  }
+  return new Date(now.getFullYear(), now.getMonth(), 1);
 };
 
 const selectRandomMenu = (menus) => {
@@ -1845,12 +1859,82 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 
     // Week after next (再来週)
     const afterNextWeekStart = addDays(startOfWeek(new Date()), 14);
-    const afterNextWeekDates = getWeekDatesFromStart(afterNextWeekStart);
-    const afterNextWeekStartISO = afterNextWeekStart.toISOString();
-    const afterNextWeekRangeLabel = `${formatDisplayDate(afterNextWeekDates[0])}〜${formatDisplayDate(afterNextWeekDates[6])}`;
+  const afterNextWeekDates = getWeekDatesFromStart(afterNextWeekStart);
+  const afterNextWeekStartISO = afterNextWeekStart.toISOString();
+  const afterNextWeekRangeLabel = `${formatDisplayDate(afterNextWeekDates[0])}〜${formatDisplayDate(afterNextWeekDates[6])}`;
 
-  const today = startOfDay(new Date());
+  const now = new Date();
+  const today = startOfDay(now);
   const initialCalendarMonthISO = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+  const groupConfig = currentGroupId
+    ? await Group.findById(currentGroupId).select('group_name stockInventory equipmentInventory').lean()
+    : null;
+
+  const buildStockNotice = async () => {
+    if (!currentGroupId) return null;
+    const cfg = groupConfig?.stockInventory || {};
+    const enabled = cfg.enabled !== false;
+    if (!enabled) return null;
+    const sendHour = typeof cfg.sendHour === 'number' ? cfg.sendHour : 8;
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    let scheduledDay = null;
+    if ((cfg.mode || 'monthlyDay') === 'monthlyDay') {
+      const d = Math.max(1, Math.min(31, Number(cfg.day) || 28));
+      const last = new Date(y, m + 1, 0).getDate();
+      scheduledDay = Math.min(d, last);
+    } else {
+      const nth = Math.max(1, Math.min(5, Number(cfg.nth) || 4));
+      const weekday = Math.max(0, Math.min(6, Number(cfg.weekday) || 0));
+      const first = new Date(y, m, 1);
+      const firstWeekday = first.getDay();
+      const day1 = 1 + ((7 + weekday - firstWeekday) % 7);
+      const candidate = day1 + (nth - 1) * 7;
+      const last = new Date(y, m + 1, 0).getDate();
+      scheduledDay = Math.min(candidate, last);
+    }
+    const scheduledAt = new Date(y, m, scheduledDay, sendHour, 0, 0, 0);
+    if (now < scheduledAt) return null;
+    const hasActivity = await Stock.exists({ group: currentGroupId, lastCheckedAt: { $gte: scheduledAt } });
+    if (hasActivity) return null;
+    return {
+      title: 'ストック棚卸し',
+      message: '今月の棚卸しリストを確認してください。',
+      actionHref: '/users/my-stock/checklist',
+      scheduledAt,
+      dateLabel: `実施日: ${formatDisplayDate(scheduledAt)}`
+    };
+  };
+
+  const buildEquipmentNotice = async () => {
+    if (!currentGroupId) return null;
+    const cfg = groupConfig?.equipmentInventory || {};
+    const enabled = cfg.enabled !== false;
+    if (!enabled) return null;
+    const cadence = cfg.cadence || 'monthly';
+    const cycleStart = getEquipmentCycleStart(cadence);
+    cycleStart.setHours(0, 0, 0, 0);
+    if (now < cycleStart) return null;
+    const alreadyDone = await MyEquipment.exists({ group: currentGroupId, lastInventoryAt: { $gte: cycleStart } });
+    if (alreadyDone) return null;
+    const cycleLabel = (() => {
+      if (cadence === 'quarter') return '今四半期';
+      if (cadence === 'half') return today.getMonth() < 6 ? '上期' : '下期';
+      return '今月';
+    })();
+    return {
+      title: '備品棚卸し',
+      message: `${cycleLabel}の棚卸しを開始してください。`,
+      actionHref: '/users/my-equipment/inventory',
+      scheduledAt: cycleStart,
+      dateLabel: `開始日: ${formatDisplayDate(cycleStart)}`
+    };
+  };
+
+  const [stockInventoryNotice, equipmentInventoryNotice] = await Promise.all([
+    buildStockNotice(),
+    buildEquipmentNotice()
+  ]);
 
   let nextWeekPlan = null;
   let afterNextWeekPlan = null;
@@ -2271,7 +2355,9 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     groupMemberMyMenus,
     mystockCounts,
     popularKeywords,
-    popularGenres
+    popularGenres,
+    stockInventoryNotice,
+    equipmentInventoryNotice
   });
   } catch (err) {
     return next(err);

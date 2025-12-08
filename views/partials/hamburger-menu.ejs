@@ -7,6 +7,7 @@
 <% const wmMode = (typeof weekMenuMode !== 'undefined' ? weekMenuMode : null); %>
 <% const activeNextSupplies = (isWeekRoute && wmView === 'next' && wmMode === 'supplies'); %>
 <% const activePacking = isActive('/users/packing'); %>
+<% const activePurchaseReminder = isActive('/users/purchase-reminder'); %>
 <% /* Compute next week's Monday (week start) in ISO, same logic as server */ %>
 <% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); const _afterNextMon = new Date(_nextMon); _afterNextMon.setDate(_afterNextMon.getDate() + 7); const afterNextWeekStartISO = _afterNextMon.toISOString(); %>
 
@@ -143,6 +144,12 @@
             <% } %>
           </a>
         </li>
+        <li class="mx-2 my-1"><div class="border-t border-gray-200"></div></li>
+      </ul>
+    </div>
+
+    <div class="px-4 pb-0 pt-0">
+      <ul class="space-y-1">
         <li>
           <a href="/users/my-stock" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-stock') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="package" class="w-5 h-5 <%= isActive('/users/my-stock') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
@@ -152,13 +159,6 @@
             <% } %>
           </a>
         </li>
-      </ul>
-    </div>
-
-    <div class="mx-4 my-2 border-t border-gray-200"></div>
-
-    <div class="px-4 py-3">
-      <ul class="space-y-1">
         <li>
           <a href="/users/my-equipment" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-equipment') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="boxes" class="w-5 h-5 <%= isActive('/users/my-equipment') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
@@ -168,6 +168,16 @@
             <% } %>
           </a>
         </li>
+        <li>
+          <a href="/users/purchase-reminder" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activePurchaseReminder ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+            <i data-lucide="shopping-bag" class="w-5 h-5 <%= activePurchaseReminder ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span>そろそろ購入リスト</span>
+            <% if (activePurchaseReminder) { %>
+              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+            <% } %>
+          </a>
+        </li>
+        <li class="mx-2 my-1"><div class="border-t border-gray-200"></div></li>
         <li>
           <a href="/users/packing" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activePacking ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="clipboard-list" class="w-5 h-5 <%= activePacking ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
@@ -180,7 +190,7 @@
       </ul>
     </div>
 
-    <div class="mx-4 my-2 border-t border-gray-200"></div>
+    <div class="mx-4 mt-2 mb-1 border-t border-gray-200"></div>
 
     <div class="px-4 py-3">
       <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">設定</p>
@@ -247,7 +257,7 @@
   <div class="p-4 border-t border-gray-100">
     <% if (user) { %>
       <form action="/logout" method="POST">
-        <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 transition">
+        <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold bg-red-50 text-red-700 border border-red-100 hover:bg-red-100 transition">
           <i data-lucide="log-out" class="w-4 h-4"></i>
           ログアウト
         </button>

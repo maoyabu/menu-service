@@ -1,0 +1,37 @@
+<%- include('_mailHeader') %>
+
+<p style="margin:0 0 16px 0;"> <%= groupName %> の皆さま</p>
+<p style="margin:0 0 12px 0;">賞味・消費期限が近づいているストック / 備品があります。そろそろ購入や補充をご検討ください。</p>
+
+<% if (stocks && stocks.length) { %>
+  <h3 style="margin:16px 0 6px 0; font-size:15px;">ストック（食材・調味料）</h3>
+  <ul style="margin:0 0 12px 18px; padding:0;">
+    <% stocks.forEach(function(s){ %>
+      <li style="margin:4px 0; font-size:13px; color:#111827;">
+        <strong><%= s.name %></strong>
+        <span style="color:#6b7280;"> / 期限: <%= s.expiryLabel %></span>
+      </li>
+    <% }); %>
+  </ul>
+<% } %>
+
+<% if (equipments && equipments.length) { %>
+  <h3 style="margin:16px 0 6px 0; font-size:15px;">備品</h3>
+  <ul style="margin:0 0 12px 18px; padding:0;">
+    <% equipments.forEach(function(s){ %>
+      <li style="margin:4px 0; font-size:13px; color:#111827;">
+        <strong><%= s.name %></strong>
+        <span style="color:#6b7280;"> / 期限: <%= s.expiryLabel %></span>
+      </li>
+    <% }); %>
+  </ul>
+<% } %>
+
+<p style="margin:16px 0 20px 0;">リストとチェックは下のボタンから確認できます。</p>
+<p style="margin:12px 0 20px 0;">
+  <a href="<%= linkUrl %>" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:700;">そろそろ購入リストを開く</a>
+  <br>
+  <span style="font-size:12px;color:#6b7280;">リンク: <%= linkUrl %></span>
+ </p>
+
+<%- include('_mailFooter') %>

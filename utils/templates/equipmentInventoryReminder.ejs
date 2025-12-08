@@ -1,0 +1,14 @@
+<%- include('_mailHeader') %>
+
+<p style="margin:0 0 16px 0;"> <%= groupName %> の <%= recipientName %> さん</p>
+
+<p style="margin:0 0 12px 0;">今期の備品棚卸しのタイミングになりました。</p>
+<p style="margin:0 0 16px 0;">下のボタンから棚卸しリストを開いて、備品の確認を進めてください。</p>
+
+<p style="margin:12px 0 20px 0;">
+  <a href="<%= linkUrl %>" style="display:inline-block;background:#d97706;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:700;">備品棚卸しリストを開く</a>
+  <br>
+  <span style="font-size:12px;color:#6b7280;">リンク: <%= linkUrl %></span>
+ </p>
+
+<%- include('_mailFooter') %>

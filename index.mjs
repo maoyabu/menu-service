@@ -21,11 +21,17 @@ import mystockRoutes from './routes/mystock.js';
 import myequipmentRoutes from './routes/myequipment.js';
 import packingRoutes from './routes/packing.js';
 import slideshowRoutes from './routes/slideshow.js';
+import purchaseReminderRoutes from './routes/purchaseReminder.js';
 import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
 import WeeklyAnnouncement from './models/weeklyAnnouncement.js';
 import MonthlyStockReminder from './models/monthlyStockReminder.js';
 import Stock from './models/stock.js';
+import Ingredient from './models/ingredients.js';
+import Seasoning from './models/seasonings.js';
+import EquipmentInventoryReminder from './models/equipmentInventoryReminder.js';
+import MyEquipment from './models/myEquipment.js';
+import PurchaseReminderLog from './models/purchaseReminderLog.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -120,6 +126,7 @@ app.use('/settings', settingsRoutes);
 app.use('/users/my-menu', mymenuRoutes);
 app.use('/users/my-stock', mystockRoutes);
 app.use('/users/my-equipment', myequipmentRoutes);
+app.use('/users/purchase-reminder', purchaseReminderRoutes);
 app.use('/users/packing', packingRoutes);
 app.use('/slideshow', slideshowRoutes);
 
@@ -450,4 +457,198 @@ app.listen(PORT, () => {
     }
   };
   setInterval(tickInventoryFollowUp, 60 * 1000);
+
+  // Equipment inventory reminder (cadence-based: monthly / quarter / half)
+  const getEquipmentCycleStart = (cadence = 'monthly') => {
+    const now = new Date();
+    if (cadence === 'quarter') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      return new Date(now.getFullYear(), quarterStartMonth, 1);
+    }
+    if (cadence === 'half') {
+      const halfStartMonth = now.getMonth() < 6 ? 0 : 6;
+      return new Date(now.getFullYear(), halfStartMonth, 1);
+    }
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  };
+
+  const tickEquipmentInventory = async () => {
+    try {
+      const now = new Date();
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const linkUrl = `${baseUrl}/users/my-equipment/inventory`;
+      const sendHour = 8;
+
+      const groups = await Group.find({}).select('_id group_name createdBy members equipmentInventory').lean();
+      for (const g of groups) {
+        try {
+          const cfg = g.equipmentInventory || {};
+          const enabled = cfg.enabled !== false;
+          if (!enabled) continue;
+          const cadence = cfg.cadence || 'monthly';
+          const cycleStart = getEquipmentCycleStart(cadence);
+          cycleStart.setHours(0, 0, 0, 0);
+
+          // send on the first day of the cycle, after sendHour
+          const isToday = now.getFullYear() === cycleStart.getFullYear()
+            && now.getMonth() === cycleStart.getMonth()
+            && now.getDate() === cycleStart.getDate();
+          const afterHour = now.getHours() > sendHour || (now.getHours() === sendHour && now.getMinutes() >= 0);
+          if (!isToday || !afterHour) continue;
+
+          const exists = await EquipmentInventoryReminder.findOne({ group: g._id, cycleStart }).lean();
+          if (exists) continue;
+
+          // if already inventoried for this cycle, record and skip sending
+          const alreadyDone = await MyEquipment.exists({ group: g._id, lastInventoryAt: { $gte: cycleStart } });
+          if (alreadyDone) {
+            await EquipmentInventoryReminder.create({ group: g._id, cycleStart, cadence, sentAt: new Date(), recipients: [] });
+            continue;
+          }
+
+          const userIds = [];
+          if (g.createdBy) userIds.push(g.createdBy);
+          if (Array.isArray(g.members)) userIds.push(...g.members);
+          const uniqIds = Array.from(new Set(userIds.map((x) => String(x))));
+          const users = await User.find({ _id: { $in: uniqIds }, isMail: true }).select('email displayname username').lean();
+          const validUsers = users.filter((u) => !!u.email);
+          const subject = `7 DAYS PLAN　【${g.group_name || 'グループ'}の備品棚卸し開始のお知らせ】`;
+          for (const u of validUsers) {
+            const recipientName = u.displayname || u.username || u.email;
+            const html = await renderTemplate('equipmentInventoryReminder', {
+              groupName: g.group_name || '',
+              recipientName,
+              linkUrl
+            });
+            await sendMail({ to: u.email, subject, html });
+          }
+
+          await EquipmentInventoryReminder.create({
+            group: g._id,
+            cycleStart,
+            cadence,
+            sentAt: new Date(),
+            recipients: validUsers.map((u) => u._id)
+          });
+        } catch (err) {
+          console.error('equipment inventory reminder error (group):', g?._id, err);
+        }
+      }
+    } catch (err) {
+      console.error('equipment inventory reminder scheduler error:', err);
+    }
+  };
+  setInterval(tickEquipmentInventory, 60 * 1000);
+
+  // Expiry-based purchase reminder (stocks + equipments, 1 month before)
+  const tickPurchaseReminder = async () => {
+    try {
+      const now = new Date();
+      const today = new Date(now); today.setHours(0,0,0,0);
+      const limit = new Date(today); limit.setDate(limit.getDate() + 31);
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const linkUrl = `${baseUrl}/users/purchase-reminder`;
+
+      const groups = await Group.find({}).select('_id group_name createdBy members').lean();
+      for (const g of groups) {
+        try {
+          const userIds = [];
+          if (g.createdBy) userIds.push(g.createdBy);
+          if (Array.isArray(g.members)) userIds.push(...g.members);
+          const uniqIds = Array.from(new Set(userIds.map((x) => String(x))));
+          const users = await User.find({ _id: { $in: uniqIds }, isMail: true }).select('email displayname username').lean();
+          const validUsers = users.filter((u) => !!u.email);
+          if (!validUsers.length) continue;
+
+          const [stocksRaw, equipments] = await Promise.all([
+            Stock.find({ group: g._id, expiryDate: { $gte: today, $lte: limit } }).lean(),
+            MyEquipment.find({ group: g._id, expiryDate: { $gte: today, $lte: limit } }).lean()
+          ]);
+
+          if ((!stocksRaw || !stocksRaw.length) && (!equipments || !equipments.length)) continue;
+
+          // avoid duplicate sends per item+expiry
+          const ingIds = [];
+          const seaIds = [];
+          (stocksRaw || []).forEach((s)=> {
+            if (s.type === 'ingredient') ingIds.push(s.item);
+            if (s.type === 'seasoning') seaIds.push(s.item);
+          });
+          const [ingredients, seasonings] = await Promise.all([
+            ingIds.length ? Ingredient.find({ _id: { $in: ingIds } }).select('ingredient').lean() : [],
+            seaIds.length ? Seasoning.find({ _id: { $in: seaIds } }).select('seasoning').lean() : []
+          ]);
+          const ingMap = new Map((ingredients||[]).map((i)=> [String(i._id), i.ingredient || '']));
+          const seaMap = new Map((seasonings||[]).map((i)=> [String(i._id), i.seasoning || '']));
+
+          const stocks = [];
+          for (const s of (stocksRaw || [])) {
+            const exists = await PurchaseReminderLog.exists({
+              group: g._id,
+              itemType: 'stock',
+              itemId: s._id,
+              expiryDate: s.expiryDate
+            });
+            if (exists) continue;
+            stocks.push({
+              name: s.type === 'ingredient' ? (ingMap.get(String(s.item)) || '') : (seaMap.get(String(s.item)) || ''),
+              expiryLabel: (()=> {
+                const d = new Date(s.expiryDate);
+                if (Number.isNaN(d.getTime())) return '';
+                return `${d.getMonth() + 1}/${d.getDate()}`;
+              })(),
+              itemId: s._id,
+              expiryDate: s.expiryDate
+            });
+          }
+
+          const equipmentsList = [];
+          for (const e of (equipments || [])) {
+            const exists = await PurchaseReminderLog.exists({
+              group: g._id,
+              itemType: 'equipment',
+              itemId: e._id,
+              expiryDate: e.expiryDate
+            });
+            if (exists) continue;
+            equipmentsList.push({
+              name: e.name || '',
+              expiryLabel: (()=> {
+                const d = new Date(e.expiryDate);
+                if (Number.isNaN(d.getTime())) return '';
+                return `${d.getMonth() + 1}/${d.getDate()}`;
+              })(),
+              itemId: e._id,
+              expiryDate: e.expiryDate
+            });
+          }
+
+          if (!stocks.length && !equipmentsList.length) continue;
+
+          const subject = `7 DAYS PLAN　【${g.group_name || 'グループ'} そろそろ購入リスト】`;
+          for (const u of validUsers) {
+            const html = await renderTemplate('purchaseReminder', {
+              groupName: g.group_name || '',
+              stocks,
+              equipments: equipmentsList,
+              linkUrl
+            });
+            await sendMail({ to: u.email, subject, html });
+          }
+
+          const nowDate = new Date();
+          const logs = [
+            ...stocks.map((s)=> ({ group: g._id, itemType: 'stock', itemId: s.itemId, expiryDate: s.expiryDate, sentAt: nowDate })),
+            ...equipmentsList.map((e)=> ({ group: g._id, itemType: 'equipment', itemId: e.itemId, expiryDate: e.expiryDate, sentAt: nowDate }))
+          ];
+          if (logs.length) await PurchaseReminderLog.insertMany(logs, { ordered: false }).catch(()=>{});
+        } catch (err) {
+          console.error('purchase reminder error (group):', g?._id, err);
+        }
+      }
+    } catch (err) {
+      console.error('purchase reminder scheduler error:', err);
+    }
+  };
+  setInterval(tickPurchaseReminder, 60 * 1000);
 });

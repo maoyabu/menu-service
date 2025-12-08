@@ -24,10 +24,16 @@
         <a href="/users/my-stock?stockpile=true" class="px-4 py-1 rounded-full <%= __onlySP ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">備蓄のみ</a>
       </div>
     </div>
-    <a href="/users/my-stock/checklist" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">
-      <span class="lucide w-4 h-4" data-lucide="check-square"></span>
-      <span class="whitespace-nowrap">棚卸しリスト</span>
-    </a>
+    <div class="flex items-center gap-2">
+      <a href="/users/my-stock/checklist" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 whitespace-nowrap">
+        <span class="lucide w-4 h-4" data-lucide="check-square"></span>
+        <span class="whitespace-nowrap">棚卸しリスト</span>
+      </a>
+      <a href="/users/purchase-reminder" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-amber-50 text-amber-800 text-sm font-semibold border border-amber-200 hover:bg-amber-100 whitespace-nowrap">
+        <span class="lucide w-4 h-4" data-lucide="shopping-bag"></span>
+        <span class="whitespace-nowrap">そろそろ購入リスト</span>
+      </a>
+    </div>
   </div>
 
   <section class="space-y-2">
