@@ -301,7 +301,8 @@ router.post('/api/events', async (req, res) => {
     res.json({
       id: created._id,
       name: created.name,
-      participants: created.participants.map(String)
+      participants: created.participants.map(String),
+      planStatus: Object.fromEntries(created.planStatus || [])
     });
   } catch (_) {
     res.status(500).json({ error: 'failed' });
@@ -321,6 +322,13 @@ router.patch('/api/events/:id', async (req, res) => {
       const participantIds = req.body.participants.map(String);
       const participants = participantIds.filter((pid)=> memberInfo.idSet.has(pid));
       event.participants = participants;
+    }
+    if (req.body?.planStatus && typeof req.body.planStatus === 'object'){
+      const entries = Object.entries(req.body.planStatus || {});
+      const filtered = entries
+        .map(([pid, val])=> [pid, parseBool(val)])
+        .filter(([pid])=> memberInfo.idSet.has(String(pid)));
+      event.planStatus = new Map(filtered);
     }
     // storage selection
     const hasStorageIds = Array.isArray(req.body?.storageIds);
@@ -361,7 +369,8 @@ router.patch('/api/events/:id', async (req, res) => {
       participants: event.participants.map(String),
       storageIds: event.storageIds ? event.storageIds.map((x)=> x.toString()) : undefined,
       completed: !!event.completed,
-      completedAt: event.completedAt
+      completedAt: event.completedAt,
+      planStatus: Object.fromEntries(event.planStatus || [])
     });
   } catch (_) {
     res.status(500).json({ error: 'failed' });
@@ -615,6 +624,8 @@ router.get('/:eventId', async (req, res, next) => {
       items = items.concat(appended);
     }
     const memberNameById = new Map(memberInfo.list.map((m)=> [m.id, m.name]));
+    const planStatusMap = new Map(Object.entries(ev.planStatus || {}).map(([k,v])=> [k, !!v]));
+    memberInfo.list.forEach((m)=> { if (!planStatusMap.has(m.id)) planStatusMap.set(m.id, false); });
     await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
     res.render('users/packingEvent', {
       event: {
@@ -627,6 +638,7 @@ router.get('/:eventId', async (req, res, next) => {
       },
       members: memberInfo.list,
       memberNameById,
+      planStatus: Object.fromEntries(planStatusMap),
       storages,
       masterItems,
       items,

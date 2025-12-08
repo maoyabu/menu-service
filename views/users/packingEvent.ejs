@@ -1,3 +1,34 @@
+<style>
+  .toggle-pill {
+    position: relative;
+    width: 42px;
+    height: 22px;
+    border-radius: 9999px;
+    border: 1px solid #fca5a5;
+    background: #fff;
+    transition: all 0.2s ease;
+  }
+  .toggle-pill .knob {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 0 0 1px #fca5a5;
+    transition: all 0.2s ease;
+  }
+  .toggle-pill.is-on {
+    background: #ef4444;
+    border-color: #ef4444;
+  }
+  .toggle-pill.is-on .knob {
+    transform: translateX(20px);
+    box-shadow: 0 0 0 1px #ef4444;
+  }
+</style>
+
 <section class="max-w-6xl mx-auto py-8 space-y-6">
   <header class="space-y-2">
     <div class="text-xs text-gray-500 flex items-center gap-1">
@@ -111,6 +142,16 @@
         <div id="wish-list" class="flex flex-wrap gap-2"></div>
         <p class="text-xs text-gray-500" id="wish-empty">買い物リストは空です。持ち物編集で買い物をONにできます。</p>
       </div>
+    </div>
+    <div class="space-y-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 text-sm font-semibold">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-500 text-white text-xs font-bold">3</span>
+          <span>パッキングプランの進捗</span>
+        </div>
+        <span class="text-[11px] text-rose-700">メンバーごとに作成状況を登録できます</span>
+      </div>
+      <div id="plan-status-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
     </div>
   </section>
 
@@ -227,6 +268,7 @@
     (function(){
       const eventId = <%- JSON.stringify(event.id || '') %>;
       const members = <%- JSON.stringify(members || []) %>;
+      const eventParticipants = <%- JSON.stringify(event.participants || []) %>;
       const currentUserId = <%- JSON.stringify((user && user._id) ? String(user._id) : '') %>;
       let eventCompleted = !!<%- JSON.stringify(event.completed || false) %>;
       const storages = <%- JSON.stringify(storages || []) %>;
@@ -267,6 +309,8 @@
     const completeModal = document.getElementById('event-complete-modal');
     const completeConfirm = document.getElementById('event-complete-confirm');
     const hiddenToggle = document.getElementById('hidden-toggle');
+    const planStatusList = document.getElementById('plan-status-list');
+    const planStatus = new Map(Object.entries(<%- JSON.stringify(planStatus || {}) %>));
     let itemEditId = '';
     let storageEditId = '';
     let showUnusedStorages = false;
@@ -864,11 +908,77 @@
     function updateHiddenToggle(){
       if (hiddenToggle) hiddenToggle.textContent = showHiddenItems ? '非表示の持ち物を隠す' : '非表示の持ち物を表示する';
     }
+
+    function renderPlanStatus(){
+      if (!planStatusList) return;
+      planStatusList.innerHTML = '';
+      if (!(eventParticipants || []).length){
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-rose-700';
+        empty.textContent = '参加メンバーが設定されていません。';
+        planStatusList.appendChild(empty);
+        return;
+      }
+      (eventParticipants || []).forEach((pid)=>{
+        const name = memberMap.get(pid) || 'メンバー';
+        const done = !!planStatus.get(pid);
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-2 rounded-lg border border-rose-100 bg-white px-3 py-2';
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2';
+        left.innerHTML = `<span class="inline-flex items-center justify-center px-3 h-7 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold leading-none whitespace-nowrap">${name.slice(0,3)}</span>`;
+        const right = document.createElement('div');
+        right.className = 'flex items-center gap-2';
+        const statusLabel = document.createElement('span');
+        statusLabel.className = 'text-xs font-semibold ' + (done ? 'text-rose-700' : 'text-gray-500');
+        statusLabel.textContent = done ? '完了' : '作成中';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.dataset.planToggle = pid;
+        toggle.className = 'toggle-pill ' + (done ? 'is-on' : '');
+        toggle.setAttribute('aria-pressed', done ? 'true' : 'false');
+        toggle.innerHTML = '<span class="knob"></span>';
+        right.appendChild(statusLabel);
+        right.appendChild(toggle);
+        row.appendChild(left);
+        row.appendChild(right);
+        planStatusList.appendChild(row);
+      });
+    }
+
+    async function savePlanStatus(){
+      try{
+        const body = { planStatus: Object.fromEntries(planStatus) };
+        const res = await fetch(`/users/packing/api/events/${encodeURIComponent(eventId)}`, {
+          method:'PATCH',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error();
+        return true;
+      }catch(_){ return false; }
+    }
     ownerFilter?.addEventListener('change', ()=> { saveOwnerSelections(); renderItemPool(); });
     hiddenToggle?.addEventListener('click', ()=> {
       showHiddenItems = !showHiddenItems;
       updateHiddenToggle();
       renderItemPool();
+    });
+    planStatusList?.addEventListener('click', async (ev)=>{
+      const btn = ev.target.closest('button[data-plan-toggle]');
+      if (!btn) return;
+      const pid = btn.dataset.planToggle;
+      const current = !!planStatus.get(pid);
+      planStatus.set(pid, !current);
+      renderPlanStatus();
+      const ok = await savePlanStatus();
+      if (!ok){
+        planStatus.set(pid, current);
+        renderPlanStatus();
+        toast('更新に失敗しました');
+      } else {
+        toast('更新しました');
+      }
     });
 
     restoreActiveStorage();
@@ -878,5 +988,6 @@
     renderCategoryOptions();
     renderItemPool();
     renderStorageLists();
+    renderPlanStatus();
   })();
 </script>

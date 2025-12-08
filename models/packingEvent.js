@@ -16,7 +16,8 @@ const packingEventSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
   lastOpenedAt: { type: Date, default: null },
   completed: { type: Boolean, default: false },
-  completedAt: { type: Date, default: null }
+  completedAt: { type: Date, default: null },
+  planStatus: { type: Map, of: Boolean, default: {} } // participantId -> completed?
 });
 
 const PackingEvent = mongoose.models.PackingEvent || mongoose.model('PackingEvent', packingEventSchema);
