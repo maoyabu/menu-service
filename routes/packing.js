@@ -324,11 +324,17 @@ router.patch('/api/events/:id', async (req, res) => {
       event.participants = participants;
     }
     if (req.body?.planStatus && typeof req.body.planStatus === 'object'){
-      const entries = Object.entries(req.body.planStatus || {});
-      const filtered = entries
-        .map(([pid, val])=> [pid, parseBool(val)])
-        .filter(([pid])=> memberInfo.idSet.has(String(pid)));
-      event.planStatus = new Map(filtered);
+      const currentUserId = req.user?._id?.toString?.() || '';
+      const participantSet = new Set((event.participants || []).map((pid)=> (pid ? pid.toString() : '')).filter(Boolean));
+      const existingEntries = event.planStatus instanceof Map ? Array.from(event.planStatus.entries()) : Object.entries(event.planStatus || {});
+      const existing = new Map(existingEntries.map(([pid, val])=> [String(pid), !!val]));
+      const nextStatus = new Map(
+        Array.from(existing.entries()).filter(([pid])=> memberInfo.idSet.has(pid) && participantSet.has(pid))
+      );
+      if (currentUserId && participantSet.has(currentUserId) && Object.prototype.hasOwnProperty.call(req.body.planStatus, currentUserId)) {
+        nextStatus.set(currentUserId, parseBool(req.body.planStatus[currentUserId]));
+      }
+      event.planStatus = nextStatus;
     }
     // storage selection
     const hasStorageIds = Array.isArray(req.body?.storageIds);

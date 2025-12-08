@@ -27,6 +27,10 @@
     transform: translateX(20px);
     box-shadow: 0 0 0 1px #ef4444;
   }
+  .toggle-pill:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 </style>
 
 <section class="max-w-6xl mx-auto py-8 space-y-6">
@@ -922,6 +926,7 @@
       (eventParticipants || []).forEach((pid)=>{
         const name = memberMap.get(pid) || 'メンバー';
         const done = !!planStatus.get(pid);
+        const isOwnPlan = currentUserId && String(pid) === String(currentUserId);
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between gap-2 rounded-lg border border-rose-100 bg-white px-3 py-2';
         const left = document.createElement('div');
@@ -937,6 +942,9 @@
         toggle.dataset.planToggle = pid;
         toggle.className = 'toggle-pill ' + (done ? 'is-on' : '');
         toggle.setAttribute('aria-pressed', done ? 'true' : 'false');
+        toggle.setAttribute('aria-disabled', isOwnPlan ? 'false' : 'true');
+        toggle.disabled = !isOwnPlan;
+        toggle.tabIndex = isOwnPlan ? 0 : -1;
         toggle.innerHTML = '<span class="knob"></span>';
         right.appendChild(statusLabel);
         right.appendChild(toggle);
@@ -948,7 +956,7 @@
 
     async function savePlanStatus(){
       try{
-        const body = { planStatus: Object.fromEntries(planStatus) };
+        const body = currentUserId ? { planStatus: { [currentUserId]: !!planStatus.get(currentUserId) } } : { planStatus: {} };
         const res = await fetch(`/users/packing/api/events/${encodeURIComponent(eventId)}`, {
           method:'PATCH',
           headers:{ 'Content-Type':'application/json' },
@@ -966,8 +974,9 @@
     });
     planStatusList?.addEventListener('click', async (ev)=>{
       const btn = ev.target.closest('button[data-plan-toggle]');
-      if (!btn) return;
+      if (!btn || btn.disabled) return;
       const pid = btn.dataset.planToggle;
+      if (!currentUserId || String(pid) !== String(currentUserId)) return;
       const current = !!planStatus.get(pid);
       planStatus.set(pid, !current);
       renderPlanStatus();
