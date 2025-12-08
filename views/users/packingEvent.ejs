@@ -40,21 +40,57 @@
         <p class="text-xs text-gray-500">収納タグを選択して持ち物タグをクリックすると紐づきます</p>
       </div>
       <div class="flex gap-2">
-        <button type="button" id="open-storage-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-amber-50 text-amber-800 hover:bg-amber-100">収納を追加</button>
-        <button type="button" id="open-item-modal" class="px-3 py-1.5 rounded-lg border text-sm bg-purple-50 text-purple-800 hover:bg-purple-100">持ち物を追加</button>
       </div>
     </div>
-    <div class="space-y-2">
-      <div class="text-xs text-gray-500">収納先</div>
+    <div class="space-y-3 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold">1</span>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-100 text-sky-800 border border-sky-200 text-sm font-semibold">
+            <i class="lucide w-4 h-4" data-lucide="layout"></i>
+            <span>収納先</span>
+          </div>
+          <button type="button" id="storage-unused-toggle" class="px-2 py-1 rounded border text-[11px] bg-white hover:bg-gray-50">未使用の収納先を表示する</button>
+        </div>
+        <button type="button" id="open-storage-modal" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-700 text-white text-sm font-semibold hover:bg-sky-800 border border-sky-800">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          収納を追加
+        </button>
+      </div>
+      <div id="storage-owner-filter" class="flex flex-wrap gap-2 text-[11px] text-gray-600">
+        <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+          <input type="checkbox" value="all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
+          <span>共有</span>
+        </label>
+        <% (members || []).forEach((m)=> { %>
+          <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+            <input type="checkbox" value="<%= m.id %>" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
+            <span><%= m.name %></span>
+          </label>
+        <% }) %>
+      </div>
       <div id="storage-tags" class="flex flex-wrap gap-2"></div>
-      <div class="text-xs text-gray-500">未使用</div>
-      <div id="storage-unused" class="flex flex-wrap gap-2"></div>
+      <div id="storage-unused-title" class="text-xs text-gray-500 hidden">未使用の収納先</div>
+      <div id="storage-unused" class="flex flex-wrap gap-2 hidden"></div>
       <% if (!(storages||[]).length) { %>
         <p class="text-xs text-gray-500">収納がありません。追加してください。</p>
       <% } %>
     </div>
-    <div class="space-y-2">
-      <div class="text-xs text-gray-500">持ち物</div>
+    <div class="space-y-3 rounded-2xl border border-purple-200 bg-purple-50 p-4">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold">2</span>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-sm font-semibold">
+            <i class="lucide w-4 h-4" data-lucide="tag"></i>
+            <span>持ち物</span>
+          </div>
+          <button type="button" id="hidden-toggle" class="px-2 py-1 rounded border text-[11px] bg-white text-gray-700 hover:bg-gray-50">非表示の持ち物を表示する</button>
+        </div>
+        <button type="button" id="open-item-modal" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-700 text-white text-sm font-semibold hover:bg-purple-800 border border-purple-800">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          持ち物を追加
+        </button>
+      </div>
       <div id="owner-filter" class="flex flex-wrap gap-2 text-xs">
         <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
           <input type="checkbox" value="all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
@@ -77,10 +113,6 @@
         <div id="wish-list" class="flex flex-wrap gap-2"></div>
         <p class="text-xs text-gray-500" id="wish-empty">買い物リストは空です。持ち物編集で買い物をONにできます。</p>
       </div>
-    </div>
-    <div class="space-y-2">
-      <div class="text-xs text-gray-500">マスター持ち物（クリックでプールに追加）</div>
-      <div id="master-pool" class="flex flex-wrap gap-2"></div>
     </div>
   </section>
 
@@ -109,7 +141,7 @@
 <div id="storage-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
   <div class="mt-16 w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
     <div class="flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-gray-900">収納を追加</h3>
+      <h3 class="text-lg font-semibold text-gray-900" id="storage-modal-title">収納を追加</h3>
       <button type="button" data-storage-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
     </div>
     <label class="block text-sm">収納名
@@ -117,6 +149,14 @@
     </label>
     <label class="block text-sm">制限重量(g)
       <input type="number" min="0" id="storage-modal-max" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" value="0" />
+    </label>
+    <label class="block text-sm">誰のもの
+      <select id="storage-modal-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+        <option value="all">共有</option>
+        <% (members || []).forEach((m)=> { %>
+          <option value="<%= m.id %>" <%= String(m.id) === String(currentUserId || '') ? 'selected' : '' %>><%= m.name %></option>
+        <% }) %>
+      </select>
     </label>
     <div class="flex justify-end gap-2">
       <button type="button" data-storage-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
@@ -197,20 +237,24 @@
       const memberMap = new Map((members||[]).map((m)=> [m.id, m.name]));
       const items = <%- JSON.stringify(items || []) %>;
 
-    const storageTags = document.getElementById('storage-tags');
-    const storageUnused = document.getElementById('storage-unused');
-    const itemPool = document.getElementById('item-pool');
-    const poolEmpty = document.getElementById('pool-empty');
+  const storageTags = document.getElementById('storage-tags');
+  const storageUnused = document.getElementById('storage-unused');
+  const storageUnusedToggle = document.getElementById('storage-unused-toggle');
+  const storageUnusedTitle = document.getElementById('storage-unused-title');
+  const storageOwnerFilter = document.getElementById('storage-owner-filter');
+  const itemPool = document.getElementById('item-pool');
+  const poolEmpty = document.getElementById('pool-empty');
     const wishList = document.getElementById('wish-list');
     const wishEmpty = document.getElementById('wish-empty');
     const storageLists = document.getElementById('storage-lists');
-    const masterPool = document.getElementById('master-pool');
     const ownerFilter = document.getElementById('owner-filter');
 
-    const storageModal = document.getElementById('storage-modal');
-    const storageModalName = document.getElementById('storage-modal-name');
-    const storageModalMax = document.getElementById('storage-modal-max');
-    const storageModalSave = document.getElementById('storage-modal-save');
+  const storageModal = document.getElementById('storage-modal');
+  const storageModalTitle = document.getElementById('storage-modal-title');
+  const storageModalName = document.getElementById('storage-modal-name');
+  const storageModalMax = document.getElementById('storage-modal-max');
+  const storageModalOwner = document.getElementById('storage-modal-owner');
+  const storageModalSave = document.getElementById('storage-modal-save');
     const itemModal = document.getElementById('item-modal');
     const itemModalName = document.getElementById('item-modal-name');
     const itemModalOwner = document.getElementById('item-modal-owner');
@@ -224,7 +268,11 @@
     const completeOpen = document.getElementById('event-complete-open');
     const completeModal = document.getElementById('event-complete-modal');
     const completeConfirm = document.getElementById('event-complete-confirm');
+    const hiddenToggle = document.getElementById('hidden-toggle');
     let itemEditId = '';
+    let storageEditId = '';
+    let showUnusedStorages = false;
+    let showHiddenItems = false;
     let categoryOptions = Array.from(new Set([...(masterItems||[]).map(m=> (m.category||'').trim()).filter(Boolean), ...(items||[]).map(i=> (i.category||'').trim()).filter(Boolean)])).filter(Boolean);
 
     let activeStorageId = selectedStorageIds[0] || '';
@@ -302,18 +350,47 @@
       saveEventStorages([...selectedStorageIds]);
     }
 
+    const storageOwnerLabel = (val)=>{
+      if (!val || val === 'all') return '共有';
+      return memberMap.get(val) || '未設定';
+    };
+    const getStorageOwnerSelections = ()=>{
+      const checked = Array.from(storageOwnerFilter?.querySelectorAll('input[type="checkbox"]:checked') || []).map((el)=> el.value);
+      return { list: checked, has: checked.length > 0 };
+    };
+
     function renderStorages(){
       if (!storageTags) return;
       storageTags.innerHTML = '';
-      (storages||[]).forEach((s)=>{
+      const selection = getStorageOwnerSelections();
+      const matchesOwner = (s)=>{
+        if (!selection.has) return true;
+        const ownerVal = s.owner || 'all';
+        if (selection.list.includes('all') && ownerVal === 'all') return true;
+        return selection.list.includes(ownerVal);
+      };
+      const filtered = (storages||[]).filter(matchesOwner);
+      filtered.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
         const btn = document.createElement('button');
         const active = s.id === activeStorageId;
         btn.type = 'button';
         btn.dataset.id = s.id;
-        btn.className = 'px-3 py-1.5 rounded-full border text-sm flex items-center gap-1 ' + (active ? 'bg-blue-600 text-white border-blue-700 shadow' : 'bg-white text-gray-800 border-gray-300 hover:border-blue-300');
-        btn.innerHTML = `<span>${s.name}</span><span data-remove="${s.id}" class="text-[11px] text-gray-200 ${active ? '' : 'text-gray-400'}">×</span>`;
+        btn.className = 'px-3 py-1.5 rounded-full border text-sm flex items-center gap-1 ' + (active ? 'bg-blue-600 text-white border-blue-700 shadow' : 'bg-sky-50 text-sky-800 border-sky-200 hover:border-blue-300');
+        btn.innerHTML = `
+          <span class="font-semibold">${s.name}</span>
+          <button type="button" class="text-gray-100 ${active ? '' : 'text-gray-500'} hover:text-white" data-storage-edit="${s.id}" title="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <span data-remove="${s.id}" class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 ml-1">
+            <span class="lucide w-3 h-3" data-lucide="arrow-right"></span>
+            未使用
+          </span>`;
         btn.addEventListener('click', (e)=>{
+          if (e.target?.closest?.('button[data-storage-edit]')){
+            const target = storages.find((st)=> st.id === s.id);
+            openStorageModal(target || null);
+            e.stopPropagation();
+            return;
+          }
           if (e.target?.dataset?.remove){
             removeStorageFromEvent(s.id);
             e.stopPropagation();
@@ -328,14 +405,25 @@
       });
       if (storageUnused){
         storageUnused.innerHTML = '';
-        storages.forEach((s)=>{
+        storageUnused.classList.toggle('hidden', !showUnusedStorages);
+        storageUnusedTitle?.classList.toggle('hidden', !showUnusedStorages);
+        if (!showUnusedStorages) { /* keep empty */ }
+        filtered.forEach((s)=>{
           if (selectedStorageIds.includes(s.id)) return;
           const b = document.createElement('button');
           b.type='button';
           b.dataset.id = s.id;
-          b.className='px-3 py-1 rounded-full border bg-gray-50 text-gray-700 text-xs hover:border-blue-300';
-          b.textContent = `＋ ${s.name}`;
-          b.addEventListener('click', ()=> addStorageToEvent(s.id));
+          b.className='px-3 py-1 rounded-full border bg-gray-50 text-gray-700 text-xs hover:border-blue-300 flex items-center gap-1';
+          b.innerHTML = `＋ ${s.name} <span class="text-[10px] px-1 rounded bg-gray-100 text-gray-600">未使用</span> <button type="button" data-storage-edit="${s.id}" class="text-gray-500 hover:text-gray-700" title="編集"><i data-lucide="pencil" class="w-3 h-3"></i></button>`;
+          b.addEventListener('click', (ev)=>{
+            if (ev.target?.closest?.('button[data-storage-edit]')){
+              const target = storages.find((st)=> st.id === s.id);
+              openStorageModal(target || null);
+              ev.stopPropagation();
+              return;
+            }
+            addStorageToEvent(s.id);
+          });
           storageUnused.appendChild(b);
         });
       }
@@ -350,9 +438,14 @@
       categoryOptions.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; itemCategoryDatalist.appendChild(opt); });
     }
 
-    function openStorageModal(){
-      if (storageModalName) storageModalName.value = '';
-      if (storageModalMax) storageModalMax.value = 0;
+    function openStorageModal(target){
+      const isEdit = !!target;
+      storageEditId = isEdit ? (target.id || '') : '';
+      if (storageModalTitle) storageModalTitle.textContent = isEdit ? '収納を編集' : '収納を追加';
+      if (storageModalSave) storageModalSave.textContent = isEdit ? '更新' : '追加';
+      if (storageModalName) storageModalName.value = isEdit ? (target?.name || '') : '';
+      if (storageModalMax) storageModalMax.value = isEdit ? (target?.maxWeight || 0) : 0;
+      if (storageModalOwner) storageModalOwner.value = isEdit ? (target?.owner || 'all') : (currentUserId || 'all');
       storageModal?.classList.remove('hidden'); storageModal?.classList.add('flex');
       storageModalName?.focus();
       if (window.refreshLucideIcons) window.refreshLucideIcons();
@@ -365,6 +458,7 @@
       const hasOwnerSelection = checkedOwners.length > 0;
       const list = items
         .filter((it)=> !!it.wish)
+        .filter((it)=> !it.hidden || showHiddenItems)
         .filter((it)=>{
           if (!hasOwnerSelection) return false;
           if (checkedOwners.includes('all') && it.owner === 'all') return true;
@@ -377,7 +471,7 @@
       wishEmpty?.classList.add('hidden');
       const grouped = {};
       list.forEach((it)=>{
-        const cat = (it.category || '').trim() || '未分類';
+        const cat = it.hidden ? '非表示' : ((it.category || '').trim() || '未分類');
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(it);
       });
@@ -412,9 +506,10 @@
       if (!itemPool) return;
       normalizeWishItems();
       itemPool.innerHTML = '';
-      const checkedOwners = Array.from(ownerFilter?.querySelectorAll('input[type=\"checkbox\"]:checked') || []).map(el=> el.value);
+      const checkedOwners = Array.from(ownerFilter?.querySelectorAll('input[type="checkbox"]:checked') || []).map(el=> el.value);
       const hasOwnerSelection = checkedOwners.length > 0;
       const unassigned = items.filter((it)=> !it.storageId && !it.wish).filter((it)=>{
+        if (it.hidden && !showHiddenItems) return false;
         if (!hasOwnerSelection) return false;
         if (checkedOwners.includes('all') && it.owner === 'all') return true;
         return checkedOwners.includes(it.owner);
@@ -426,7 +521,7 @@
       }
       const grouped = {};
       unassigned.forEach((it)=>{
-        const cat = (it.category || '').trim() || '未分類';
+        const cat = it.hidden ? '非表示' : ((it.category || '').trim() || '未分類');
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(it);
       });
@@ -441,13 +536,16 @@
         wrap.className = 'flex flex-wrap gap-2';
         grouped[cat].forEach((it)=>{
           const tag = document.createElement('div');
-          tag.className='inline-flex items-center gap-1 px-3 py-1 rounded-full border bg-white text-sm hover:border-blue-300';
+          const baseClass = it.hidden ? 'border-dashed border-amber-300 bg-amber-50 text-amber-800' : 'border bg-white text-gray-900';
+          tag.className=`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm hover:border-blue-300 ${baseClass}`;
           tag.innerHTML = `
             <span class="font-semibold text-gray-900 cursor-pointer" data-item-edit="${it.id}" title="クリックで編集">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800 ml-2" data-item-edit="${it.id}" aria-label="編集" title="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-green-700 hover:text-green-900 ml-2" data-item-clone="${it.id}" aria-label="複製" title="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
-            <button type="button" class="text-red-600 hover:text-red-800 ml-2" data-item-del="${it.id}" aria-label="削除" title="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            <button type="button" class="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" data-item-assign="${it.id}" aria-label="収納に入れる" title="収納に入れる"><i data-lucide="arrow-right" class="w-4 h-4"></i><i data-lucide="luggage" class="w-4 h-4"></i></button>
+            ${it.hidden
+              ? `<button type="button" class="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" data-item-unhide="${it.id}" aria-label="表示に戻す" title="表示に戻す"><i data-lucide="eye"></i><span>表示に戻す</span></button>`
+              : `<button type="button" class="text-red-600 hover:text-red-800 ml-2" data-item-hide="${it.id}" aria-label="非表示" title="非表示"><i data-lucide="eye-off" class="w-4 h-4"></i></button>
+                 <button type="button" class="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" data-item-assign="${it.id}" aria-label="収納に入れる" title="収納に入れる"><i data-lucide="arrow-right" class="w-4 h-4"></i><i data-lucide="luggage" class="w-4 h-4"></i></button>`}
           `;
           wrap.appendChild(tag);
         });
@@ -459,47 +557,20 @@
       renderWishList();
     }
 
-    function renderMasterPool(){
-      if (!masterPool) return;
-      masterPool.innerHTML = '';
-      const grouped = {};
-      masterItems.forEach((it)=>{
-        const cat = (it.category || '').trim() || '未分類';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(it);
-      });
-      const cats = Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'ja'));
-      cats.forEach((cat)=>{
-        const sec = document.createElement('div');
-        sec.className = 'space-y-1';
-        const title = document.createElement('div');
-        title.className = 'text-xs text-gray-600';
-        title.textContent = cat;
-        const wrap = document.createElement('div');
-        wrap.className = 'flex flex-wrap gap-2';
-        grouped[cat].forEach((it)=>{
-          const tag = document.createElement('button');
-          tag.type='button';
-          const isWish = !!it.wish;
-          const baseClass = isWish ? 'bg-gray-200 border-gray-300 text-gray-800' : 'bg-gray-50 text-gray-800';
-          tag.className=`px-3 py-1.5 rounded-full border text-sm hover:border-blue-300 ${baseClass}`;
-          tag.innerHTML = isWish ? `<span class="text-[10px] font-semibold text-gray-700 bg-gray-300 px-1 rounded mr-1">買い物</span>${it.name}` : it.name;
-          tag.addEventListener('click', ()=> addItemFromMaster(it));
-          wrap.appendChild(tag);
-        });
-        sec.appendChild(title);
-        sec.appendChild(wrap);
-        masterPool.appendChild(sec);
-      });
-    }
-
     function renderStorageLists(){
       if (!storageLists) return;
       normalizeWishItems();
       storageLists.innerHTML = '';
-      storages.forEach((s)=>{
+      const selection = getStorageOwnerSelections();
+      const filtered = (storages || []).filter((s)=>{
+        if (!selection.has) return true;
+        const ownerVal = s.owner || 'all';
+        if (selection.list.includes('all') && ownerVal === 'all') return true;
+        return selection.list.includes(ownerVal);
+      });
+      filtered.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
-        const list = items.filter((it)=> !it.wish && it.storageId === s.id);
+        const list = items.filter((it)=> !it.wish && !it.hidden && it.storageId === s.id);
         const totalWeight = list.reduce((sum, it)=> {
           const qty = Number(it.quantity || 0) || 1;
           const w = Number(it.weight || 0) || 0;
@@ -515,10 +586,29 @@
         const wrap = document.createElement('div');
         wrap.className = 'flex flex-wrap gap-2';
         list.forEach((it)=>{
-          const tag = document.createElement('button');
-          tag.type='button';
-          tag.className='px-3 py-1.5 rounded-full border bg-green-50 text-green-800 text-sm hover:border-green-300';
-          tag.innerHTML = `${it.name} <span class="text-[11px] text-gray-500">${it.weight || 0}g</span> <span class="text-[11px] text-gray-500">(×)</span>`;
+          const tag = document.createElement('div');
+          tag.className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full border bg-green-50 text-green-800 text-sm hover:border-green-300';
+          tag.innerHTML = `
+            <span>${it.name}</span>
+            <span class="text-[11px] text-gray-600">${it.weight || 0}g</span>
+            <button type="button" class="text-blue-700 hover:text-blue-900 ml-1" data-item-clone="${it.id}" title="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
+            <button type="button" class="text-gray-600 hover:text-gray-800 ml-1" data-item-remove="${it.id}" title="収納から外す"><i data-lucide="x" class="w-4 h-4"></i></button>
+          `;
+          tag.addEventListener('click', (ev)=>{
+            const cloneBtn = ev.target.closest('button[data-item-clone]');
+            const removeBtn = ev.target.closest('button[data-item-remove]');
+            if (cloneBtn){
+              const target = items.find((i)=> i.id === it.id);
+              if (target) openItemModal(target, { mode: 'clone' });
+              ev.stopPropagation();
+              return;
+            }
+            if (removeBtn){
+              assignItemToStorage(it.id, '');
+              ev.stopPropagation();
+              return;
+            }
+          });
           tag.addEventListener('click', ()=> assignItemToStorage(it.id, ''));
           wrap.appendChild(tag);
         });
@@ -622,34 +712,55 @@
       }catch(e){ toast(e.message || '完了に失敗しました'); }
     });
 
-    document.getElementById('open-storage-modal')?.addEventListener('click', openStorageModal);
+    document.getElementById('open-storage-modal')?.addEventListener('click', ()=> openStorageModal(null));
     document.getElementById('open-item-modal')?.addEventListener('click', ()=> openItemModal(null));
     storageModal?.addEventListener('click', (ev)=> { if (ev.target === storageModal) closeModal(storageModal); });
     itemModal?.addEventListener('click', (ev)=> { if (ev.target === itemModal) closeModal(itemModal); });
-    storageModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> closeModal(storageModal)));
+    storageModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditId=''; closeModal(storageModal); }));
     itemModal?.querySelectorAll('[data-item-close]')?.forEach((b)=> b.addEventListener('click', ()=> { itemEditId=''; closeModal(itemModal); }));
+    storageOwnerFilter?.addEventListener('change', ()=> { renderStorages(); renderStorageLists(); });
+    storageUnusedToggle?.addEventListener('click', ()=> {
+      showUnusedStorages = !showUnusedStorages;
+      if (storageUnusedToggle) storageUnusedToggle.textContent = showUnusedStorages ? '未使用の収納先を隠す' : '未使用の収納先を表示する';
+      renderStorages();
+    });
 
     storageModalSave?.addEventListener('click', async ()=>{
       const name = (storageModalName?.value || '').trim();
       if (!name) return;
+      const owner = storageModalOwner?.value || 'all';
       try{
-        const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0 }) });
-        if (!res.ok) throw new Error('追加に失敗しました');
-        const json = await res.json();
-        storages.push({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0 });
-        storageModalName.value = ''; if (storageModalMax) storageModalMax.value = '0';
-        closeModal(storageModal);
-        if (!selectedStorageIds.includes(json.id.toString())) selectedStorageIds.push(json.id.toString());
-        renderStorages();
-        renderStorageLists();
-        saveEventStorages([...selectedStorageIds]);
-        toast('収納を追加しました');
-      }catch(e){ toast(e.message || '追加に失敗しました'); }
+        if (storageEditId){
+          const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0, owner }) });
+          if (!res.ok) throw new Error('更新に失敗しました');
+          const json = await res.json();
+          const target = storages.find((s)=> s.id === storageEditId);
+          if (target) Object.assign(target, { name: json.name, maxWeight: json.maxWeight || 0, owner: json.owner || 'all' });
+          storageEditId='';
+          closeModal(storageModal);
+          renderStorages();
+          renderStorageLists();
+          toast('収納を更新しました');
+        } else {
+          const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0, owner }) });
+          if (!res.ok) throw new Error('追加に失敗しました');
+          const json = await res.json();
+          storages.push({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, owner: json.owner || 'all' });
+          storageModalName.value = ''; if (storageModalMax) storageModalMax.value = '0'; if (storageModalOwner) storageModalOwner.value = currentUserId || 'all';
+          closeModal(storageModal);
+          if (!selectedStorageIds.includes(json.id.toString())) selectedStorageIds.push(json.id.toString());
+          renderStorages();
+          renderStorageLists();
+          saveEventStorages([...selectedStorageIds]);
+          toast('収納を追加しました');
+        }
+      }catch(e){ toast(e.message || '保存に失敗しました'); }
     });
 
     function openItemModal(target, opts = {}){
       const mode = opts.mode || (target ? 'edit' : 'create');
       itemEditId = target && mode !== 'clone' ? target.id : '';
+      if (itemModalSave) itemModalSave.textContent = mode === 'edit' ? '更新' : '追加';
       itemModalName.value = target?.name || '';
       if (mode === 'clone'){
         itemModalOwner.value = currentUserId || 'all';
@@ -706,7 +817,8 @@
 
     function handleItemActions(ev){
       const editBtn = ev.target.closest('button[data-item-edit]');
-      const delBtn = ev.target.closest('button[data-item-del]');
+      const hideBtn = ev.target.closest('button[data-item-hide]');
+      const unhideBtn = ev.target.closest('button[data-item-unhide]');
       const assignBtn = ev.target.closest('button[data-item-assign]');
       const cloneBtn = ev.target.closest('button[data-item-clone]');
       const nameClick = ev.target.closest('span[data-item-edit]');
@@ -720,16 +832,28 @@
         if (!target) return;
         if (!confirm('この持ち物を複製しますか？')) return;
         openItemModal(target, { mode: 'clone' });
-      } else if (delBtn){
-        const id = delBtn.dataset.itemDel;
-        if (!confirm('削除しますか？')) return;
-        fetch(`/users/packing/api/items/${encodeURIComponent(id)}`, { method:'DELETE' })
+      } else if (hideBtn){
+        const id = hideBtn.dataset.itemHide;
+        const target = items.find((i)=> i.id === id);
+        if (!target) return;
+        fetch(`/users/packing/api/items/${encodeURIComponent(id)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ hidden: true }) })
           .then(res=> { if(!res.ok) throw new Error(); return res.json(); })
-          .then(()=> {
-            const idx = items.findIndex((i)=> i.id === id); if (idx>=0) items.splice(idx,1);
-            renderItemPool(); renderStorageLists(); toast('削除しました');
+          .then((json)=> {
+            const it = items.find((i)=> i.id === id);
+            if (it){ Object.assign(it, { ...it, ...json, id: json.id?.toString?.() || it.id, storageId: '', storageName: '', hidden: true }); }
+            renderItemPool(); renderStorageLists(); toast('非表示にしました');
           })
-          .catch(()=> toast('削除に失敗しました'));
+          .catch(()=> toast('非表示に失敗しました'));
+      } else if (unhideBtn){
+        const id = unhideBtn.dataset.itemUnhide;
+        fetch(`/users/packing/api/items/${encodeURIComponent(id)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ hidden: false }) })
+          .then(res=> { if(!res.ok) throw new Error(); return res.json(); })
+          .then((json)=> {
+            const it = items.find((i)=> i.id === id);
+            if (it){ Object.assign(it, { ...it, ...json, id: json.id?.toString?.() || it.id, hidden: false }); }
+            renderItemPool(); renderStorageLists(); toast('表示に戻しました');
+          })
+          .catch(()=> toast('解除に失敗しました'));
       } else if (assignBtn){
         const id = assignBtn.dataset.itemAssign;
         assignItemToStorage(id, activeStorageId);
@@ -739,10 +863,19 @@
     itemPool?.addEventListener('click', handleItemActions);
     wishList?.addEventListener('click', handleItemActions);
 
+    function updateHiddenToggle(){
+      if (hiddenToggle) hiddenToggle.textContent = showHiddenItems ? '非表示の持ち物を隠す' : '非表示の持ち物を表示する';
+    }
     ownerFilter?.addEventListener('change', ()=> { saveOwnerSelections(); renderItemPool(); });
+    hiddenToggle?.addEventListener('click', ()=> {
+      showHiddenItems = !showHiddenItems;
+      updateHiddenToggle();
+      renderItemPool();
+    });
 
     restoreActiveStorage();
     restoreOwnerSelections();
+    updateHiddenToggle();
     renderStorages();
     renderCategoryOptions();
     renderItemPool();

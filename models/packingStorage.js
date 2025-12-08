@@ -6,6 +6,7 @@ const packingStorageSchema = new Schema({
   name: { type: String, required: true, trim: true },
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   maxWeight: { type: Number, default: 0 }, // grams
+  owner: { type: String, default: 'all' }, // 'all' or userId
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

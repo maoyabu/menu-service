@@ -125,6 +125,14 @@
     <label class="block text-sm">制限重量(g)
       <input type="number" min="0" id="storage-edit-weight" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
     </label>
+    <label class="block text-sm">誰のもの
+      <select id="storage-edit-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+        <option value="all">共有</option>
+        <% (members || []).forEach((m)=> { %>
+          <option value="<%= m.id %>"><%= m.name %></option>
+        <% }) %>
+      </select>
+    </label>
     <div class="flex justify-end gap-2">
       <button type="button" data-storage-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
       <button type="button" id="storage-edit-save" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">保存</button>
@@ -238,9 +246,10 @@ const masterItemForm = document.getElementById('master-modal-form');
     let modalEventId = '';
     let modalParticipantsChecked = [];
 
-    const storageEditModal = document.getElementById('storage-edit-modal');
-    const storageEditName = document.getElementById('storage-edit-name');
-    const storageEditWeight = document.getElementById('storage-edit-weight');
+  const storageEditModal = document.getElementById('storage-edit-modal');
+  const storageEditName = document.getElementById('storage-edit-name');
+  const storageEditWeight = document.getElementById('storage-edit-weight');
+  const storageEditOwner = document.getElementById('storage-edit-owner');
   const storageEditSave = document.getElementById('storage-edit-save');
   let storageEditId = '';
 
@@ -644,6 +653,8 @@ function renderMasterItemList(){
       storageEditId = '';
       storageEditName.value = '';
       storageEditWeight.value = 0;
+      if (storageEditOwner) storageEditOwner.value = 'all';
+      if (storageEditSave) storageEditSave.textContent = '追加';
       storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
       storageEditName?.focus();
       if (window.refreshLucideIcons) window.refreshLucideIcons();
@@ -657,6 +668,8 @@ function renderMasterItemList(){
         storageEditId = id;
         storageEditName.value = target.name || '';
         storageEditWeight.value = target.maxWeight || 0;
+        if (storageEditOwner) storageEditOwner.value = target.owner || 'all';
+        if (storageEditSave) storageEditSave.textContent = '更新';
         storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
         if (window.refreshLucideIcons) window.refreshLucideIcons();
       } else if (delBtn){
@@ -676,18 +689,19 @@ function renderMasterItemList(){
     storageEditModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); }));
     storageEditSave?.addEventListener('click', async ()=>{
       try{
+        const payload = { name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0, owner: storageEditOwner?.value || 'all' };
         if (storageEditId){
-          const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0 }) });
+          const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error('更新に失敗しました');
           const json = await res.json();
           const target = storages.find((s)=> s.id === storageEditId);
-          if (target){ target.name = json.name; target.maxWeight = json.maxWeight || 0; }
+          if (target){ target.name = json.name; target.maxWeight = json.maxWeight || 0; target.owner = json.owner || 'all'; }
           toast('更新しました');
         } else {
-          const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0 }) });
+          const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error('追加に失敗しました');
           const json = await res.json();
-          storages.unshift({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0 });
+          storages.unshift({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, owner: json.owner || 'all' });
           toast('収納を追加しました');
         }
         renderStorageList();

@@ -117,7 +117,7 @@ router.get('/', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
-      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
       name: it.name,
@@ -181,8 +181,9 @@ router.post('/api/storages', async (req, res) => {
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'name required' });
     const maxWeight = Math.max(0, Number(req.body?.maxWeight) || 0);
-    const created = await PackingStorage.create({ name, maxWeight, group: groupId, createdBy: req.user._id });
-    res.json({ id: created._id, name: created.name, maxWeight: created.maxWeight || 0 });
+    const owner = String(req.body?.owner || 'all') || 'all';
+    const created = await PackingStorage.create({ name, maxWeight, owner, group: groupId, createdBy: req.user._id });
+    res.json({ id: created._id, name: created.name, maxWeight: created.maxWeight || 0, owner: created.owner || 'all' });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
@@ -192,11 +193,12 @@ router.patch('/api/storages/:id', async (req, res) => {
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'name required' });
     const maxWeight = Math.max(0, Number(req.body?.maxWeight) || 0);
-    const updated = await PackingStorage.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: { name, maxWeight } }, { new: true }).lean();
+    const owner = String(req.body?.owner || 'all') || 'all';
+    const updated = await PackingStorage.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: { name, maxWeight, owner } }, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'not found' });
     // update items storage name snapshots
     await PackingItem.updateMany({ group: groupId, storageId: updated._id }, { $set: { storageName: updated.name } });
-    res.json({ id: String(updated._id), name: updated.name, maxWeight: updated.maxWeight || 0 });
+    res.json({ id: String(updated._id), name: updated.name, maxWeight: updated.maxWeight || 0, owner: updated.owner || 'all' });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
@@ -465,11 +467,13 @@ router.get('/check/:eventId', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
-      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
     const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
-    const items = (hydratedItems || []).map((it)=> ({
+    const items = (hydratedItems || [])
+      .filter((it)=> !it.hidden)
+      .map((it)=> ({
       id: String(it._id),
       name: it.name,
       storageId: it.storageId ? String(it.storageId) : '',
@@ -480,6 +484,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       quantity: it.quantity || 0,
       weight: it.weight || 0,
       category: it.category || '',
+      hidden: !!it.hidden,
       owner: it.owner ? String(it.owner) : 'all',
       wish: !!it.wish,
       comment: it.comment || ''
@@ -508,12 +513,14 @@ router.get('/shop/:eventId', async (req, res, next) => {
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || [])
       .filter((it)=> !!it.wish)
+      .filter((it)=> !it.hidden)
       .map((it)=> ({
         id: String(it._id),
         name: it.name,
         quantity: it.quantity || 0,
         weight: it.weight || 0,
         category: it.category || '',
+        hidden: !!it.hidden,
         owner: it.owner ? String(it.owner) : 'all',
         comment: it.comment || ''
       }));
@@ -538,7 +545,7 @@ router.get('/:eventId', async (req, res, next) => {
       PackingItem.find({ group: groupId, event: eventId }).lean()
     ]);
     if (!ev) return res.redirect('/users/packing');
-    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
+    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
     const eventStorageIds = (ev.storageIds || []).map((id)=> id.toString());
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
@@ -559,6 +566,7 @@ router.get('/:eventId', async (req, res, next) => {
       quantity: it.quantity || 0,
       weight: it.weight || 0,
       category: it.category || '',
+      hidden: !!it.hidden,
       comment: it.comment || '',
       storageId: it.storageId ? String(it.storageId) : '',
       storageName: it.storageName || '',
@@ -598,6 +606,7 @@ router.get('/:eventId', async (req, res, next) => {
       storageId: '',
       storageName: '',
       wish: !!d.wish,
+      hidden: !!d.hidden,
       checked: !!d.checked,
       checkedAt: d.checkedAt,
       checkedBy: d.checkedBy,
@@ -620,7 +629,8 @@ router.get('/:eventId', async (req, res, next) => {
       memberNameById,
       storages,
       masterItems,
-      items
+      items,
+      currentUserId: req.user?._id ? String(req.user._id) : ''
     });
   } catch(e) { next(e); }
 });
@@ -737,7 +747,8 @@ router.post('/api/items', async (req, res) => {
       wish: !!created.wish,
       checked: created.checked,
       checkedAt: created.checkedAt,
-      checkedBy: created.checkedBy
+      checkedBy: created.checkedBy,
+      hidden: !!created.hidden
     });
   } catch (e) {
     res.status(500).json({ error: 'failed' });
@@ -773,7 +784,21 @@ router.patch('/api/items/:id', async (req, res) => {
       storageName: storageAllowed ? storage.name : '',
       wish
     };
-    if (update.category && item.thingId) {
+    if (req.body?.hidden !== undefined){
+      const hide = parseBool(req.body.hidden);
+      update.hidden = hide;
+      update.hiddenAt = hide ? new Date() : null;
+      if (hide){
+        update.categoryBeforeHide = item.category || '';
+        update.category = '非表示';
+        update.storageId = null;
+        update.storageName = '';
+      } else {
+        update.category = item.categoryBeforeHide || item.category || '';
+        update.categoryBeforeHide = '';
+      }
+    }
+    if (update.category && item.thingId && !update.hidden) {
       await PackingMasterItem.updateOne({ _id: item.thingId, group: groupId }, { $set: { category: update.category } });
     }
     const updated = await PackingItem.findOneAndUpdate(
@@ -794,7 +819,8 @@ router.patch('/api/items/:id', async (req, res) => {
       checkedAt: updated.checkedAt,
       checkedBy: updated.checkedBy,
       category: updated.category || '',
-      wish: !!updated.wish
+      wish: !!updated.wish,
+      hidden: !!updated.hidden
     });
   } catch (_) { res.status(500).json({ error: 'failed' }); }
 });
@@ -804,7 +830,12 @@ router.delete('/api/items/:id', async (req, res) => {
     const groupId = getGroupId(res);
     if (!groupId) return res.status(400).json({ error: 'no group' });
     const id = req.params.id;
-    const deleted = await PackingItem.findOneAndDelete({ _id: id, group: groupId });
+    const before = await PackingItem.findOne({ _id: id, group: groupId }).lean();
+    const deleted = await PackingItem.findOneAndUpdate(
+      { _id: id, group: groupId },
+      { $set: { hidden: true, hiddenAt: new Date(), categoryBeforeHide: before?.category || '', category: '非表示', storageId: null, storageName: '' } },
+      { new: true }
+    );
     if (!deleted) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
