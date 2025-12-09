@@ -53,7 +53,10 @@
           <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-50 text-purple-700 border border-purple-100">持ち物リスト</span>
           <p class="text-xs text-gray-500 mt-1">イベントとは別に持ち物を登録・編集します</p>
         </div>
-        <button type="button" id="master-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">持ち物を追加</button>
+        <button type="button" id="master-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 min-w-[140px] text-center">持ち物を追加</button>
+      </div>
+      <div class="flex justify-end !mt-0">
+        <button type="button" id="category-manage-open" class="px-4 py-2 rounded-lg border border-amber-200 text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 min-w-[140px] text-center">カテゴリー編集</button>
       </div>
       <div id="owner-filter" class="flex flex-wrap gap-2 text-sm">
         <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
@@ -69,9 +72,6 @@
       </div>
       <div id="master-item-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
       <div class="text-sm text-gray-500" id="master-item-empty">持ち物がありません。追加してください。</div>
-      <div class="flex justify-end">
-        <button type="button" id="category-manage-open" class="px-3 py-1.5 rounded-lg border text-sm bg-white text-gray-800 hover:bg-gray-50">カテゴリー編集</button>
-      </div>
     </section>
   </div>
 </section>
