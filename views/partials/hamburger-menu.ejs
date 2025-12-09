@@ -8,6 +8,7 @@
 <% const activeNextSupplies = (isWeekRoute && wmView === 'next' && wmMode === 'supplies'); %>
 <% const activePacking = isActive('/users/packing'); %>
 <% const activePurchaseReminder = isActive('/users/purchase-reminder'); %>
+<% const currentGroupName = (()=>{ const groups = Array.isArray(userGroups)? userGroups : []; const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; const gid = currentGroupId || defaultGroupId; const g = groups.find((gr)=> String(gr._id || '') === gid); return g ? g.group_name : ''; })(); %>
 <% /* Compute next week's Monday (week start) in ISO, same logic as server */ %>
 <% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); const _afterNextMon = new Date(_nextMon); _afterNextMon.setDate(_afterNextMon.getDate() + 7); const afterNextWeekStartISO = _afterNextMon.toISOString(); %>
 
@@ -187,6 +188,16 @@
             <% } %>
           </a>
         </li>
+        <li>
+          <a href="/users/board" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/board') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+            <i data-lucide="messages-square" class="w-5 h-5 <%= isActive('/users/board') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+            <span><%= currentGroupName || 'グループ' %>のタスク管理</span>
+            <% if (isActive('/users/board')) { %>
+              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+            <% } %>
+          </a>
+        </li>
+        <li class="mx-2 my-1"><div class="border-t border-gray-200"></div></li>
       </ul>
     </div>
 

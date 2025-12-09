@@ -6,6 +6,9 @@ import PackingEvent from '../models/packingEvent.js';
 import PackingItem from '../models/packingItem.js';
 import PackingStorage from '../models/packingStorage.js';
 import PackingMasterItem from '../models/packingMasterItem.js';
+import Task from '../models/task.js';
+import User from '../models/users.js';
+import { renderTemplate, sendMail } from '../utils/mailer.js';
 
 const router = express.Router();
 router.use(isLoggedIn);
@@ -25,6 +28,59 @@ const parseBool = (val) => {
   if (typeof val === 'number') return val === 1;
   return false;
 };
+
+async function sendPackingMail(toIds, subject, { title, note, dueAt }){
+  try{
+    if (!Array.isArray(toIds) || !toIds.length) return;
+    const users = await User.find({ _id: { $in: toIds } }).select('email isMail').lean();
+    const emails = (users || []).filter((u)=> u.isMail !== false).map((u)=> u.email).filter(Boolean);
+    if (!emails.length) return;
+    const html = await renderTemplate('taskNotification', { title, content: note || '', dueAt });
+    await sendMail({ to: emails, subject, html });
+  }catch(_){ /* best effort */ }
+}
+
+async function syncPackingTasks(eventDoc, participantIds, groupId){
+  if (!groupId || !eventDoc?._id) return;
+  const startAt = eventDoc.startAt ? new Date(eventDoc.startAt) : null;
+  const dueAt = startAt ? (()=> { const d = new Date(startAt); d.setDate(d.getDate() - 1); return d; })() : null;
+  const list = Array.isArray(participantIds) ? participantIds.map(String) : [];
+  const existing = await Task.find({ group: groupId, source: 'packing', sourceId: eventDoc._id }).lean();
+  const existingMap = new Map((existing || []).map((t)=> [(t.assignees?.[0] || '').toString(), t]));
+  const removeIds = existing.filter((t)=> !list.includes((t.assignees?.[0] || '').toString())).map((t)=> t._id);
+  if (removeIds.length) await Task.deleteMany({ _id: { $in: removeIds }, group: groupId });
+  await Promise.all(list.map(async (pid)=> {
+    const target = existingMap.get(pid);
+    if (target){
+      await Task.updateOne({ _id: target._id }, {
+        $set: {
+          title: `${eventDoc.name || 'パッキング'}の準備`,
+          category: 'パッキング',
+          startAt,
+          dueAt,
+          status: eventDoc.completed ? 'completed' : (target.status === 'completed' ? 'completed' : 'not_started'),
+          completedAt: eventDoc.completed ? (target.completedAt || new Date()) : null
+        }
+      });
+    } else {
+      await Task.create({
+        group: groupId,
+        title: `${eventDoc.name || 'パッキング'}の準備`,
+        category: 'パッキング',
+        createdBy: eventDoc.createdBy || null,
+        assignees: [pid],
+        startAt,
+        dueAt,
+        started: false,
+        status: eventDoc.completed ? 'completed' : 'not_started',
+        completedAt: eventDoc.completed ? new Date() : null,
+        source: 'packing',
+        sourceId: eventDoc._id,
+        note: 'パッキングプランに基づくタスク'
+      });
+    }
+  }));
+}
 
 async function getMemberOptions(groupId){
   if (!groupId) return { list: [], idSet: new Set(), labelMap: new Map() };
@@ -111,6 +167,7 @@ router.get('/', async (req, res, next) => {
     const events = eventsSorted.map((ev)=>({
       id: String(ev._id),
       name: ev.name,
+      startAt: ev.startAt || null,
       participants: (ev.participants || []).map(String),
       lastOpenedAt: ev.lastOpenedAt || null
     }));
@@ -288,6 +345,7 @@ router.post('/api/events', async (req, res) => {
     if (!groupId) return res.status(400).json({ error: 'no group' });
     const name = String(req.body?.name || '').trim();
     const participantIds = Array.isArray(req.body?.participants) ? req.body.participants.map(String) : [];
+    const startAt = req.body?.startAt ? new Date(req.body.startAt) : null;
     if (!name) return res.status(400).json({ error: 'name required' });
     const memberInfo = await getMemberOptions(groupId);
     const participantSet = new Set(participantIds.filter((id)=> memberInfo.idSet.has(id)));
@@ -295,12 +353,19 @@ router.post('/api/events', async (req, res) => {
       name,
       storageContainers: [], // legacy field unused now
       participants: Array.from(participantSet),
+      startAt,
       group: groupId,
       createdBy: req.user._id
     });
+    await syncPackingTasks(created, Array.from(participantSet), groupId);
+    const dueAt = startAt ? (()=> { const d = new Date(startAt); d.setDate(d.getDate() - 1); return d; })() : null;
+    if (participantSet.size){
+      await sendPackingMail(Array.from(participantSet), `パッキングプラン開始: ${created.name}`, { title: created.name, note: 'パッキングプランが作成されました', dueAt });
+    }
     res.json({
       id: created._id,
       name: created.name,
+      startAt: created.startAt,
       participants: created.participants.map(String),
       planStatus: Object.fromEntries(created.planStatus || [])
     });
@@ -316,12 +381,17 @@ router.patch('/api/events/:id', async (req, res) => {
     const id = req.params.id;
     const event = await PackingEvent.findOne({ _id: id, group: groupId });
     if (!event) return res.status(404).json({ error: 'not found' });
+    const prevCompleted = !!event.completed;
 
     const memberInfo = await getMemberOptions(groupId);
     if (Array.isArray(req.body?.participants)) {
       const participantIds = req.body.participants.map(String);
       const participants = participantIds.filter((pid)=> memberInfo.idSet.has(pid));
       event.participants = participants;
+    }
+    if (req.body?.startAt){
+      const startAt = req.body.startAt ? new Date(req.body.startAt) : null;
+      event.startAt = startAt;
     }
     if (req.body?.planStatus && typeof req.body.planStatus === 'object'){
       const currentUserId = req.user?._id?.toString?.() || '';
@@ -359,6 +429,12 @@ router.patch('/api/events/:id', async (req, res) => {
       event.completedAt = completed ? new Date() : null;
     }
     await event.save();
+    await syncPackingTasks(event, event.participants, groupId);
+    if (prevCompleted !== !!event.completed && event.participants?.length){
+      const subject = event.completed ? `パッキングプラン完了: ${event.name}` : `パッキングプラン更新: ${event.name}`;
+      const dueAt = event.startAt ? (()=> { const d = new Date(event.startAt); d.setDate(d.getDate() - 1); return d; })() : null;
+      await sendPackingMail(event.participants, subject, { title: event.name, note: event.completed ? 'パッキングプランが完了しました' : 'パッキングプランが更新されました', dueAt });
+    }
 
     // detach items from removed storages
     const removedStorageIds = hasStorageIds ? prevStorageIds.filter((sid)=> !(event.storageIds || []).map(String).includes(sid)) : [];
@@ -372,6 +448,7 @@ router.patch('/api/events/:id', async (req, res) => {
     res.json({
       id: event._id.toString(),
       name: event.name,
+      startAt: event.startAt,
       participants: event.participants.map(String),
       storageIds: event.storageIds ? event.storageIds.map((x)=> x.toString()) : undefined,
       completed: !!event.completed,
@@ -419,6 +496,7 @@ router.post('/api/events/:id/duplicate', async (req, res) => {
       name,
       storageContainers: [],
       participants: participantIds,
+      startAt: source.startAt || null,
       storageIds,
       group: groupId,
       createdBy: req.user._id,
@@ -454,9 +532,12 @@ router.post('/api/events/:id/duplicate', async (req, res) => {
       await PackingItem.insertMany(docs);
     }
 
+    await syncPackingTasks(created, participantIds, groupId);
+
     res.json({
       id: String(created._id),
       name: created.name,
+      startAt: created.startAt || null,
       participants: created.participants.map(String),
       storageIds: created.storageIds ? created.storageIds.map((x)=> x.toString()) : [],
       completed: false
@@ -637,6 +718,7 @@ router.get('/:eventId', async (req, res, next) => {
       event: {
         id: String(ev._id),
         name: ev.name,
+        startAt: ev.startAt || null,
         participants: (ev.participants || []).map(String),
         storageIds: eventStorageIds,
         completed: !!ev.completed,

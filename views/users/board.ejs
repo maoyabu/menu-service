@@ -1,0 +1,410 @@
+<section class="max-w-6xl mx-auto py-8 space-y-6">
+  <header class="space-y-2">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <p class="text-xs text-gray-500">グループのタスク管理</p>
+        <h1 class="text-2xl font-bold text-gray-900"><%= currentGroupName || 'タスク管理' %></h1>
+        <p class="text-sm text-gray-600">家族やグループで共有するタスク</p>
+      </div>
+      <button type="button" id="task-open-modal" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        タスクを追加
+      </button>
+    </div>
+  </header>
+
+  <section class="border rounded-2xl bg-white p-4 space-y-3">
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex items-center gap-2 text-sm">
+        <button type="button" data-status-tab="active" class="px-3 py-1.5 rounded-full border text-sm font-semibold tab-active">未完了</button>
+        <button type="button" data-status-tab="completed" class="px-3 py-1.5 rounded-full border text-sm font-semibold text-gray-600">完了</button>
+      </div>
+      <div class="flex flex-wrap gap-2 text-xs text-gray-600">
+        <div class="inline-flex items-center gap-2 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+          <span>担当</span>
+          <div id="filter-assignee" class="flex flex-wrap gap-2">
+            <% members.forEach((m)=> { %>
+              <label class="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 bg-white">
+                <input type="checkbox" value="<%= m.id %>" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <span><%= m.name %></span>
+              </label>
+            <% }) %>
+          </div>
+        </div>
+        <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-gray-100">
+          <span>カテゴリー</span>
+          <select id="filter-category" class="border rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <option value="">すべて</option>
+            <% categories.forEach((c)=> { %>
+              <option value="<%= c %>"><%= c %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+          <span>ステータス</span>
+          <select id="filter-status" class="border rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <option value="">すべて</option>
+            <option value="not_started">未着手</option>
+            <option value="in_progress">進行中</option>
+            <option value="on_hold">保留</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div id="task-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    <p id="task-empty" class="text-sm text-gray-500">タスクはまだありません。追加してください。</p>
+  </section>
+</section>
+
+<!-- タスクモーダル -->
+<div id="task-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
+  <div class="mt-16 w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900" id="task-modal-title">タスクを追加</h3>
+      <button type="button" data-task-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <label class="block text-sm">タスク名
+      <input type="text" id="task-title" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 旅行の荷造り"/>
+    </label>
+    <label class="block text-sm">カテゴリー
+      <input type="text" list="task-category-datalist" id="task-category" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 家事 / 旅行 / 買い物"/>
+    </label>
+    <div class="grid sm:grid-cols-2 gap-2">
+      <label class="block text-sm">開始日
+        <input type="date" id="task-start" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"/>
+      </label>
+      <label class="block text-sm">期限
+        <input type="date" id="task-due" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"/>
+      </label>
+    </div>
+    <div class="space-y-2">
+      <p class="text-sm font-medium text-gray-800">担当者</p>
+      <div id="task-assignees" class="flex flex-wrap gap-2">
+        <% members.forEach((m)=> { %>
+          <button type="button" data-assignee-btn value="<%= m.id %>" class="px-3 py-1.5 rounded-full border border-blue-100 bg-blue-50 text-sm text-blue-700 hover:border-blue-300"><%= m.name %></button>
+        <% }) %>
+      </div>
+    </div>
+    <label class="block text-sm">ステータス
+      <select id="task-status" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+        <option value="not_started">未着手</option>
+        <option value="in_progress">進行中</option>
+        <option value="on_hold">保留</option>
+        <option value="completed">完了</option>
+      </select>
+    </label>
+    <label class="block text-sm">メモ
+      <textarea id="task-note" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" rows="3" placeholder="詳細をメモ"></textarea>
+    </label>
+    <div class="grid sm:grid-cols-2 gap-2">
+      <label class="block text-sm">繰り返し
+        <select id="task-recur-type" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+          <option value="none">なし</option>
+          <option value="daily">日ごと</option>
+          <option value="weekly">週ごと</option>
+          <option value="monthly">月ごと</option>
+        </select>
+      </label>
+      <label class="block text-sm">間隔
+        <input type="number" min="1" value="1" id="task-recur-interval" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"/>
+      </label>
+    </div>
+    <div class="grid sm:grid-cols-2 gap-2">
+      <div class="space-y-1">
+        <p class="text-sm">曜日(週)</p>
+        <div id="task-recur-weekdays" class="flex flex-wrap gap-2">
+          <% ['日','月','火','水','木','金','土'].forEach((label, idx)=> { %>
+            <button type="button" data-weekday-btn value="<%= idx %>" class="px-2.5 py-1 rounded-full border border-blue-100 bg-blue-50 text-sm text-blue-700 hover:border-blue-300"><%= label %></button>
+          <% }) %>
+        </div>
+      </div>
+      <label class="block text-sm">日付(月)
+        <input type="number" min="1" max="31" id="task-recur-day" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 15"/>
+      </label>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button type="button" data-task-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
+      <button type="button" id="task-save" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">保存</button>
+    </div>
+  </div>
+</div>
+<datalist id="task-category-datalist">
+  <% categories.forEach((c)=> { %>
+    <option value="<%= c %>"></option>
+  <% }) %>
+</datalist>
+
+<script>
+  (function(){
+    const members = new Map((<%- JSON.stringify(members || []) %>).map((m)=> [m.id, m.name]));
+    const currentUserId = <%- JSON.stringify((typeof currentUserId !== 'undefined' ? currentUserId : '')) %>;
+    let tasks = <%- JSON.stringify(tasks || []) %>;
+    const statusTabs = document.querySelectorAll('[data-status-tab]');
+    const taskList = document.getElementById('task-list');
+    const taskEmpty = document.getElementById('task-empty');
+    const filterAssignee = document.getElementById('filter-assignee');
+    const filterCreator = document.getElementById('filter-creator');
+    const filterCategory = document.getElementById('filter-category');
+    const filterStatus = document.getElementById('filter-status');
+    const modal = document.getElementById('task-modal');
+    const modalTitle = document.getElementById('task-modal-title');
+    const openBtn = document.getElementById('task-open-modal');
+    const saveBtn = document.getElementById('task-save');
+    const titleInput = document.getElementById('task-title');
+    const categoryInput = document.getElementById('task-category');
+    const startInput = document.getElementById('task-start');
+    const dueInput = document.getElementById('task-due');
+    const assigneeButtons = document.querySelectorAll('[data-assignee-btn]');
+    const statusSelect = document.getElementById('task-status');
+    const noteInput = document.getElementById('task-note');
+    const recurType = document.getElementById('task-recur-type');
+    const recurInterval = document.getElementById('task-recur-interval');
+    const recurWeekdays = document.getElementById('task-recur-weekdays');
+    const recurDay = document.getElementById('task-recur-day');
+    let editingId = '';
+    let activeTab = 'active';
+
+    function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+
+    function openModal(task){
+      editingId = task?.id || '';
+      modalTitle.textContent = editingId ? 'タスクを編集' : 'タスクを追加';
+      if (saveBtn) saveBtn.textContent = editingId ? '更新' : '保存';
+      titleInput.value = task?.title || '';
+      categoryInput.value = task?.category || '';
+      startInput.value = task?.startAt ? new Date(task.startAt).toISOString().slice(0,10) : '';
+      dueInput.value = task?.dueAt ? new Date(task.dueAt).toISOString().slice(0,10) : '';
+      assigneeButtons.forEach((btn)=> {
+        const active = (task?.assignees || []).includes(btn.value);
+        btn.classList.toggle('bg-blue-50', active);
+        btn.classList.toggle('text-blue-700', active);
+        btn.classList.toggle('border-blue-100', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('text-gray-600', !active);
+        btn.classList.toggle('border-gray-200', !active);
+        btn.classList.toggle('is-selected', active);
+      });
+      statusSelect.value = task?.status || 'not_started';
+      noteInput.value = task?.note || '';
+      recurType.value = task?.recurrence?.type || 'none';
+      recurInterval.value = task?.recurrence?.interval || 1;
+      Array.from(recurWeekdays.querySelectorAll('[data-weekday-btn]')).forEach((btn)=> {
+        const active = (task?.recurrence?.weekdays || []).includes(Number(btn.value));
+        btn.classList.toggle('bg-blue-50', active);
+        btn.classList.toggle('text-blue-700', active);
+        btn.classList.toggle('border-blue-100', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('text-gray-600', !active);
+        btn.classList.toggle('border-gray-200', !active);
+        btn.classList.toggle('is-selected', active);
+      });
+      recurDay.value = task?.recurrence?.dayOfMonth || '';
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+    }
+    function closeModal(){
+      modal.classList.add('hidden'); modal.classList.remove('flex');
+      editingId = '';
+    }
+
+    function renderList(){
+      taskList.innerHTML = '';
+      const selectedAssignees = Array.from(filterAssignee.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
+      const selectedCategories = filterCategory.value ? [filterCategory.value] : [];
+      const selectedStatuses = filterStatus.value ? [filterStatus.value] : [];
+      const creator = (typeof filterCreator !== 'undefined' && filterCreator && filterCreator.value) ? filterCreator.value : '';
+      const filtered = tasks.filter((t)=>{
+        if (activeTab === 'active' && t.status === 'completed') return false;
+        if (activeTab === 'completed' && t.status !== 'completed') return false;
+        if (creator && t.createdBy !== creator) return false;
+        if (selectedAssignees.length && !t.assignees.some((a)=> selectedAssignees.includes(a))) return false;
+        if (selectedCategories.length && !selectedCategories.includes(t.category || '')) return false;
+        if (selectedStatuses.length && !selectedStatuses.includes(t.status)) return false;
+        return true;
+      });
+      if (!filtered.length){
+        taskEmpty.classList.remove('hidden');
+        return;
+      }
+      taskEmpty.classList.add('hidden');
+      filtered
+        .sort((a,b)=> {
+          const da = a.dueAt ? new Date(a.dueAt).getTime() : Infinity;
+          const db = b.dueAt ? new Date(b.dueAt).getTime() : Infinity;
+          return da - db;
+        })
+        .forEach((t)=>{
+          const card = document.createElement('div');
+          const dueStr = t.dueAt ? new Date(t.dueAt).toLocaleDateString('ja-JP') : '未設定';
+          const startStr = t.startAt ? new Date(t.startAt).toLocaleDateString('ja-JP') : '';
+          const assigneeLabels = t.assignees.map((a)=> members.get(a) || 'メンバー').join(', ') || '未指定';
+          const statusLabel = { not_started:'未着手', in_progress:'進行中', on_hold:'保留', completed:'完了' }[t.status] || t.status;
+          card.className = 'rounded-xl border border-gray-200 bg-white p-3 space-y-2 shadow-sm';
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-semibold text-gray-900">${t.title}</p>
+                <p class="text-xs text-gray-500">${t.category || 'カテゴリー未設定'}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] px-2 py-1 rounded-full border ${t.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200'}">${statusLabel}</span>
+                <button class="text-gray-500 hover:text-gray-800" data-task-edit="${t.id}" aria-label="編集"><i data-lucide="edit" class="w-4 h-4"></i></button>
+              </div>
+            </div>
+            <div class="text-xs text-gray-600 space-y-1">
+              <p>担当: ${assigneeLabels}</p>
+              <p>イベント日: ${startStr || '未設定'} / 期限: ${dueStr}</p>
+              ${t.note ? `<p class="text-gray-700 bg-gray-50 border border-gray-100 rounded px-2 py-1">${t.note}</p>` : ''}
+            </div>
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <span>作成: ${members.get(t.createdBy) || 'メンバー'}</span>
+              <div class="flex items-center gap-2">
+                ${t.status !== 'completed' ? `<button class="text-green-700 hover:text-green-900" data-task-complete="${t.id}">完了にする</button>` : `<button class="text-gray-600 hover:text-gray-800" data-task-reopen="${t.id}">未完了に戻す</button>`}
+                ${(t.source === 'manual' && currentUserId && t.createdBy === currentUserId) ? `<button class="text-red-600 hover:text-red-800" data-task-delete="${t.id}">削除</button>` : ''}
+              </div>
+            </div>
+          `;
+          taskList.appendChild(card);
+        });
+      if (window.refreshLucideIcons) window.refreshLucideIcons();
+    }
+
+    async function saveTask(){
+      const selectedAssignees = Array.from(document.querySelectorAll('[data-assignee-btn].is-selected')).map(btn=> btn.value);
+      const selectedWeekdays = Array.from(recurWeekdays.querySelectorAll('[data-weekday-btn].is-selected')).map(btn=> Number(btn.value));
+      const payload = {
+        title: titleInput.value.trim(),
+        category: categoryInput.value.trim(),
+        startAt: startInput.value ? new Date(startInput.value) : null,
+        dueAt: dueInput.value ? new Date(dueInput.value) : null,
+        assignees: selectedAssignees,
+        status: statusSelect.value,
+        note: noteInput.value.trim(),
+        recurrence: {
+          type: recurType.value,
+          interval: Number(recurInterval.value || 1),
+          weekdays: selectedWeekdays,
+          dayOfMonth: recurDay.value ? Number(recurDay.value) : null
+        }
+      };
+      try{
+        const res = await fetch(editingId ? `/users/board/api/tasks/${encodeURIComponent(editingId)}` : '/users/board/api/tasks', {
+          method: editingId ? 'PATCH' : 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('保存に失敗しました');
+        const json = await res.json();
+        const idx = tasks.findIndex((t)=> t.id === json.id);
+        if (idx >= 0) tasks[idx] = json; else tasks.push(json);
+        closeModal();
+        renderList();
+        toast('保存しました');
+      }catch(e){ toast(e.message || '保存に失敗しました'); }
+    }
+
+    async function updateStatus(id, status){
+      try{
+        const res = await fetch(`/users/board/api/tasks/${encodeURIComponent(id)}`, {
+          method:'PATCH',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (!res.ok) throw new Error('更新に失敗しました');
+        const json = await res.json();
+        const idx = tasks.findIndex((t)=> t.id === json.id);
+        if (idx >= 0) tasks[idx] = json;
+        renderList();
+        toast('更新しました');
+      }catch(e){ toast(e.message || '更新に失敗しました'); }
+    }
+
+    assigneeButtons.forEach((btn)=> {
+      btn.addEventListener('click', ()=>{
+        const active = !btn.classList.contains('is-selected');
+        btn.classList.toggle('bg-blue-50', active);
+        btn.classList.toggle('text-blue-700', active);
+        btn.classList.toggle('border-blue-100', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('text-gray-600', !active);
+        btn.classList.toggle('border-gray-200', !active);
+        btn.classList.toggle('is-selected', active);
+      });
+    });
+
+    recurType?.addEventListener('change', ()=> {
+      const type = recurType.value;
+      const disableAll = type === 'none';
+      recurInterval.disabled = disableAll;
+      recurDay.disabled = disableAll || type !== 'monthly';
+      recurWeekdays.querySelectorAll('[data-weekday-btn]').forEach((btn)=> {
+        btn.disabled = disableAll || type !== 'weekly';
+        btn.classList.toggle('opacity-50', btn.disabled);
+      });
+      if (disableAll || type !== 'weekly'){
+        recurWeekdays.querySelectorAll('[data-weekday-btn]').forEach((btn)=> {
+          btn.classList.remove('bg-blue-50','text-blue-700','border-blue-100');
+          btn.classList.add('bg-white','text-gray-600','border-gray-200');
+          btn.classList.remove('is-selected');
+        });
+      }
+    });
+    recurType?.dispatchEvent(new Event('change'));
+
+    recurWeekdays?.querySelectorAll('[data-weekday-btn]').forEach((btn)=> {
+      btn.addEventListener('click', ()=>{
+        if (btn.disabled) return;
+        const active = !btn.classList.contains('is-selected');
+        btn.classList.toggle('bg-blue-50', active);
+        btn.classList.toggle('text-blue-700', active);
+        btn.classList.toggle('border-blue-100', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('text-gray-600', !active);
+        btn.classList.toggle('border-gray-200', !active);
+        btn.classList.toggle('is-selected', active);
+      });
+    });
+
+    statusTabs.forEach((tab)=> {
+      tab.addEventListener('click', ()=>{
+        statusTabs.forEach((t)=> t.classList.remove('tab-active','bg-blue-600','text-white'));
+        tab.classList.add('tab-active','bg-blue-600','text-white');
+        activeTab = tab.dataset.statusTab;
+        renderList();
+      });
+    });
+
+    filterAssignee?.addEventListener('change', renderList);
+    [filterCategory, filterStatus].forEach((el)=> el?.addEventListener('change', renderList));
+    openBtn?.addEventListener('click', ()=> openModal(null));
+    modal?.addEventListener('click', (ev)=> { if (ev.target === modal || ev.target.hasAttribute('data-task-close')) closeModal(); });
+    saveBtn?.addEventListener('click', saveTask);
+    taskList?.addEventListener('click', (ev)=>{
+      const editBtn = ev.target.closest('button[data-task-edit]');
+      const completeBtn = ev.target.closest('button[data-task-complete]');
+      const reopenBtn = ev.target.closest('button[data-task-reopen]');
+      const deleteBtn = ev.target.closest('button[data-task-delete]');
+      if (editBtn){
+        const id = editBtn.dataset.taskEdit;
+        const target = tasks.find((t)=> t.id === id);
+        if (target) openModal(target);
+      } else if (completeBtn){
+        updateStatus(completeBtn.dataset.taskComplete, 'completed');
+      } else if (reopenBtn){
+        updateStatus(reopenBtn.dataset.taskReopen, 'in_progress');
+      } else if (deleteBtn){
+        const id = deleteBtn.dataset.taskDelete;
+        if (!confirm('このタスクを削除しますか？')) return;
+        fetch(`/users/board/api/tasks/${encodeURIComponent(id)}`, { method:'DELETE' })
+          .then((res)=> { if(!res.ok) throw new Error(); return res.json(); })
+          .then(()=> {
+            tasks = tasks.filter((t)=> t.id !== id);
+            renderList();
+            toast('削除しました');
+          })
+          .catch(()=> toast('削除に失敗しました'));
+      }
+    });
+
+    renderList();
+  })();
+</script>

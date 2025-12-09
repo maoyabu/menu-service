@@ -15,6 +15,7 @@ import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { shouldSendTemplate } from '../utils/mailSettings.js';
 import Stock from '../models/stock.js';
 import MyEquipment from '../models/myEquipment.js';
+import Task from '../models/task.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
@@ -415,6 +416,12 @@ const formatDisplayDate = (date) => {
   const month = String(date.getMonth() + 1);
   const day = String(date.getDate());
   return `${month}/${day}`;
+};
+
+const toJstDate = (date = new Date()) => {
+  const offsetMinutes = 9 * 60;
+  const currentOffset = date.getTimezoneOffset();
+  return new Date(date.getTime() + (offsetMinutes + currentOffset) * 60 * 1000);
 };
 
 const getEquipmentCycleStart = (cadence = 'monthly') => {
@@ -1858,17 +1865,42 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     const nextWeekRangeLabel = `${formatDisplayDate(weekStartDate)}〜${formatDisplayDate(weekEndDate)}`;
 
     // Week after next (再来週)
-    const afterNextWeekStart = addDays(startOfWeek(new Date()), 14);
+  const afterNextWeekStart = addDays(startOfWeek(new Date()), 14);
   const afterNextWeekDates = getWeekDatesFromStart(afterNextWeekStart);
   const afterNextWeekStartISO = afterNextWeekStart.toISOString();
   const afterNextWeekRangeLabel = `${formatDisplayDate(afterNextWeekDates[0])}〜${formatDisplayDate(afterNextWeekDates[6])}`;
 
   const now = new Date();
-  const today = startOfDay(now);
+  const nowJst = toJstDate(now);
+  const today = startOfDay(nowJst);
   const initialCalendarMonthISO = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
   const groupConfig = currentGroupId
-    ? await Group.findById(currentGroupId).select('group_name stockInventory equipmentInventory').lean()
+    ? await Group.findById(currentGroupId).select('group_name stockInventory equipmentInventory members createdBy').lean()
     : null;
+  const groupMembers = (()=> {
+    if (!groupConfig) return [];
+    const ids = new Set();
+    if (groupConfig.createdBy) ids.add(groupConfig.createdBy.toString());
+    (groupConfig.members || []).forEach((m)=> { if (m) ids.add(m.toString()); });
+    return Array.from(ids).filter(Boolean);
+  })();
+
+  const ensureInventoryTask = async ({ groupId, title, startAt, dueAt, source }) => {
+    if (!groupId || !title) return;
+    const existing = await Task.findOne({ group: groupId, source, title }).lean();
+    if (existing) return;
+    await Task.create({
+      group: groupId,
+      title,
+      category: '棚卸し',
+      createdBy: req.user._id,
+      assignees: groupMembers,
+      startAt,
+      dueAt,
+      status: 'not_started',
+      source
+    });
+  };
 
   const buildStockNotice = async () => {
     if (!currentGroupId) return null;
@@ -1893,10 +1925,16 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       const last = new Date(y, m + 1, 0).getDate();
       scheduledDay = Math.min(candidate, last);
     }
-    const scheduledAt = new Date(y, m, scheduledDay, sendHour, 0, 0, 0);
+    const scheduledAtJst = new Date(Date.UTC(y, m, scheduledDay, sendHour));
+    const scheduledAt = new Date(scheduledAtJst.getTime() - (9 * 60 * 60 * 1000)); // convert JST to UTC Date
     if (now < scheduledAt) return null;
-    const hasActivity = await Stock.exists({ group: currentGroupId, lastCheckedAt: { $gte: scheduledAt } });
-    if (hasActivity) return null;
+    await ensureInventoryTask({
+      groupId: currentGroupId,
+      title: `${scheduledAt.getFullYear()}年${scheduledAt.getMonth()+1}月のストックの棚卸し`,
+      startAt: scheduledAt,
+      dueAt: new Date(scheduledAt.getFullYear(), scheduledAt.getMonth(), scheduledAt.getDate() + ((cfg.windowDays || 7) - 1)),
+      source: 'stock'
+    });
     return {
       title: 'ストック棚卸し',
       message: '今月の棚卸しリストを確認してください。',
@@ -1912,16 +1950,23 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     const enabled = cfg.enabled !== false;
     if (!enabled) return null;
     const cadence = cfg.cadence || 'monthly';
-    const cycleStart = getEquipmentCycleStart(cadence);
-    cycleStart.setHours(0, 0, 0, 0);
+    const cycleStartJst = toJstDate(getEquipmentCycleStart(cadence));
+    cycleStartJst.setHours(0, 0, 0, 0);
+    const cycleStart = new Date(cycleStartJst.getTime() - (9 * 60 * 60 * 1000));
     if (now < cycleStart) return null;
-    const alreadyDone = await MyEquipment.exists({ group: currentGroupId, lastInventoryAt: { $gte: cycleStart } });
-    if (alreadyDone) return null;
     const cycleLabel = (() => {
       if (cadence === 'quarter') return '今四半期';
       if (cadence === 'half') return today.getMonth() < 6 ? '上期' : '下期';
       return '今月';
     })();
+    const titleMonthLabel = `${cycleStart.getFullYear()}年${cycleStart.getMonth()+1}月`;
+    await ensureInventoryTask({
+      groupId: currentGroupId,
+      title: `${titleMonthLabel}の備品の棚卸し`,
+      startAt: cycleStart,
+      dueAt: new Date(cycleStart.getFullYear(), cycleStart.getMonth(), cycleStart.getDate() + 6),
+      source: 'equipment'
+    });
     return {
       title: '備品棚卸し',
       message: `${cycleLabel}の棚卸しを開始してください。`,

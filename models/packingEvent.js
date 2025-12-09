@@ -14,6 +14,7 @@ const packingEventSchema = new Schema({
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },
+  startAt: { type: Date, default: null },
   lastOpenedAt: { type: Date, default: null },
   completed: { type: Boolean, default: false },
   completedAt: { type: Date, default: null },

@@ -1,0 +1,13 @@
+<%- include('_mailHeader') %>
+
+<p style="font-size:16px; margin:16px 0 8px 0;">タスク: <strong><%= title %></strong></p>
+<% if (dueAt) { %>
+  <p style="margin:4px 0 12px 0; color:#555;">期限: <%= new Date(dueAt).toLocaleString('ja-JP', { dateStyle:'medium' }) %></p>
+<% } %>
+<% if (content) { %>
+  <p style="white-space:pre-wrap; color:#333; margin:8px 0;"><%= content %></p>
+<% } %>
+
+<p style="margin:16px 0 0 0; color:#555;">7 DAYS PLANより</p>
+
+<%- include('_mailFooter') %>

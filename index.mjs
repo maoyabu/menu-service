@@ -20,6 +20,7 @@ import mymenuRoutes from './routes/mymenu.js';
 import mystockRoutes from './routes/mystock.js';
 import myequipmentRoutes from './routes/myequipment.js';
 import packingRoutes from './routes/packing.js';
+import boardRoutes from './routes/board.js';
 import slideshowRoutes from './routes/slideshow.js';
 import purchaseReminderRoutes from './routes/purchaseReminder.js';
 import Notification from './models/notification.js';
@@ -128,6 +129,7 @@ app.use('/users/my-stock', mystockRoutes);
 app.use('/users/my-equipment', myequipmentRoutes);
 app.use('/users/purchase-reminder', purchaseReminderRoutes);
 app.use('/users/packing', packingRoutes);
+app.use('/users/board', boardRoutes);
 app.use('/slideshow', slideshowRoutes);
 
 app.set('views', path.join(__dirname, 'views'));

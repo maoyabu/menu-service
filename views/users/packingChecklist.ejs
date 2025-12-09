@@ -86,6 +86,9 @@
       <label class="block text-sm">イベント名
         <input type="text" id="modal-name" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
       </label>
+      <label class="block text-sm">イベントの開始日
+        <input type="date" id="modal-start" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+      </label>
       <div class="space-y-2">
         <p class="text-sm font-medium text-gray-800">参加メンバー</p>
         <div id="modal-participants" class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm"></div>
@@ -241,6 +244,7 @@ const masterItemForm = document.getElementById('master-modal-form');
     const modal = document.getElementById('event-modal');
     const modalTitle = document.getElementById('event-modal-title');
     const modalName = document.getElementById('modal-name');
+    const modalStart = document.getElementById('modal-start');
     const modalParticipants = document.getElementById('modal-participants');
     const modalSave = document.getElementById('modal-save');
     let modalEventId = '';
@@ -523,6 +527,7 @@ function renderMasterItemList(){
       const ev = events.find((x)=> x.id === id);
       modalEventId = ev ? ev.id : '';
       modalName.value = ev ? ev.name || '' : '';
+      modalStart.value = ev?.startAt ? new Date(ev.startAt).toISOString().slice(0,10) : '';
       modalParticipantsChecked = ev ? [...(ev.participants || [])] : [];
       if (modalTitle) modalTitle.textContent = ev ? 'イベントを編集' : 'イベントを追加';
       renderModalParticipants();
@@ -535,7 +540,7 @@ function renderMasterItemList(){
     modal.querySelectorAll('[data-event-close]')?.forEach((b)=> b.addEventListener('click', closeEventModal));
     modalSave?.addEventListener('click', async ()=>{
       try{
-        const payload = { name: modalName.value || '', participants: modalParticipantsChecked };
+        const payload = { name: modalName.value || '', participants: modalParticipantsChecked, startAt: modalStart.value || null };
         if (modalEventId){
           const res = await fetch(`/users/packing/api/events/${encodeURIComponent(modalEventId)}`, {
             method:'PATCH',
@@ -545,7 +550,7 @@ function renderMasterItemList(){
           if (!res.ok) throw new Error('更新に失敗しました');
           const json = await res.json();
           const target = events.find((e)=> e.id === modalEventId);
-          if (target){ target.name = json.name; target.participants = json.participants || []; }
+          if (target){ target.name = json.name; target.participants = json.participants || []; target.startAt = json.startAt || null; }
           toast('イベントを更新しました');
         } else {
           const res = await fetch('/users/packing/api/events', {
