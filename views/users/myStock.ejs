@@ -6,8 +6,23 @@
     </div>
   </header>
 
+  <!-- ガイド表示/非表示 -->
+  <section class="space-y-2 mt-[5px]" style="margin-top:5px !important;">
+    <div id="stock-guide-container" class="relative w-full max-w-5xl mx-auto">
+      <button
+        type="button"
+        id="stock-guide-toggle"
+        class="absolute top-3 left-3 px-3 py-1.5 rounded border text-sm bg-white/90 text-gray-800 shadow-sm hover:bg-white"
+        aria-pressed="false"
+      >非表示</button>
+      <div id="stock-guide-wrapper" class="flex justify-center py-4">
+        <img src="/pict/mystock.jpg" alt="マイストックガイド" class="w-[80%] h-auto max-h-[420px] object-contain">
+      </div>
+    </div>
+  </section>
+
   <!-- View tabs + checklist action in one row (compact) -->
-  <div class="mt-1 flex items-center justify-between flex-wrap gap-3">
+  <div class="mt-[5px] flex items-center justify-between flex-wrap gap-3" style="margin-top:5px !important;">
     <div class="flex items-center gap-2 flex-wrap">
       <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
         <button type="button" data-view-tab="class" class="px-4 py-1 rounded-full bg-white shadow text-gray-900">分類で見る</button>
@@ -35,19 +50,6 @@
       </a>
     </div>
   </div>
-
-  <section class="space-y-2">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div></div>
-      <div class="flex gap-2">
-        <button type="button" id="stock-guide-hide" class="px-3 py-1.5 rounded border text-sm bg-gray-100 text-gray-700 hover:bg-gray-200">非表示</button>
-        <button type="button" id="stock-guide-show" class="px-3 py-1.5 rounded border text-sm bg-blue-50 text-blue-700 hover:bg-blue-100">ガイド表示</button>
-      </div>
-    </div>
-    <div id="stock-guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
-      <img src="/pict/mystock.jpg" alt="マイストックガイド" class="w-full h-auto object-cover">
-    </div>
-  </section>
 
   <div data-view="class" class="space-y-6">
     <!-- 食材 -->
@@ -635,14 +637,14 @@
     };
     bindAddButtons();
     // View toggle
-    const tabClass = document.querySelector('[data-view-tab="class"]');
-    const tabPlace = document.querySelector('[data-view-tab="place"]');
+  const tabClass = document.querySelector('[data-view-tab="class"]');
+  const tabPlace = document.querySelector('[data-view-tab="place"]');
   const viewClass = document.querySelector('[data-view="class"]');
   const viewPlace = document.querySelector('[data-view="place"]');
   const VIEW_KEY = 'mystock:view';
   const stockGuideWrapper = document.getElementById('stock-guide-wrapper');
-  const stockGuideHide = document.getElementById('stock-guide-hide');
-  const stockGuideShow = document.getElementById('stock-guide-show');
+  const stockGuideToggle = document.getElementById('stock-guide-toggle');
+  const stockGuideContainer = document.getElementById('stock-guide-container');
   function switchView(which){
     if (which==='place'){
       tabPlace.classList.add('bg-white','shadow','text-gray-900');
@@ -665,14 +667,35 @@
   function applyStockGuide(hidden){
     if (!stockGuideWrapper) return;
     stockGuideWrapper.classList.toggle('hidden', hidden);
+    if (stockGuideContainer){
+      stockGuideContainer.classList.toggle('border', !hidden);
+      stockGuideContainer.classList.toggle('rounded-2xl', !hidden);
+      stockGuideContainer.classList.toggle('bg-white', !hidden);
+      stockGuideContainer.classList.toggle('overflow-hidden', !hidden);
+      stockGuideContainer.classList.toggle('shadow-sm', !hidden);
+      stockGuideContainer.classList.toggle('min-h-[420px]', !hidden);
+      stockGuideContainer.classList.toggle('min-h-[64px]', hidden);
+      if (hidden){
+        stockGuideContainer.classList.add('bg-transparent');
+        stockGuideContainer.classList.remove('border','rounded-2xl','overflow-hidden','shadow-sm');
+      } else {
+        stockGuideContainer.classList.remove('bg-transparent');
+      }
+    }
+    if (stockGuideToggle){
+      stockGuideToggle.textContent = hidden ? 'ガイド表示' : '非表示';
+      stockGuideToggle.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+    }
     try { localStorage.setItem(GUIDE_KEY_STOCK, hidden ? '1' : '0'); } catch(_){}
   }
   try {
     const saved = localStorage.getItem(GUIDE_KEY_STOCK);
-    if (saved === '1') applyStockGuide(true);
-  } catch(_) {}
-  stockGuideHide?.addEventListener('click', ()=> applyStockGuide(true));
-  stockGuideShow?.addEventListener('click', ()=> applyStockGuide(false));
+    applyStockGuide(saved === '1');
+  } catch(_) { applyStockGuide(false); }
+  stockGuideToggle?.addEventListener('click', ()=> {
+    const hidden = stockGuideWrapper?.classList.contains('hidden');
+    applyStockGuide(!hidden);
+  });
 
   // 食材/調味料フィルター
   const FILTER_KEY = 'mystock:class-filter';

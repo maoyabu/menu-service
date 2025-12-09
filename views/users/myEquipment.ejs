@@ -1,5 +1,5 @@
 <div class="max-w-6xl mx-auto py-8 space-y-6">
-  <header class="flex items-center justify-between">
+  <header class="flex items-center justify-between mt-[5px]">
     <div class="flex flex-wrap items-end gap-3">
       <h1 class="text-2xl font-bold leading-tight">備品管理</h1>
       <p class="text-sm text-gray-500">自宅の備品を保管場所ごとに管理</p>
@@ -16,22 +16,22 @@
     </div>
   </header>
 
-  <section class="space-y-2">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div></div>
-      <div class="flex gap-2">
-        <button type="button" id="equip-guide-hide" class="px-3 py-1.5 rounded border text-sm bg-gray-100 text-gray-700 hover:bg-gray-200">非表示</button>
-        <button type="button" id="equip-guide-show" class="px-3 py-1.5 rounded border text-sm bg-blue-50 text-blue-700 hover:bg-blue-100">ガイド表示</button>
+  <section class="space-y-2 mt-[5px]" style="margin-top:5px !important;">
+    <div id="equip-guide-container" class="relative w-full max-w-5xl mx-auto min-h-[64px]">
+      <button
+        type="button"
+        id="equip-guide-toggle"
+        class="absolute top-3 left-3 px-3 py-1.5 rounded border text-sm bg-white/90 text-gray-800 shadow-sm hover:bg-white"
+      >非表示</button>
+      <div id="equip-guide-wrapper" class="flex justify-center py-4">
+        <img src="/pict/myEquipment.jpg" alt="マイ備品ガイド" class="w-[80%] h-auto max-h-[420px] object-contain">
       </div>
-    </div>
-    <div id="equip-guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
-      <img src="/pict/myEquipment.jpg" alt="マイ備品ガイド" class="w-full h-auto object-cover">
     </div>
   </section>
 
   <!-- Filter tabs (match myStock look) -->
   <% const t = type || 'all'; const showGridView = (t === 'all' || t === 'wishlist'); %>
-  <div class="mt-1">
+  <div class="mt-[5px] flex flex-wrap items-center gap-2" style="margin-top:5px !important;">
     <div class="inline-flex p-1 bg-gray-100 rounded-full text-sm">
       <a href="/users/my-equipment?type=all" class="px-4 py-1 rounded-full <%= t==='all' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">すべて</a>
       <a href="/users/my-equipment?type=house" class="px-4 py-1 rounded-full <%= t==='house' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">家ストック</a>
@@ -39,11 +39,7 @@
       <a href="/users/my-equipment?type=camping" class="px-4 py-1 rounded-full <%= t==='camping' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">キャンプ用</a>
       <a href="/users/my-equipment?type=wishlist" class="px-4 py-1 rounded-full <%= t==='wishlist' ? 'bg-white shadow text-gray-900' : 'text-gray-600' %>">ウィッシュリスト</a>
     </div>
-  </div>
-
-  <!-- Add button (amber) under filters -->
-  <div>
-    <button type="button" onclick="openAddModal()" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 追加</button>
+    <button type="button" onclick="openAddModal()" class="px-3 py-1.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-sm">＋ 備品を追加</button>
   </div>
 
   <% const placeNames = Object.keys(placeMap||{}); %>
@@ -439,9 +435,10 @@ const equipTargetBox = document.getElementById('equip-target');
 const equipTargetName = document.getElementById('equip-target-name');
 const equipTargetCategory = document.getElementById('equip-target-category');
 const presetSection = document.getElementById('preset-section');
+const equipGuideContainer = document.getElementById('equip-guide-container');
 const equipGuideWrapper = document.getElementById('equip-guide-wrapper');
-const equipGuideHide = document.getElementById('equip-guide-hide');
-const equipGuideShow = document.getElementById('equip-guide-show');
+const equipGuideToggle = document.getElementById('equip-guide-toggle');
+const GUIDE_KEY = 'equip:guide:hidden';
 let equipImageFetchTimer = null;
 let equipImageFetchId = 0;
 const nameInputEl = document.getElementById('f-name');
@@ -816,6 +813,23 @@ function resetForm(){
   updateOriginalPaneVisibility();
 }
 
+function updateEquipGuide(hidden){
+  if (!equipGuideWrapper || !equipGuideToggle) return;
+  equipGuideWrapper.classList.toggle('hidden', hidden);
+  if (equipGuideContainer){
+    equipGuideContainer.classList.toggle('border', !hidden);
+    equipGuideContainer.classList.toggle('rounded-2xl', !hidden);
+    equipGuideContainer.classList.toggle('bg-white', !hidden);
+    equipGuideContainer.classList.toggle('overflow-hidden', !hidden);
+    equipGuideContainer.classList.toggle('shadow-sm', !hidden);
+    equipGuideContainer.classList.toggle('min-h-[420px]', !hidden);
+    equipGuideContainer.classList.toggle('min-h-[64px]', hidden);
+  }
+  equipGuideToggle.textContent = hidden ? 'ガイド表示' : '非表示';
+  equipGuideToggle.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+  try{ localStorage.setItem(GUIDE_KEY, hidden ? '1' : '0'); }catch(_){}
+}
+
 let _presetTimer = null;
 async function searchPresets(){
   const qs = new URLSearchParams();
@@ -851,18 +865,14 @@ document.getElementById('preset-clear').addEventListener('click', ()=>{
   selectedPreset = null; updatePresetButtons?.(); searchPresets();
 });
 
-const GUIDE_KEY_EQUIP = 'myequipment:guide:hidden';
-function applyEquipGuide(hidden){
-  if (!equipGuideWrapper) return;
-  equipGuideWrapper.classList.toggle('hidden', hidden);
-  try { localStorage.setItem(GUIDE_KEY_EQUIP, hidden ? '1' : '0'); } catch(_){}
-}
 try {
-  const saved = localStorage.getItem(GUIDE_KEY_EQUIP);
-  if (saved === '1') applyEquipGuide(true);
-} catch(_) {}
-equipGuideHide?.addEventListener('click', ()=> applyEquipGuide(true));
-equipGuideShow?.addEventListener('click', ()=> applyEquipGuide(false));
+  const saved = localStorage.getItem(GUIDE_KEY);
+  updateEquipGuide(saved === '1');
+} catch(_) { updateEquipGuide(false); }
+equipGuideToggle?.addEventListener('click', ()=> {
+  const hidden = equipGuideWrapper?.classList.contains('hidden');
+  updateEquipGuide(!hidden);
+});
 
 function selectPreset(e){
   selectedPreset = { ...e, category: getPresetCategory(e) };
