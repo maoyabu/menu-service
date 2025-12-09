@@ -43,6 +43,18 @@
         </div>
         <button type="button" id="storage-add-open" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">収納を追加</button>
       </div>
+      <div id="storage-owner-filter" class="flex flex-wrap gap-2 text-sm">
+        <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+          <input type="checkbox" value="all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
+          <span>共有</span>
+        </label>
+        <% (members || []).forEach((m)=> { %>
+          <label class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50">
+            <input type="checkbox" value="<%= m.id %>" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
+            <span><%= m.name %></span>
+          </label>
+        <% }) %>
+      </div>
       <div id="storage-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
       <div class="text-sm text-gray-500" id="storage-empty">収納がありません。追加してください。</div>
     </section>
@@ -221,7 +233,8 @@
   const eventList = document.getElementById('event-list');
   const eventEmpty = document.getElementById('event-empty');
   const eventFilterToggle = document.getElementById('event-filter-toggle');
-  const storageList = document.getElementById('storage-list');
+    const storageList = document.getElementById('storage-list');
+    const storageOwnerFilter = document.getElementById('storage-owner-filter');
   const storageEmpty = document.getElementById('storage-empty');
   const masterItemList = document.getElementById('master-item-list');
   const masterItemEmpty = document.getElementById('master-item-empty');
@@ -318,6 +331,12 @@ const masterItemForm = document.getElementById('master-modal-form');
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
+    function getStorageOwnerSelection(){
+      if (!storageOwnerFilter) return null;
+      const selected = Array.from(storageOwnerFilter.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
+      return selected.length ? selected : null;
+    }
+
     function renderStorageList(){
       if (!storageList) return;
       storageList.innerHTML = '';
@@ -326,7 +345,15 @@ const masterItemForm = document.getElementById('master-modal-form');
         return;
       }
       storageEmpty.classList.add('hidden');
-      storages.forEach((s)=>{
+      const ownerSelection = getStorageOwnerSelection();
+      const filtered = ownerSelection ? storages.filter((s)=> ownerSelection.includes(s.owner || 'all')) : storages;
+      if (!filtered.length){
+        storageEmpty.textContent = '選択されたメンバーの収納がありません。';
+        storageEmpty.classList.remove('hidden');
+      } else {
+        storageEmpty.classList.add('hidden');
+      }
+      filtered.forEach((s)=>{
         const row = document.createElement('div');
         row.className = 'flex items-center gap-3 border-2 border-gray-300 rounded-xl px-4 py-3 bg-slate-50 shadow-md';
         row.innerHTML = `
@@ -690,6 +717,7 @@ function renderMasterItemList(){
         }catch(e){ toast(e.message || '削除に失敗しました'); }
       }
     });
+    storageOwnerFilter?.addEventListener('change', renderStorageList);
     storageEditModal?.addEventListener('click', (ev)=> { if (ev.target === storageEditModal) { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); } });
     storageEditModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); }));
     storageEditSave?.addEventListener('click', async ()=>{
