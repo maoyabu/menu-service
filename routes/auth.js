@@ -1898,7 +1898,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       startAt,
       dueAt,
       status: 'not_started',
-      source
+      source,
+      note: '棚卸しに基づくタスク'
     });
   };
 
