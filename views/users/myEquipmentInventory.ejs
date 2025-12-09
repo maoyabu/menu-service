@@ -116,7 +116,7 @@
     const applyTabStyle = (btn, sec, active = false) => {
       if (!btn || !sec) return;
       const st = statusOf(sec.pendingCount, sec.doneCount);
-      btn.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition-colors whitespace-nowrap max-w-full';
+      btn.className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm transition-colors whitespace-nowrap max-w-full';
       btn.classList.toggle('ring-2', active);
       btn.classList.toggle('ring-blue-200', active);
       if (st === 'done') {
@@ -166,7 +166,7 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.dataset.place = s.place;
-        btn.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm whitespace-nowrap max-w-full';
+        btn.className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm whitespace-nowrap max-w-full';
         btn.innerHTML = `<span class="truncate">${s.place}</span><span data-role="counts" class="text-[11px] text-blue-800 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 whitespace-nowrap">未:${s.pendingCount} / 済:${s.doneCount}</span>`;
         btn.addEventListener('click', () => activate(s.place));
         wrap.appendChild(btn);
