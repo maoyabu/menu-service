@@ -13,6 +13,19 @@
     </div>
   </header>
 
+  <section class="space-y-2">
+    <div class="relative min-h-[48px]">
+      <button
+        type="button"
+        id="task-guide-toggle"
+        class="absolute top-3 left-3 px-3 py-1.5 rounded border text-sm bg-white/90 text-gray-800 shadow-sm hover:bg-white"
+      >非表示</button>
+      <div id="task-guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
+        <img src="/pict/taskManage.jpg" alt="タスク管理ガイド" class="w-full h-auto object-cover">
+      </div>
+    </div>
+  </section>
+
   <section class="border rounded-2xl bg-white p-4 space-y-3">
     <div class="flex items-center justify-between gap-2 flex-wrap">
       <div class="flex items-center gap-2 text-sm">
@@ -139,6 +152,8 @@
     const members = new Map((<%- JSON.stringify(members || []) %>).map((m)=> [m.id, m.name]));
     const currentUserId = <%- JSON.stringify((typeof currentUserId !== 'undefined' ? currentUserId : '')) %>;
     let tasks = <%- JSON.stringify(tasks || []) %>;
+    const guideWrapper = document.getElementById('task-guide-wrapper');
+    const guideToggle = document.getElementById('task-guide-toggle');
     const statusTabs = document.querySelectorAll('[data-status-tab]');
     const taskList = document.getElementById('task-list');
     const taskEmpty = document.getElementById('task-empty');
@@ -163,8 +178,19 @@
     const recurDay = document.getElementById('task-recur-day');
     let editingId = '';
     let activeTab = 'active';
+    const GUIDE_KEY = 'board:guide:hidden';
 
     function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+
+    function updateGuide(hidden){
+      if (!guideWrapper) return;
+      guideWrapper.classList.toggle('hidden', hidden);
+      if (guideToggle){
+        guideToggle.textContent = hidden ? 'ガイド表示' : '非表示';
+        guideToggle.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+      }
+      try{ localStorage.setItem(GUIDE_KEY, hidden ? '1' : '0'); }catch(_){}
+    }
 
     function openModal(task){
       editingId = task?.id || '';
@@ -404,6 +430,16 @@
           .catch(()=> toast('削除に失敗しました'));
       }
     });
+
+    guideToggle?.addEventListener('click', ()=> {
+      const hidden = guideWrapper?.classList.contains('hidden');
+      updateGuide(!hidden);
+    });
+    // restore guide state
+    try{
+      const savedGuide = localStorage.getItem(GUIDE_KEY);
+      if (savedGuide === '1') updateGuide(true);
+    }catch(_){}
 
     renderList();
   })();
