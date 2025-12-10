@@ -15,8 +15,8 @@
         class="absolute top-3 left-3 px-3 py-1.5 rounded border text-sm bg-white/90 text-gray-800 shadow-sm hover:bg-white"
         aria-pressed="false"
       >非表示</button>
-      <div id="stock-guide-wrapper" class="flex justify-center py-4">
-        <img src="/pict/mystock.jpg" alt="マイストックガイド" class="w-[80%] h-auto max-h-[420px] object-contain">
+      <div id="stock-guide-wrapper" class="block">
+        <img src="/pict/mystock.jpg" alt="マイストックガイド" class="block w-full h-auto object-cover">
       </div>
     </div>
   </section>
@@ -673,8 +673,6 @@
       stockGuideContainer.classList.toggle('bg-white', !hidden);
       stockGuideContainer.classList.toggle('overflow-hidden', !hidden);
       stockGuideContainer.classList.toggle('shadow-sm', !hidden);
-      stockGuideContainer.classList.toggle('min-h-[420px]', !hidden);
-      stockGuideContainer.classList.toggle('min-h-[64px]', hidden);
       if (hidden){
         stockGuideContainer.classList.add('bg-transparent');
         stockGuideContainer.classList.remove('border','rounded-2xl','overflow-hidden','shadow-sm');
