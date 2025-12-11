@@ -1,0 +1,40 @@
+<%- include('_mailHeader') %>
+
+<div class="email-container">
+  <p>管理者の皆さま</p>
+  <p><%= actorName %>さんがマイメニューに「<%= menuName %>」を追加しました。</p>
+  <p>
+    管理画面で確認する:
+    <a href="<%= menuEditUrl %>"><%= menuEditUrl %></a>
+  </p>
+
+  <h3>オリジナル食材</h3>
+  <% if (Array.isArray(ingredients) && ingredients.length) { %>
+    <ul>
+      <% ingredients.forEach(function(item){ %>
+        <li>
+          <%= item.name %> —
+          <a href="<%= item.editUrl %>">編集画面</a>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p>オリジナル食材の追加はありません。</p>
+  <% } %>
+
+  <h3>オリジナル調味料</h3>
+  <% if (Array.isArray(seasonings) && seasonings.length) { %>
+    <ul>
+      <% seasonings.forEach(function(item){ %>
+        <li>
+          <%= item.name %> —
+          <a href="<%= item.editUrl %>">編集画面</a>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p>オリジナル調味料の追加はありません。</p>
+  <% } %>
+</div>
+
+<%- include('_mailFooter') %>

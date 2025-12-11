@@ -6,12 +6,14 @@ import Menu from '../models/menu.js';
 import Notification from '../models/notification.js';
 import Mymenu from '../models/mymenu.js';
 import Group from '../models/groups.js';
+import User from '../models/users.js';
 import multer from 'multer';
 import cloudinary from '../utils/cloudinary.js';
 import fs from 'fs/promises';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import SearchLog from '../models/searchLog.js';
+import { renderTemplate, sendMail } from '../utils/mailer.js';
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -1055,7 +1057,16 @@ router.post('/from-url', async (req, res, next) => {
       user: req.user._id,
       group: groupId
     });
+    const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
     await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [newMenu.name || ''] });
+    await notifyAdminsMenuAdded({
+      menu: newMenu,
+      ingredientIds: ingredients.map((i) => i.name),
+      seasoningIds: seasonings.map((s) => s.name),
+      actor: req.user,
+      groupId,
+      baseUrl
+    });
 
     req.flash('success', 'レシピサイトから登録しました');
     res.redirect('/users/my-menu');
@@ -1329,7 +1340,16 @@ router.post('/original', async (req, res, next) => {
       user: req.user._id,
       group: groupId
     });
+    const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
     await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [newMenu.name || ''] });
+    await notifyAdminsMenuAdded({
+      menu: newMenu,
+      ingredientIds: ingredients.map((i) => i.name),
+      seasoningIds: seasonings.map((s) => s.name),
+      actor: req.user,
+      groupId,
+      baseUrl
+    });
 
     req.flash('success', 'オリジナルレシピを登録しました');
     res.redirect('/users/my-menu/original-list');
@@ -1757,6 +1777,54 @@ router.delete('/api/:menuId', async (req, res) => {
     return res.status(500).json({ error: '削除に失敗しました' });
   }
 });
+
+async function notifyAdminsMenuAdded({ menu, ingredientIds = [], seasoningIds = [], actor, groupId, baseUrl }) {
+  try {
+    if (!menu) return;
+    const admins = await User.find({ isAdmin: true, isMail: { $ne: false } }).select('email').lean();
+    const recipients = (admins || [])
+      .map((a) => String(a.email || '').trim().toLowerCase())
+      .filter(Boolean)
+      .filter((email, idx, arr) => idx === arr.findIndex((v) => v === email));
+    if (!recipients.length) return;
+
+    const normalizedBase = (baseUrl || '').replace(/\/+$/, '');
+    const buildUrl = (path) => (normalizedBase ? `${normalizedBase}${path}` : path);
+    const validIngredientIds = Array.from(new Set((ingredientIds || [])
+      .map((id) => id?.toString?.() || '')
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))));
+    const validSeasoningIds = Array.from(new Set((seasoningIds || [])
+      .map((id) => id?.toString?.() || '')
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))));
+
+    const ingredientDocs = validIngredientIds.length
+      ? await Ingredient.find({ _id: { $in: validIngredientIds }, group: groupId }).select('ingredient').lean()
+      : [];
+    const seasoningDocs = validSeasoningIds.length
+      ? await Seasoning.find({ _id: { $in: validSeasoningIds }, group: groupId }).select('seasoning').lean()
+      : [];
+
+    const actorName = actor?.displayname || actor?.username || actor?.email || 'ユーザー';
+    const html = await renderTemplate('adminMyMenuAdded', {
+      actorName,
+      menuName: menu.name || '',
+      menuEditUrl: buildUrl(`/admin/menu-edit/${menu._id}`),
+      ingredients: (ingredientDocs || []).map((ing) => ({
+        name: ing.ingredient || '',
+        editUrl: buildUrl(`/admin/ingredient-edit/${ing._id}`)
+      })),
+      seasonings: (seasoningDocs || []).map((s) => ({
+        name: s.seasoning || '',
+        editUrl: buildUrl(`/admin/seasoning-edit/${s._id}`)
+      }))
+    });
+    const subject = `${actorName}様によって「${menu.name || ''}」が追加されました`;
+    await sendMail({ to: recipients, subject, html });
+  } catch (e) {
+    console.error('admin menu notify error:', e);
+  }
+}
+
 // 共通: 翌朝8時通知にメニュー追加を積む
 async function scheduleMyMenuAdded({ actorId, groupId, menuNames = [] }) {
   try {
