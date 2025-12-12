@@ -157,6 +157,11 @@
                   調理時間 <%= String(item.time).endsWith('分') ? item.time : (item.time + '分') %>
                 </span>
               <% } %>
+              <% if (Array.isArray(item.season) && item.season.length) { %>
+                <span class="list-chip inline-flex items-center rounded-full border border-teal-200 bg-teal-50 text-teal-800 px-2 py-0.5 self-start">
+                  旬 <%= item.season.join(' / ') %>
+                </span>
+              <% } %>
               <% if (item.junle) { %>
                 <span class="list-chip inline-flex items-center rounded-full border border-amber-200 bg-amber-50 text-amber-800 px-2 py-0.5 self-start">
                   ジャンル <%= item.junle %>

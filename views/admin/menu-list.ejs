@@ -143,6 +143,11 @@
             <% if (menu.material) { %>
               <span class="inline-block bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full text-xs font-semibold text-amber-700">素材</span>
             <% } %>
+            <% if (Array.isArray(menu.season) && menu.season.length) { %>
+              <span class="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-semibold text-emerald-700">
+                旬: <%= menu.season.join(' / ') %>
+              </span>
+            <% } %>
             <% if (menu.kind) { %>
               <span class="inline-block bg-gray-200 px-2 py-0.5 rounded-full text-xs font-medium text-gray-800">
                 種類: <%= menu.kind %>
@@ -245,6 +250,10 @@
             <div>
               <p class="font-medium">人数</p>
               <p>${menu.people || ''}人</p>
+            </div>
+            <div>
+              <p class="font-medium">旬な季節</p>
+              <p>${Array.isArray(menu.season) && menu.season.length ? menu.season.join(' / ') : '未設定'}</p>
             </div>
           </div>
 

@@ -14,6 +14,7 @@ import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import SearchLog from '../models/searchLog.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
+import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -267,7 +268,8 @@ router.get('/shared-register', async (req, res, next) => {
         url: m.url || '',
         by: null,
         canEdit: myEditableMenuIds.has(m._id.toString()),
-        ingredientIds
+        ingredientIds,
+        season: normalizeSeasonList(m.season)
       });
     });
     (filteredSharedUserMenus || []).forEach((mm) => {
@@ -284,6 +286,11 @@ router.get('/shared-register', async (req, res, next) => {
           const merged = new Set([...(existing.ingredientIds || []), ...ingredientIds]);
           existing.ingredientIds = Array.from(merged);
         }
+        const seasons = normalizeSeasonList(m.season);
+        if (seasons.length) {
+          const mergedSeason = new Set([...(existing.season || []), ...seasons]);
+          existing.season = Array.from(mergedSeason);
+        }
       } else {
         combinedMap.set(id, {
           id,
@@ -296,25 +303,35 @@ router.get('/shared-register', async (req, res, next) => {
           url: m.url || '',
           by: byName,
           canEdit: myEditableMenuIds.has(id),
-          ingredientIds
+          ingredientIds,
+          season: normalizeSeasonList(m.season)
         });
       }
     });
 
     let list = Array.from(combinedMap.values());
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const currentSeason = monthToSeason(month);
+    const currentMonthLabel = `${month}月`;
+
     if (onlySeasonalByMonth) {
-      const month = (new Date()).getMonth() + 1;
-      const currentMonthLabel = `${month}月`;
+      const seasonMatchIds = new Set(
+        list
+          .filter((it) => normalizeSeasonList(it.season || []).includes(currentSeason))
+          .map((it) => String(it.id))
+      );
       const allIngredientIds = new Set();
       list.forEach((it) => {
         (it.ingredientIds || []).forEach((id) => allIngredientIds.add(id));
       });
+      let seasonalIds = new Set();
       if (allIngredientIds.size > 0) {
         const seasonalIngredients = await Ingredient.find({
           _id: { $in: Array.from(allIngredientIds) },
           month: { $exists: true, $ne: [] }
         }).select('month').lean();
-        const seasonalIds = new Set(
+        seasonalIds = new Set(
           (seasonalIngredients || [])
             .filter((ing) => {
               const months = Array.isArray(ing.month) ? ing.month : [];
@@ -323,26 +340,28 @@ router.get('/shared-register', async (req, res, next) => {
             })
             .map((ing) => ing._id.toString())
         );
-        list = list.filter((it) => (it.ingredientIds || []).some((id) => seasonalIds.has(id)));
-      } else {
-        list = [];
       }
+      list = list.filter((it) => {
+        if (seasonMatchIds.has(String(it.id))) return true;
+        return (it.ingredientIds || []).some((id) => seasonalIds.has(id));
+      });
     } else if (onlySeasonal) {
-      const month = (new Date()).getMonth() + 1;
-      const currentSeason = (month >= 3 && month <= 6) ? '春'
-        : (month >= 7 && month <= 9) ? '夏'
-        : (month >= 10 && month <= 11) ? '秋'
-        : '冬';
+      const seasonMatchIds = new Set(
+        list
+          .filter((it) => normalizeSeasonList(it.season || []).includes(currentSeason))
+          .map((it) => String(it.id))
+      );
       const allIngredientIds = new Set();
       list.forEach((it) => {
         (it.ingredientIds || []).forEach((id) => allIngredientIds.add(id));
       });
+      let seasonalIds = new Set();
       if (allIngredientIds.size > 0) {
         const seasonalIngredients = await Ingredient.find({
           _id: { $in: Array.from(allIngredientIds) },
           season: { $exists: true, $ne: [] }
         }).select('season').lean();
-        const seasonalIds = new Set(
+        seasonalIds = new Set(
           (seasonalIngredients || [])
             .filter((ing) => {
               const seasons = Array.isArray(ing.season) ? ing.season : [];
@@ -351,10 +370,11 @@ router.get('/shared-register', async (req, res, next) => {
             })
             .map((ing) => ing._id.toString())
         );
-        list = list.filter((it) => (it.ingredientIds || []).some((id) => seasonalIds.has(id)));
-      } else {
-        list = [];
       }
+      list = list.filter((it) => {
+        if (seasonMatchIds.has(String(it.id))) return true;
+        return (it.ingredientIds || []).some((id) => seasonalIds.has(id));
+      });
     }
     // 絞り込み：fav = all | mine | not
     const favSet = new Set(myMenuIds || []);

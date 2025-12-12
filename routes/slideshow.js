@@ -5,6 +5,7 @@ import Mymenu from '../models/mymenu.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import User from '../models/users.js';
+import { monthToSeason } from '../utils/season.js';
 
 const router = express.Router();
 
@@ -68,6 +69,7 @@ async function buildSlides(type, userId) {
   }
 
   if (typeKey === 'seasonal-menus') {
+    const currentSeason = monthToSeason(new Date().getMonth() + 1);
     const seasonalIngredients = await Ingredient.find({
       month: { $exists: true, $ne: [] }
     }).select('_id month').lean();
@@ -79,13 +81,21 @@ async function buildSlides(type, userId) {
         })
         .map((ing) => ing._id.toString())
     );
-    if (!seasonalIds.size) return [];
-    const menus = await Menu.find({ 'ingredients.name': { $in: Array.from(seasonalIds) } })
-      .select('name imageUrl menu time people kind junle cook ingredients')
+    const menuFilter = [];
+    if (seasonalIds.size) {
+      menuFilter.push({ 'ingredients.name': { $in: Array.from(seasonalIds) } });
+    }
+    if (currentSeason) {
+      menuFilter.push({ season: currentSeason });
+    }
+    if (!menuFilter.length) return [];
+    const menus = await Menu.find({ $or: menuFilter })
+      .select('name imageUrl menu time people kind junle cook ingredients season')
       .populate({ path: 'ingredients.name', select: 'ingredient classification imageUrl month energy water protein lipid carbohydrate' })
       .lean();
     const slides = (menus || []).map((m) => {
       if (!m.imageUrl) return null;
+      const seasons = Array.isArray(m.season) ? m.season : [];
       const ingNames = (m.ingredients || [])
         .filter((ing) => ing?.name && seasonalIds.has(String(ing.name._id || ing.name)))
         .map((ing) => ing.name.ingredient)
@@ -96,8 +106,8 @@ async function buildSlides(type, userId) {
         subtitle: m.menu || '',
         tags: [m.junle, m.kind, m.cook].filter(Boolean),
         detail: m.time ? `${m.time}分 / ${m.people || 1}人分` : `${m.people || 1}人分`,
-        chips: ingNames,
-        source: `旬の食材 (${monthLabel})`
+        chips: ingNames.length ? ingNames : (seasons.length ? seasons : []),
+        source: seasons.includes(currentSeason) ? `旬の季節 (${currentSeason})` : `旬の食材 (${monthLabel})`
       };
     }).filter(Boolean);
     return takeRandom(slides, 80);

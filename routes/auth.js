@@ -2430,8 +2430,8 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
       return '';
     };
     const monthToSeason = (m) => {
-      if (m >= 3 && m <= 6) return '春';
-      if (m >= 7 && m <= 9) return '夏';
+      if (m >= 3 && m <= 5) return '春';
+      if (m >= 6 && m <= 9) return '夏';
       if (m >= 10 && m <= 11) return '秋';
       return '冬';
     };

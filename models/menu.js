@@ -81,6 +81,10 @@ const menuSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    season: {
+        type: [String],
+        default: []
+    },
     share: {
         type: Boolean,
         default: false

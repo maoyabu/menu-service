@@ -11,7 +11,7 @@
         スライドショーの種類
         <select id="slideshow-type" class="mt-1 w-full border rounded px-3 py-2 text-sm">
           <option value="favorites" <%= defaults && defaults.type === 'favorites' ? 'selected' : '' %>>お気に入りのメニュー</option>
-          <option value="seasonal-menus" <%= defaults && defaults.type === 'seasonal-menus' ? 'selected' : '' %>>旬なメニュー（旬食材を含む）</option>
+          <option value="seasonal-menus" <%= defaults && defaults.type === 'seasonal-menus' ? 'selected' : '' %>>旬なメニュー（季節指定・旬食材）</option>
           <option value="seasonal-ingredients" <%= defaults && defaults.type === 'seasonal-ingredients' ? 'selected' : '' %>>旬な食材（<%= monthLabel %>）</option>
           <option value="ingredients" <%= defaults && defaults.type === 'ingredients' ? 'selected' : '' %>>食材図鑑</option>
           <option value="seasonings" <%= defaults && defaults.type === 'seasonings' ? 'selected' : '' %>>調味料図鑑</option>

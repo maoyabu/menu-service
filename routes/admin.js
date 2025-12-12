@@ -12,6 +12,7 @@ import Equipment from '../models/equipment.js';
 import MailTemplateSetting from '../models/mailTemplateSetting.js';
 import Mymenu from '../models/mymenu.js';
 import AdminLog from '../models/adminLog.js';
+import { normalizeSeasonList } from '../utils/season.js';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
 import ExcelJS from 'exceljs';
@@ -685,6 +686,7 @@ router.post('/menu-new', async (req, res) => {
       material,
       makeAhead,
       basicMenu,
+      season = [],
       ingredient_ids = [],
       ingredient_amounts = [],
       ingredient_units = [],
@@ -708,6 +710,7 @@ router.post('/menu-new', async (req, res) => {
       amount: seasoning_amounts[index],
       unit: seasoning_units[index]
     }));
+    const selectedSeasons = normalizeSeasonList(season);
 
     const newMenu = new Menu({
       name,
@@ -727,6 +730,7 @@ router.post('/menu-new', async (req, res) => {
       isPrivate: toBool(req.body.isPrivate),
       ingredients,
       seasoning: seasonings,
+      season: selectedSeasons,
       share: false,
       entry_date: new Date()
     });
@@ -843,6 +847,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       material,
       makeAhead,
       basicMenu,
+      season = [],
       ingredient_ids = [],
       ingredient_amounts = [],
       ingredient_units = [],
@@ -866,6 +871,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       amount: seasoning_amounts[index],
       unit: seasoning_units[index]
     }));
+    const selectedSeasons = normalizeSeasonList(season);
 
     await Menu.findByIdAndUpdate(req.params.id, {
       name,
@@ -884,7 +890,8 @@ router.post('/menu-edit/:id', async (req, res) => {
       basicMenu: toBool(basicMenu),
       isPrivate: toBool(req.body.isPrivate),
       ingredients,
-      seasoning: seasonings
+      seasoning: seasonings,
+      season: selectedSeasons
     });
 
     const redirectUrl = filters ? `/admin/menu-list?${filters}` : '/admin/menu-list';
