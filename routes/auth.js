@@ -16,6 +16,7 @@ import { shouldSendTemplate } from '../utils/mailSettings.js';
 import Stock from '../models/stock.js';
 import MyEquipment from '../models/myEquipment.js';
 import Task from '../models/task.js';
+import Notice from '../models/notice.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
@@ -2377,6 +2378,13 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       .map(([name, count]) => ({ name, count }));
   })();
 
+  const threeDaysAgo = new Date();
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  const recentNotices = await Notice.find({ publishedAt: { $gte: threeDaysAgo } })
+    .sort({ publishedAt: -1, createdAt: -1 })
+    .limit(5)
+    .lean();
+
   res.render('users/myTop', {
     nextWeekPlan,
     nextWeekRangeLabel,
@@ -2403,6 +2411,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     popularKeywords,
     popularGenres,
     stockInventoryNotice,
+    recentNotices,
     equipmentInventoryNotice
   });
   } catch (err) {

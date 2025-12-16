@@ -1,0 +1,30 @@
+<section class="max-w-5xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">お知らせ一覧</h1>
+      <p class="text-sm text-gray-600">最新のお知らせを確認できます</p>
+    </div>
+    <a href="/users/my-top" class="text-sm text-blue-600 hover:underline">トップへ戻る</a>
+  </header>
+
+  <% if (!(notices || []).length) { %>
+    <p class="text-sm text-gray-500">現在お知らせはありません。</p>
+  <% } else { %>
+    <div class="divide-y rounded-2xl border bg-white shadow-sm">
+      <% (notices || []).forEach((n)=> { %>
+        <a class="block px-4 py-3 hover:bg-gray-50" href="/notices/<%= n._id %>">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-xs text-gray-500"><%= new Date(n.publishedAt || n.createdAt).toLocaleString('ja-JP') %></p>
+              <p class="text-base font-semibold text-gray-900"><%= n.title %></p>
+              <% if (n.category) { %>
+                <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100"><%= n.category %></span>
+              <% } %>
+            </div>
+            <span class="text-xs text-blue-600">詳細を見る</span>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  <% } %>
+</section>

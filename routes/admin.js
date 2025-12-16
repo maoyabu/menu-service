@@ -12,6 +12,9 @@ import Equipment from '../models/equipment.js';
 import MailTemplateSetting from '../models/mailTemplateSetting.js';
 import Mymenu from '../models/mymenu.js';
 import AdminLog from '../models/adminLog.js';
+import Notice from '../models/notice.js';
+import User from '../models/users.js';
+import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { normalizeSeasonList } from '../utils/season.js';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
@@ -213,6 +216,138 @@ router.get('/logs', async (req, res) => {
   } catch (err) {
     console.error('管理ログ表示エラー:', err);
     res.status(500).send('ログを表示できませんでした');
+  }
+});
+
+// お知らせ 管理
+router.get('/notices', async (req, res) => {
+  try {
+    const notices = await Notice.find({})
+      .sort({ publishedAt: -1, createdAt: -1 })
+      .limit(50)
+      .lean();
+    const categories = await Notice.distinct('category');
+    res.render('admin/admin-notices', {
+      notices,
+      categories,
+      editTarget: null,
+      success: req.flash('success'),
+      error: req.flash('error')
+    });
+  } catch (e) {
+    console.error('notice list error', e);
+    req.flash('error', 'お知らせの読み込みに失敗しました');
+    res.redirect('/admin/admin-top');
+  }
+});
+
+router.post('/notices', async (req, res) => {
+  try {
+    const title = (req.body?.title || '').trim();
+    const category = (req.body?.category || '').trim();
+    const body = (req.body?.body || '').trim();
+    const url = (req.body?.url || '').trim();
+    const notifyMail = req.body?.notifyMail === 'true' || req.body?.notifyMail === 'on';
+    if (!title) {
+      req.flash('error', 'タイトルを入力してください');
+      return res.redirect('/admin/notices');
+    }
+    const created = await Notice.create({
+      title,
+      category,
+      body,
+      url,
+      notifyMail,
+      publishedAt: new Date(),
+      createdBy: req.user?._id || null
+    });
+    if (notifyMail) {
+      try {
+        const users = await User.find({ isMail: true }).select('email').lean();
+        const emails = (users || []).map((u) => u.email).filter(Boolean);
+        if (emails.length) {
+          const subject = `【7 DAYS PLANからのお知らせ】${title}`;
+          const html = await renderTemplate('notice', { title, body, url });
+          await sendMail({ to: emails, subject, html });
+        }
+      } catch (mailErr) {
+        console.error('notice mail error', mailErr);
+      }
+    }
+    req.flash('success', 'お知らせを登録しました');
+    await logAdminAction('create_notice', { actorId: req.user?._id || null, detail: created._id?.toString?.() || '' });
+    res.redirect('/admin/notices');
+  } catch (e) {
+    console.error('notice create error', e);
+    req.flash('error', 'お知らせの登録に失敗しました');
+    res.redirect('/admin/notices');
+  }
+});
+
+router.get('/notices/:id', async (req, res) => {
+  try {
+    const notice = await Notice.findById(req.params.id).lean();
+    if (!notice) {
+      req.flash('error', 'お知らせが見つかりません');
+      return res.redirect('/admin/notices');
+    }
+    const categories = await Notice.distinct('category');
+    res.render('admin/admin-notices', {
+      notices: await Notice.find({}).sort({ publishedAt: -1, createdAt: -1 }).lean(),
+      categories,
+      editTarget: notice,
+      success: req.flash('success'),
+      error: req.flash('error')
+    });
+  } catch (e) {
+    console.error('notice edit page error', e);
+    req.flash('error', 'お知らせの取得に失敗しました');
+    res.redirect('/admin/notices');
+  }
+});
+
+router.post('/notices/:id', async (req, res) => {
+  try {
+    const title = (req.body?.title || '').trim();
+    const category = (req.body?.category || '').trim();
+    const body = (req.body?.body || '').trim();
+    const url = (req.body?.url || '').trim();
+    const notifyMail = req.body?.notifyMail === 'true' || req.body?.notifyMail === 'on';
+    if (!title) {
+      req.flash('error', 'タイトルを入力してください');
+      return res.redirect(`/admin/notices/${req.params.id}`);
+    }
+    const updated = await Notice.findByIdAndUpdate(req.params.id, {
+      $set: { title, category, body, url, notifyMail }
+    }, { new: true });
+    if (!updated) {
+      req.flash('error', 'お知らせが見つかりません');
+      return res.redirect('/admin/notices');
+    }
+    req.flash('success', 'お知らせを更新しました');
+    await logAdminAction('update_notice', { actorId: req.user?._id || null, detail: updated._id?.toString?.() || '' });
+    res.redirect('/admin/notices');
+  } catch (e) {
+    console.error('notice update error', e);
+    req.flash('error', 'お知らせの更新に失敗しました');
+    res.redirect(`/admin/notices/${req.params.id}`);
+  }
+});
+
+router.post('/notices/:id/delete', async (req, res) => {
+  try {
+    const deleted = await Notice.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      req.flash('error', 'お知らせが見つかりません');
+      return res.redirect('/admin/notices');
+    }
+    req.flash('success', 'お知らせを削除しました');
+    await logAdminAction('delete_notice', { actorId: req.user?._id || null, detail: deleted._id?.toString?.() || '' });
+    res.redirect('/admin/notices');
+  } catch (e) {
+    console.error('notice delete error', e);
+    req.flash('error', 'お知らせの削除に失敗しました');
+    res.redirect('/admin/notices');
   }
 });
 

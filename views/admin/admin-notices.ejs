@@ -1,0 +1,84 @@
+<section class="max-w-6xl mx-auto py-8 space-y-6">
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">お知らせ管理</h1>
+      <p class="text-sm text-gray-600">お知らせを登録すると、トップとお知らせ一覧に表示されます</p>
+    </div>
+    <a href="/admin/admin-top" class="text-sm text-blue-600 hover:underline">管理トップへ戻る</a>
+  </header>
+
+  <% if ((error || []).length) { %>
+    <div class="rounded-lg border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm"><%= error[0] %></div>
+  <% } %>
+  <% if ((success || []).length) { %>
+    <div class="rounded-lg border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm"><%= success[0] %></div>
+  <% } %>
+
+  <section class="rounded-2xl border border-blue-200 bg-white shadow-sm p-5 space-y-4">
+    <h2 class="text-lg font-semibold text-gray-900"><%= editTarget ? 'お知らせを編集' : 'お知らせを登録' %></h2>
+    <form action="<%= editTarget ? `/admin/notices/${editTarget._id}` : '/admin/notices' %>" method="post" class="space-y-3">
+      <label class="block text-sm font-semibold text-gray-800">タイトル
+        <input type="text" name="title" required class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 新しい機能を公開しました" value="<%= editTarget?.title || '' %>" />
+      </label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <label class="block text-sm font-semibold text-gray-800">カテゴリー
+          <input list="notice-category-datalist" type="text" name="category" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="手入力または候補から選択" value="<%= editTarget?.category || '' %>" />
+        </label>
+        <label class="block text-sm font-semibold text-gray-800">リンク先URL
+          <input type="url" name="url" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="https://example.com" value="<%= editTarget?.url || '' %>" />
+        </label>
+      </div>
+      <label class="block text-sm font-semibold text-gray-800">内容
+        <textarea name="body" rows="5" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="本文を入力してください"><%= editTarget?.body || '' %></textarea>
+      </label>
+      <label class="inline-flex items-center gap-2 text-sm font-semibold text-gray-800">
+        <input type="checkbox" name="notifyMail" value="true" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" <%= editTarget?.notifyMail ? 'checked' : '' %> />
+        メールでお知らせする（メール受信希望のユーザーに送信）
+      </label>
+      <div class="flex justify-end gap-2">
+        <% if (editTarget) { %>
+          <a href="/admin/notices" class="px-3 py-2 rounded border text-sm">新規作成に戻る</a>
+        <% } %>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"><%= editTarget ? '更新する' : '登録する' %></button>
+      </div>
+    </form>
+    <datalist id="notice-category-datalist">
+      <% (categories || []).filter(Boolean).forEach((c)=> { %>
+        <option value="<%= c %>"></option>
+      <% }) %>
+    </datalist>
+  </section>
+
+  <section class="rounded-2xl border bg-white shadow-sm p-5 space-y-3">
+    <h2 class="text-lg font-semibold text-gray-900">最近のお知らせ</h2>
+    <% if (!(notices||[]).length) { %>
+      <p class="text-sm text-gray-500">まだお知らせがありません。</p>
+    <% } else { %>
+      <div class="divide-y">
+        <% (notices||[]).forEach((n)=> { %>
+          <div class="py-3 flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-sm text-gray-500"><%= new Date(n.publishedAt || n.createdAt).toLocaleString('ja-JP') %></p>
+                <p class="text-base font-semibold text-gray-900"><%= n.title %></p>
+                <% if (n.category) { %><span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100"><%= n.category %></span><% } %>
+              </div>
+              <div class="flex items-center gap-2">
+                <a href="/admin/notices/<%= n._id %>" class="px-3 py-1.5 rounded border text-sm text-blue-700 hover:bg-blue-50">編集</a>
+                <form action="/admin/notices/<%= n._id %>/delete" method="post" onsubmit="return confirm('削除してよろしいですか？');">
+                  <button type="submit" class="px-3 py-1.5 rounded border text-sm text-red-700 hover:bg-red-50">削除</button>
+                </form>
+              </div>
+            </div>
+            <% if (n.body) { %>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap"><%= n.body %></p>
+            <% } %>
+            <% if (n.url) { %>
+              <a href="<%= n.url %>" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">リンクを開く</a>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+</section>

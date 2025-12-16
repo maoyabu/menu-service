@@ -23,6 +23,7 @@ import packingRoutes from './routes/packing.js';
 import boardRoutes from './routes/board.js';
 import slideshowRoutes from './routes/slideshow.js';
 import purchaseReminderRoutes from './routes/purchaseReminder.js';
+import noticeRoutes from './routes/notices.js';
 import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
 import WeeklyAnnouncement from './models/weeklyAnnouncement.js';
@@ -131,6 +132,7 @@ app.use('/users/purchase-reminder', purchaseReminderRoutes);
 app.use('/users/packing', packingRoutes);
 app.use('/users/board', boardRoutes);
 app.use('/slideshow', slideshowRoutes);
+app.use('/notices', noticeRoutes);
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
