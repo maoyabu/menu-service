@@ -278,6 +278,7 @@ const masterItemForm = document.getElementById('master-modal-form');
   const masterWish = document.getElementById('master-wish');
   let masterEditId = '';
   const OWNER_KEY = 'packing:master:owners';
+  const STORAGE_OWNER_KEY = 'packing:storage:owners';
   const categoryModal = document.getElementById('category-modal');
   const categoryListEl = document.getElementById('category-list');
   const categoryAddInput = document.getElementById('category-add-input');
@@ -335,6 +336,24 @@ const masterItemForm = document.getElementById('master-modal-form');
       if (!storageOwnerFilter) return null;
       const selected = Array.from(storageOwnerFilter.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
       return selected.length ? selected : null;
+    }
+    function restoreStorageOwnerSelections(){
+      if (!storageOwnerFilter) return;
+      try{
+        const saved = JSON.parse(localStorage.getItem(STORAGE_OWNER_KEY) || '[]');
+        if (Array.isArray(saved) && saved.length){
+          storageOwnerFilter.querySelectorAll('input[type="checkbox"]').forEach((cb)=> {
+            cb.checked = saved.includes(cb.value);
+          });
+        }
+      } catch(_) {}
+    }
+    function saveStorageOwnerSelections(){
+      if (!storageOwnerFilter) return;
+      try{
+        const checked = Array.from(storageOwnerFilter.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
+        localStorage.setItem(STORAGE_OWNER_KEY, JSON.stringify(checked));
+      } catch(_) {}
     }
 
     function renderStorageList(){
@@ -714,10 +733,10 @@ function renderMasterItemList(){
           if (idx>=0) storages.splice(idx,1);
           renderStorageList();
           toast('削除しました');
-        }catch(e){ toast(e.message || '削除に失敗しました'); }
+      }catch(e){ toast(e.message || '削除に失敗しました'); }
       }
     });
-    storageOwnerFilter?.addEventListener('change', renderStorageList);
+    storageOwnerFilter?.addEventListener('change', ()=> { saveStorageOwnerSelections(); renderStorageList(); });
     storageEditModal?.addEventListener('click', (ev)=> { if (ev.target === storageEditModal) { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); } });
     storageEditModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); }));
     storageEditSave?.addEventListener('click', async ()=>{
@@ -829,6 +848,7 @@ function renderMasterItemList(){
     });
 
     renderEventList();
+    restoreStorageOwnerSelections();
     renderStorageList();
     renderCategoryDatalist();
     restoreOwnerSelections();
