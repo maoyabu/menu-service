@@ -178,13 +178,14 @@
   }
 </style>
 
-<section class="relative max-w-6xl mx-auto py-1.5 space-y-10">
-  <% const topKeywords = (typeof popularKeywords !== 'undefined' && Array.isArray(popularKeywords) && popularKeywords.length)
-      ? popularKeywords.slice(0,5)
-      : [{ term:'鶏むね', count:1 }, { term:'豚こま', count:1 }, { term:'野菜たっぷり', count:1 }, { term:'カレー', count:1 }, { term:'スープ', count:1 }]; %>
-  <% const topGenres = (typeof popularGenres !== 'undefined' && Array.isArray(popularGenres) && popularGenres.length)
-      ? popularGenres.slice(0,5)
-      : [{ name:'和食', count:1 }, { name:'洋食', count:1 }, { name:'中華', count:1 }, { name:'麺類', count:1 }, { name:'丼', count:1 }]; %>
+<section class="relative max-w-6xl mx-auto pt-1.5 pb-[15px] space-y-10">
+<% const topKeywords = (typeof popularKeywords !== 'undefined' && Array.isArray(popularKeywords) && popularKeywords.length)
+    ? popularKeywords.slice(0,5)
+    : [{ term:'鶏むね', count:1 }, { term:'豚こま', count:1 }, { term:'野菜たっぷり', count:1 }, { term:'カレー', count:1 }, { term:'スープ', count:1 }]; %>
+<% const topGenres = (typeof popularGenres !== 'undefined' && Array.isArray(popularGenres) && popularGenres.length)
+    ? popularGenres.slice(0,5)
+    : [{ name:'和食', count:1 }, { name:'洋食', count:1 }, { name:'中華', count:1 }, { name:'麺類', count:1 }, { name:'丼', count:1 }]; %>
+<% const alertCount = (equipmentInventoryNotice ? 1 : 0) + (stockInventoryNotice ? 1 : 0) + ((recentNotices || []).length || 0); %>
   <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
     <div class="px-6 py-8 md:p-12 flex flex-col md:flex-row md:items-start md:justify-between gap-8 md:gap-12">
       <div class="relative z-10 flex flex-col gap-6 max-w-2xl md:justify-between md:pr-8">
@@ -217,7 +218,16 @@
         </div>
       </div>
 
-      <div class="relative md:ml-6 md:shrink-0">
+      <div class="relative md:ml-6 md:shrink-0 flex flex-col items-end gap-3">
+        <button id="alert-button" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 text-blue-700 text-xs font-semibold shadow hover:bg-white transition">
+          <span class="lucide w-4 h-4" data-lucide="bell"></span>
+          <span>アラート</span>
+          <% if (alertCount > 0) { %>
+            <span class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-red-600 text-white text-[11px] font-bold"><%= alertCount %></span>
+          <% } else { %>
+            <span class="text-[11px] text-gray-500">0件</span>
+          <% } %>
+        </button>
         <div id="hero-carousel" class="w-72 h-44 md:w-96 md:h-56 rounded-xl overflow-hidden border border-white/30 shadow-lg bg-white/10 mx-auto md:mx-0">
           <div class="hero-empty" data-carousel-empty>
             <div class="text-center">
@@ -239,6 +249,59 @@
         </div>
       </div>
 </section>
+
+<div id="alert-modal" class="hidden fixed inset-0 z-50 bg-black/40 items-start justify-center p-4">
+  <div class="mt-16 w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900">お知らせ / 棚卸し</h3>
+      <button type="button" id="alert-close" class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <% if (alertCount === 0) { %>
+      <p class="text-sm text-gray-600">現在お知らせはありません。</p>
+    <% } else { %>
+      <div class="space-y-2 max-h-[60vh] overflow-y-auto">
+        <% if (equipmentInventoryNotice) { %>
+          <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="lucide w-4 h-4 text-amber-700" data-lucide="boxes"></span>
+              <p class="text-sm text-amber-800 truncate">
+                <span class="font-semibold"><%= equipmentInventoryNotice.title %></span>
+                <span class="text-xs text-amber-700 ml-2"><%= equipmentInventoryNotice.message %></span>
+              </p>
+            </div>
+            <a href="<%= equipmentInventoryNotice.actionHref %>" class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700">
+              棚卸しする
+            </a>
+          </div>
+        <% } %>
+        <% if (stockInventoryNotice) { %>
+          <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="lucide w-4 h-4 text-blue-700" data-lucide="clipboard-check"></span>
+              <p class="text-sm text-blue-800 truncate">
+                <span class="font-semibold"><%= stockInventoryNotice.title %></span>
+                <span class="text-xs text-blue-700 ml-2"><%= stockInventoryNotice.message %></span>
+              </p>
+            </div>
+            <a href="<%= stockInventoryNotice.actionHref %>" class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">
+              棚卸しリストへ
+            </a>
+          </div>
+        <% } %>
+        <% (recentNotices || []).forEach((n)=> { %>
+          <a href="/notices/<%= n._id %>" class="flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-100 hover:bg-emerald-50">
+            <span class="lucide w-4 h-4 text-emerald-700" data-lucide="megaphone"></span>
+            <div class="flex items-center gap-2">
+              <p class="text-sm font-semibold text-gray-900"><%= n.title %></p>
+              <% if (n.category) { %><span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100"><%= n.category %></span><% } %>
+              <span class="text-[11px] text-gray-500 shrink-0"><%= new Date(n.publishedAt || n.createdAt).toLocaleString('ja-JP') %></span>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
 
 <script>
   // Use server-provided headerImageItems (url+name), excluding today's & this week's images if available
@@ -270,64 +333,19 @@
   })();
 </script>
 
-<% const hasInventoryNotice = !!(equipmentInventoryNotice || stockInventoryNotice); %>
-<% if (hasInventoryNotice) { %>
-  <section class="max-w-6xl mx-auto mb-2 grid gap-1">
-    <% if (equipmentInventoryNotice) { %>
-      <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 shadow-sm">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="lucide w-4 h-4 text-amber-700" data-lucide="boxes"></span>
-          <p class="text-sm text-amber-800 truncate">
-            <span class="font-semibold"><%= equipmentInventoryNotice.title %></span>
-            <span class="text-xs text-amber-700 ml-2"><%= equipmentInventoryNotice.message %></span>
-          </p>
-        </div>
-        <a href="<%= equipmentInventoryNotice.actionHref %>" class="shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700">
-          <span class="lucide w-4 h-4" data-lucide="list-checks"></span>
-          棚卸しする
-        </a>
-      </div>
-    <% } %>
-    <% if (stockInventoryNotice) { %>
-      <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 shadow-sm">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="lucide w-4 h-4 text-blue-700" data-lucide="clipboard-check"></span>
-          <p class="text-sm text-blue-800 truncate">
-            <span class="font-semibold"><%= stockInventoryNotice.title %></span>
-            <span class="text-xs text-blue-700 ml-2"><%= stockInventoryNotice.message %></span>
-          </p>
-        </div>
-        <a href="<%= stockInventoryNotice.actionHref %>" class="shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">
-          <span class="lucide w-4 h-4" data-lucide="check-square"></span>
-          棚卸しリストへ
-        </a>
-      </div>
-    <% } %>
-  </section>
-<% } %>
+<script>
+  (function(){
+    const btn = document.getElementById('alert-button');
+    const modal = document.getElementById('alert-modal');
+    const closeBtn = document.getElementById('alert-close');
+    const open = ()=> { modal?.classList.remove('hidden'); modal?.classList.add('flex'); if (window.refreshLucideIcons) window.refreshLucideIcons(); };
+    const close = ()=> { modal?.classList.add('hidden'); modal?.classList.remove('flex'); };
+    btn?.addEventListener('click', open);
+    closeBtn?.addEventListener('click', close);
+    modal?.addEventListener('click', (ev)=> { if (ev.target === modal) close(); });
+  })();
+</script>
 
-<% if ((recentNotices || []).length) { %>
-  <section class="max-w-6xl mx-auto mb-3 rounded-xl border border-emerald-200 bg-white shadow-sm">
-    <div class="flex items-center justify-between px-3 py-2 border-b border-emerald-100">
-      <div class="flex items-center gap-2">
-        <span class="lucide w-4 h-4 text-emerald-700" data-lucide="megaphone"></span>
-        <p class="text-sm font-semibold text-emerald-800">お知らせ</p>
-      </div>
-      <a href="/notices" class="text-[11px] text-emerald-700 hover:underline">一覧へ</a>
-    </div>
-    <div>
-      <% (recentNotices || []).forEach((n)=> { %>
-        <a href="/notices/<%= n._id %>" class="flex items-center gap-3 px-3 py-2 hover:bg-emerald-50 border-b last:border-b-0 border-emerald-100">
-          <p class="text-sm font-semibold text-gray-900 truncate"><%= n.title %></p>
-          <% if (n.category) { %>
-            <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100"><%= n.category %></span>
-          <% } %>
-          <span class="shrink-0 text-[11px] text-gray-500"><%= new Date(n.publishedAt || n.createdAt).toLocaleString('ja-JP') %></span>
-        </a>
-      <% }) %>
-    </div>
-  </section>
-<% } %>
 
   <!-- 検索と旬メニュー / 人気タグ（ヒーロー直下） -->
   <section class="bg-white border border-gray-200 rounded-2xl shadow-sm mb-4">
