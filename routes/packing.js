@@ -623,7 +623,14 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('チェックリスト');
     sheet.properties.defaultRowHeight = 22;
-    const title = `${ev.name || 'パッキング'} チェックリスト`;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth()+1).padStart(2,'0');
+    const d = String(today.getDate()).padStart(2,'0');
+    const ownerLabel = owner === 'all'
+      ? '共有'
+      : (memberInfo.labelMap.get(owner) || 'メンバー');
+    const title = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト`;
     sheet.mergeCells('A1:D1');
     sheet.getCell('A1').value = title;
     sheet.getCell('A1').font = { name: 'Meiryo UI', size: 16, bold: true };
@@ -665,13 +672,6 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     while (sheet.rowCount < minRows + 3) {
       addBorder(sheet.addRow({ storage:'', item:'', qty:'', check:'' }));
     }
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth()+1).padStart(2,'0');
-    const d = String(today.getDate()).padStart(2,'0');
-    const ownerLabel = owner === 'all'
-      ? '共有'
-      : (memberInfo.labelMap.get(owner) || 'メンバー');
     const baseName = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト.xlsx`;
     const encoded = encodeURIComponent(baseName);
     const fallback = 'packing-checklist.xlsx';
