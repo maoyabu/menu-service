@@ -632,17 +632,20 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
       : (memberInfo.labelMap.get(owner) || 'メンバー');
     const title = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト`;
     sheet.mergeCells('A1:D1');
-    sheet.getCell('A1').value = title;
-    sheet.getCell('A1').font = { name: 'Meiryo UI', size: 16, bold: true };
-    sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = title;
+    titleCell.font = { name: 'Meiryo UI', size: 16, bold: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(1).height = 26;
     sheet.columns = [
-      { header: '収納先', key: 'storage', width: 18 },
-      { header: '持ち物', key: 'item', width: 28 },
-      { header: '数量', key: 'qty', width: 12 },
-      { header: 'チェック欄', key: 'check', width: 12 }
+      { key: 'storage', width: 18 },
+      { key: 'item', width: 28 },
+      { key: 'qty', width: 12 },
+      { key: 'check', width: 12 }
     ];
+    const headerRowNumber = 3;
     const addBorder = (row)=> row.eachCell((cell)=> {
-      const isHeader = row.number === 3;
+      const isHeader = row.number === headerRowNumber;
       cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
       cell.font = { name: 'Meiryo UI', size: 16, bold: isHeader };
       const col = cell.col;
@@ -656,7 +659,7 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
       }
     });
-    const header = sheet.getRow(3);
+    const header = sheet.getRow(headerRowNumber);
     header.values = ['収納先', '持ち物', '数量', 'チェック欄'];
     addBorder(header);
     const sortedRows = items
