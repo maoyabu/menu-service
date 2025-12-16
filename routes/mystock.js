@@ -1,4 +1,5 @@
 import express from 'express';
+import ExcelJS from 'exceljs';
 import { isLoggedIn } from '../middleware.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
@@ -305,6 +306,79 @@ router.get('/checklist', async (req, res, next) => {
     }));
     res.render('users/myStockChecklist', { places, items, monthLabel: `${now.getFullYear()}年${now.getMonth()+1}月`, monthStartISO: start.toISOString() });
   } catch(e) { next(e); }
+});
+
+// Checklist export (Excel)
+router.get('/checklist.xlsx', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).send('group required');
+    const [stocks, places] = await Promise.all([
+      Stock.find({ group: groupId, user: req.user._id }).lean(),
+      StoragePlace.find({ group: groupId }).lean()
+    ]);
+    const placeNameById = new Map((places||[]).map(p=> [String(p._id), p.name]));
+    const ingIds = stocks.filter(s=> s.type==='ingredient').map(s=> s.item);
+    const seaIds = stocks.filter(s=> s.type==='seasoning').map(s=> s.item);
+    const [ings, seas] = await Promise.all([
+      Ingredient.find({ _id: { $in: ingIds } }).select('ingredient').lean(),
+      Seasoning.find({ _id: { $in: seaIds } }).select('seasoning').lean()
+    ]);
+    const ingName = new Map((ings||[]).map(x=>[String(x._id), x.ingredient]));
+    const seaName = new Map((seas||[]).map(x=>[String(x._id), x.seasoning]));
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('棚卸しリスト');
+    sheet.properties.defaultRowHeight = 22;
+    sheet.mergeCells('A1:E1');
+    sheet.getCell('A1').value = 'ストック棚卸しリスト';
+    sheet.getCell('A1').font = { name: 'Meiryo UI', size: 16, bold: true };
+    sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.mergeCells('C2:D2');
+    sheet.getCell('C2').value = '棚卸';
+    sheet.getCell('C2').alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(3).values = ['場所','ストック名','数量','数量','チェック担当者'];
+    sheet.columns = [
+      { header: '場所', key: 'place', width: 16 },
+      { header: 'ストック名', key: 'name', width: 28 },
+      { header: '数量', key: 'current', width: 12 },
+      { header: '数量', key: 'count', width: 12 },
+      { header: 'チェック担当者', key: 'checker', width: 16 }
+    ];
+    sheet.getRow(3).font = { name: 'Meiryo UI', size: 16, bold: true };
+    sheet.getRow(3).alignment = { horizontal: 'center', vertical: 'middle' };
+    const data = (stocks||[])
+      .map(s=>({
+        place: placeNameById.get(String(s.place||'')) || '未設定',
+        name: s.type==='ingredient' ? (ingName.get(String(s.item)) || '') : (seaName.get(String(s.item)) || ''),
+        current: s.amount || '',
+        count: '',
+        checker: ''
+      }))
+      .sort((a,b)=> a.place.localeCompare(b.place,'ja'));
+    const addBorder = (row)=> row.eachCell((cell)=> {
+      cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+      const isHeader = row.number === 3;
+      cell.font = { name: 'Meiryo UI', size: 16, bold: isHeader };
+      const col = cell.col;
+      if (col === 3 || col === 4) {
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      } else if (isHeader) {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      }
+    });
+    addBorder(sheet.getRow(3));
+    data.forEach((row)=> addBorder(sheet.addRow(row)));
+    const minRows = 25;
+    while (sheet.rowCount < minRows + 3) {
+      addBorder(sheet.addRow({ place:'', name:'', current:'', count:'', checker:'', checkedAt:'' }));
+    }
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=\"stock_inventory.xlsx\"');
+    res.send(Buffer.from(buffer));
+  } catch (e) { next(e); }
 });
 
 export default router;

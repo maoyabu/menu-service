@@ -1,4 +1,5 @@
 import express from 'express';
+import ExcelJS from 'exceljs';
 import { isLoggedIn } from '../middleware.js';
 import Group from '../models/groups.js';
 import StoragePlace from '../models/storagePlace.js';
@@ -171,6 +172,73 @@ router.get('/inventory', async (req, res, next) => {
       items: entries,
       monthLabel
     });
+  } catch (e) { next(e); }
+});
+
+// Inventory export (Excel)
+router.get('/inventory.xlsx', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).send('group required');
+    const group = await Group.findById(groupId).select('group_name equipmentInventory').lean();
+    const enabled = group?.equipmentInventory?.enabled !== false;
+    if (!enabled) return res.status(400).send('inventory disabled');
+    const items = await MyEquipment.find({ group: groupId })
+      .populate('place', 'name')
+      .populate('lastInventoryBy', 'displayname username')
+      .lean();
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('備品棚卸しリスト');
+    sheet.properties.defaultRowHeight = 22;
+    sheet.mergeCells('A1:E1');
+    sheet.getCell('A1').value = '備品棚卸しリスト';
+    sheet.getCell('A1').font = { name: 'Meiryo UI', size: 16, bold: true };
+    sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.mergeCells('C2:D2');
+    sheet.getCell('C2').value = '棚卸';
+    sheet.getCell('C2').alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(3).values = ['場所','ストック名','数量','数量','チェック担当者'];
+    sheet.columns = [
+      { header: '場所', key: 'place', width: 16 },
+      { header: 'ストック名', key: 'name', width: 28 },
+      { header: '数量', key: 'current', width: 12 },
+      { header: '数量', key: 'count', width: 12 },
+      { header: 'チェック担当者', key: 'checker', width: 16 }
+    ];
+    sheet.getRow(3).font = { name: 'Meiryo UI', size: 16, bold: true };
+    sheet.getRow(3).alignment = { horizontal: 'center', vertical: 'middle' };
+    const addBorder = (row)=> row.eachCell((cell)=> {
+      cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+      const isHeader = row.number === 3;
+      cell.font = { name: 'Meiryo UI', size: 16, bold: isHeader };
+      const col = cell.col;
+      if (col === 3 || col === 4) {
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      } else if (isHeader) {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      }
+    });
+    addBorder(sheet.getRow(3));
+    items
+      .map((it)=>({
+        place: it.place?.name || '未設定',
+        name: it.name || '',
+        current: it.quantity || '',
+        count: '',
+        checker: ''
+      }))
+      .sort((a,b)=> a.place.localeCompare(b.place,'ja'))
+      .forEach((row)=> { addBorder(sheet.addRow(row)); });
+    const minRows = 25;
+    while (sheet.rowCount < minRows + 3) {
+      addBorder(sheet.addRow({ place:'', name:'', current:'', count:'', checker:'', checkedAt:'' }));
+    }
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=\"equipment_inventory.xlsx\"');
+    res.send(Buffer.from(buffer));
   } catch (e) { next(e); }
 });
 

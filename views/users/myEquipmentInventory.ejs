@@ -4,7 +4,10 @@
       <h1 class="text-xl font-extrabold whitespace-nowrap"><%= monthLabel || '' %>の備品の棚卸しリスト</h1>
       <p class="text-sm opacity-80"><%= groupName || '' %> / 周期: <%= cadence==='half' ? '半年' : cadence==='quarter' ? '3ヶ月' : '毎月' %></p>
     </div>
-    <a href="/users/my-equipment" class="text-sm text-blue-600 font-semibold">マイ備品へ戻る</a>
+    <div class="flex items-center gap-2">
+      <a href="/users/my-equipment/inventory.xlsx" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 border border-emerald-700 shadow-sm">Excelダウンロード</a>
+      <a href="/users/my-equipment" class="text-sm text-blue-600 font-semibold">マイ備品へ戻る</a>
+    </div>
   </header>
 
   <div id="equip-tabs" class="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-y py-2 hidden"></div>
