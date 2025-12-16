@@ -236,8 +236,15 @@ router.get('/inventory.xlsx', async (req, res, next) => {
       addBorder(sheet.addRow({ place:'', name:'', current:'', count:'', checker:'', checkedAt:'' }));
     }
     const buffer = await workbook.xlsx.writeBuffer();
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth()+1).padStart(2,'0');
+    const d = String(today.getDate()).padStart(2,'0');
+    const baseName = `備品棚卸しリスト${y}${m}${d}.xlsx`;
+    const encoded = encodeURIComponent(baseName);
+    const fallback = 'equipment_inventory.xlsx';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=\"equipment_inventory.xlsx\"');
+    res.setHeader('Content-Disposition', `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`);
     res.send(Buffer.from(buffer));
   } catch (e) { next(e); }
 });

@@ -1,4 +1,5 @@
 import express from 'express';
+import ExcelJS from 'exceljs';
 import mongoose from 'mongoose';
 import { isLoggedIn } from '../middleware.js';
 import Group from '../models/groups.js';
@@ -547,53 +548,6 @@ router.post('/api/events/:id/duplicate', async (req, res) => {
   }
 });
 
-router.get('/check/:eventId', async (req, res, next) => {
-  try {
-    const groupId = getGroupId(res);
-    if (!groupId) return res.redirect('/users/packing');
-    const eventId = req.params.eventId;
-    const [ev, storagesRaw, itemsRaw, masterItemsRaw] = await Promise.all([
-      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
-      PackingStorage.find({ group: groupId }).lean(),
-      PackingItem.find({ group: groupId, event: eventId }).lean(),
-      PackingMasterItem.find({ group: groupId }).lean()
-    ]);
-    if (!ev) return res.redirect('/users/packing');
-    const storageIds = (ev.storageIds || []).map((x)=> x.toString());
-    const storages = (storagesRaw || [])
-      .slice()
-      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
-      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
-    const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
-    const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
-    const items = (hydratedItems || [])
-      .filter((it)=> !it.hidden)
-      .map((it)=> ({
-      id: String(it._id),
-      name: it.name,
-      storageId: it.storageId ? String(it.storageId) : '',
-      storageName: it.storageName || '',
-      checked: !!it.checked,
-      checkedAt: it.checkedAt,
-      checkedBy: it.checkedBy,
-      quantity: it.quantity || 0,
-      weight: it.weight || 0,
-      category: it.category || '',
-      hidden: !!it.hidden,
-      owner: it.owner ? String(it.owner) : 'all',
-      wish: !!it.wish,
-      comment: it.comment || ''
-    }));
-    await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
-    res.render('users/packingCheck', {
-      event: { id: String(ev._id), name: ev.name },
-      storages: filteredStorages,
-      items
-    });
-  } catch(e){ next(e); }
-});
-
 router.get('/shop/:eventId', async (req, res, next) => {
   try {
     const groupId = getGroupId(res);
@@ -625,6 +579,107 @@ router.get('/shop/:eventId', async (req, res, next) => {
       items
     });
   } catch(e){ next(e); }
+});
+
+// Checklist Excel export
+router.get('/check/:eventId.xlsx', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).send('group required');
+    const eventId = req.params.eventId;
+    const owner = String(req.query.owner || 'all');
+    const [ev, storagesRaw, itemsRaw, memberInfo] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      PackingStorage.find({ group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean(),
+      getMemberOptions(groupId)
+    ]);
+    if (!ev) return res.status(404).send('not found');
+    const storageIds = (ev.storageIds || []).map((x)=> x.toString());
+    const storages = (storagesRaw || [])
+      .slice()
+      .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
+      .filter((s)=> !storageIds.length || storageIds.includes(s.id))
+      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
+    const items = (itemsRaw || [])
+      .filter((it)=> !it.hidden)
+      .filter((it)=> {
+        if (!storageIds.length) return true;
+        return storageIds.includes(String(it.storageId || ''));
+      })
+      .map((it)=> ({
+        id: String(it._id),
+        name: it.name || '',
+        storageId: it.storageId ? String(it.storageId) : '',
+        quantity: it.quantity || 0,
+        owner: it.owner ? String(it.owner) : 'all'
+      }))
+      .filter((it)=> {
+        if (owner === 'all') return true;
+        if (it.owner === 'all') return true;
+        return it.owner === owner;
+      });
+    const storageNameById = new Map(storages.map((s)=> [s.id, s.name || '収納']));
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('チェックリスト');
+    sheet.properties.defaultRowHeight = 22;
+    const title = `${ev.name || 'パッキング'} チェックリスト`;
+    sheet.mergeCells('A1:D1');
+    sheet.getCell('A1').value = title;
+    sheet.getCell('A1').font = { name: 'Meiryo UI', size: 16, bold: true };
+    sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.columns = [
+      { header: '収納先', key: 'storage', width: 18 },
+      { header: '持ち物', key: 'item', width: 28 },
+      { header: '数量', key: 'qty', width: 12 },
+      { header: 'チェック欄', key: 'check', width: 12 }
+    ];
+    const addBorder = (row)=> row.eachCell((cell)=> {
+      const isHeader = row.number === 3;
+      cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+      cell.font = { name: 'Meiryo UI', size: 16, bold: isHeader };
+      const col = cell.col;
+      if (col === 3) {
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      } else if (col === 4) {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else if (isHeader) {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      }
+    });
+    const header = sheet.getRow(3);
+    header.values = ['収納先', '持ち物', '数量', 'チェック欄'];
+    addBorder(header);
+    const sortedRows = items
+      .map((it)=> ({
+        storage: storageNameById.get(it.storageId) || '未設定',
+        item: it.name || '',
+        qty: it.quantity || '',
+        check: ''
+      }))
+      .sort((a,b)=> a.storage.localeCompare(b.storage,'ja') || (a.item||'').localeCompare(b.item||'','ja'));
+    sortedRows.forEach((row)=> addBorder(sheet.addRow(row)));
+    const minRows = 25;
+    while (sheet.rowCount < minRows + 3) {
+      addBorder(sheet.addRow({ storage:'', item:'', qty:'', check:'' }));
+    }
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth()+1).padStart(2,'0');
+    const d = String(today.getDate()).padStart(2,'0');
+    const ownerLabel = owner === 'all'
+      ? '共有'
+      : (memberInfo.labelMap.get(owner) || 'メンバー');
+    const baseName = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト.xlsx`;
+    const encoded = encodeURIComponent(baseName);
+    const fallback = 'packing-checklist.xlsx';
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`);
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (e) { next(e); }
 });
 
 // Event detail
@@ -733,49 +788,6 @@ router.get('/:eventId', async (req, res, next) => {
       currentUserId: req.user?._id ? String(req.user._id) : ''
     });
   } catch(e) { next(e); }
-});
-
-router.get('/check/:eventId', async (req, res, next) => {
-  try {
-    const groupId = getGroupId(res);
-    if (!groupId) return res.redirect('/users/packing');
-    const eventId = req.params.eventId;
-    const [ev, storagesRaw, itemsRaw, masterItemsRaw] = await Promise.all([
-      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
-      PackingStorage.find({ group: groupId }).lean(),
-      PackingItem.find({ group: groupId, event: eventId }).lean(),
-      PackingMasterItem.find({ group: groupId }).lean()
-    ]);
-    if (!ev) return res.redirect('/users/packing');
-    const storageIds = (ev.storageIds || []).map((x)=> x.toString());
-    const storages = (storagesRaw || [])
-      .slice()
-      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
-      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0 }));
-    const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
-    const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
-    const items = (hydratedItems || []).map((it)=> ({
-      id: String(it._id),
-      name: it.name,
-      storageId: it.storageId ? String(it.storageId) : '',
-      storageName: it.storageName || '',
-      checked: !!it.checked,
-      checkedAt: it.checkedAt,
-      checkedBy: it.checkedBy,
-      quantity: it.quantity || 0,
-      weight: it.weight || 0,
-      category: it.category || '',
-      owner: it.owner ? String(it.owner) : 'all',
-      wish: !!it.wish,
-      comment: it.comment || ''
-    }));
-    res.render('users/packingCheck', {
-      event: { id: String(ev._id), name: ev.name },
-      storages: filteredStorages,
-      items
-    });
-  } catch(e){ next(e); }
 });
 
 // Event items (assignment)
@@ -971,3 +983,157 @@ router.post('/api/items/:id/check', async (req, res) => {
 });
 
 export default router;
+// Checklist Excel export (place before HTML route to avoid param collision)
+router.get('/check/:eventId.xlsx', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).send('group required');
+    const eventId = req.params.eventId;
+    const owner = String(req.query.owner || 'all');
+    const [ev, storagesRaw, itemsRaw, memberInfo] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      PackingStorage.find({ group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean(),
+      getMemberOptions(groupId)
+    ]);
+    if (!ev) return res.status(404).send('not found');
+    const storageIds = (ev.storageIds || []).map((x)=> x.toString());
+    const storages = (storagesRaw || [])
+      .slice()
+      .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
+      .filter((s)=> !storageIds.length || storageIds.includes(s.id))
+      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
+    const items = (itemsRaw || [])
+      .filter((it)=> !it.hidden)
+      .filter((it)=> {
+        if (!storageIds.length) return true;
+        return storageIds.includes(String(it.storageId || ''));
+      })
+      .map((it)=> ({
+        id: String(it._id),
+        name: it.name || '',
+        storageId: it.storageId ? String(it.storageId) : '',
+        quantity: it.quantity || 0,
+        owner: it.owner ? String(it.owner) : 'all'
+      }))
+      .filter((it)=> {
+        if (owner === 'all') return true;
+        if (it.owner === 'all') return true;
+        return it.owner === owner;
+      });
+    const storageNameById = new Map(storages.map((s)=> [s.id, s.name || '収納']));
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('チェックリスト');
+    sheet.properties.defaultRowHeight = 22;
+    const title = `${ev.name || 'パッキング'} チェックリスト`;
+    sheet.mergeCells('A1:D1');
+    sheet.getCell('A1').value = title;
+    sheet.getCell('A1').font = { name: 'Meiryo UI', size: 16, bold: true };
+    sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.columns = [
+      { header: '収納先', key: 'storage', width: 18 },
+      { header: '持ち物', key: 'item', width: 28 },
+      { header: '数量', key: 'qty', width: 12 },
+      { header: 'チェック欄', key: 'check', width: 12 }
+    ];
+    const addBorder = (row)=> row.eachCell((cell)=> {
+      const isHeader = row.number === 3;
+      cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+      cell.font = { name: 'Meiryo UI', size: 16, bold: isHeader };
+      const col = cell.col;
+      if (col === 3) {
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      } else if (col === 4) {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else if (isHeader) {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      } else {
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      }
+    });
+    const header = sheet.getRow(3);
+    header.values = ['収納先', '持ち物', '数量', 'チェック欄'];
+    addBorder(header);
+    const sortedRows = items
+      .map((it)=> ({
+        storage: storageNameById.get(it.storageId) || '未設定',
+        item: it.name || '',
+        qty: it.quantity || '',
+        check: ''
+      }))
+      .sort((a,b)=> a.storage.localeCompare(b.storage,'ja') || (a.item||'').localeCompare(b.item||'','ja'));
+    sortedRows.forEach((row)=> addBorder(sheet.addRow(row)));
+    const minRows = 25;
+    while (sheet.rowCount < minRows + 3) {
+      addBorder(sheet.addRow({ storage:'', item:'', qty:'', check:'' }));
+    }
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth()+1).padStart(2,'0');
+    const d = String(today.getDate()).padStart(2,'0');
+    const ownerLabel = owner === 'all'
+      ? '共有'
+      : (memberInfo.labelMap.get(owner) || 'メンバー');
+    const baseName = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト.xls`;
+    const encoded = encodeURIComponent(baseName);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${baseName}"; filename*=UTF-8''${encoded}`);
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (e) { next(e); }
+});
+
+router.get('/check/:eventId', async (req, res, next) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.redirect('/users/packing');
+    const eventId = req.params.eventId;
+    const [ev, storagesRaw, itemsRaw, masterItemsRaw, memberInfo] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      PackingStorage.find({ group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean(),
+      PackingMasterItem.find({ group: groupId }).lean(),
+      getMemberOptions(groupId)
+    ]);
+    if (!ev) return res.redirect('/users/packing');
+    const storageIds = (ev.storageIds || []).map((x)=> x.toString());
+    const storages = (storagesRaw || [])
+      .slice()
+      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
+    const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
+    const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
+    const items = (hydratedItems || [])
+      .filter((it)=> !it.hidden)
+      .map((it)=> ({
+      id: String(it._id),
+      name: it.name,
+      storageId: it.storageId ? String(it.storageId) : '',
+      storageName: it.storageName || '',
+      checked: !!it.checked,
+      checkedAt: it.checkedAt,
+      checkedBy: it.checkedBy,
+      quantity: it.quantity || 0,
+      weight: it.weight || 0,
+      category: it.category || '',
+      hidden: !!it.hidden,
+      owner: it.owner ? String(it.owner) : 'all',
+      wish: !!it.wish,
+      comment: it.comment || ''
+    }));
+    await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
+    const participantOptions = (ev.participants || [])
+      .map((id)=> ({ id: String(id), name: memberInfo.labelMap.get(String(id)) || 'メンバー' }))
+      .filter((opt)=> !!opt.name);
+    if (!participantOptions.length && memberInfo.list.length){
+      participantOptions.push(...memberInfo.list.map((m)=> ({ id: m.id, name: m.name })));
+    }
+    res.render('users/packingCheck', {
+      event: { id: String(ev._id), name: ev.name },
+      storages: filteredStorages,
+      items,
+      members: participantOptions
+    });
+  } catch(e){ next(e); }
+});
