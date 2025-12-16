@@ -324,6 +324,7 @@
     let activeStorageId = selectedStorageIds[0] || '';
     const ACTIVE_STORAGE_KEY = `packing:event:${eventId}:activeStorage`;
     const OWNER_KEY = `packing:event:${eventId}:owners`;
+    const STORAGE_OWNER_KEY = `packing:event:${eventId}:storageOwners`;
 
     function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
 
@@ -353,6 +354,24 @@
       try{
         const checked = Array.from(ownerFilter.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
         localStorage.setItem(OWNER_KEY, JSON.stringify(checked));
+      } catch(_) {}
+    }
+    function restoreStorageOwnerSelections(){
+      if (!storageOwnerFilter) return;
+      try{
+        const saved = JSON.parse(localStorage.getItem(STORAGE_OWNER_KEY) || '[]');
+        if (Array.isArray(saved) && saved.length){
+          storageOwnerFilter.querySelectorAll('input[type="checkbox"]').forEach((cb)=>{
+            cb.checked = saved.includes(cb.value);
+          });
+        }
+      } catch(_) {}
+    }
+    function saveStorageOwnerSelections(){
+      if (!storageOwnerFilter) return;
+      try{
+        const checked = Array.from(storageOwnerFilter.querySelectorAll('input[type="checkbox"]:checked')).map(cb=> cb.value);
+        localStorage.setItem(STORAGE_OWNER_KEY, JSON.stringify(checked));
       } catch(_) {}
     }
 
@@ -764,7 +783,7 @@
     itemModal?.addEventListener('click', (ev)=> { if (ev.target === itemModal) closeModal(itemModal); });
     storageModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditId=''; closeModal(storageModal); }));
     itemModal?.querySelectorAll('[data-item-close]')?.forEach((b)=> b.addEventListener('click', ()=> { itemEditId=''; closeModal(itemModal); }));
-    storageOwnerFilter?.addEventListener('change', ()=> { renderStorages(); renderStorageLists(); });
+    storageOwnerFilter?.addEventListener('change', ()=> { saveStorageOwnerSelections(); renderStorages(); renderStorageLists(); });
     storageUnusedToggle?.addEventListener('click', ()=> {
       showUnusedStorages = !showUnusedStorages;
       if (storageUnusedToggle) storageUnusedToggle.textContent = showUnusedStorages ? '未使用の収納先を隠す' : '未使用の収納先を表示する';
@@ -991,6 +1010,7 @@
     });
 
     restoreActiveStorage();
+    restoreStorageOwnerSelections();
     restoreOwnerSelections();
     updateHiddenToggle();
     renderStorages();
