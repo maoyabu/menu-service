@@ -2039,45 +2039,62 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       acc[formatted.id] = formatted;
       return acc;
     }, {});
-    // --- Build header image candidates (name + imageUrl) from Menu, excluding this week's images ---
-    const usedImageSet = new Set(
-      Object.values(currentWeekMenuLookup || {})
-        .map((m) => (m && m.imageUrl ? String(m.imageUrl) : ''))
-        .filter(Boolean)
-    );
+  }
 
-    const candidateImageDocs = await Menu.find({
-      imageUrl: { $exists: true, $ne: '' },
-      $or: [{ material: { $exists: false } }, { material: { $ne: true } }]
-    })
-      .select('imageUrl name')
-      .lean();
+  // --- Build header image candidates (name + imageUrl) from Menu, excluding this week's images ---
+  const usedImageSet = new Set(
+    Object.values(currentWeekMenuLookup || {})
+      .map((m) => (m && m.imageUrl ? String(m.imageUrl) : ''))
+      .filter(Boolean)
+  );
 
-    // unique by imageUrl
-    const uniqueByUrl = new Map();
-    (candidateImageDocs || []).forEach((d) => {
-      const url = d && d.imageUrl ? String(d.imageUrl) : '';
-      if (!url) return;
-      if (!uniqueByUrl.has(url)) uniqueByUrl.set(url, { imageUrl: url, name: d.name || '' });
-    });
+  const candidateImageDocs = await Menu.find({
+    imageUrl: { $exists: true, $ne: '' },
+    $and: [
+      {
+        $or: [
+          { kind: '主菜' },
+          { kind: { $regex: '主菜' } },
+          { kind: { $regex: '主食' } }
+        ]
+      },
+      { $or: [{ material: { $exists: false } }, { material: { $ne: true } }] }
+    ]
+  })
+    .select('imageUrl name junle kind')
+    .lean();
 
-    const allItems = Array.from(uniqueByUrl.values()).filter(
-      (item) => !usedImageSet.has(item.imageUrl)
-    );
+  // unique by imageUrl
+  const uniqueByUrl = new Map();
+  (candidateImageDocs || []).forEach((d) => {
+    const url = d && d.imageUrl ? String(d.imageUrl) : '';
+    if (!url) return;
+    if (!uniqueByUrl.has(url)) {
+      uniqueByUrl.set(url, {
+        imageUrl: url,
+        name: d.name || '',
+        junle: d.junle || '',
+        kind: d.kind || ''
+      });
+    }
+  });
 
-    // Fisher–Yates shuffle then take up to 10
-    const pickRandom = (arr, n) => {
-      const a = arr.slice();
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a.slice(0, n);
-    };
+  const allItems = Array.from(uniqueByUrl.values()).filter(
+    (item) => !usedImageSet.has(item.imageUrl)
+  );
 
-    headerImageItems = pickRandom(allItems, 10);
-    // --- end build headerImageItems ---
-}
+  // Fisher–Yates shuffle then take up to 10
+  const pickRandom = (arr, n) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, n);
+  };
+
+  headerImageItems = pickRandom(allItems, 10);
+  // --- end build headerImageItems ---
 
   const initializeWeekOverview = () =>
     currentWeekDates.map((date, index) => ({

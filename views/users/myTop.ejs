@@ -150,104 +150,181 @@
     .weekly-day-button .day-date { font-size: 0.85rem; }
   }
   /* --- hero carousel --- */
-  #hero-carousel { position: relative; overflow: hidden; }
-  #hero-carousel .hero-track { position: absolute; inset: 0; display: flex; width: 100%; height: 100%; transition: transform .8s ease; }
-  #hero-carousel .hero-slide { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; }
-  #hero-carousel .hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.0) 20%, rgba(0,0,0,.25) 100%); pointer-events: none; }
-  #hero-carousel .hero-empty { display:flex; align-items:center; justify-content:center; height:100%; color: rgba(255,255,255,.8); }
-
-  /* --- hero stage (dual image for random transitions) --- */
-  #hero-carousel .hero-stage { position:absolute; inset:0; }
-  #hero-carousel .hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transform:translateZ(0); }
-  #hero-carousel .hero-img.is-visible { opacity:1; }
-  /* transitions are set inline via JS (opacity/transform .8s ease) */
-  /* --- drop shadow utility for watermark --- */
-  .drop-shadow { filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
-
-  /* --- watermark outline text --- */
-  .wm-outline {
-    color: #fff;
-    -webkit-text-stroke: 1px rgba(0,0,0,.9);
-    text-shadow:
-      0 0 1px rgba(0,0,0,.9),
-      1px 0 1px rgba(0,0,0,.9),
-      -1px 0 1px rgba(0,0,0,.9),
-      0 1px 1px rgba(0,0,0,.9),
-      0 -1px 1px rgba(0,0,0,.9);
-    paint-order: stroke fill;
+  /* --- hero ribbon slider --- */
+  .ribbon-shell { position: relative; }
+  .ribbon-viewport { overflow: hidden; }
+  .ribbon-track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 46%;
+    gap: 18px;
+    transition: transform .6s ease;
+    padding: 12px 4px 24px;
+  }
+  @media (min-width: 640px) {
+    .ribbon-track { grid-auto-columns: 40%; }
+  }
+  @media (min-width: 768px) {
+    .ribbon-track { grid-auto-columns: 32%; }
+  }
+  @media (min-width: 1024px) {
+    .ribbon-track { grid-auto-columns: 28%; }
+  }
+  @media (min-width: 1360px) {
+    .ribbon-track { grid-auto-columns: 24%; }
+  }
+.ribbon-card {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 30px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.15);
+  }
+  .ribbon-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .ribbon-chip {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 14px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #fde68a, #f59e0b);
+    color: #5b3b00;
+    font-weight: 700;
+    font-size: 13px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  }
+  .ribbon-name {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 16px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 14px;
+    max-width: 92%;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  }
+  .ribbon-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ribbon-nav {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    padding: 0 10px;
+  }
+  .ribbon-nav button {
+    pointer-events: auto;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.8);
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    color: #0f172a;
+  }
+  .ribbon-nav button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+    background: #fff;
+  }
+  .ribbon-nav button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .ribbon-backdrop {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 20%, rgba(252,211,77,0.25), transparent 38%),
+                radial-gradient(circle at 80% 30%, rgba(74,222,128,0.25), transparent 36%),
+                radial-gradient(circle at 70% 80%, rgba(59,130,246,0.25), transparent 40%),
+                linear-gradient(120deg, #fff7ed 0%, #e0f2fe 55%, #ecfeff 100%);
+    filter: blur(12px);
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .floating-plan {
+    position: absolute;
+    left: 14px;
+    bottom: -56px;
+    z-index: 30;
+  }
+  @media (max-width: 640px) {
+    .floating-plan { bottom: -50px; }
   }
 </style>
 
-<section class="relative max-w-6xl mx-auto pt-1.5 pb-[15px] space-y-10">
-<% const topKeywords = (typeof popularKeywords !== 'undefined' && Array.isArray(popularKeywords) && popularKeywords.length)
-    ? popularKeywords.slice(0,5)
-    : [{ term:'鶏むね', count:1 }, { term:'豚こま', count:1 }, { term:'野菜たっぷり', count:1 }, { term:'カレー', count:1 }, { term:'スープ', count:1 }]; %>
-<% const topGenres = (typeof popularGenres !== 'undefined' && Array.isArray(popularGenres) && popularGenres.length)
-    ? popularGenres.slice(0,5)
-    : [{ name:'和食', count:1 }, { name:'洋食', count:1 }, { name:'中華', count:1 }, { name:'麺類', count:1 }, { name:'丼', count:1 }]; %>
-<% const alertCount = (equipmentInventoryNotice ? 1 : 0) + (stockInventoryNotice ? 1 : 0) + ((recentNotices || []).length || 0); %>
-  <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
-    <div class="px-6 py-8 md:p-12 flex flex-col md:flex-row md:items-start md:justify-between gap-8 md:gap-12">
-      <div class="relative z-10 flex flex-col gap-6 max-w-2xl md:justify-between md:pr-8">
-        <!-- <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] bg-white/20 px-4 py-1 rounded-full w-max">
-          <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
-          my top
-        </div> -->
-        <div class="space-y-3">
-          <h1 class="text-3xl md:text-4xl font-bold leading-tight">
-            こんにちは、<span class="text-emerald-200"><%= currentUserName %></span> さん
-          </h1>
-          <p class="text-sm md:text-base text-white/80 leading-relaxed">
-            「今日何食べる」のストレスからの解放！再来週1週間のMENUをおすすめします。使えば使うほど自分にぴったりなMENUがおすすめされるようになります。
-          </p>
-        </div>
-        <div class="flex flex-col gap-2 mb-2 md:mb-0">
-          <div class="flex flex-wrap gap-3">
-            <% const isEditMode = hasAfterNextWeekPlan; %>
-            <a
-              href="<%= weekMenuLink %>"
-              class="inline-flex items-center gap-2 rounded-full text-sm font-semibold px-5 py-2 transition <%= isEditMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-blue-600 hover:bg-blue-50' %>"
-            >
-              <span class="lucide <%= isEditMode ? 'text-white' : 'text-blue-500' %>" data-lucide="<%= buttonIcon %>"></span>
-              <%= planButtonLabel %>
-            </a>
-          </div>
-          <% if (hasAfterNextWeekPlan && typeof afterNextWeekRangeLabel !== 'undefined') { %>
-            <p class="text-xs text-white/80">保存済み: <%= afterNextWeekRangeLabel %></p>
-          <% } %>
-        </div>
-      </div>
+<section class="relative w-full overflow-hidden">
+  <% const topKeywords = (typeof popularKeywords !== 'undefined' && Array.isArray(popularKeywords) && popularKeywords.length)
+      ? popularKeywords.slice(0,5)
+      : [{ term:'鶏むね', count:1 }, { term:'豚こま', count:1 }, { term:'野菜たっぷり', count:1 }, { term:'カレー', count:1 }, { term:'スープ', count:1 }]; %>
+  <% const topGenres = (typeof popularGenres !== 'undefined' && Array.isArray(popularGenres) && popularGenres.length)
+      ? popularGenres.slice(0,5)
+      : [{ name:'和食', count:1 }, { name:'洋食', count:1 }, { name:'中華', count:1 }, { name:'麺類', count:1 }, { name:'丼', count:1 }]; %>
+  <% const alertCount = (equipmentInventoryNotice ? 1 : 0) + (stockInventoryNotice ? 1 : 0) + ((recentNotices || []).length || 0); %>
 
-      <div class="relative md:ml-6 md:shrink-0 flex flex-col items-end gap-3">
-        <button id="alert-button" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 text-blue-700 text-xs font-semibold shadow hover:bg-white transition">
-          <span class="lucide w-4 h-4" data-lucide="bell"></span>
-          <span>アラート</span>
-          <% if (alertCount > 0) { %>
-            <span class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-red-600 text-white text-[11px] font-bold"><%= alertCount %></span>
-          <% } else { %>
-            <span class="text-[11px] text-gray-500">0件</span>
-          <% } %>
-        </button>
-        <div id="hero-carousel" class="w-72 h-44 md:w-96 md:h-56 rounded-xl overflow-hidden border border-white/30 shadow-lg bg-white/10 mx-auto md:mx-0">
-          <div class="hero-empty" data-carousel-empty>
-            <div class="text-center">
-              <span class="text-6xl md:text-7xl font-black text-white/90">7</span>
-              <p class="uppercase text-xs tracking-[0.35em] text-white/60 mt-2">days plan</p>
-            </div>
-          </div>
-          <div class="hero-overlay"></div>
-          <!-- メニュー名チップ（スライドに応じて更新） -->
-          <div class="absolute top-2 left-2 z-20">
-            <span id="hero-name-chip" class="hidden inline-flex items-center gap-1 rounded-full bg-blue-50 pl-3 pr-6 md:pl-3 md:pr-7 py-1 text-[13px] md:text-sm font-semibold text-blue-700 max-w-[92%] md:max-w-[95%] truncate"></span>
-          </div>
-          <div class="absolute bottom-2 right-2 z-10 select-none pointer-events-none leading-none">
-            <div class="leading-none">
-              <span class="align-baseline font-black tracking-tight wm-outline text-4xl md:text-5xl">7</span>
-              <span class="align-baseline font-semibold wm-outline text-base md:text-lg ml-1">DAYS PLAN</span>
-            </div>
-          </div>
+  <div class="relative z-10 w-full mx-0 px-0 sm:px-0 lg:px-0 pt-0 lg:pt-0 pb-20">
+    <div class="flex items-center justify-between mb-3 px-4 sm:px-6 lg:px-12">
+      <h2 class="text-2xl sm:text-3xl font-bold text-slate-900">わたしだけの「食のパートナー」</h2>
+      <button id="alert-button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 text-amber-800 text-sm font-semibold shadow border border-amber-100 hover:shadow-md transition">
+        <span class="lucide w-5 h-5" data-lucide="bell"></span>
+        <span>アラート</span>
+        <% if (alertCount > 0) { %>
+          <span class="inline-flex items-center justify-center min-w-[26px] h-6 px-2 rounded-full bg-red-600 text-white text-[11px] font-bold"><%= alertCount %></span>
+        <% } else { %>
+          <span class="text-[11px] text-gray-500">0件</span>
+        <% } %>
+      </button>
+    </div>
+
+    <div class="-mx-4 sm:-mx-6 lg:-mx-12 px-4 sm:px-6 lg:px-12 relative">
+      <div class="ribbon-shell" data-menu-ribbon>
+        <div class="ribbon-viewport">
+          <div class="ribbon-track" data-ribbon-track></div>
         </div>
+        <div class="ribbon-nav">
+          <button type="button" aria-label="前の料理" data-ribbon-prev>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <button type="button" aria-label="次の料理" data-ribbon-next>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
+        </div>
+        <% const isEditMode = hasAfterNextWeekPlan; %>
+        <a
+          href="<%= weekMenuLink %>"
+          class="floating-plan inline-flex items-center gap-2 rounded-full text-sm font-semibold px-5 py-2 transition shadow-sm border border-emerald-200 bg-white text-emerald-700 hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <span class="lucide <%= isEditMode ? 'text-emerald-700' : 'text-emerald-500' %>" data-lucide="<%= buttonIcon %>"></span>
+          <%= planButtonLabel %>
+        </a>
       </div>
+    </div>
+  </div>
 </section>
 
 <div id="alert-modal" class="hidden fixed inset-0 z-50 bg-black/40 items-start justify-center p-4">
@@ -775,152 +852,97 @@
 
 <script>
   (function(){
-    var el = document.getElementById('hero-carousel');
-    if (!el) return;
-    var items = Array.isArray(window.headerItems) ? window.headerItems.slice(0, 10) : [];
-    if (!items.length) return; // keep the fallback tile
-    var empty = el.querySelector('[data-carousel-empty]');
-    if (empty) empty.remove();
+    var ribbon = document.querySelector('[data-menu-ribbon]');
+    var track = ribbon ? ribbon.querySelector('[data-ribbon-track]') : null;
+    if (!ribbon || !track) return;
 
-    // Build a two-layer stage (A/B) for random transitions
-    var stage = document.createElement('div');
-    stage.className = 'hero-stage';
-    el.appendChild(stage);
+    var prevBtn = ribbon.querySelector('[data-ribbon-prev]');
+    var nextBtn = ribbon.querySelector('[data-ribbon-next]');
 
-    var imgA = document.createElement('img');
-    imgA.className = 'hero-img is-visible';
-    var imgB = document.createElement('img');
-    imgB.className = 'hero-img';
-    stage.appendChild(imgA);
-    stage.appendChild(imgB);
+    var rawItems = Array.isArray(window.headerItems) ? window.headerItems.slice(0, 20) : [];
+    var fallbackItems = [
+      { name: 'おすすめの主菜を登録してみましょう', junle: '主菜', imageUrl: '' }
+    ];
+    var items = rawItems.length ? rawItems : fallbackItems;
 
-    var nameChip = document.getElementById('hero-name-chip');
-    var setName = function(index){
-      if (!nameChip) return;
-      var it = items[index];
-      var label = (it && it.name) ? it.name : '';
-      if (label) {
-        nameChip.textContent = label;
-        nameChip.title = label; // show full name on hover
-        nameChip.classList.remove('hidden');
+    track.innerHTML = '';
+    items.forEach(function(item, idx){
+      var card = document.createElement('article');
+      card.className = 'ribbon-card';
+      card.setAttribute('data-index', idx);
+
+      if (item.imageUrl) {
+        var img = document.createElement('img');
+        img.src = item.imageUrl;
+        img.alt = item.name || 'menu image';
+        card.appendChild(img);
       } else {
-        nameChip.textContent = '';
-        nameChip.removeAttribute('title');
-        nameChip.classList.add('hidden');
+        var empty = document.createElement('div');
+        empty.className = 'w-full h-full flex items-center justify-center text-sm font-semibold text-slate-500 bg-gradient-to-br from-white via-slate-50 to-slate-100';
+        empty.textContent = '写真がまだありません';
+        card.appendChild(empty);
       }
+
+      var chip = document.createElement('span');
+      chip.className = 'ribbon-chip';
+      chip.textContent = item.junle || item.kind || '主菜';
+      card.appendChild(chip);
+
+      var name = document.createElement('div');
+      name.className = 'ribbon-name';
+      var nameSpan = document.createElement('span');
+      nameSpan.textContent = item.name || 'メニュー名未設定';
+      name.appendChild(nameSpan);
+      card.appendChild(name);
+
+      track.appendChild(card);
+    });
+
+    var index = 0;
+    var getGap = function(){
+      var style = window.getComputedStyle(track);
+      var gap = style.columnGap || style.gap || '0';
+      var parsed = parseFloat(gap);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    };
+    var getCardWidth = function(){
+      var first = track.querySelector('.ribbon-card');
+      return first ? first.getBoundingClientRect().width : 0;
+    };
+    var getVisibleCount = function(){
+      var width = ribbon.getBoundingClientRect().width;
+      var cardWidth = getCardWidth();
+      var gap = getGap();
+      if (!cardWidth) return 1;
+      return Math.max(1, Math.floor((width + gap) / (cardWidth + gap)));
+    };
+    var getMaxIndex = function(){
+      var visible = getVisibleCount();
+      var total = track.children.length;
+      return Math.max(0, total - visible);
     };
 
-    // Initialize first frame
-    var current = 0;
-    imgA.src = items[0].imageUrl;
-    imgA.alt = items[0].name || 'header image 1';
-    setName(0);
-
-    var useA = true; // which image element is the current visible one
-    var DURATION = 800; // ms
-    var INTERVAL = 6000; // ms
-
-    function applyTransition(type, fromEl, toEl) {
-      // Reset inline styles
-      [fromEl, toEl].forEach(function(elm){
-        elm.style.transition = 'none';
-        elm.style.opacity = '';
-        elm.style.transform = '';
-      });
-
-      // Force reflow to apply initial state before transition
-      void toEl.offsetWidth;
-
-      // Common: ensure toEl is on top and visible before anim
-      toEl.classList.add('is-visible');
-
-      // Set initial states by type
-      if (type === 'fade') {
-        toEl.style.opacity = 0;
-      } else if (type === 'slide-left') {
-        toEl.style.transform = 'translateX(100%)';
-        toEl.style.opacity = 1;
-      } else if (type === 'slide-right') {
-        toEl.style.transform = 'translateX(-100%)';
-        toEl.style.opacity = 1;
-      } else if (type === 'slide-up') {
-        toEl.style.transform = 'translateY(100%)';
-        toEl.style.opacity = 1;
-      } else if (type === 'slide-down') {
-        toEl.style.transform = 'translateY(-100%)';
-        toEl.style.opacity = 1;
-      } else if (type === 'zoom-in') {
-        // New image starts slightly enlarged and scales down to 1
-        toEl.style.transform = 'scale(1.15)';
-        toEl.style.opacity = 1;
-      } else if (type === 'zoom-out') {
-        // New image starts slightly smaller and scales up to 1
-        toEl.style.transform = 'scale(0.85)';
-        toEl.style.opacity = 1;
+    var update = function(nextIndex){
+      var cardWidth = getCardWidth();
+      if (!cardWidth) return;
+      var gap = getGap();
+      var max = getMaxIndex();
+      if (nextIndex < 0) {
+        index = max;
+      } else if (nextIndex > max) {
+        index = 0;
+      } else {
+        index = nextIndex;
       }
+      var offset = (cardWidth + gap) * index;
+      track.style.transform = 'translateX(' + (-offset) + 'px)';
+    };
 
-      // Enable transition
-      var t = 'transform .8s ease, opacity .8s ease';
-      fromEl.style.transition = t;
-      toEl.style.transition = t;
+    prevBtn && prevBtn.addEventListener('click', function(){ update(index - 1); });
+    nextBtn && nextBtn.addEventListener('click', function(){ update(index + 1); });
+    window.addEventListener('resize', function(){ update(index); });
 
-      requestAnimationFrame(function(){
-        if (type === 'fade') {
-          fromEl.style.opacity = 0;
-          toEl.style.opacity = 1;
-        } else if (type === 'slide-left') {
-          fromEl.style.transform = 'translateX(-100%)';
-          toEl.style.transform = 'translateX(0)';
-        } else if (type === 'slide-right') {
-          fromEl.style.transform = 'translateX(100%)';
-          toEl.style.transform = 'translateX(0)';
-        } else if (type === 'slide-up') {
-          fromEl.style.transform = 'translateY(-100%)';
-          toEl.style.transform = 'translateY(0)';
-        } else if (type === 'slide-down') {
-          fromEl.style.transform = 'translateY(100%)';
-          toEl.style.transform = 'translateY(0)';
-        } else if (type === 'zoom-in') {
-          fromEl.style.opacity = 0;
-          fromEl.style.transform = 'scale(1.02)';
-          toEl.style.transform = 'scale(1)';
-        } else if (type === 'zoom-out') {
-          fromEl.style.opacity = 0;
-          fromEl.style.transform = 'scale(0.98)';
-          toEl.style.transform = 'scale(1)';
-        }
-
-        // Cleanup after animation
-        setTimeout(function(){
-          fromEl.classList.remove('is-visible');
-          fromEl.style.opacity = 0;
-          fromEl.style.transform = '';
-        }, DURATION + 50);
-      });
-    }
-
-    function nextFrame(){
-      var next = (current + 1) % items.length;
-      var active = useA ? imgA : imgB;
-      var idle  = useA ? imgB : imgA;
-
-      // Prepare next image content
-      idle.src = items[next].imageUrl;
-      idle.alt = items[next].name || ('header image ' + (next+1));
-
-      // Pick a random transition type
-      var modes = ['fade','slide-left','slide-right','slide-up','slide-down','zoom-in','zoom-out'];
-      var type = modes[Math.floor(Math.random() * modes.length)];
-
-      applyTransition(type, active, idle);
-      setName(next);
-
-      // Flip buffers
-      useA = !useA;
-      current = next;
-    }
-
-    setInterval(nextFrame, INTERVAL);
+    update(0);
   })();
 </script>
 
