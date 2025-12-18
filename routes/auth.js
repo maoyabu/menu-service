@@ -17,6 +17,7 @@ import Stock from '../models/stock.js';
 import MyEquipment from '../models/myEquipment.js';
 import Task from '../models/task.js';
 import Notice from '../models/notice.js';
+import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
@@ -281,7 +282,7 @@ const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const CATEGORY_CONFIG = {
   breakfastMain: {
-    kinds: ['主菜', '副菜', '汁物', '主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート', 'ドリンク'],
+    kinds: ['主菜', '副菜', '汁物', '主食', '主食・ごはん', '主食・パン', '主食・麺', 'デザート', 'ドリンク', 'モーニングプレート'],
     label: '朝食',
     mealType: 'モーニング'
   },
@@ -362,6 +363,7 @@ const formatMenuDocument = (doc) => ({
   time: doc.time,
   makeAhead: !!doc.makeAhead,
   basicMenu: !!doc.basicMenu,
+  season: normalizeSeasonList(doc.season || []),
   ingredients: (doc.ingredients || []).map((item) => ({
     id: item?.name?._id ? item.name._id.toString() : null,
     name: item?.name?.ingredient || '',
@@ -525,8 +527,185 @@ const calculateGroupSize = (groups, groupId) => {
   return ids.size || 1;
 };
 
+const filterSeasonalMenus = (menus, currentSeason) => {
+  if (!currentSeason) return menus || [];
+  return (menus || []).filter((menu) => {
+    const seasons = normalizeSeasonList(menu?.season || []);
+    if (!seasons.length) return true;
+    return seasons.includes(currentSeason);
+  });
+};
+
+const menuMatchesKeyword = (menu, keywords = []) => {
+  if (!keywords.length) return true;
+  const text = `${menu?.name || ''} ${menu?.menu || ''}`;
+  return keywords.some((kw) => kw && text.includes(kw));
+};
+
+const filterMenusByKeyword = (menus, keywords = [], options = {}) => {
+  const { junle = '', kind = '' } = options;
+  return (menus || []).filter((menu) => {
+    if (junle && menu?.junle !== junle) return false;
+    if (kind && menu?.kind !== kind) return false;
+    return menuMatchesKeyword(menu, keywords);
+  });
+};
+
+const sortMenusByPreference = (menus, frequencyMap = {}) =>
+  (menus || [])
+    .slice()
+    .sort((a, b) => {
+      const freqA = frequencyMap[a?.id] || 0;
+      const freqB = frequencyMap[b?.id] || 0;
+      if (freqA !== freqB) return freqB - freqA;
+      return Math.random() - 0.5;
+    });
+
+const shuffleArray = (arr = []) => {
+  const copy = arr.slice();
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const buildMyMenuFrequencyMap = (mymenus = []) =>
+  (mymenus || []).reduce((acc, entry) => {
+    const id = normalizeId(entry?.menu);
+    if (!id) return acc;
+    const freq = Number(entry?.frequency);
+    acc[id] = Number.isFinite(freq) ? freq : 0;
+    return acc;
+  }, {});
+
+const buildBreakfastPlan = (menus, options = {}) => {
+  const {
+    myMenuFrequency = {},
+    currentSeason = ''
+  } = options;
+  const seasonalMenus = filterSeasonalMenus(menus, currentSeason);
+  const fallbackMenus = seasonalMenus.length ? seasonalMenus : menus || [];
+  const usedIds = new Set();
+  let favoriteQuota = 3;
+  const toSlot = (menu) => ({
+    menuId: menu.id,
+    categoryKey: 'breakfastMain',
+    favorite: false,
+    dineOut: false
+  });
+  const fillToTarget = (slots, targetCount) => {
+    while (slots.length < targetCount) {
+      const extra = pickFromCandidates(fallbackMenus);
+      if (!extra) break;
+      slots.push(toSlot(extra));
+    }
+    return slots;
+  };
+  const pickFromCandidates = (candidates, { allowReuse = false } = {}) => {
+    const seasonalCandidates = filterSeasonalMenus(candidates, currentSeason);
+    const pool = seasonalCandidates.length ? seasonalCandidates : candidates;
+    const sorted = sortMenusByPreference(pool, myMenuFrequency);
+    const pickPreferred = (list, preferFavorites) =>
+      list.find((menu) => {
+        if (!menu) return false;
+        if (!allowReuse && usedIds.has(menu.id)) return false;
+        if (!preferFavorites) return true;
+        return !!myMenuFrequency[menu.id];
+      }) || null;
+
+    let picked = null;
+    if (favoriteQuota > 0) {
+      picked = pickPreferred(sorted, true) || pickPreferred(sorted, false);
+    } else {
+      picked = pickPreferred(sorted.filter((m) => !myMenuFrequency[m?.id]), false) || pickPreferred(sorted, false);
+    }
+
+    if (!picked && fallbackMenus.length) {
+      const fallbackSorted = sortMenusByPreference(fallbackMenus, myMenuFrequency);
+      if (favoriteQuota > 0) {
+        picked = pickPreferred(fallbackSorted, true) || pickPreferred(fallbackSorted, false);
+      } else {
+        picked = pickPreferred(fallbackSorted.filter((m) => !myMenuFrequency[m?.id]), false) || pickPreferred(fallbackSorted, false);
+      }
+    }
+
+    if (picked) {
+      if (!allowReuse || !usedIds.has(picked.id)) {
+        usedIds.add(picked.id);
+      }
+      if (myMenuFrequency[picked.id] && favoriteQuota > 0) {
+        favoriteQuota -= 1;
+      }
+    }
+    return picked;
+  };
+
+  const buildWesternSet = () => {
+    const slots = [];
+    const bread = pickFromCandidates(
+      filterMenusByKeyword(fallbackMenus, ['食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ'])
+    );
+    if (bread) slots.push(toSlot(bread));
+
+    const yogurt = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['ヨーグルト']));
+    if (yogurt) slots.push(toSlot(yogurt));
+
+    const egg = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['目玉焼き', 'スクランブルエッグ', 'オムレツ']));
+    if (egg) slots.push(toSlot(egg));
+
+    const soupCandidates = filterMenusByKeyword(fallbackMenus, ['スープ'], { junle: '洋食' });
+    const soup = pickFromCandidates(soupCandidates.length ? soupCandidates : filterMenusByKeyword(fallbackMenus, ['スープ']));
+    if (soup) slots.push(toSlot(soup));
+
+    return fillToTarget(slots, 4);
+  };
+
+  const buildJapaneseSet = () => {
+    const slots = [];
+    const rice = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['白米', 'おにぎり', '卵かけご飯']));
+    if (rice) slots.push(toSlot(rice));
+
+    const misoSoup = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['味噌汁']));
+    if (misoSoup) slots.push(toSlot(misoSoup));
+
+    const fish = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['焼き魚', '干物']));
+    if (fish) slots.push(toSlot(fish));
+
+    const natto = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['納豆', 'しらす', 'ふりかけ']));
+    if (natto) slots.push(toSlot(natto));
+
+    const tamago = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['卵焼き']));
+    if (tamago) slots.push(toSlot(tamago));
+
+    if (!slots.length) {
+      const fallback = pickFromCandidates(fallbackMenus);
+      if (fallback) slots.push(toSlot(fallback));
+    }
+    return fillToTarget(slots, 5);
+  };
+
+  const buildPlateSet = () => {
+    const plateCandidates = (fallbackMenus || []).filter((m) => m && m.kind === 'モーニングプレート');
+    const menu = pickFromCandidates(plateCandidates.length ? plateCandidates : fallbackMenus, { allowReuse: true });
+    return menu ? [toSlot(menu)] : [];
+  };
+
+  const dayTypes = shuffleArray(['western', 'western', 'western', 'japanese', 'japanese', 'plate', 'plate']);
+
+  return dayTypes.map((type) => {
+    if (type === 'japanese') return buildJapaneseSet();
+    if (type === 'plate') return buildPlateSet();
+    return buildWesternSet();
+  });
+};
+
 const buildWeekPlanPayload = (menusByCategory, options = {}) => {
-  const { startDate } = options;
+  const {
+    startDate,
+    myMenuFrequency = {},
+    currentSeason = ''
+  } = options;
   const menuLookup = {};
   Object.values(menusByCategory).forEach((menus) => {
     menus.forEach((menu) => {
@@ -535,7 +714,12 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
   });
 
   const weekStartDate = startDate ? startOfWeek(startDate) : getNextWeekStart();
+  const seasonLabel = currentSeason || monthToSeason(weekStartDate.getMonth() + 1);
   const weekDates = getWeekDatesFromStart(weekStartDate);
+  const breakfastPlan = buildBreakfastPlan(menusByCategory.breakfastMain || [], {
+    myMenuFrequency,
+    currentSeason: seasonLabel
+  });
 
   const plan = weekDates.map((date, index) => {
     const createSlot = (categoryKey) => {
@@ -555,7 +739,7 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
       dayLabel: WEEKDAY_JA[index],
       dayLabelEn: WEEKDAY_EN[index],
       dateISO: date.toISOString(),
-      breakfastSlots: [createSlot('breakfastMain')].filter(Boolean),
+      breakfastSlots: Array.isArray(breakfastPlan[index]) ? breakfastPlan[index] : [],
       lunchSlots: [createSlot('lunchMain')].filter(Boolean),
       dinner: {
         staple: createSlot('dinnerStaple'),
@@ -893,6 +1077,17 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       }
     }
 
+    let myMenuDocsForGroup = [];
+    if (currentGroupId) {
+      try {
+        myMenuDocsForGroup = await Mymenu.find({ user: req.user._id, group: currentGroupId })
+          .select('menu frequency')
+          .lean();
+      } catch (e) {
+        myMenuDocsForGroup = [];
+      }
+    }
+
     let groupSize = 1;
     let groupDocPopulated = null;
     let currentUserIsGroupOwner = false;
@@ -1017,7 +1212,13 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         display: formatDisplayDate(date)
       }));
     } else {
-      const generated = buildWeekPlanPayload(menusByCategory, { startDate: targetWeekStart });
+      const myMenuFrequency = buildMyMenuFrequencyMap(myMenuDocsForGroup);
+      const currentSeasonLabel = monthToSeason(new Date().getMonth() + 1);
+      const generated = buildWeekPlanPayload(menusByCategory, {
+        startDate: targetWeekStart,
+        myMenuFrequency,
+        currentSeason: currentSeasonLabel
+      });
       plan = generated.plan;
       menuLookup = generated.menuLookup;
       ingredientSummary = generated.ingredientSummary;
@@ -1156,11 +1357,15 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     // MyMenu ids for current user+group to color hearts
     let myMenuIds = [];
     if (currentGroupId) {
-      try {
-        const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu').lean();
-        myMenuIds = (mymenus || []).map((m) => (m.menu ? m.menu.toString() : '')).filter(Boolean);
-      } catch (e) {
-        myMenuIds = [];
+      if (Array.isArray(myMenuDocsForGroup) && myMenuDocsForGroup.length) {
+        myMenuIds = myMenuDocsForGroup.map((m) => (m.menu ? m.menu.toString() : '')).filter(Boolean);
+      } else {
+        try {
+          const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu').lean();
+          myMenuIds = (mymenus || []).map((m) => (m.menu ? m.menu.toString() : '')).filter(Boolean);
+        } catch (e) {
+          myMenuIds = [];
+        }
       }
     }
     const weekMenuView = (targetWeekStart.getTime() === todayWeekStart.getTime()) ? 'current' : 'next';
@@ -1273,6 +1478,16 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     if (currentGroupId) {
       existingPlan = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
     }
+    let myMenuFrequency = {};
+    if (currentGroupId) {
+      try {
+        const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu frequency').lean();
+        myMenuFrequency = buildMyMenuFrequencyMap(mymenus);
+      } catch (e) {
+        myMenuFrequency = {};
+      }
+    }
+    const currentSeasonLabel = monthToSeason(new Date().getMonth() + 1);
     let plan = [];
     let menuLookup = {};
     if (existingPlan) {
@@ -1311,7 +1526,11 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
       });
       plan = basePlan;
     } else {
-      const generated = buildWeekPlanPayload(menusByCategory, { startDate: targetWeekStart });
+      const generated = buildWeekPlanPayload(menusByCategory, {
+        startDate: targetWeekStart,
+        myMenuFrequency,
+        currentSeason: currentSeasonLabel
+      });
       plan = generated.plan; menuLookup = generated.menuLookup; baseWeekDates = generated.weekDates.map(w=> new Date(w.dateISO));
       targetWeekStart = startOfWeek(new Date(generated.weekStartISO));
     }
@@ -1651,6 +1870,139 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
   } catch (err) {
     console.error('週次メニュー保存エラー:', err);
     return res.status(500).json({ error: '週次メニューを保存できませんでした。' });
+  }
+});
+
+// 週次メニューを再提案（指定週を一括再生成）
+router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
+  try {
+    const { groupId, weekStart } = req.body || {};
+    if (!groupId || !mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ error: 'グループIDが不正です。' });
+    }
+    if (!weekStart) {
+      return res.status(400).json({ error: '週の開始日が指定されていません。' });
+    }
+
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    if (!userGroups.some((g) => g._id.toString() === String(groupId))) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+
+    const baseWeekStart = startOfWeek(new Date(weekStart));
+    if (Number.isNaN(baseWeekStart.getTime())) {
+      return res.status(400).json({ error: '週の開始日が不正です。' });
+    }
+    const weekEnd = addDays(baseWeekStart, 6);
+
+    // Build menus by category (public only)
+    const kindSet = new Set();
+    Object.values(CATEGORY_CONFIG).forEach((config) => (config.kinds || []).forEach((k) => k && kindSet.add(k)));
+    const menusByKind = {};
+    await Promise.all(
+      Array.from(kindSet).map(async (kind) => {
+        const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .lean();
+        menusByKind[kind] = docs.map(formatMenuDocument);
+      })
+    );
+    const combineMenusByKinds = (kinds) => {
+      const combined = new Map();
+      (kinds || []).forEach((kind) => {
+        (menusByKind[kind] || []).forEach((menu) => {
+          if (!combined.has(menu.id)) combined.set(menu.id, menu);
+        });
+      });
+      return Array.from(combined.values());
+    };
+    const menusByCategory = Object.entries(CATEGORY_CONFIG).reduce((acc, [key, config]) => {
+      acc[key] = combineMenusByKinds(config.kinds);
+      return acc;
+    }, {});
+
+    // MyMenu frequency for prioritization
+    let myMenuFrequency = {};
+    try {
+      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu frequency').lean();
+      myMenuFrequency = buildMyMenuFrequencyMap(mymenus);
+    } catch (e) {
+      myMenuFrequency = {};
+    }
+
+    const currentSeasonLabel = monthToSeason(baseWeekStart.getMonth() + 1);
+    const generated = buildWeekPlanPayload(menusByCategory, {
+      startDate: baseWeekStart,
+      myMenuFrequency,
+      currentSeason: currentSeasonLabel
+    });
+
+    const slotToDoc = (slot) => {
+      const slotType = CATEGORY_TO_SLOT_TYPE[slot?.categoryKey] || slot?.slotType;
+      if (!slotType || !mongoose.Types.ObjectId.isValid(slot?.menuId)) return null;
+      return {
+        slotType,
+        menu: slot.menuId,
+        dineOut: !!slot.dineOut,
+        dineOutName: '',
+        dineOutUrl: '',
+        favorite: !!slot.favorite,
+        locked: !!slot.locked,
+        prepExtra: Number.isFinite(Number(slot?.prepExtra)) && Number(slot.prepExtra) > 0
+          ? Math.floor(Number(slot.prepExtra))
+          : 0
+      };
+    };
+
+    const dayPlans = (generated.plan || []).flatMap((day, dayIndex) => {
+      const date = new Date(baseWeekStart);
+      date.setDate(date.getDate() + dayIndex);
+      date.setHours(0, 0, 0, 0);
+      const entries = [];
+      const breakfastSlots = (day.breakfastSlots || []).map(slotToDoc).filter(Boolean);
+      if (breakfastSlots.length) {
+        entries.push({ dayIndex, date, mealType: 'breakfast', slots: breakfastSlots });
+      }
+      const lunchSlots = (day.lunchSlots || []).map(slotToDoc).filter(Boolean);
+      if (lunchSlots.length) {
+        entries.push({ dayIndex, date, mealType: 'lunch', slots: lunchSlots });
+      }
+      const dinnerSlots = [
+        slotToDoc(day?.dinner?.staple),
+        slotToDoc(day?.dinner?.main),
+        slotToDoc(day?.dinner?.side),
+        slotToDoc(day?.dinner?.soup),
+        ...(Array.isArray(day?.dinnerExtras) ? day.dinnerExtras.map(slotToDoc) : [])
+      ].filter(Boolean);
+      if (dinnerSlots.length) {
+        entries.push({ dayIndex, date, mealType: 'dinner', slots: dinnerSlots });
+      }
+      return entries;
+    });
+
+    if (!dayPlans.length) {
+      return res.status(400).json({ error: '再提案できるメニューが見つかりませんでした。' });
+    }
+
+    const updatePayload = {
+      weekStart: baseWeekStart,
+      weekEnd,
+      title: '',
+      description: '',
+      dayPlans
+    };
+
+    const updated = await WeeklyMenuPlan.findOneAndUpdate(
+      { group: groupId, weekStart: baseWeekStart },
+      { $set: updatePayload },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({ success: true, planId: updated?._id });
+  } catch (err) {
+    console.error('週次メニュー再提案エラー:', err);
+    return res.status(500).json({ error: '週次メニューを再提案できませんでした。' });
   }
 });
 

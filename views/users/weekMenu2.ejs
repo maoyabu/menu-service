@@ -133,7 +133,19 @@
   <!-- Title above preview -->
   <div class="wm2-title justify-between">
     <h2>7 DAYS PLAN</h2>
-    <button type="button" id="wm2-toggle-supplies" class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">お買い物リストを表示</button>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        id="wm2-regenerate"
+        data-group-id="<%= currentGroupId || '' %>"
+        data-week-start="<%= weekStartISO || '' %>"
+        class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 shadow-sm"
+      >
+        <span class="lucide w-4 h-4" data-lucide="refresh-ccw"></span>
+        １週間のメニューを再提案
+      </button>
+      <button type="button" id="wm2-toggle-supplies" class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">お買い物リストを表示</button>
+    </div>
   </div>
   <p id="wm2-supplies-range" aria-live="polite"></p>
   <!-- Weekly supplies (collapsed by default) -->
@@ -2374,6 +2386,38 @@
       toggleBtn.addEventListener('click', () => {
         const nowShowing = !box?.classList.contains('hidden');
         setMode(nowShowing ? 'menu' : 'supplies');
+      });
+    }
+
+    const regenBtn = document.getElementById('wm2-regenerate');
+    if (regenBtn) {
+      const regenDefaultHTML = regenBtn.innerHTML;
+      regenBtn.addEventListener('click', async () => {
+        const groupId = regenBtn.dataset.groupId || (window.weekMenuData && window.weekMenuData.currentGroupId) || '';
+        const weekStartISO = regenBtn.dataset.weekStart || (window.weekMenuData && window.weekMenuData.weekStartISO) || '';
+        if (!groupId || !weekStartISO) {
+          alert('再提案に必要な情報が不足しています。');
+          return;
+        }
+        regenBtn.disabled = true;
+        regenBtn.classList.add('opacity-70', 'cursor-not-allowed');
+        regenBtn.innerHTML = '再提案中...';
+        try {
+          const res = await fetch('/users/week-menu/regenerate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId, weekStart: weekStartISO })
+          });
+          if (!res.ok) {
+            throw new Error('failed');
+          }
+          window.location.reload();
+        } catch (e) {
+          alert('メニューの再提案に失敗しました。時間をおいて再度お試しください。');
+          regenBtn.disabled = false;
+          regenBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+          regenBtn.innerHTML = regenDefaultHTML;
+        }
       });
     }
 
