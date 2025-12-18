@@ -579,13 +579,27 @@ const buildMyMenuFrequencyMap = (mymenus = []) =>
     return acc;
   }, {});
 
+const getMenuText = (menu) => `${menu?.name || ''} ${menu?.menu || ''}`;
+
+const filterBaseMenus = (menus, { excludeKeywords = [] } = {}) =>
+  (menus || []).filter((menu) => {
+    if (!menu) return false;
+    if (menu.material === true) return false;
+    const text = getMenuText(menu);
+    if (!text) return false;
+    if (text.includes('インスタント')) return false;
+    if (excludeKeywords.length && menuMatchesKeyword({ name: text }, excludeKeywords)) return false;
+    return true;
+  });
+
 const buildBreakfastPlan = (menus, options = {}) => {
   const {
     myMenuFrequency = {},
     currentSeason = ''
   } = options;
-  const seasonalMenus = filterSeasonalMenus(menus, currentSeason);
-  const fallbackMenus = seasonalMenus.length ? seasonalMenus : menus || [];
+  const baseMenus = filterBaseMenus(menus);
+  const seasonalMenus = filterSeasonalMenus(baseMenus, currentSeason);
+  const fallbackMenus = seasonalMenus.length ? seasonalMenus : baseMenus;
   const usedIds = new Set();
   let favoriteQuota = 3;
   const toSlot = (menu) => ({
@@ -702,10 +716,6 @@ const buildBreakfastPlan = (menus, options = {}) => {
 
 const buildLunchPlan = (menus, options = {}) => {
   const { myMenuFrequency = {}, currentSeason = '' } = options;
-  const seasonalMenus = filterSeasonalMenus(menus, currentSeason);
-  const fallbackMenus = seasonalMenus.length ? seasonalMenus : menus || [];
-  const usedIds = new Set();
-  let favoriteQuota = 5;
   const excludeKeywords = [
     '食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ',
     'ヨーグルト',
@@ -718,10 +728,16 @@ const buildLunchPlan = (menus, options = {}) => {
     '納豆', 'しらす', 'ふりかけ',
     '卵焼き'
   ];
+  const baseMenus = filterBaseMenus(menus, { excludeKeywords });
+  const seasonalMenus = filterSeasonalMenus(baseMenus, currentSeason);
+  const fallbackMenus = seasonalMenus.length ? seasonalMenus : baseMenus;
+  const usedIds = new Set();
+  let favoriteQuota = 5;
   const allowedKinds = new Set(['主食・ごはん', '主食・麺', '主食']);
   const filtered = (fallbackMenus || []).filter((menu) => {
     if (!menu) return false;
     if (menu.kind && !allowedKinds.has(menu.kind)) return false;
+    if (menu.material === true) return false;
     return !menuMatchesKeyword(menu, excludeKeywords);
   });
 
@@ -765,6 +781,178 @@ const buildLunchPlan = (menus, options = {}) => {
   return Array.from({ length: 7 }, () => pickLunch()).map((slot) => (slot ? [slot] : []));
 };
 
+const buildDinnerPlan = (menusByCategory, options = {}) => {
+  const { myMenuFrequency = {}, currentSeason = '' } = options;
+  const breakfastKeywords = [
+    '食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ',
+    'ヨーグルト',
+    '目玉焼き', 'スクランブルエッグ', 'オムレツ',
+    'おにぎり', '卵かけご飯',
+    '味噌汁',
+    '焼き魚', '干物',
+    '納豆', 'しらす', 'ふりかけ',
+    '卵焼き'
+  ];
+  const stapleBase = filterBaseMenus(menusByCategory.dinnerStaple || [], { excludeKeywords: breakfastKeywords });
+  const mainBase = filterBaseMenus(menusByCategory.dinnerMain || [], { excludeKeywords: breakfastKeywords });
+  const sideBase = filterBaseMenus(menusByCategory.dinnerSide || [], { excludeKeywords: breakfastKeywords });
+  const soupBase = filterBaseMenus(menusByCategory.dinnerSoup || [], { excludeKeywords: breakfastKeywords });
+
+  const menuMap = {};
+  [stapleBase, mainBase, sideBase, soupBase].forEach((list) => {
+    list.forEach((m) => { menuMap[m.id] = m; });
+  });
+
+  const seasonalStaples = filterSeasonalMenus(stapleBase, currentSeason);
+  const seasonalMains = filterSeasonalMenus(mainBase, currentSeason);
+  const seasonalSides = filterSeasonalMenus(sideBase, currentSeason);
+  const seasonalSoups = filterSeasonalMenus(soupBase, currentSeason);
+
+  const excludedKinds = new Set(['ごはんのお供', 'デザート', 'フルーツ', 'ドリンク', 'モーニングプレート']);
+  const allowedStapleKinds = new Set(['主食', '主食・ごはん', '主食・麺', '主食・パン']);
+  const isWhiteRice = (menu) => /白米/.test(getMenuText(menu));
+  const isTakikomi = (menu) => /炊き込みご飯/.test(getMenuText(menu));
+  const isPizzaBread = (menu) => (menu.kind === '主食・パン') && /ピザ/.test(getMenuText(menu));
+  const isNabe = (menu) => {
+    const cook = String(menu?.cook || '');
+    return cook.includes('鍋');
+  };
+
+  const filterStaples = (list, { requireWhite = false, allowedJunle = null } = {}) =>
+    (list || []).filter((m) => {
+      if (!m) return false;
+      if (excludedKinds.has(m.kind)) return false;
+      if (!allowedStapleKinds.has(m.kind)) return false;
+      if (m.kind === '主食・パン' && !isPizzaBread(m)) return false;
+      if (requireWhite && !(isWhiteRice(m) || isTakikomi(m))) return false;
+      if (allowedJunle && allowedJunle.size && m.junle && !allowedJunle.has(m.junle)) return false;
+      return true;
+    });
+
+  const filterDish = (list) => (list || []).filter((m) => m && !excludedKinds.has(m.kind));
+
+  const filterByJunle = (list, preferred, fallbackList = []) => {
+    if (!preferred || !preferred.size) return list;
+    const primary = list.filter((m) => m?.junle && preferred.has(m.junle));
+    if (primary.length) return primary;
+    const secondary = fallbackList.filter((m) => m?.junle && preferred.has(m.junle));
+    if (secondary.length) return secondary;
+    return [];
+  };
+
+  const pickFromList = (list, usedIds, favoriteQuotaRef) => {
+    const sorted = sortMenusByPreference(list, myMenuFrequency);
+    const pickPreferred = (preferFavorites) =>
+      sorted.find((m) => {
+        if (!m || usedIds.has(m.id)) return false;
+        if (!preferFavorites) return true;
+        return !!myMenuFrequency[m.id];
+      }) || null;
+
+    let picked = null;
+    if (favoriteQuotaRef.value > 0) {
+      picked = pickPreferred(true) || pickPreferred(false);
+    } else {
+      picked = pickPreferred(false);
+    }
+
+    if (picked) {
+      usedIds.add(picked.id);
+      if (myMenuFrequency[picked.id] && favoriteQuotaRef.value > 0) favoriteQuotaRef.value -= 1;
+    }
+    return picked;
+  };
+
+  const dayPlanOrder = shuffleArray([
+    { type: 'jp' }, { type: 'jp' }, { type: 'jp' }, { type: 'jp' }, { type: 'jp' },
+    { type: 'other' }, { type: 'other' }
+  ]);
+  const usedIds = new Set();
+  let favoriteQuota = { value: 5 };
+  let whiteRiceQuota = 4;
+
+  const pickDinnerForDay = (dayType, dayIndex) => {
+    const isJapaneseDay = dayType === 'jp';
+    const requireWhite = isJapaneseDay && whiteRiceQuota > 0;
+    const preferredJunle = isJapaneseDay ? new Set(['和食']) : new Set(['洋食']);
+    const fallbackJunle = isJapaneseDay ? new Set(['洋食']) : new Set();
+
+    const stapleListSeasonal = filterStaples(seasonalStaples, { requireWhite, allowedJunle: preferredJunle });
+    const stapleListFallback = filterStaples(stapleBase, { requireWhite, allowedJunle: preferredJunle });
+    let staples = stapleListSeasonal.length ? stapleListSeasonal : stapleListFallback;
+    if (!staples.length && isJapaneseDay) {
+      // allow洋食 fallback for jp if none
+      staples = filterStaples(seasonalStaples, { requireWhite, allowedJunle: fallbackJunle });
+      if (!staples.length) staples = filterStaples(stapleBase, { requireWhite, allowedJunle: fallbackJunle });
+    }
+    if (!staples.length) {
+      // final fallback: allow any junle
+      staples = filterStaples(stapleBase, { requireWhite, allowedJunle: null });
+    }
+    if (!staples.length && requireWhite) {
+      // give up white requirement to avoid empty day
+      staples = filterStaples(stapleBase, { requireWhite: false, allowedJunle: null });
+    }
+    const stapleMenu = pickFromList(staples, usedIds, favoriteQuota);
+    if (requireWhite && stapleMenu && (isWhiteRice(stapleMenu) || isTakikomi(stapleMenu))) {
+      whiteRiceQuota -= 1;
+    } else if (requireWhite && stapleMenu) {
+      // if we required white but didn't get it, do not consume quota so next jp day can try again
+    }
+
+    const stapleText = getMenuText(stapleMenu || {});
+    const stapleIsWhiteRice = stapleMenu && isWhiteRice(stapleMenu);
+    const stapleIsTakikomi = stapleMenu && isTakikomi(stapleMenu);
+
+    const chooseListWithFallback = (preferredList, fallbackList, allowedJunleSet) => {
+      const primary = filterByJunle(preferredList, allowedJunleSet);
+      if (primary.length) return primary;
+      const secondary = filterByJunle(fallbackList, allowedJunleSet);
+      if (secondary.length) return secondary;
+      if (allowedJunleSet && allowedJunleSet.size) {
+        const any = preferredList.length ? preferredList : fallbackList;
+        if (any.length) return any;
+      }
+      return [];
+    };
+
+    const allowedJunleSet = isJapaneseDay ? new Set(['和食', '洋食']) : new Set(['洋食']);
+    const mainList = filterDish(chooseListWithFallback(seasonalMains, mainBase, allowedJunleSet));
+    const sideList = filterDish(chooseListWithFallback(seasonalSides, sideBase, allowedJunleSet));
+    const soupList = filterDish(chooseListWithFallback(seasonalSoups, soupBase, allowedJunleSet));
+
+    const shouldSuggestMain =
+      stapleMenu &&
+      stapleMenu.kind === '主食・ごはん' &&
+      (stapleIsWhiteRice || stapleIsTakikomi);
+
+    const mainMenu = shouldSuggestMain ? pickFromList(mainList, usedIds, favoriteQuota) : null;
+    const sideMenu = pickFromList(sideList, usedIds, favoriteQuota);
+    const soupMenu = pickFromList(soupList, usedIds, favoriteQuota);
+
+    const slots = {
+      staple: stapleMenu ? { menuId: stapleMenu.id, categoryKey: 'dinnerStaple', favorite: false, dineOut: false } : null,
+      main: mainMenu ? { menuId: mainMenu.id, categoryKey: 'dinnerMain', favorite: false, dineOut: false } : null,
+      side: sideMenu ? { menuId: sideMenu.id, categoryKey: 'dinnerSide', favorite: false, dineOut: false } : null,
+      soup: soupMenu ? { menuId: soupMenu.id, categoryKey: 'dinnerSoup', favorite: false, dineOut: false } : null
+    };
+
+    const nabeSlot = [slots.main, slots.staple, slots.side, slots.soup].find((s) => {
+      if (!s) return false;
+      const menu = menuMap[s.menuId];
+      return isNabe(menu);
+    });
+    if (nabeSlot) {
+      return { staple: null, main: { ...nabeSlot, categoryKey: 'dinnerMain' }, side: null, soup: null };
+    }
+
+    return slots;
+  };
+
+  const dinners = dayPlanOrder.map((d, idx) => pickDinnerForDay(d.type, idx));
+  return dinners;
+};
+
 const buildWeekPlanPayload = (menusByCategory, options = {}) => {
   const {
     startDate,
@@ -789,6 +977,10 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
     myMenuFrequency,
     currentSeason: seasonLabel
   });
+  const dinnerPlan = buildDinnerPlan(menusByCategory, {
+    myMenuFrequency,
+    currentSeason: seasonLabel
+  });
 
   const plan = weekDates.map((date, index) => {
     const createSlot = (categoryKey) => {
@@ -810,12 +1002,19 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
       dateISO: date.toISOString(),
       breakfastSlots: Array.isArray(breakfastPlan[index]) ? breakfastPlan[index] : [],
       lunchSlots: Array.isArray(lunchPlan[index]) ? lunchPlan[index] : [createSlot('lunchMain')].filter(Boolean),
-      dinner: {
-        staple: createSlot('dinnerStaple'),
-        main: createSlot('dinnerMain'),
-        side: createSlot('dinnerSide'),
-        soup: createSlot('dinnerSoup')
-      },
+      dinner: Array.isArray(dinnerPlan) && dinnerPlan[index]
+        ? {
+            staple: dinnerPlan[index].staple,
+            main: dinnerPlan[index].main,
+            side: dinnerPlan[index].side,
+            soup: dinnerPlan[index].soup
+          }
+        : {
+            staple: createSlot('dinnerStaple'),
+            main: createSlot('dinnerMain'),
+            side: createSlot('dinnerSide'),
+            soup: createSlot('dinnerSoup')
+          },
       dinnerExtras: []
     };
   });
