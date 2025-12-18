@@ -1742,19 +1742,29 @@
       }
     };
 
-    const pickRandomMenu = (categoryKey, excludeMenuId) => {
-      const options = menusByCategory[categoryKey] || [];
-      if (!options.length) return null;
-      if (options.length === 1) return options[0];
-
-      let candidate = null;
-      let guard = 0;
-      do {
-        const index = Math.floor(Math.random() * options.length);
-        candidate = options[index];
-        guard += 1;
-      } while (candidate?.id === excludeMenuId && guard < 10);
-      return candidate;
+    const requestShuffle = async (mealKey, categoryKey, currentMenuId, dayIndex) => {
+      const groupId = (window.weekMenuData && window.weekMenuData.currentGroupId) || '';
+      const weekStartISO = (window.weekMenuData && window.weekMenuData.weekStartISO) || (Array.isArray(WEEK) && WEEK[0]?.dateISO) || '';
+      if (!groupId || !weekStartISO) return null;
+      const res = await fetch('/users/week-menu/shuffle-slot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          weekStart: weekStartISO,
+          dayIndex: Number.isInteger(dayIndex) ? dayIndex : 0,
+          mealType: mealKey,
+          categoryKey,
+          currentMenuId
+        })
+      });
+      if (!res.ok) return null;
+      const json = await res.json().catch(() => null);
+      if (!json || !json.slot || !json.slot.menuId) return null;
+      if (json.slot.menu) {
+        menuLookup[json.slot.menuId] = json.slot.menu;
+      }
+      return json.slot;
     };
 
     const inferDinnerCategoryKey = (menu) => {
@@ -2890,17 +2900,21 @@
       } else if (action === 'toggle-dine') {
         toggleDineOut(slot);
       } else if (action === 'shuffle') {
-        const nextMenu = pickRandomMenu(categoryKey, slot.menuId);
-        if (nextMenu) {
-          slot.menuId = nextMenu.id;
-          slot.dineOut = false;
-          if (categoryKey.startsWith('dinner')) {
-            const inferred = inferDinnerCategoryKey(nextMenu);
-            if (inferred) {
-              slot.categoryKey = inferred;
+        (async () => {
+          const next = await requestShuffle(mealKey, categoryKey, slot.menuId || '', dayIndex);
+          if (next && next.menuId) {
+            slot.menuId = next.menuId;
+            slot.categoryKey = next.categoryKey || categoryKey;
+            slot.dineOut = false;
+            if (next.menu) {
+              slot.menu = next.menu;
             }
+            render();
+            if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+            try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch (_) {}
           }
-        }
+        })();
+        return;
       } else if (action === 'change') {
         openMenuModal(categoryKey, slot);
       } else if (action === 'set-prep') {

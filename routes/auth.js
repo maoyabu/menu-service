@@ -592,6 +592,65 @@ const filterBaseMenus = (menus, { excludeKeywords = [] } = {}) =>
     return true;
   });
 
+const BREAKFAST_BUCKETS = [
+  { key: 'plate', kind: 'モーニングプレート', keywords: [] },
+  { key: 'jp_rice', keywords: ['白米', 'おにぎり', '卵かけご飯'] },
+  { key: 'jp_miso', keywords: ['味噌汁'] },
+  { key: 'jp_fish', keywords: ['焼き魚', '干物'] },
+  { key: 'jp_natto', keywords: ['納豆', 'しらす', 'ふりかけ'] },
+  { key: 'jp_tamago', keywords: ['卵焼き'] },
+  { key: 'west_bread', keywords: ['食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ'] },
+  { key: 'west_yogurt', keywords: ['ヨーグルト'] },
+  { key: 'west_egg', keywords: ['目玉焼き', 'スクランブルエッグ', 'オムレツ'] },
+  { key: 'west_soup', keywords: ['スープ'] }
+];
+
+const detectBreakfastBucket = (menu) => {
+  if (!menu) return '';
+  if (menu.kind === 'モーニングプレート') return 'plate';
+  const text = getMenuText(menu);
+  for (const bucket of BREAKFAST_BUCKETS) {
+    if (bucket.key === 'plate') continue;
+    if (menuMatchesKeyword({ name: text }, bucket.keywords)) return bucket.key;
+  }
+  return '';
+};
+
+const pickBreakfastByBucket = ({ menus, bucketKey, myMenuFrequency = {}, currentSeason = '', excludeMenuId = '' }) => {
+  const baseMenus = filterBaseMenus(menus);
+  const seasonal = filterSeasonalMenus(baseMenus, currentSeason);
+  const poolBase = seasonal.length ? seasonal : baseMenus;
+  const bucket = BREAKFAST_BUCKETS.find((b) => b.key === bucketKey);
+  if (!bucket) return null;
+  let candidates = [];
+  if (bucket.key === 'plate') {
+    candidates = poolBase.filter((m) => m && m.kind === 'モーニングプレート');
+  } else {
+    // 必ずバケット内キーワードで絞り込む
+    candidates = filterMenusByKeyword(poolBase, bucket.keywords || []);
+    // 卵枠はモーニングプレートを除外
+    if (bucket.key === 'west_egg') {
+      candidates = candidates.filter((m) => m && m.kind !== 'モーニングプレート');
+    }
+    if (bucket.key === 'jp_tamago') {
+      candidates = candidates.filter((m) => m && m.kind !== 'モーニングプレート');
+      // 卵焼き枠は卵焼きキーワードのみで絞る
+      candidates = filterMenusByKeyword(candidates, ['卵焼き']);
+    }
+    if (bucket.key === 'west_soup') {
+      candidates = candidates.filter((m) => m.junle === '洋食' || menuMatchesKeyword(m, ['スープ']));
+    }
+  }
+  if (!candidates.length) {
+    // バケット内に候補が無い場合は諦めて null（他バケットに逃げない）
+    return null;
+  }
+  const filtered = candidates.filter((m) => m.id !== excludeMenuId);
+  const targetPool = filtered.length ? filtered : candidates;
+  const sorted = sortMenusByPreference(targetPool, myMenuFrequency);
+  return sorted[0] || targetPool[0] || null;
+};
+
 const buildBreakfastPlan = (menus, options = {}) => {
   const {
     myMenuFrequency = {},
@@ -608,15 +667,16 @@ const buildBreakfastPlan = (menus, options = {}) => {
     favorite: false,
     dineOut: false
   });
-  const fillToTarget = (slots, targetCount) => {
+  const fillToTarget = (slots, targetCount, fillPool = fallbackMenus) => {
+    if (!fillPool) return slots;
     while (slots.length < targetCount) {
-      const extra = pickFromCandidates(fallbackMenus);
+      const extra = pickFromCandidates(fillPool);
       if (!extra) break;
       slots.push(toSlot(extra));
     }
     return slots;
   };
-  const pickFromCandidates = (candidates, { allowReuse = false } = {}) => {
+  const pickFromCandidates = (candidates, { allowReuse = false, allowFallback = true } = {}) => {
     const seasonalCandidates = filterSeasonalMenus(candidates, currentSeason);
     const pool = seasonalCandidates.length ? seasonalCandidates : candidates;
     const sorted = sortMenusByPreference(pool, myMenuFrequency);
@@ -635,7 +695,7 @@ const buildBreakfastPlan = (menus, options = {}) => {
       picked = pickPreferred(sorted.filter((m) => !myMenuFrequency[m?.id]), false) || pickPreferred(sorted, false);
     }
 
-    if (!picked && fallbackMenus.length) {
+    if (!picked && allowFallback && fallbackMenus.length) {
       const fallbackSorted = sortMenusByPreference(fallbackMenus, myMenuFrequency);
       if (favoriteQuota > 0) {
         picked = pickPreferred(fallbackSorted, true) || pickPreferred(fallbackSorted, false);
@@ -672,31 +732,27 @@ const buildBreakfastPlan = (menus, options = {}) => {
     const soup = pickFromCandidates(soupCandidates.length ? soupCandidates : filterMenusByKeyword(fallbackMenus, ['スープ']));
     if (soup) slots.push(toSlot(soup));
 
-    return fillToTarget(slots, 4);
+    return fillToTarget(slots, 4, fallbackMenus);
   };
 
   const buildJapaneseSet = () => {
     const slots = [];
-    const rice = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['白米', 'おにぎり', '卵かけご飯']));
+    const rice = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['白米', 'おにぎり', '卵かけご飯']), { allowFallback: false });
     if (rice) slots.push(toSlot(rice));
 
-    const misoSoup = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['味噌汁']));
+    const misoSoup = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['味噌汁']), { allowFallback: false });
     if (misoSoup) slots.push(toSlot(misoSoup));
 
-    const fish = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['焼き魚', '干物']));
+    const fish = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['焼き魚', '干物']), { allowFallback: false });
     if (fish) slots.push(toSlot(fish));
 
-    const natto = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['納豆', 'しらす', 'ふりかけ']));
+    const natto = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['納豆', 'しらす', 'ふりかけ']), { allowFallback: false });
     if (natto) slots.push(toSlot(natto));
 
-    const tamago = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['卵焼き']));
+    const tamago = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['卵焼き']), { allowFallback: false });
     if (tamago) slots.push(toSlot(tamago));
 
-    if (!slots.length) {
-      const fallback = pickFromCandidates(fallbackMenus);
-      if (fallback) slots.push(toSlot(fallback));
-    }
-    return fillToTarget(slots, 5);
+    return slots;
   };
 
   const buildPlateSet = () => {
@@ -716,7 +772,7 @@ const buildBreakfastPlan = (menus, options = {}) => {
 
 const buildLunchPlan = (menus, options = {}) => {
   const { myMenuFrequency = {}, currentSeason = '' } = options;
-  const excludeKeywords = [
+  const LUNCH_EXCLUDE_KEYWORDS = [
     '食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ',
     'ヨーグルト',
     '目玉焼き', 'スクランブルエッグ', 'オムレツ',
@@ -728,9 +784,10 @@ const buildLunchPlan = (menus, options = {}) => {
     '納豆', 'しらす', 'ふりかけ',
     '卵焼き'
   ];
-  const baseMenus = filterBaseMenus(menus, { excludeKeywords });
+  const baseMenus = filterBaseMenus(menus, { excludeKeywords: LUNCH_EXCLUDE_KEYWORDS });
   const seasonalMenus = filterSeasonalMenus(baseMenus, currentSeason);
   const fallbackMenus = seasonalMenus.length ? seasonalMenus : baseMenus;
+  const rawAllowedMenus = (menus || []).filter((m) => m && m.material !== true && (!m.kind || ['主食・ごはん', '主食・麺', '主食'].includes(m.kind)));
   const usedIds = new Set();
   let favoriteQuota = 5;
   const allowedKinds = new Set(['主食・ごはん', '主食・麺', '主食']);
@@ -738,30 +795,38 @@ const buildLunchPlan = (menus, options = {}) => {
     if (!menu) return false;
     if (menu.kind && !allowedKinds.has(menu.kind)) return false;
     if (menu.material === true) return false;
-    return !menuMatchesKeyword(menu, excludeKeywords);
+    return true;
   });
 
   const pickLunch = () => {
     const seasonal = filterSeasonalMenus(filtered, currentSeason);
-    const pool = seasonal.length ? seasonal : filtered;
+    let pool = seasonal.length ? seasonal : filtered;
+    if (pool.length < 3) {
+      // フィルタで候補が少なすぎる場合は、主食系かつ素材フラグなしの全候補を使う
+      pool = rawAllowedMenus.length ? rawAllowedMenus : pool;
+    }
+    const allowReuse = usedIds.size >= pool.length;
     const sorted = sortMenusByPreference(pool, myMenuFrequency);
-    const pickPreferred = (preferFavorites) =>
-      sorted.find((m) => {
-        if (!m || usedIds.has(m.id)) return false;
-        if (!preferFavorites) return true;
-        return !!myMenuFrequency[m.id];
+    const chunk = sorted.slice(0, Math.min(5, sorted.length));
+    const shuffledTop = shuffleArray(chunk);
+    const pickFromList = (list) => {
+      return (list || []).find((m) => {
+        if (!m) return false;
+        if (!allowReuse && usedIds.has(m.id)) return false;
+        return true;
       }) || null;
+    };
 
-    let picked = null;
-    if (favoriteQuota > 0) {
-      picked = pickPreferred(true) || pickPreferred(false);
-    } else {
-      picked = pickPreferred(false);
+    let picked = pickFromList(shuffledTop);
+
+    if (!picked) {
+      const shuffledAll = shuffleArray(sorted);
+      picked = pickFromList(shuffledAll);
     }
 
     if (!picked && fallbackMenus.length) {
-      const fallbackSorted = sortMenusByPreference(fallbackMenus, myMenuFrequency);
-      picked = fallbackSorted.find((m) => !usedIds.has(m?.id)) || null;
+      const fallbackShuffled = shuffleArray(fallbackMenus);
+      picked = fallbackShuffled.find((m) => allowReuse || !usedIds.has(m?.id)) || fallbackShuffled[0] || null;
     }
 
     if (picked) {
@@ -779,6 +844,42 @@ const buildLunchPlan = (menus, options = {}) => {
 
   // 7 days
   return Array.from({ length: 7 }, () => pickLunch()).map((slot) => (slot ? [slot] : []));
+};
+
+const pickLunchCandidate = ({ menus, myMenuFrequency = {}, currentSeason = '', excludeMenuId = '' }) => {
+  const LUNCH_EXCLUDE_KEYWORDS = [
+    '食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ',
+    'ヨーグルト',
+    '目玉焼き', 'スクランブルエッグ', 'オムレツ',
+    'スープ',
+    'スープ ',
+    '白米', 'おにぎり', '卵かけご飯',
+    '味噌汁',
+    '焼き魚', '干物',
+    '納豆', 'しらす', 'ふりかけ',
+    '卵焼き'
+  ];
+  const baseMenus = filterBaseMenus(menus, { excludeKeywords: LUNCH_EXCLUDE_KEYWORDS });
+  const seasonalMenus = filterSeasonalMenus(baseMenus, currentSeason);
+  const fallbackMenus = seasonalMenus.length ? seasonalMenus : baseMenus;
+  const allowedKinds = new Set(['主食・ごはん', '主食・麺', '主食']);
+  const rawAllowed = (menus || []).filter((m) => m && m.material !== true && (!m.kind || allowedKinds.has(m.kind)));
+  const filtered = (fallbackMenus || []).filter((menu) => {
+    if (!menu) return false;
+    if (menu.kind && !allowedKinds.has(menu.kind)) return false;
+    if (menu.material === true) return false;
+    if (menu.id === excludeMenuId) return false;
+    return true;
+  });
+  let pool = filtered.length ? filtered : fallbackMenus;
+  if (pool.length < 3 && rawAllowed.length) {
+    pool = rawAllowed;
+  }
+  if (!pool.length) return null;
+  const sorted = sortMenusByPreference(pool, myMenuFrequency);
+  const top = sorted.slice(0, Math.min(5, sorted.length));
+  const candidatePool = top.length ? shuffleArray(top) : shuffleArray(sorted);
+  return candidatePool[0] || null;
 };
 
 const buildDinnerPlan = (menusByCategory, options = {}) => {
@@ -951,6 +1052,47 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
 
   const dinners = dayPlanOrder.map((d, idx) => pickDinnerForDay(d.type, idx));
   return dinners;
+};
+
+const pickDinnerCandidate = ({ categoryKey, menusByCategory, myMenuFrequency = {}, currentSeason = '', excludeMenuId = '' }) => {
+  const breakfastKeywords = [
+    '食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ',
+    'ヨーグルト',
+    '目玉焼き', 'スクランブルエッグ', 'オムレツ',
+    'おにぎり', '卵かけご飯',
+    '味噌汁',
+    '焼き魚', '干物',
+    '納豆', 'しらす', 'ふりかけ',
+    '卵焼き'
+  ];
+  const excludedKinds = new Set(['ごはんのお供', 'デザート', 'フルーツ', 'ドリンク', 'モーニングプレート']);
+  const allowedStapleKinds = new Set(['主食', '主食・ごはん', '主食・麺', '主食・パン']);
+  const isPizzaBread = (menu) => (menu?.kind === '主食・パン') && /ピザ/.test(getMenuText(menu));
+  const isAllowedStaple = (menu) => {
+    if (!menu) return false;
+    if (!allowedStapleKinds.has(menu.kind)) return false;
+    if (menu.kind === '主食・パン' && !isPizzaBread(menu)) return false;
+    return true;
+  };
+
+  const baseRaw = (menusByCategory[categoryKey] || []).filter((m) => m && m.material !== true && !excludedKinds.has(m.kind));
+  const baseList = filterBaseMenus(baseRaw, { excludeKeywords: breakfastKeywords })
+    .filter((m) => !excludedKinds.has(m?.kind));
+  const seasonal = filterSeasonalMenus(baseList, currentSeason);
+  let pool = seasonal.length ? seasonal : baseList;
+
+  let candidates = pool.filter((m) => m.id !== excludeMenuId);
+  if (categoryKey === 'dinnerStaple') {
+    candidates = candidates.filter(isAllowedStaple);
+    if (!candidates.length) {
+      // 季節で枯渇したときに元の主食系候補から復活
+      candidates = baseRaw.filter(isAllowedStaple);
+    }
+  }
+
+  if (!candidates.length) return null;
+  const sorted = sortMenusByPreference(candidates, myMenuFrequency);
+  return sorted[0] || candidates[0] || null;
 };
 
 const buildWeekPlanPayload = (menusByCategory, options = {}) => {
@@ -2271,6 +2413,141 @@ router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
   } catch (err) {
     console.error('週次メニュー再提案エラー:', err);
     return res.status(500).json({ error: '週次メニューを再提案できませんでした。' });
+  }
+});
+
+// 個別スロットの再提案（朝/昼/夜のルールを踏襲）
+router.post('/users/week-menu/shuffle-slot', isLoggedIn, async (req, res) => {
+  try {
+    const { groupId, weekStart, dayIndex, mealType, categoryKey, currentMenuId } = req.body || {};
+    if (!groupId || !mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ error: 'グループIDが不正です。' });
+    }
+    const di = Number(dayIndex);
+    if (!Number.isInteger(di) || di < 0 || di > 6) {
+      return res.status(400).json({ error: 'dayIndex が不正です。' });
+    }
+    const meal = (typeof mealType === 'string' && mealType) ? mealType : '';
+    if (!['breakfast', 'lunch', 'dinner'].includes(meal)) {
+      return res.status(400).json({ error: 'mealType が不正です。' });
+    }
+
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    if (!userGroups.some((g) => g._id.toString() === String(groupId))) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+
+    const baseWeekStart = startOfWeek(weekStart || new Date());
+    if (Number.isNaN(baseWeekStart.getTime())) {
+      return res.status(400).json({ error: '週の開始日が不正です。' });
+    }
+
+    // Build menus by category (public only)
+    const kindSet = new Set();
+    Object.values(CATEGORY_CONFIG).forEach((config) => (config.kinds || []).forEach((k) => k && kindSet.add(k)));
+    const menusByKind = {};
+    await Promise.all(
+      Array.from(kindSet).map(async (kind) => {
+        const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .lean();
+        menusByKind[kind] = docs.map(formatMenuDocument);
+      })
+    );
+    const combineMenusByKinds = (kinds) => {
+      const combined = new Map();
+      (kinds || []).forEach((k) => {
+        (menusByKind[k] || []).forEach((m) => { if (!combined.has(m.id)) combined.set(m.id, m); });
+      });
+      return Array.from(combined.values());
+    };
+    const menusByCategory = Object.entries(CATEGORY_CONFIG).reduce((acc, [key, config]) => {
+      acc[key] = combineMenusByKinds(config.kinds);
+      return acc;
+    }, {});
+
+    // MyMenu frequency for prioritization
+    let myMenuFrequency = {};
+    try {
+      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu frequency').lean();
+      myMenuFrequency = buildMyMenuFrequencyMap(mymenus);
+    } catch (_) {
+      myMenuFrequency = {};
+    }
+
+    const currentSeasonLabel = monthToSeason(baseWeekStart.getMonth() + 1);
+    const generated = buildWeekPlanPayload(menusByCategory, {
+      startDate: baseWeekStart,
+      myMenuFrequency,
+      currentSeason: currentSeasonLabel
+    });
+
+    const menuLookup = generated.menuLookup || {};
+    const plan = generated.plan || [];
+    const dayPlan = plan[di];
+    if (!dayPlan) return res.status(404).json({ error: '対象日のプランが見つかりません。' });
+
+    const pickSlotFromDay = () => {
+      if (meal === 'breakfast') {
+        const currentMenu =
+          (menusByCategory.breakfastMain || []).find((m) => m.id === currentMenuId) || null;
+        const bucket = detectBreakfastBucket(currentMenu);
+        if (!bucket) return null;
+        const nextMenu = pickBreakfastByBucket({
+          menus: menusByCategory.breakfastMain || [],
+          bucketKey: bucket,
+          myMenuFrequency,
+          currentSeason: currentSeasonLabel,
+          excludeMenuId: currentMenuId || ''
+        });
+        if (!nextMenu) {
+          // バケット内に別候補が無ければ元のメニューを維持
+          return currentMenu
+            ? {
+                menuId: currentMenu.id,
+                categoryKey: 'breakfastMain',
+                favorite: false,
+                dineOut: false,
+                menu: currentMenu
+              }
+            : null;
+        }
+        return {
+          menuId: nextMenu.id,
+          categoryKey: 'breakfastMain',
+          favorite: false,
+          dineOut: false,
+          menu: nextMenu
+        };
+      }
+      if (meal === 'lunch') {
+        const slot = (dayPlan.lunchSlots || []).find(Boolean);
+        return slot ? { ...slot, menu: menuLookup[slot.menuId] || null } : null;
+      }
+      // dinner
+      const candidates = [
+        dayPlan.dinner?.staple,
+        dayPlan.dinner?.main,
+        dayPlan.dinner?.side,
+        dayPlan.dinner?.soup,
+        ...(Array.isArray(dayPlan.dinnerExtras) ? dayPlan.dinnerExtras : [])
+      ].filter(Boolean);
+      let slot = null;
+      if (categoryKey) {
+        slot = candidates.find((s) => s.categoryKey === categoryKey) || null;
+      }
+      if (!slot) slot = candidates[0] || null;
+      return slot ? { ...slot, menu: menuLookup[slot.menuId] || null } : null;
+    };
+
+    const slot = pickSlotFromDay();
+    if (!slot) return res.status(404).json({ error: '再提案できるメニューが見つかりませんでした。' });
+
+    return res.json({ success: true, slot });
+  } catch (err) {
+    console.error('shuffle-slot error:', err);
+    return res.status(500).json({ error: '再提案に失敗しました。' });
   }
 });
 
