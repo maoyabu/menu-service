@@ -663,6 +663,20 @@
           調味料: <span class="font-semibold"><%= (mystockCounts && mystockCounts.seasoning) || 0 %></span> 件
         </span>
       </div>
+      <div class="rounded-xl border border-purple-100 bg-white px-3 py-2 text-sm">
+        <% if (myStockInventorySummary && myStockInventorySummary.currentLabel) { %>
+          <div class="flex flex-wrap items-center gap-2 text-gray-700">
+            <span class="text-sm">現在の棚卸し：<span class="font-semibold"><%= myStockInventorySummary.currentLabel %>度の棚卸し</span></span>
+            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold <%= myStockInventorySummary.statusLabel === '完了' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' %>">
+              <span class="lucide w-3 h-3" data-lucide="<%= myStockInventorySummary.statusLabel === '完了' ? 'check-circle-2' : 'clock' %>"></span>
+              <%= myStockInventorySummary.statusLabel %>
+            </span>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">次回の棚卸し：<%= myStockInventorySummary.nextLabel %>実施予定</p>
+        <% } else { %>
+          <p class="text-sm text-gray-500">棚卸し設定がありません。</p>
+        <% } %>
+      </div>
       
     </article>
 

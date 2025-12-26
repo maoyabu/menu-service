@@ -3254,6 +3254,53 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     } catch(_){ /* ignore */ }
   }
 
+  // MyStock inventory status summary
+  let myStockInventorySummary = { currentLabel: '', statusLabel: '未完了', nextLabel: '' };
+  if (currentGroupId) {
+    try {
+      const cfg = groupConfig?.stockInventory || {};
+      if (cfg.enabled !== false) {
+        const sendHour = typeof cfg.sendHour === 'number' ? cfg.sendHour : 8;
+        const getScheduledAtUTC = (year, month) => {
+          let scheduledDay = null;
+          if ((cfg.mode || 'monthlyDay') === 'monthlyDay') {
+            const d = Math.max(1, Math.min(31, Number(cfg.day) || 28));
+            const last = new Date(year, month + 1, 0).getDate();
+            scheduledDay = Math.min(d, last);
+          } else {
+            const nth = Math.max(1, Math.min(5, Number(cfg.nth) || 4));
+            const weekday = Math.max(0, Math.min(6, Number(cfg.weekday) || 0));
+            const first = new Date(year, month, 1);
+            const firstWeekday = first.getDay();
+            const day1 = 1 + ((7 + weekday - firstWeekday) % 7);
+            const candidate = day1 + (nth - 1) * 7;
+            const last = new Date(year, month + 1, 0).getDate();
+            scheduledDay = Math.min(candidate, last);
+          }
+          const scheduledAtJst = new Date(Date.UTC(year, month, scheduledDay, sendHour));
+          return new Date(scheduledAtJst.getTime() - (9 * 60 * 60 * 1000));
+        };
+
+        const nowJst = toJstDate(new Date());
+        const currentAt = getScheduledAtUTC(nowJst.getFullYear(), nowJst.getMonth());
+        const currentLabel = `${currentAt.getFullYear()}年${currentAt.getMonth() + 1}月`;
+        const taskTitle = `${currentLabel}のストックの棚卸し`;
+        const currentTask = await Task.findOne({
+          group: currentGroupId,
+          source: 'stock',
+          title: taskTitle
+        }).select('status').lean();
+        const statusLabel = currentTask && currentTask.status === 'completed' ? '完了' : '未完了';
+
+        const nextMonthDate = new Date(nowJst.getFullYear(), nowJst.getMonth() + 1, 1);
+        const nextAt = getScheduledAtUTC(nextMonthDate.getFullYear(), nextMonthDate.getMonth());
+        const nextLabel = `${nextAt.getFullYear()}年${nextAt.getMonth() + 1}月`;
+
+        myStockInventorySummary = { currentLabel, statusLabel, nextLabel };
+      }
+    } catch (_){ /* ignore */ }
+  }
+
   // MyEquipment summary for current group
   let myEquipmentSummary = { count: 0, currentLabel: '', statusLabel: '未完了', nextLabel: '' };
   if (currentGroupId) {
@@ -3352,6 +3399,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     myOwnMyMenus,
     groupMemberMyMenus,
     mystockCounts,
+    myStockInventorySummary,
     myEquipmentSummary,
     popularKeywords,
     popularGenres,
