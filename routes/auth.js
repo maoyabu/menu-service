@@ -17,6 +17,7 @@ import Stock from '../models/stock.js';
 import MyEquipment from '../models/myEquipment.js';
 import Task from '../models/task.js';
 import Notice from '../models/notice.js';
+import PackingEvent from '../models/packingEvent.js';
 import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
@@ -426,6 +427,8 @@ const toJstDate = (date = new Date()) => {
   const currentOffset = date.getTimezoneOffset();
   return new Date(date.getTime() + (offsetMinutes + currentOffset) * 60 * 1000);
 };
+
+const userLabel = (user) => (user?.displayname || user?.username || user?.email || '').toString();
 
 const getEquipmentCycleStart = (cadence = 'monthly') => {
   const now = new Date();
@@ -2775,6 +2778,22 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   const groupConfig = currentGroupId
     ? await Group.findById(currentGroupId).select('group_name stockInventory equipmentInventory members createdBy').lean()
     : null;
+  const groupMembersDoc = currentGroupId
+    ? await Group.findById(currentGroupId).select('createdBy members').populate('createdBy members', 'displayname username email').lean()
+    : null;
+  const memberLabelMap = (()=> {
+    if (!groupMembersDoc) return new Map();
+    const map = new Map();
+    const pushUser = (u) => {
+      if (!u) return;
+      const id = u._id?.toString?.() || (typeof u === 'string' ? u : '');
+      if (!id || map.has(id)) return;
+      map.set(id, userLabel(u));
+    };
+    pushUser(groupMembersDoc.createdBy);
+    (groupMembersDoc.members || []).forEach(pushUser);
+    return map;
+  })();
   const groupMembers = (()=> {
     if (!groupConfig) return [];
     const ids = new Set();
@@ -3376,6 +3395,39 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     .limit(5)
     .lean();
 
+  let packingEvents = [];
+  if (currentGroupId) {
+    const rawEvents = await PackingEvent.find({ group: currentGroupId, completed: { $ne: true } })
+      .select('name startAt participants')
+      .lean();
+    const currentUserId = req.user?._id?.toString?.() || '';
+    const formatEventDate = (date) => {
+      if (!date) return '';
+      const d = toJstDate(new Date(date));
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    };
+    packingEvents = (rawEvents || []).map((ev) => {
+      const participants = (ev.participants || []).map((id) => id.toString());
+      const participantNames = participants
+        .map((id) => memberLabelMap.get(id) || '')
+        .filter(Boolean);
+      return {
+        id: String(ev._id),
+        name: ev.name || '',
+        startAt: ev.startAt || null,
+        startLabel: ev.startAt ? formatEventDate(ev.startAt) : '',
+        participants: participantNames,
+        isParticipant: currentUserId ? participants.includes(currentUserId) : false
+      };
+    }).sort((a, b) => {
+      if (a.isParticipant !== b.isParticipant) return a.isParticipant ? -1 : 1;
+      const ta = a.startAt ? new Date(a.startAt).getTime() : Number.POSITIVE_INFINITY;
+      const tb = b.startAt ? new Date(b.startAt).getTime() : Number.POSITIVE_INFINITY;
+      if (ta !== tb) return ta - tb;
+      return (a.name || '').localeCompare(b.name || '', 'ja');
+    });
+  }
+
   res.render('users/myTop', {
     nextWeekPlan,
     nextWeekRangeLabel,
@@ -3405,7 +3457,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     popularGenres,
     stockInventoryNotice,
     recentNotices,
-    equipmentInventoryNotice
+    equipmentInventoryNotice,
+    packingEvents
   });
   } catch (err) {
     return next(err);
