@@ -8,6 +8,14 @@
   const afterNextPlanId = hasAfterNextWeekPlan ? String(afterNextWeekPlan._id) : '';
   const planButtonLabel = hasAfterNextWeekPlan ? '再来週の 7 DAYS PLAN を編集' : '再来週の 7 DAYS PLAN を作成';
   const buttonIcon = hasAfterNextWeekPlan ? 'pencil' : 'plus';
+  const currentGroupName = (() => {
+    const groups = Array.isArray(userGroups) ? userGroups : [];
+    const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : '';
+    const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : '';
+    const gid = currentGroupId || defaultGroupId;
+    const g = groups.find((gr) => String(gr._id || '') === gid);
+    return g ? g.group_name : '';
+  })();
   const queryParts = [];
   if (typeof currentGroupId !== 'undefined' && currentGroupId) {
     queryParts.push(`group=${currentGroupId}`);
@@ -637,7 +645,7 @@
     <article class="bg-white rounded-2xl shadow border border-gray-100 p-6 flex flex-col gap-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <h2 class="text-lg font-semibold">マイストック</h2>
+          <h2 class="text-lg font-semibold"><%= currentGroupName || 'グループ' %>のストック管理</h2>
         </div>
         <a href="/users/my-stock" class="inline-flex items-center gap-2 text-sm font-semibold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-full hover:bg-purple-100">
           <span class="lucide w-4 h-4" data-lucide="package"></span>
