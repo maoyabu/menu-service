@@ -3254,6 +3254,36 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     } catch(_){ /* ignore */ }
   }
 
+  // MyEquipment summary for current group
+  let myEquipmentSummary = { count: 0, currentLabel: '', statusLabel: '未完了', nextLabel: '' };
+  if (currentGroupId) {
+    try {
+      myEquipmentSummary.count = await MyEquipment.countDocuments({ group: currentGroupId });
+      const cadence = groupConfig?.equipmentInventory?.cadence || 'monthly';
+      const cycleStartJst = toJstDate(getEquipmentCycleStart(cadence));
+      cycleStartJst.setHours(0, 0, 0, 0);
+      const cycleStart = new Date(cycleStartJst.getTime() - (9 * 60 * 60 * 1000));
+      const currentLabel = `${cycleStart.getFullYear()}年${cycleStart.getMonth() + 1}月`;
+      const taskTitle = `${currentLabel}の備品の棚卸し`;
+      const currentTask = await Task.findOne({
+        group: currentGroupId,
+        source: 'equipment',
+        title: taskTitle
+      }).select('status').lean();
+      const statusLabel = currentTask && currentTask.status === 'completed' ? '完了' : '未完了';
+      const nextCycleStart = new Date(cycleStartJst);
+      if (cadence === 'quarter') {
+        nextCycleStart.setMonth(nextCycleStart.getMonth() + 3);
+      } else if (cadence === 'half') {
+        nextCycleStart.setMonth(nextCycleStart.getMonth() + 6);
+      } else {
+        nextCycleStart.setMonth(nextCycleStart.getMonth() + 1);
+      }
+      const nextLabel = `${nextCycleStart.getFullYear()}年${nextCycleStart.getMonth() + 1}月`;
+      myEquipmentSummary = { count: myEquipmentSummary.count, currentLabel, statusLabel, nextLabel };
+    } catch (_){ /* ignore */ }
+  }
+
   // 人気キーワード（直近7日）
   const popularKeywords = await (async () => {
     const since = new Date(); since.setDate(since.getDate() - 7);
@@ -3322,6 +3352,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     myOwnMyMenus,
     groupMemberMyMenus,
     mystockCounts,
+    myEquipmentSummary,
     popularKeywords,
     popularGenres,
     stockInventoryNotice,
