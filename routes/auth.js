@@ -3395,6 +3395,42 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     .limit(5)
     .lean();
 
+  let myTodoTasks = [];
+  let otherMemberTaskCount = 0;
+  if (currentGroupId) {
+    const currentUserId = req.user?._id;
+    const formatTaskDate = (date) => {
+      const d = toJstDate(new Date(date));
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    };
+    try {
+      const tasksRaw = await Task.find({
+        group: currentGroupId,
+        status: { $ne: 'completed' },
+        assignees: currentUserId
+      })
+        .select('title dueAt status')
+        .lean();
+      myTodoTasks = (tasksRaw || []).map((task) => ({
+        id: String(task._id),
+        title: task.title || '',
+        dueAt: task.dueAt || null,
+        dueLabel: task.dueAt ? formatTaskDate(task.dueAt) : ''
+      }))
+        .sort((a, b) => {
+          const ta = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
+          const tb = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+          return ta - tb;
+        });
+
+      otherMemberTaskCount = await Task.countDocuments({
+        group: currentGroupId,
+        status: { $ne: 'completed' },
+        assignees: { $exists: true, $ne: [], $nin: [currentUserId] }
+      });
+    } catch (_) { /* ignore */ }
+  }
+
   let packingEvents = [];
   if (currentGroupId) {
     const rawEvents = await PackingEvent.find({ group: currentGroupId, completed: { $ne: true } })
@@ -3458,7 +3494,9 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     stockInventoryNotice,
     recentNotices,
     equipmentInventoryNotice,
-    packingEvents
+    packingEvents,
+    myTodoTasks,
+    otherMemberTaskCount
   });
   } catch (err) {
     return next(err);

@@ -2,9 +2,8 @@
   <header class="space-y-2">
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div>
-        <p class="text-xs text-gray-500">グループのタスク管理</p>
-        <h1 class="text-2xl font-bold text-gray-900"><%= currentGroupName || 'タスク管理' %></h1>
-        <p class="text-sm text-gray-600">家族やグループで共有するタスク</p>
+        <p class="text-xs text-gray-500">グループのやることリスト</p>
+        <h1 class="text-2xl font-bold text-gray-900"><%= currentGroupName ? `${currentGroupName}のやることリスト` : 'やることリスト' %></h1>
       </div>
       <button type="button" id="task-open-modal" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
         <i data-lucide="plus" class="w-4 h-4"></i>
