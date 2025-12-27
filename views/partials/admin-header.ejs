@@ -8,12 +8,14 @@
       <span aria-hidden="true" class="absolute inset-0"></span>
       <i data-lucide="menu" class="w-6 h-6"></i>
     </button>
-    <i data-lucide="chef-hat" class="w-6 h-6"></i>
     <% const homeHref = onAdminRoute ? '/admin/admin-top' : '/users/my-top'; %>
-    <% const brandLabel = onAdminRoute ? 'レシピ管理システム' : '7 DAYS PLAN'; %>
-    <a href="<%= homeHref %>" class="hover:underline">
-      <span><%= brandLabel %></span>
-    </a>
+    <% const brandLabel = onAdminRoute ? 'レシピ管理システム' : 'PREPALACE'; %>
+    <div class="flex items-end gap-2 leading-tight">
+      <i data-lucide="chef-hat" class="w-6 h-6"></i>
+      <a href="<%= homeHref %>" class="hover:underline">
+        <span><%= brandLabel %></span>
+      </a>
+    </div>
   </div>
   <div class="flex items-center gap-4">
     <% if (typeof user !== 'undefined' && user) { %>
