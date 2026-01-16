@@ -1,11 +1,16 @@
 <%- include('_mailHeader') %>
 
-<p style="font-size:16px; margin:16px 0 8px 0;">タスク: <strong><%= title %></strong></p>
+<p style="font-size:16px; margin:16px 0 8px 0;"><%= typeLabel || 'タスク' %>: <strong><%= title %></strong></p>
 <% if (dueAt) { %>
   <p style="margin:4px 0 12px 0; color:#555;">期限: <%= new Date(dueAt).toLocaleString('ja-JP', { dateStyle:'medium' }) %></p>
 <% } %>
 <% if (content) { %>
   <p style="white-space:pre-wrap; color:#333; margin:8px 0;"><%= content %></p>
+<% } %>
+<% if (confirmUrl) { %>
+  <p style="margin:16px 0;">
+    <a href="<%= confirmUrl %>" style="display:inline-block; padding:10px 16px; background:#2563eb; color:#fff; text-decoration:none; border-radius:6px; font-weight:600;">確認した</a>
+  </p>
 <% } %>
 
 <p style="margin:16px 0 0 0; color:#555;">7 DAYS PLANより</p>

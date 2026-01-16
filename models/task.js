@@ -9,6 +9,11 @@ const recurrenceSchema = new Schema({
   dayOfMonth: { type: Number, default: null }
 }, { _id: false });
 
+const statusBySchema = new Schema({
+  user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  status: { type: String, enum: ['not_started', 'in_progress', 'on_hold', 'completed'], default: 'not_started' }
+}, { _id: false });
+
 const taskSchema = new Schema({
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   title: { type: String, required: true, trim: true },
@@ -20,6 +25,9 @@ const taskSchema = new Schema({
   started: { type: Boolean, default: false },
   status: { type: String, enum: ['not_started', 'in_progress', 'on_hold', 'completed'], default: 'not_started', index: true },
   completedAt: { type: Date, default: null },
+  kind: { type: String, enum: ['task', 'bulletin'], default: 'task' },
+  confirmedBy: [{ type: Schema.Types.ObjectId, ref: 'User', default: [] }],
+  statusBy: { type: [statusBySchema], default: [] },
   note: { type: String, default: '' },
   recurrence: { type: recurrenceSchema, default: () => ({}) },
   source: { type: String, enum: ['manual', 'packing', 'stock', 'equipment'], default: 'manual', index: true },

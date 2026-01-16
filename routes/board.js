@@ -49,6 +49,12 @@ const normalizeTask = (task) => ({
   started: !!task.started,
   status: task.status,
   completedAt: task.completedAt || null,
+  kind: task.kind || 'task',
+  confirmedBy: (task.confirmedBy || (task.confirmed ? [task.createdBy] : [])).map((a)=> a?.toString?.() || a),
+  statusBy: (task.statusBy || []).map((s)=> ({
+    user: s.user?.toString?.() || s.user,
+    status: s.status || 'not_started'
+  })),
   note: task.note || '',
   recurrence: task.recurrence || { type: 'none', interval: 1, weekdays: [], dayOfMonth: null },
   source: task.source || 'manual',
@@ -56,6 +62,13 @@ const normalizeTask = (task) => ({
   createdAt: task.createdAt || null,
   updatedAt: task.updatedAt || null
 });
+
+function isAllCompleted(task){
+  const assignees = Array.isArray(task.assignees) ? task.assignees.map(String) : [];
+  if (!assignees.length) return false;
+  const statusMap = new Map((task.statusBy || []).map((s)=> [String(s.user), s.status || 'not_started']));
+  return assignees.every((id)=> statusMap.get(String(id)) === 'completed');
+}
 
 function computeNextRecurrence(task){
   const recur = task.recurrence || {};
@@ -113,10 +126,15 @@ router.get('/', async (req, res, next) => {
     ]);
     const memberIdSet = memberInfo.idSet || new Set();
     const categories = Array.from(new Set(tasksRaw.map((t)=> (t.category || '').trim()).filter(Boolean))).sort((a,b)=> a.localeCompare(b,'ja'));
-    const tasks = tasksRaw.map(normalizeTask).map((t)=> ({
-      ...t,
-      assignees: Array.from(new Set((t.assignees || []).filter((id)=> memberIdSet.has(String(id)))))
-    }));
+    const tasks = tasksRaw.map(normalizeTask).map((t)=> {
+      const statusByMap = new Map((t.statusBy || []).map((s)=> [String(s.user), s]));
+      return {
+        ...t,
+        assignees: Array.from(new Set((t.assignees || []).filter((id)=> memberIdSet.has(String(id))))),
+        confirmedBy: Array.from(new Set((t.confirmedBy || []).filter((id)=> memberIdSet.has(String(id))))),
+        statusBy: Array.from(statusByMap.values()).filter((s)=> memberIdSet.has(String(s.user)))
+      };
+    });
     res.render('users/board', {
       members: memberInfo.list,
       tasks,
@@ -153,10 +171,15 @@ router.get('/api/tasks', async (req, res) => {
     }
     const memberIdSet = memberInfo.idSet || new Set();
     const tasksRaw = await Task.find(q).sort({ status: 1, dueAt: 1, startAt: 1, createdAt: 1 }).lean();
-    const tasks = tasksRaw.map(normalizeTask).map((t)=> ({
-      ...t,
-      assignees: Array.from(new Set((t.assignees || []).filter((id)=> memberIdSet.has(String(id)))))
-    }));
+    const tasks = tasksRaw.map(normalizeTask).map((t)=> {
+      const statusByMap = new Map((t.statusBy || []).map((s)=> [String(s.user), s]));
+      return {
+        ...t,
+        assignees: Array.from(new Set((t.assignees || []).filter((id)=> memberIdSet.has(String(id))))),
+        confirmedBy: Array.from(new Set((t.confirmedBy || []).filter((id)=> memberIdSet.has(String(id))))),
+        statusBy: Array.from(statusByMap.values()).filter((s)=> memberIdSet.has(String(s.user)))
+      };
+    });
     res.json(tasks);
   }catch(_){ res.status(500).json({ error: 'failed' }); }
 });
@@ -173,6 +196,10 @@ router.post('/api/tasks', async (req, res) => {
     const startAt = req.body?.startAt ? new Date(req.body.startAt) : null;
     const dueAt = req.body?.dueAt ? new Date(req.body.dueAt) : null;
     const status = ['not_started','in_progress','on_hold','completed'].includes(req.body?.status) ? req.body.status : 'not_started';
+    const kind = ['task','bulletin'].includes(req.body?.kind) ? req.body.kind : 'task';
+    const confirmed = !!req.body?.confirmed;
+    const userStatus = (kind === 'bulletin' && confirmed) ? 'completed' : status;
+    const aggregateStatus = isAllCompleted({ assignees, statusBy: [{ user: req.user._id, status: userStatus }] }) ? 'completed' : 'not_started';
     const recurrence = req.body?.recurrence || {};
     const created = await Task.create({
       group: groupId,
@@ -183,8 +210,11 @@ router.post('/api/tasks', async (req, res) => {
       startAt,
       dueAt,
       started: !!req.body?.started,
-      status,
-      completedAt: status === 'completed' ? new Date() : null,
+      status: aggregateStatus,
+      completedAt: aggregateStatus === 'completed' ? new Date() : null,
+      kind,
+      confirmedBy: confirmed ? [req.user._id] : [],
+      statusBy: [{ user: req.user._id, status: userStatus }],
       note: req.body?.note || '',
       recurrence: {
         type: recurrence.type || 'none',
@@ -196,12 +226,15 @@ router.post('/api/tasks', async (req, res) => {
       sourceId: req.body?.sourceId || null
     });
     const task = normalizeTask(created);
+    const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || (req.protocol + '://' + req.get('host'));
+    const confirmUrl = `${baseUrl}/users/board?confirm=${encodeURIComponent(task.id)}`;
+    const typeLabel = task.kind === 'bulletin' ? '掲示物' : 'タスク';
     sendTaskMail({
       groupId,
       toIds: Array.from(new Set([task.createdBy, ...task.assignees])),
-      subject: `タスクが作成されました: ${task.title}`,
+      subject: `${typeLabel}が作成されました: ${task.title}`,
       template: 'taskNotification',
-      payload: { title: task.title, content: task.note || '', dueAt: task.dueAt }
+      payload: { title: task.title, content: task.note || '', dueAt: task.dueAt, typeLabel, confirmUrl }
     });
     res.json(task);
   }catch(_){ res.status(500).json({ error: 'failed' }); }
@@ -215,6 +248,15 @@ router.patch('/api/tasks/:id', async (req, res) => {
     const task = await Task.findOne({ _id: req.params.id, group: groupId });
     if (!task) return res.status(404).json({ error: 'not found' });
     const prevStatus = task.status;
+    const uid = req.user?._id?.toString?.() || '';
+    const updateStatusBy = (statusValue) => {
+      if (!uid) return;
+      const existing = Array.isArray(task.statusBy) ? task.statusBy : [];
+      const idx = existing.findIndex((s)=> s.user?.toString?.() === uid);
+      if (idx >= 0) existing[idx].status = statusValue;
+      else existing.push({ user: req.user._id, status: statusValue });
+      task.statusBy = existing;
+    };
 
     if (typeof req.body?.title === 'string') task.title = req.body.title.trim() || task.title;
     if (typeof req.body?.category === 'string') task.category = req.body.category.trim();
@@ -224,10 +266,28 @@ router.patch('/api/tasks/:id', async (req, res) => {
     if (req.body?.startAt) task.startAt = new Date(req.body.startAt);
     if (req.body?.dueAt) task.dueAt = new Date(req.body.dueAt);
     if (typeof req.body?.started === 'boolean') task.started = req.body.started;
+    if (typeof req.body?.confirmed === 'boolean'){
+      if (uid){
+        const current = new Set((task.confirmedBy || []).map((id)=> id.toString()));
+        if (req.body.confirmed) current.add(uid); else current.delete(uid);
+        task.confirmedBy = Array.from(current);
+        if (task.kind === 'bulletin'){
+          const statusValue = req.body.confirmed ? 'completed' : 'not_started';
+          updateStatusBy(statusValue);
+        }
+      }
+    }
     if (typeof req.body?.note === 'string') task.note = req.body.note;
+    if (typeof req.body?.kind === 'string' && ['task','bulletin'].includes(req.body.kind)){
+      task.kind = req.body.kind;
+    }
     if (req.body?.status && ['not_started','in_progress','on_hold','completed'].includes(req.body.status)){
-      task.status = req.body.status;
-      task.completedAt = req.body.status === 'completed' ? (task.completedAt || new Date()) : null;
+      updateStatusBy(req.body.status);
+      if (task.kind === 'bulletin'){
+        const current = new Set((task.confirmedBy || []).map((id)=> id.toString()));
+        if (req.body.status === 'completed') current.add(uid); else current.delete(uid);
+        task.confirmedBy = Array.from(current);
+      }
     }
     if (req.body?.recurrence){
       const r = req.body.recurrence;
@@ -238,6 +298,9 @@ router.patch('/api/tasks/:id', async (req, res) => {
         dayOfMonth: r.dayOfMonth || null
       };
     }
+    const allCompleted = isAllCompleted(task);
+    task.status = allCompleted ? 'completed' : 'not_started';
+    task.completedAt = allCompleted ? (task.completedAt || new Date()) : null;
     await task.save();
     if (prevStatus !== 'completed' && task.status === 'completed'){
       const nextDate = computeNextRecurrence(normalizeTask(task));
@@ -258,12 +321,13 @@ router.patch('/api/tasks/:id', async (req, res) => {
           sourceId: task.sourceId || null
         });
       }
+      const typeLabel = task.kind === 'bulletin' ? '掲示物' : 'タスク';
       sendTaskMail({
         groupId,
         toIds: Array.from(new Set([task.createdBy.toString(), ...task.assignees.map(String)])),
-        subject: `タスクが完了しました: ${task.title}`,
+        subject: `${typeLabel}が完了しました: ${task.title}`,
         template: 'taskNotification',
-        payload: { title: task.title, content: task.note || '', dueAt: task.dueAt }
+        payload: { title: task.title, content: task.note || '', dueAt: task.dueAt, typeLabel }
       });
     }
     res.json(normalizeTask(task.toObject()));

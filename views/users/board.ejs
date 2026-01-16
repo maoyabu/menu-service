@@ -2,12 +2,12 @@
   <header class="space-y-2">
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div>
-        <p class="text-xs text-gray-500">グループのやることリスト</p>
-        <h1 class="text-2xl font-bold text-gray-900"><%= currentGroupName ? `${currentGroupName}のやることリスト` : 'やることリスト' %></h1>
+        <p class="text-xs text-gray-500">グループの掲示板</p>
+        <h1 class="text-2xl font-bold text-gray-900"><%= currentGroupName ? `${currentGroupName}の掲示板` : '掲示板' %></h1>
       </div>
       <button type="button" id="task-open-modal" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
         <i data-lucide="plus" class="w-4 h-4"></i>
-        タスクを追加
+        イベントを追加
       </button>
     </div>
   </header>
@@ -20,7 +20,7 @@
         class="absolute top-3 left-3 px-3 py-1.5 rounded border text-sm bg-white/90 text-gray-800 shadow-sm hover:bg-white"
       >非表示</button>
       <div id="task-guide-wrapper" class="border rounded-2xl bg-white overflow-hidden shadow-sm">
-        <img src="/pict/taskManage.jpg" alt="タスク管理ガイド" class="w-full h-auto object-cover">
+        <img src="/pict/taskManage.jpg" alt="イベント管理ガイド" class="w-full h-auto object-cover">
       </div>
     </div>
   </section>
@@ -33,8 +33,12 @@
       </div>
       <div class="flex flex-wrap gap-2 text-xs text-gray-600">
         <div class="inline-flex items-center gap-2 px-2 py-1 rounded border border-gray-200 bg-gray-50">
-          <span>担当</span>
+          <span>誰</span>
           <div id="filter-assignee" class="flex flex-wrap gap-2">
+            <label class="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 bg-white">
+              <input type="checkbox" value="all" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+              <span>全員</span>
+            </label>
             <% members.forEach((m)=> { %>
               <label class="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 bg-white">
                 <input type="checkbox" value="<%= m.id %>" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
@@ -64,20 +68,33 @@
       </div>
     </div>
     <div id="task-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
-    <p id="task-empty" class="text-sm text-gray-500">タスクはまだありません。追加してください。</p>
+    <p id="task-empty" class="text-sm text-gray-500">イベントはまだありません。追加してください。</p>
   </section>
 </section>
 
-<!-- タスクモーダル -->
+<!-- イベントモーダル -->
 <div id="task-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
   <div class="mt-16 w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
     <div class="flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-gray-900" id="task-modal-title">タスクを追加</h3>
+      <h3 class="text-lg font-semibold text-gray-900" id="task-modal-title">掲示内容を追加</h3>
       <button type="button" data-task-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
     </div>
-    <label class="block text-sm">タスク名
+    <label class="block text-sm">タイトル
       <input type="text" id="task-title" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 旅行の荷造り"/>
     </label>
+    <div class="space-y-2">
+      <p class="text-sm font-medium text-gray-800">イベントの種類</p>
+      <div class="flex flex-wrap gap-3 text-sm">
+        <label class="inline-flex items-center gap-2">
+          <input type="radio" name="task-kind" value="task" class="text-blue-600 focus:ring-blue-500" checked>
+          <span>タスク</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
+          <input type="radio" name="task-kind" value="bulletin" class="text-blue-600 focus:ring-blue-500">
+          <span>掲示物</span>
+        </label>
+      </div>
+    </div>
     <label class="block text-sm">カテゴリー
       <input type="text" list="task-category-datalist" id="task-category" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 家事 / 旅行 / 買い物"/>
     </label>
@@ -90,14 +107,26 @@
       </label>
     </div>
     <div class="space-y-2">
-      <p class="text-sm font-medium text-gray-800">担当者</p>
+      <p class="text-sm font-medium text-gray-800">誰</p>
       <div id="task-assignees" class="flex flex-wrap gap-2">
+        <button type="button" data-assignee-btn value="all" class="px-3 py-1.5 rounded-full border border-blue-100 bg-blue-50 text-sm text-blue-700 hover:border-blue-300">全員</button>
         <% members.forEach((m)=> { %>
           <button type="button" data-assignee-btn value="<%= m.id %>" class="px-3 py-1.5 rounded-full border border-blue-100 bg-blue-50 text-sm text-blue-700 hover:border-blue-300"><%= m.name %></button>
         <% }) %>
       </div>
     </div>
-    <label class="block text-sm">ステータス
+    <div class="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+      <div>
+        <p class="text-sm font-medium text-gray-800">確認</p>
+        <p class="text-xs text-gray-500">確認済みにする</p>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" id="task-confirmed" class="sr-only peer">
+        <div class="w-10 h-6 bg-gray-200 rounded-full peer peer-checked:bg-blue-600 transition"></div>
+        <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
+      </label>
+    </div>
+    <label class="block text-sm">進捗状況
       <select id="task-status" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
         <option value="not_started">未着手</option>
         <option value="in_progress">進行中</option>
@@ -105,8 +134,8 @@
         <option value="completed">完了</option>
       </select>
     </label>
-    <label class="block text-sm">メモ
-      <textarea id="task-note" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" rows="3" placeholder="詳細をメモ"></textarea>
+    <label class="block text-sm">掲示する内容
+      <textarea id="task-note" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" rows="3" placeholder="掲示する内容を入力"></textarea>
     </label>
     <div class="grid sm:grid-cols-2 gap-2">
       <label class="block text-sm">繰り返し
@@ -149,6 +178,7 @@
 <script>
   (function(){
     const members = new Map((<%- JSON.stringify(members || []) %>).map((m)=> [m.id, m.name]));
+    members.set('all', '全員');
     const currentUserId = <%- JSON.stringify((typeof currentUserId !== 'undefined' ? currentUserId : '')) %>;
     let tasks = <%- JSON.stringify(tasks || []) %>;
     const guideWrapper = document.getElementById('task-guide-wrapper');
@@ -169,8 +199,10 @@
     const startInput = document.getElementById('task-start');
     const dueInput = document.getElementById('task-due');
     const assigneeButtons = document.querySelectorAll('[data-assignee-btn]');
+    const kindInputs = document.querySelectorAll('[name="task-kind"]');
     const statusSelect = document.getElementById('task-status');
     const noteInput = document.getElementById('task-note');
+    const confirmedInput = document.getElementById('task-confirmed');
     const recurType = document.getElementById('task-recur-type');
     const recurInterval = document.getElementById('task-recur-interval');
     const recurWeekdays = document.getElementById('task-recur-weekdays');
@@ -180,6 +212,36 @@
     const GUIDE_KEY = 'board:guide:hidden';
 
     function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+
+    function getUserStatus(task, userId, allowFallback){
+      if (!task) return 'not_started';
+      if (task.kind === 'bulletin'){
+        const confirmedBy = Array.isArray(task.confirmedBy) ? task.confirmedBy.map(String) : [];
+        if (userId && confirmedBy.includes(String(userId))) return 'completed';
+      }
+      const statusBy = Array.isArray(task.statusBy) ? task.statusBy : [];
+      const found = statusBy.find((s)=> String(s.user) === String(userId));
+      if (found?.status) return found.status;
+      if (allowFallback) return task.status || 'not_started';
+      return 'not_started';
+    }
+
+    function statusTagClass(task, userId, status){
+      if (task?.kind === 'task' && status === 'not_started'){
+        const confirmedBy = Array.isArray(task?.confirmedBy) ? task.confirmedBy.map(String) : [];
+        if (userId && confirmedBy.includes(String(userId))){
+          return 'bg-blue-100 text-blue-700 border-blue-200';
+        }
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+      }
+      switch(status){
+        case 'completed': return 'bg-emerald-600 text-white border-emerald-700';
+        case 'on_hold': return 'bg-red-100 text-red-700 border-red-200';
+        case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        case 'not_started':
+        default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      }
+    }
 
     function updateGuide(hidden){
       if (!guideWrapper) return;
@@ -193,10 +255,12 @@
 
     function openModal(task){
       editingId = task?.id || '';
-      modalTitle.textContent = editingId ? 'タスクを編集' : 'タスクを追加';
+      modalTitle.textContent = editingId ? '掲示内容を編集' : '掲示内容を追加';
       if (saveBtn) saveBtn.textContent = editingId ? '更新' : '保存';
       titleInput.value = task?.title || '';
       categoryInput.value = task?.category || '';
+      const kindValue = task?.kind || 'task';
+      kindInputs.forEach((input)=> { input.checked = input.value === kindValue; });
       startInput.value = task?.startAt ? new Date(task.startAt).toISOString().slice(0,10) : '';
       dueInput.value = task?.dueAt ? new Date(task.dueAt).toISOString().slice(0,10) : '';
       assigneeButtons.forEach((btn)=> {
@@ -209,7 +273,14 @@
         btn.classList.toggle('border-gray-200', !active);
         btn.classList.toggle('is-selected', active);
       });
-      statusSelect.value = task?.status || 'not_started';
+      statusSelect.value = getUserStatus(task, currentUserId, true) || 'not_started';
+      if (confirmedInput){
+        const confirmedBy = Array.isArray(task?.confirmedBy) ? task.confirmedBy : [];
+        const statusBy = Array.isArray(task?.statusBy) ? task.statusBy : [];
+        const statusHit = statusBy.find((s)=> String(s.user) === String(currentUserId));
+        const isConfirmed = !!(currentUserId && confirmedBy.includes(String(currentUserId)));
+        confirmedInput.checked = isConfirmed || (statusHit?.status === 'completed');
+      }
       noteInput.value = task?.note || '';
       recurType.value = task?.recurrence?.type || 'none';
       recurInterval.value = task?.recurrence?.interval || 1;
@@ -224,11 +295,23 @@
         btn.classList.toggle('is-selected', active);
       });
       recurDay.value = task?.recurrence?.dayOfMonth || '';
+      syncBulletinStatus();
       modal.classList.remove('hidden'); modal.classList.add('flex');
     }
     function closeModal(){
       modal.classList.add('hidden'); modal.classList.remove('flex');
       editingId = '';
+    }
+
+    function syncBulletinStatus(){
+      const selectedKind = Array.from(kindInputs).find((input)=> input.checked)?.value || 'task';
+      if (selectedKind !== 'bulletin') return;
+      if (!confirmedInput) return;
+      if (confirmedInput.checked){
+        statusSelect.value = 'completed';
+      } else {
+        statusSelect.value = 'not_started';
+      }
     }
 
     function renderList(){
@@ -237,13 +320,15 @@
       const selectedCategories = filterCategory.value ? [filterCategory.value] : [];
       const selectedStatuses = filterStatus.value ? [filterStatus.value] : [];
       const creator = (typeof filterCreator !== 'undefined' && filterCreator && filterCreator.value) ? filterCreator.value : '';
+      if (selectedAssignees.includes('all')) selectedAssignees.length = 0;
       const filtered = tasks.filter((t)=>{
-        if (activeTab === 'active' && t.status === 'completed') return false;
-        if (activeTab === 'completed' && t.status !== 'completed') return false;
+        const currentStatus = getUserStatus(t, currentUserId, true);
+        if (activeTab === 'active' && currentStatus === 'completed') return false;
+        if (activeTab === 'completed' && currentStatus !== 'completed') return false;
         if (creator && t.createdBy !== creator) return false;
         if (selectedAssignees.length && !t.assignees.some((a)=> selectedAssignees.includes(a))) return false;
         if (selectedCategories.length && !selectedCategories.includes(t.category || '')) return false;
-        if (selectedStatuses.length && !selectedStatuses.includes(t.status)) return false;
+        if (selectedStatuses.length && !selectedStatuses.includes(currentStatus)) return false;
         return true;
       });
       if (!filtered.length){
@@ -251,18 +336,29 @@
         return;
       }
       taskEmpty.classList.add('hidden');
-      filtered
-        .sort((a,b)=> {
-          const da = a.dueAt ? new Date(a.dueAt).getTime() : Infinity;
-          const db = b.dueAt ? new Date(b.dueAt).getTime() : Infinity;
-          return da - db;
-        })
-        .forEach((t)=>{
+      const sorted = filtered.sort((a,b)=> {
+        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return db - da;
+      });
+      const grouped = [
+        ...sorted.filter((t)=> t.kind === 'bulletin'),
+        ...sorted.filter((t)=> t.kind !== 'bulletin')
+      ];
+      grouped.forEach((t)=>{
           const card = document.createElement('div');
           const dueStr = t.dueAt ? new Date(t.dueAt).toLocaleDateString('ja-JP') : '未設定';
           const startStr = t.startAt ? new Date(t.startAt).toLocaleDateString('ja-JP') : '';
-          const assigneeLabels = t.assignees.map((a)=> members.get(a) || 'メンバー').join(', ') || '未指定';
-          const statusLabel = { not_started:'未着手', in_progress:'進行中', on_hold:'保留', completed:'完了' }[t.status] || t.status;
+          const assigneeTags = t.assignees.map((a)=> {
+            const label = members.get(a) || 'メンバー';
+            const statusValue = getUserStatus(t, a, false);
+            const cls = statusTagClass(t, a, statusValue);
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] ${cls}">${label}</span>`;
+          }).join(' ');
+          const assigneeLabels = assigneeTags || '<span class="text-xs text-gray-500">未指定</span>';
+          const currentStatus = getUserStatus(t, currentUserId, true);
+          const statusLabel = { not_started:'未着手', in_progress:'進行中', on_hold:'保留', completed:'完了' }[currentStatus] || currentStatus;
+          const kindLabel = t.kind === 'bulletin' ? '掲示物' : 'タスク';
           card.className = 'rounded-xl border border-gray-200 bg-white p-3 space-y-2 shadow-sm';
           card.innerHTML = `
             <div class="flex items-start justify-between gap-2">
@@ -271,19 +367,20 @@
                 <p class="text-xs text-gray-500">${t.category || 'カテゴリー未設定'}</p>
               </div>
               <div class="flex items-center gap-2">
-                <span class="text-[11px] px-2 py-1 rounded-full border ${t.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200'}">${statusLabel}</span>
+                <span class="text-[11px] px-2 py-1 rounded-full border bg-slate-50 text-slate-700 border-slate-200">${kindLabel}</span>
+                <span class="text-[11px] px-2 py-1 rounded-full border ${currentStatus === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200'}">${statusLabel}</span>
                 <button class="text-gray-500 hover:text-gray-800" data-task-edit="${t.id}" aria-label="編集"><i data-lucide="edit" class="w-4 h-4"></i></button>
               </div>
             </div>
             <div class="text-xs text-gray-600 space-y-1">
-              <p>担当: ${assigneeLabels}</p>
+              <div class="flex flex-wrap items-center gap-1">誰: ${assigneeLabels}</div>
               <p>イベント日: ${startStr || '未設定'} / 期限: ${dueStr}</p>
               ${t.note ? `<p class="text-gray-700 bg-gray-50 border border-gray-100 rounded px-2 py-1">${t.note}</p>` : ''}
             </div>
             <div class="flex items-center justify-between text-xs text-gray-500">
               <span>作成: ${members.get(t.createdBy) || 'メンバー'}</span>
               <div class="flex items-center gap-2">
-                ${t.status !== 'completed' ? `<button class="text-green-700 hover:text-green-900" data-task-complete="${t.id}">完了にする</button>` : `<button class="text-gray-600 hover:text-gray-800" data-task-reopen="${t.id}">未完了に戻す</button>`}
+                ${currentStatus !== 'completed' ? `<button class="text-green-700 hover:text-green-900" data-task-complete="${t.id}">完了にする</button>` : `<button class="text-gray-600 hover:text-gray-800" data-task-reopen="${t.id}">未完了に戻す</button>`}
                 ${(t.source === 'manual' && currentUserId && t.createdBy === currentUserId) ? `<button class="text-red-600 hover:text-red-800" data-task-delete="${t.id}">削除</button>` : ''}
               </div>
             </div>
@@ -294,15 +391,23 @@
     }
 
     async function saveTask(){
-      const selectedAssignees = Array.from(document.querySelectorAll('[data-assignee-btn].is-selected')).map(btn=> btn.value);
+      let selectedAssignees = Array.from(document.querySelectorAll('[data-assignee-btn].is-selected')).map(btn=> btn.value);
+      if (selectedAssignees.includes('all')){
+        selectedAssignees = Array.from(members.keys()).filter((id)=> id !== 'all');
+      }
+      const selectedKind = Array.from(kindInputs).find((input)=> input.checked)?.value || 'task';
+      const shouldConfirm = !!confirmedInput?.checked;
       const selectedWeekdays = Array.from(recurWeekdays.querySelectorAll('[data-weekday-btn].is-selected')).map(btn=> Number(btn.value));
+      const statusValue = (selectedKind === 'bulletin' && shouldConfirm) ? 'completed' : statusSelect.value;
       const payload = {
         title: titleInput.value.trim(),
         category: categoryInput.value.trim(),
         startAt: startInput.value ? new Date(startInput.value) : null,
         dueAt: dueInput.value ? new Date(dueInput.value) : null,
         assignees: selectedAssignees,
-        status: statusSelect.value,
+        status: statusValue,
+        kind: selectedKind,
+        confirmed: shouldConfirm,
         note: noteInput.value.trim(),
         recurrence: {
           type: recurType.value,
@@ -327,20 +432,31 @@
       }catch(e){ toast(e.message || '保存に失敗しました'); }
     }
 
-    async function updateStatus(id, status){
+    async function updateStatus(task, status){
+      if (!task) return;
+      const payload = { status };
+      if (task.kind === 'bulletin'){
+        payload.confirmed = status === 'completed';
+      }
+      const updated = await updateTask(task.id, payload);
+      if (updated) toast('更新しました');
+    }
+
+    async function updateTask(id, fields){
       try{
         const res = await fetch(`/users/board/api/tasks/${encodeURIComponent(id)}`, {
           method:'PATCH',
           headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ status })
+          body: JSON.stringify(fields)
         });
         if (!res.ok) throw new Error('更新に失敗しました');
         const json = await res.json();
         const idx = tasks.findIndex((t)=> t.id === json.id);
         if (idx >= 0) tasks[idx] = json;
         renderList();
-        toast('更新しました');
+        return json;
       }catch(e){ toast(e.message || '更新に失敗しました'); }
+      return null;
     }
 
     assigneeButtons.forEach((btn)=> {
@@ -398,6 +514,17 @@
       });
     });
 
+    kindInputs.forEach((input)=> {
+      input.addEventListener('change', syncBulletinStatus);
+    });
+    confirmedInput?.addEventListener('change', syncBulletinStatus);
+    statusSelect?.addEventListener('change', ()=> {
+      if (statusSelect.value !== 'not_started' && confirmedInput) {
+        confirmedInput.checked = true;
+      }
+      syncBulletinStatus();
+    });
+
     filterAssignee?.addEventListener('change', renderList);
     [filterCategory, filterStatus].forEach((el)=> el?.addEventListener('change', renderList));
     openBtn?.addEventListener('click', ()=> openModal(null));
@@ -413,12 +540,16 @@
         const target = tasks.find((t)=> t.id === id);
         if (target) openModal(target);
       } else if (completeBtn){
-        updateStatus(completeBtn.dataset.taskComplete, 'completed');
+        const id = completeBtn.dataset.taskComplete;
+        const target = tasks.find((t)=> t.id === id);
+        updateStatus(target, 'completed');
       } else if (reopenBtn){
-        updateStatus(reopenBtn.dataset.taskReopen, 'in_progress');
+        const id = reopenBtn.dataset.taskReopen;
+        const target = tasks.find((t)=> t.id === id);
+        updateStatus(target, 'in_progress');
       } else if (deleteBtn){
         const id = deleteBtn.dataset.taskDelete;
-        if (!confirm('このタスクを削除しますか？')) return;
+        if (!confirm('このイベントを削除しますか？')) return;
         fetch(`/users/board/api/tasks/${encodeURIComponent(id)}`, { method:'DELETE' })
           .then((res)=> { if(!res.ok) throw new Error(); return res.json(); })
           .then(()=> {
@@ -439,6 +570,24 @@
       const savedGuide = localStorage.getItem(GUIDE_KEY);
       if (savedGuide === '1') updateGuide(true);
     }catch(_){}
+
+    const params = new URLSearchParams(window.location.search);
+    const confirmId = params.get('confirm');
+    if (confirmId){
+      const target = tasks.find((t)=> t.id === confirmId);
+      if (target){
+        openModal(target);
+        const confirmedBy = Array.isArray(target.confirmedBy) ? target.confirmedBy.map(String) : [];
+        if (!currentUserId || confirmedBy.includes(String(currentUserId))) {
+          renderList();
+        } else updateTask(confirmId, { confirmed: true }).then((updated)=> {
+          if (updated && confirmedInput) {
+            confirmedInput.checked = true;
+            syncBulletinStatus();
+          }
+        });
+      }
+    }
 
     renderList();
   })();
