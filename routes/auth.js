@@ -204,6 +204,19 @@ const normalizeBoolean = (value) => {
   return normalized === 'true' || normalized === 'on' || normalized === '1';
 };
 
+const SERVICE_CHOICES = new Set(['plan', 'stock', 'packing']);
+
+const normalizeServiceChoice = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return SERVICE_CHOICES.has(normalized) ? normalized : '';
+};
+
+const getServiceRedirect = (service) => {
+  if (service === 'stock') return '/users/stock-top';
+  if (service === 'packing') return '/users/packing';
+  return '/users/my-top';
+};
+
 const parseOptionalDate = (value) => {
   if (!value) return undefined;
   const parsed = new Date(value);
@@ -217,7 +230,8 @@ const authenticateWithIdentifier = async (req, res, next, options = {}) => {
   const {
     successRedirect = '/users/my-top',
     failureRedirect = '/login',
-    successMessage = (user) => `ようこそ、${user.username || user.email}さん！`
+    successMessage = (user) => `ようこそ、${user.username || user.email}さん！`,
+    onAuthenticated = null
   } = options;
 
   const identifier = (req.body.identifier || '').trim();
@@ -270,8 +284,15 @@ const authenticateWithIdentifier = async (req, res, next, options = {}) => {
       });
     });
 
+    if (typeof onAuthenticated === 'function') {
+      await onAuthenticated(authenticatedUser, req);
+    }
+
     req.flash('success', successMessage(authenticatedUser));
-    return res.redirect(successRedirect);
+    const redirectTo = typeof successRedirect === 'function'
+      ? successRedirect(req, authenticatedUser)
+      : successRedirect;
+    return res.redirect(redirectTo);
   } catch (err) {
     console.error('ログイン処理失敗:', err);
     return next(err);
@@ -1206,9 +1227,31 @@ router.post('/login', (req, res, next) =>
 router.post('/user/login', (req, res, next) =>
   authenticateWithIdentifier(req, res, next, {
     failureRedirect: '/user/login',
-    successRedirect: '/users/my-top',
+    successRedirect: (request, user) => {
+      const choice = normalizeServiceChoice(request.body?.serviceChoice);
+      const preferred = choice || user?.preferredService || 'plan';
+      return getServiceRedirect(preferred);
+    },
+    onAuthenticated: async (user, request) => {
+      const choice = normalizeServiceChoice(request.body?.serviceChoice);
+      if (!choice || user?.preferredService === choice) return;
+      await User.updateOne({ _id: user._id }, { $set: { preferredService: choice } });
+    }
   })
 );
+
+router.get('/users/switch-service', isLoggedIn, async (req, res) => {
+  try {
+    const choice = normalizeServiceChoice(req.query?.target);
+    const preferred = choice || req.user?.preferredService || 'plan';
+    if (choice && req.user?.preferredService !== choice) {
+      await User.updateOne({ _id: req.user._id }, { $set: { preferredService: choice } });
+    }
+    return res.redirect(getServiceRedirect(preferred));
+  } catch (_) {
+    return res.redirect('/users/my-top');
+  }
+});
 
 // 新規会員登録
 router.post('/user/register', async (req, res, next) => {
@@ -3465,6 +3508,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   }
 
   res.render('users/myTop', {
+    pageTitle: '7 DAYS PLAN',
     nextWeekPlan,
     nextWeekRangeLabel,
     // Week after next
@@ -3498,6 +3542,158 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     myTodoTasks,
     otherMemberTaskCount
   });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ストック管理トップ
+router.get('/users/stock-top', isLoggedIn, async (req, res, next) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+    const currentGroupId = defaultGroupId || fallbackGroupId || '';
+    const groupConfig = currentGroupId
+      ? await Group.findById(currentGroupId).select('group_name stockInventory equipmentInventory members createdBy').lean()
+      : null;
+    const currentGroupName = groupConfig?.group_name || '';
+
+    let mystockCounts = { ingredient: 0, seasoning: 0 };
+    if (currentGroupId) {
+      try {
+        const agg = await Stock.aggregate([
+          { $match: { group: new mongoose.Types.ObjectId(String(currentGroupId)), user: req.user._id } },
+          { $group: { _id: '$type', count: { $sum: 1 } } }
+        ]);
+        (agg || []).forEach((row)=> {
+          if (row._id === 'ingredient') mystockCounts.ingredient = row.count;
+          if (row._id === 'seasoning') mystockCounts.seasoning = row.count;
+        });
+      } catch (_) { /* ignore */ }
+    }
+
+    let myStockInventorySummary = { currentLabel: '', statusLabel: '未完了', nextLabel: '' };
+    if (currentGroupId) {
+      try {
+        const cfg = groupConfig?.stockInventory || {};
+        if (cfg.enabled !== false) {
+          const sendHour = typeof cfg.sendHour === 'number' ? cfg.sendHour : 8;
+          const getScheduledAtUTC = (year, month) => {
+            let scheduledDay = null;
+            if ((cfg.mode || 'monthlyDay') === 'monthlyDay') {
+              const d = Math.max(1, Math.min(31, Number(cfg.day) || 28));
+              const last = new Date(year, month + 1, 0).getDate();
+              scheduledDay = Math.min(d, last);
+            } else {
+              const nth = Math.max(1, Math.min(5, Number(cfg.nth) || 4));
+              const weekday = Math.max(0, Math.min(6, Number(cfg.weekday) || 0));
+              const first = new Date(year, month, 1);
+              const firstWeekday = first.getDay();
+              const day1 = 1 + ((7 + weekday - firstWeekday) % 7);
+              const candidate = day1 + (nth - 1) * 7;
+              const last = new Date(year, month + 1, 0).getDate();
+              scheduledDay = Math.min(candidate, last);
+            }
+            const scheduledAtJst = new Date(Date.UTC(year, month, scheduledDay, sendHour));
+            return new Date(scheduledAtJst.getTime() - (9 * 60 * 60 * 1000));
+          };
+
+          const nowJst = toJstDate(new Date());
+          const currentAt = getScheduledAtUTC(nowJst.getFullYear(), nowJst.getMonth());
+          const currentLabel = `${currentAt.getFullYear()}年${currentAt.getMonth() + 1}月`;
+          const taskTitle = `${currentLabel}のストックの棚卸し`;
+          const currentTask = await Task.findOne({
+            group: currentGroupId,
+            source: 'stock',
+            title: taskTitle
+          }).select('status').lean();
+          const statusLabel = currentTask && currentTask.status === 'completed' ? '完了' : '未完了';
+
+          const nextMonthDate = new Date(nowJst.getFullYear(), nowJst.getMonth() + 1, 1);
+          const nextAt = getScheduledAtUTC(nextMonthDate.getFullYear(), nextMonthDate.getMonth());
+          const nextLabel = `${nextAt.getFullYear()}年${nextAt.getMonth() + 1}月`;
+
+          myStockInventorySummary = { currentLabel, statusLabel, nextLabel };
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    let myEquipmentSummary = { count: 0, currentLabel: '', statusLabel: '未完了', nextLabel: '' };
+    if (currentGroupId) {
+      try {
+        myEquipmentSummary.count = await MyEquipment.countDocuments({ group: currentGroupId });
+        const cadence = groupConfig?.equipmentInventory?.cadence || 'monthly';
+        const cycleStartJst = toJstDate(getEquipmentCycleStart(cadence));
+        cycleStartJst.setHours(0, 0, 0, 0);
+        const cycleStart = new Date(cycleStartJst.getTime() - (9 * 60 * 60 * 1000));
+        const currentLabel = `${cycleStart.getFullYear()}年${cycleStart.getMonth() + 1}月`;
+        const taskTitle = `${currentLabel}の備品の棚卸し`;
+        const currentTask = await Task.findOne({
+          group: currentGroupId,
+          source: 'equipment',
+          title: taskTitle
+        }).select('status').lean();
+        const statusLabel = currentTask && currentTask.status === 'completed' ? '完了' : '未完了';
+        const nextCycleStart = new Date(cycleStartJst);
+        if (cadence === 'quarter') {
+          nextCycleStart.setMonth(nextCycleStart.getMonth() + 3);
+        } else if (cadence === 'half') {
+          nextCycleStart.setMonth(nextCycleStart.getMonth() + 6);
+        } else {
+          nextCycleStart.setMonth(nextCycleStart.getMonth() + 1);
+        }
+        const nextLabel = `${nextCycleStart.getFullYear()}年${nextCycleStart.getMonth() + 1}月`;
+        myEquipmentSummary = { count: myEquipmentSummary.count, currentLabel, statusLabel, nextLabel };
+      } catch (_) { /* ignore */ }
+    }
+
+    let myTodoTasks = [];
+    let otherMemberTaskCount = 0;
+    if (currentGroupId) {
+      const currentUserId = req.user?._id;
+      const formatTaskDate = (date) => {
+        const d = toJstDate(new Date(date));
+        return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+      };
+      try {
+        const tasksRaw = await Task.find({
+          group: currentGroupId,
+          status: { $ne: 'completed' },
+          assignees: currentUserId
+        })
+          .select('title dueAt status')
+          .lean();
+        myTodoTasks = (tasksRaw || []).map((task) => ({
+          id: String(task._id),
+          title: task.title || '',
+          dueAt: task.dueAt || null,
+          dueLabel: task.dueAt ? formatTaskDate(task.dueAt) : ''
+        }))
+          .sort((a, b) => {
+            const ta = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
+            const tb = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+            return ta - tb;
+          })
+          .slice(0, 5);
+
+        otherMemberTaskCount = await Task.countDocuments({
+          group: currentGroupId,
+          status: { $ne: 'completed' },
+          assignees: { $exists: true, $ne: [], $nin: [currentUserId] }
+        });
+      } catch (_) { /* ignore */ }
+    }
+
+    res.render('users/stockTop', {
+      pageTitle: 'ストック管理トップ',
+      currentGroupName,
+      mystockCounts,
+      myStockInventorySummary,
+      myEquipmentSummary,
+      myTodoTasks,
+      otherMemberTaskCount
+    });
   } catch (err) {
     return next(err);
   }

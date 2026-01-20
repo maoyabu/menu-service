@@ -1,35 +1,96 @@
 <% const onAdminRoute = typeof isAdminRoute !== 'undefined' ? isAdminRoute : false; %>
-<% const headerClass = onAdminRoute
-  ? 'border-blue-300 bg-blue-100 text-blue-900 shadow'
-  : 'border-gray-200 bg-white text-gray-800 shadow-sm'; %>
+<% const pathNow = typeof currentPath !== 'undefined' ? currentPath : ''; %>
+<% const isStockService = pathNow.startsWith('/users/my-stock') || pathNow.startsWith('/users/my-equipment') || pathNow.startsWith('/users/purchase-reminder') || pathNow.startsWith('/users/stock-top'); %>
+<% const isPackingService = pathNow.startsWith('/users/packing'); %>
+<% const isBoardService = pathNow.startsWith('/users/board'); %>
+<% const currentService = onAdminRoute ? 'admin' : (isBoardService ? 'board' : (isPackingService ? 'packing' : (isStockService ? 'stock' : 'plan'))); %>
+<% const safeSelectedGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; %>
+<% const safeDefaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
+<% const serviceLabel = currentService === 'board'
+  ? `${(Array.isArray(userGroups) ? (userGroups.find((g)=> String(g._id||'') === String((safeSelectedGroupId || safeDefaultGroupId || '')))?.group_name || 'グループ') : 'グループ')}の掲示板`
+  : (currentService === 'stock' ? 'ストック管理' : (currentService === 'packing' ? 'パッキングプラン' : '7 DAYS PLAN')); %>
+<% const serviceHome = currentService === 'stock' ? '/users/stock-top' : (currentService === 'packing' ? '/users/packing' : (currentService === 'board' ? '/users/board' : '/users/my-top')); %>
+<% const serviceAccent = currentService === 'stock'
+  ? 'text-emerald-700'
+  : (currentService === 'packing' ? 'text-amber-700' : (currentService === 'board' ? 'text-violet-700' : 'text-blue-700')); %>
+<% const headerTitle = (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : ((typeof seo !== 'undefined' && seo && seo.title) ? seo.title : ''); %>
+<% const headerTitleText = headerTitle || serviceLabel; %>
+<% const serviceHeaderClass = currentService === 'stock'
+  ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+  : (currentService === 'packing'
+    ? 'border-amber-200 bg-amber-50 text-amber-900'
+    : (currentService === 'board' ? 'border-violet-200 bg-violet-50 text-violet-900' : 'border-blue-200 bg-blue-50 text-blue-900')); %>
+
+<% if (onAdminRoute) { %>
+<% const headerClass = 'border-blue-300 bg-blue-100 text-blue-900 shadow'; %>
 <header data-sticky-header class="sticky top-0 z-50 flex items-center justify-between px-6 py-3 transition-colors duration-300 border-b <%= headerClass %>">
-  <div class="flex items-center gap-3 text-lg font-semibold <%= onAdminRoute ? 'text-blue-900' : 'text-gray-800' %>">
+  <div class="flex items-center gap-3 text-lg font-semibold text-blue-900">
     <button type="button" data-menu-open class="relative inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-gray-100 text-gray-700 cursor-pointer select-none z-[70] shrink-0" aria-label="メニューを開く" aria-expanded="false" aria-controls="app-menu-drawer" role="button">
       <span aria-hidden="true" class="absolute inset-0"></span>
       <i data-lucide="menu" class="w-6 h-6"></i>
     </button>
-    <% const homeHref = onAdminRoute ? '/admin/admin-top' : '/users/my-top'; %>
-    <% const brandLabel = onAdminRoute ? 'レシピ管理システム' : 'PREPALACE'; %>
     <div class="flex items-end gap-2 leading-tight">
       <i data-lucide="chef-hat" class="w-6 h-6"></i>
-      <a href="<%= homeHref %>" class="hover:underline">
-        <span><%= brandLabel %></span>
+      <a href="/admin/admin-top" class="hover:underline">
+        <span>レシピ管理システム</span>
       </a>
     </div>
   </div>
   <div class="flex items-center gap-4">
     <% if (typeof user !== 'undefined' && user) { %>
+      <a href="/admin/admin-top" class="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition hide-under-890">
+        <i data-lucide="shield-check" class="w-5 h-5"></i>
+        <span class="hidden sm:inline text-sm font-semibold text-gray-700">管理者</span>
+      </a>
+      <div class="flex items-center gap-2 text-gray-700 hide-under-890">
+        <i data-lucide="user" class="w-5 h-5"></i>
+        <span class="hidden sm:inline bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded"><%= (user.displayname || user.username || user.email || '') %></span>
+      </div>
+      <form action="/logout" method="POST">
+        <button type="submit" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">ログアウト</span>
+        </button>
+      </form>
+    <% } %>
+  </div>
+</header>
+<% } else { %>
+<% const headerClass = `${serviceHeaderClass} shadow-sm`; %>
+<header data-sticky-header class="sticky top-0 z-50 flex items-center justify-between gap-3 px-4 sm:px-6 py-3 transition-colors duration-300 border-b <%= headerClass %>">
+  <div class="flex items-center gap-3 text-lg font-semibold text-gray-800">
+    <button type="button" data-menu-open class="relative inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-gray-100 text-gray-700 cursor-pointer select-none z-[70] shrink-0" aria-label="メニューを開く" aria-expanded="false" aria-controls="app-menu-drawer" role="button">
+      <span aria-hidden="true" class="absolute inset-0"></span>
+      <i data-lucide="menu" class="w-6 h-6"></i>
+    </button>
+    <a href="<%= serviceHome %>" class="flex items-center gap-2 hover:underline">
+      <% const serviceIcon = currentService === 'stock' ? 'package' : (currentService === 'packing' ? 'clipboard-list' : (currentService === 'board' ? 'messages-square' : 'calendar')); %>
+      <i data-lucide="<%= serviceIcon %>" class="w-5 h-5 <%= serviceAccent %>"></i>
+      <span class="text-base font-semibold <%= serviceAccent %>"><%= serviceLabel %></span>
+    </a>
+  </div>
+
+  <div class="flex-1 text-center font-bold text-gray-800 truncate">
+    <span class="hidden sm:inline text-lg">REPALACE｜暮らしを整える場所</span>
+    <span class="sm:hidden text-base">REPALACE</span>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <% if (typeof user !== 'undefined' && user) { %>
+      <label class="hidden sm:flex items-center gap-2 text-xs text-gray-500">
+        <span class="whitespace-nowrap">サービス</span>
+        <select class="border border-gray-300 rounded px-2 py-1 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          data-service-switch>
+          <option value="plan" <%= currentService === 'plan' ? 'selected' : '' %>>7 DAYS PLAN</option>
+          <option value="stock" <%= currentService === 'stock' ? 'selected' : '' %>>ストック管理</option>
+          <option value="packing" <%= currentService === 'packing' ? 'selected' : '' %>>パッキングプラン</option>
+        </select>
+      </label>
+
       <% const groups = Array.isArray(userGroups) ? userGroups : []; %>
       <% const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; %>
       <% const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
       <% const effectiveGroupId = currentGroupId || defaultGroupId; %>
-      <% if (user.isAdmin) { %>
-        <a href="/admin/admin-top" class="flex items-center gap-1 text-gray-600 hover:text-blue-600 transition hide-under-890">
-          <i data-lucide="shield-check" class="w-5 h-5"></i>
-          <span class="hidden sm:inline text-sm font-semibold text-gray-700">管理者</span>
-        </a>
-      <% } %>
-
       <div class="flex items-center gap-2 text-gray-600 hide-under-890">
         <i data-lucide="users" class="w-5 h-5"></i>
         <% if (groups.length > 1) { %>
@@ -56,30 +117,17 @@
         <% } %>
       </div>
 
-      <div class="flex items-center gap-2 text-gray-700 hide-under-890">
-        <i data-lucide="user" class="w-5 h-5"></i>
-        <span class="hidden sm:inline bg-gray-100 text-gray-800 px-2 py-1 text-sm rounded"><%= (user.displayname || user.username || user.email || '') %></span>
-      </div>
-
-      <!-- Guide link (always visible) -->
-      <a href="https://colts-wish-krs.craft.me/qQrgjsNkauAsKQ" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
-        <i data-lucide="book-open" class="w-4 h-4"></i>
-        <span class="hidden sm:inline">ガイド</span>
+      <a href="/notices" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="お知らせ" title="お知らせ">
+        <i data-lucide="megaphone" class="w-4 h-4"></i>
       </a>
-
-      <div class="flex items-center gap-2 border border-gray-300 rounded px-3 py-1">
-        <a href="/settings?view=profile" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition hide-under-890">
-          <i data-lucide="settings" class="w-4 h-4"></i>
-          <span class="hidden sm:inline text-sm font-medium">設定</span>
-        </a>
-        <span class="text-gray-300 mx-1 hidden sm:inline hide-under-890">|</span>
-        <form action="/logout" method="POST">
-          <button type="submit" class="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition">
-            <i data-lucide="log-out" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">ログアウト</span>
-          </button>
-        </form>
-      </div>
+      <a href="/users/board" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="掲示板" title="掲示板">
+        <i data-lucide="messages-square" class="w-4 h-4"></i>
+      </a>
+      <form action="/logout" method="POST">
+        <button type="submit" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="ログアウト" title="ログアウト">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </form>
     <% } else { %>
       <div class="flex items-center gap-2">
         <a href="https://colts-wish-krs.craft.me/qQrgjsNkauAsKQ" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
@@ -94,6 +142,7 @@
     <% } %>
   </div>
 </header>
+<% } %>
 
 <script>
   (() => {
@@ -117,6 +166,18 @@
         }catch(_){}
         reloadSamePage();
       });
+    });
+  })();
+</script>
+
+<script>
+  (() => {
+    const serviceSelect = document.querySelector('select[data-service-switch]');
+    if (!serviceSelect) return;
+    serviceSelect.addEventListener('change', (ev) => {
+      const target = ev.target.value;
+      if (!target) return;
+      window.location.href = `/users/switch-service?target=${encodeURIComponent(target)}`;
     });
   })();
 </script>

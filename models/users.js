@@ -76,6 +76,10 @@ const userSchema = new mongoose.Schema({
     assets: { type: Boolean, default: true },
     menu: { type: Boolean, default: true }
   },
+  preferredService: {
+    type: String,
+    default: 'plan'
+  },
   slideshowSettings: {
     type: {
       type: String,

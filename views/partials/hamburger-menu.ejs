@@ -8,6 +8,9 @@
 <% const activeNextSupplies = (isWeekRoute && wmView === 'next' && wmMode === 'supplies'); %>
 <% const activePacking = isActive('/users/packing'); %>
 <% const activePurchaseReminder = isActive('/users/purchase-reminder'); %>
+<% const isStockService = isActive('/users/my-stock') || isActive('/users/my-equipment') || activePurchaseReminder || isActive('/users/stock-top'); %>
+<% const isBoardRoute = isActive('/users/board'); %>
+<% const currentService = isBoardRoute ? 'board' : (activePacking ? 'packing' : (isStockService ? 'stock' : 'plan')); %>
 <% const currentGroupName = (()=>{ const groups = Array.isArray(userGroups)? userGroups : []; const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; const gid = currentGroupId || defaultGroupId; const g = groups.find((gr)=> String(gr._id || '') === gid); return g ? g.group_name : ''; })(); %>
 <% /* Compute next week's Monday (week start) in ISO, same logic as server */ %>
 <% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); const _afterNextMon = new Date(_nextMon); _afterNextMon.setDate(_afterNextMon.getDate() + 7); const afterNextWeekStartISO = _afterNextMon.toISOString(); %>
@@ -16,7 +19,7 @@
 
 <aside id="app-menu-drawer" class="fixed left-0 top-0 z-[61] h-full w-[80%] sm:w-80 max-w-full -translate-x-full transition-transform duration-300 will-change-transform bg-white shadow-2xl border-r border-gray-200 flex flex-col">
   <div class="px-5 py-3 bg-blue-600 text-white text-sm font-semibold tracking-wide flex items-center justify-between">
-    <div>PREPALACE</div>
+    <div><%= isBoardRoute ? `${currentGroupName || 'グループ'}の掲示板` : 'PREPALACE' %></div>
     <div class="flex items-center gap-1">
       <a href="https://colts-wish-krs.craft.me/qQrgjsNkauAsKQ" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center rounded p-2 hover:bg-white/10 text-white" aria-label="ガイドを開く(別ウィンドウ)">
         <i data-lucide="book-open" class="w-5 h-5 pointer-events-none"></i>
@@ -89,123 +92,153 @@
 
   <nav class="flex-1 overflow-y-auto">
     <div class="px-4 py-3">
-      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">メイン</p>
-      <ul class="mt-2 space-y-1">
-        <li>
-          <a href="/users/my-top" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-top') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/users/my-top') ? 'page' : 'false' %>">
-            <i data-lucide="home" class="w-5 h-5 <%= isActive('/users/my-top') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>トップページ</span>
-            <% if (isActive('/users/my-top')) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/week-menu?weekStart=<%= new Date().toISOString() %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeCurrent ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= activeCurrent ? 'page' : 'false' %>">
-            <i data-lucide="calendar" class="w-5 h-5 <%= activeCurrent ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>今週の7 DAYS PLAN</span>
-            <% if (activeCurrent) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/week-menu?weekStart=<%= encodeURIComponent(afterNextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= (activeNext && !activeNextSupplies) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="calendar-plus" class="w-5 h-5 <%= (activeNext && !activeNextSupplies) ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>再来週の7 DAYS PLANを作成</span>
-            <% if (activeNext && !activeNextSupplies) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/week-menu2?show=supplies&weekStart=<%= encodeURIComponent(nextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeNextSupplies ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="shopping-cart" class="w-5 h-5 <%= activeNextSupplies ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>来週のお買い物リスト</span>
-            <% if (activeNextSupplies) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/my-menu" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-menu') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/users/my-menu') ? 'page' : 'false' %>">
-            <i data-lucide="book-open" class="w-5 h-5 <%= isActive('/users/my-menu') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>マイメニュー</span>
-            <% if (isActive('/users/my-menu')) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/seasonal-ingredients" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/seasonal-ingredients') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/users/seasonal-ingredients') ? 'page' : 'false' %>">
-            <i data-lucide="leaf" class="w-5 h-5 <%= isActive('/users/seasonal-ingredients') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>旬の食材</span>
-            <% if (isActive('/users/seasonal-ingredients')) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li class="mx-2 my-1"><div class="border-t border-gray-200"></div></li>
-      </ul>
-    </div>
-
-    <div class="px-4 pb-0 pt-0">
-      <ul class="space-y-1">
-        <li>
-          <a href="/users/my-stock" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-stock') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="package" class="w-5 h-5 <%= isActive('/users/my-stock') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span><%= currentGroupName || 'グループ' %>のストック管理</span>
-            <% if (isActive('/users/my-stock')) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/my-equipment" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-equipment') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="boxes" class="w-5 h-5 <%= isActive('/users/my-equipment') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span><%= currentGroupName || 'グループ' %>の備品管理</span>
-            <% if (isActive('/users/my-equipment')) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li>
-          <a href="/users/purchase-reminder" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activePurchaseReminder ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="shopping-bag" class="w-5 h-5 <%= activePurchaseReminder ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>そろそろ購入リスト</span>
-            <% if (activePurchaseReminder) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li class="mx-2 my-1"><div class="border-t border-gray-200"></div></li>
-        <li>
-          <a href="/users/packing" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activePacking ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="clipboard-list" class="w-5 h-5 <%= activePacking ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span>パッキングプラン</span>
-            <% if (activePacking) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-        <li class="mx-2 my-1"><div class="border-t border-gray-200"></div></li>
-        <li>
-          <a href="/users/board" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/board') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-            <i data-lucide="messages-square" class="w-5 h-5 <%= isActive('/users/board') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-            <span><%= currentGroupName || 'グループ' %>の掲示板</span>
-            <% if (isActive('/users/board')) { %>
-              <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
-            <% } %>
-          </a>
-        </li>
-      </ul>
+      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">サービス切替</p>
+      <div class="mt-2 grid gap-2">
+        <a href="/users/switch-service?target=plan" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'plan' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+          <i data-lucide="calendar" class="w-4 h-4"></i>
+          <span>7 DAYS PLAN</span>
+        </a>
+        <a href="/users/switch-service?target=stock" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'stock' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+          <i data-lucide="package" class="w-4 h-4"></i>
+          <span>ストック管理</span>
+        </a>
+        <a href="/users/switch-service?target=packing" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'packing' ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+          <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+          <span>パッキングプラン</span>
+        </a>
+        <a href="/users/board" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'board' ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+          <i data-lucide="messages-square" class="w-4 h-4"></i>
+          <span><%= currentGroupName || 'グループ' %>の掲示板</span>
+        </a>
+      </div>
     </div>
 
     <div class="px-4 py-3">
-      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">設定</p>
+      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">機能</p>
+      <ul class="mt-2 space-y-1">
+        <% if (currentService === 'plan') { %>
+          <li>
+            <a href="/users/my-top" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-top') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="home" class="w-5 h-5 <%= isActive('/users/my-top') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>トップページ</span>
+              <% if (isActive('/users/my-top')) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/week-menu?weekStart=<%= new Date().toISOString() %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeCurrent ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="calendar" class="w-5 h-5 <%= activeCurrent ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>今週の7 DAYS PLAN</span>
+              <% if (activeCurrent) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/week-menu?weekStart=<%= encodeURIComponent(afterNextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= (activeNext && !activeNextSupplies) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="calendar-plus" class="w-5 h-5 <%= (activeNext && !activeNextSupplies) ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>再来週の7 DAYS PLANを作成</span>
+              <% if (activeNext && !activeNextSupplies) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/week-menu2?show=supplies&weekStart=<%= encodeURIComponent(nextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeNextSupplies ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="shopping-cart" class="w-5 h-5 <%= activeNextSupplies ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>来週のお買い物リスト</span>
+              <% if (activeNextSupplies) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/my-menu" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-menu') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="book-open" class="w-5 h-5 <%= isActive('/users/my-menu') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>マイメニュー</span>
+              <% if (isActive('/users/my-menu')) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/seasonal-ingredients" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/seasonal-ingredients') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="leaf" class="w-5 h-5 <%= isActive('/users/seasonal-ingredients') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>旬の食材</span>
+              <% if (isActive('/users/seasonal-ingredients')) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+        <% } else if (currentService === 'stock') { %>
+          <li>
+            <a href="/users/stock-top" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/stock-top') ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="layout-grid" class="w-5 h-5 <%= isActive('/users/stock-top') ? 'text-emerald-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>トップページ</span>
+              <% if (isActive('/users/stock-top')) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-emerald-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/my-stock" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-stock') ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="package" class="w-5 h-5 <%= isActive('/users/my-stock') ? 'text-emerald-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span><%= currentGroupName || 'グループ' %>のストック管理</span>
+              <% if (isActive('/users/my-stock')) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-emerald-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/my-equipment" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-equipment') ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="boxes" class="w-5 h-5 <%= isActive('/users/my-equipment') ? 'text-emerald-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span><%= currentGroupName || 'グループ' %>の備品管理</span>
+              <% if (isActive('/users/my-equipment')) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-emerald-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/purchase-reminder" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activePurchaseReminder ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="shopping-bag" class="w-5 h-5 <%= activePurchaseReminder ? 'text-emerald-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>そろそろ購入リスト</span>
+              <% if (activePurchaseReminder) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-emerald-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+        <% } else if (currentService === 'packing') { %>
+          <li>
+            <a href="/users/packing" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activePacking ? 'bg-amber-50 text-amber-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="clipboard-list" class="w-5 h-5 <%= activePacking ? 'text-amber-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>パッキングプラン</span>
+              <% if (activePacking) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-amber-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+        <% } else { %>
+          <li>
+            <a href="/users/board" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isBoardRoute ? 'bg-violet-50 text-violet-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="messages-square" class="w-5 h-5 <%= isBoardRoute ? 'text-violet-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span><%= currentGroupName || 'グループ' %>の掲示板</span>
+              <% if (isBoardRoute) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-violet-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+        <% } %>
+      </ul>
+    </div>
+
+    <div class="mx-4 mt-2 mb-1 border-t border-gray-200"></div>
+
+    <div class="px-4 py-3">
+      <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">横断</p>
       <ul class="mt-2 space-y-1">
         <li>
-          <a href="/notices" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/notices') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/notices') ? 'page' : 'false' %>">
+          <a href="/notices" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/notices') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="megaphone" class="w-5 h-5 <%= isActive('/notices') ? 'text-blue-700' : 'text-red-600' %>"></i>
             <span>お知らせ</span>
             <% if (isActive('/notices')) { %>
@@ -214,7 +247,7 @@
           </a>
         </li>
         <li>
-          <a href="/settings" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/settings') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/settings') ? 'page' : 'false' %>">
+          <a href="/settings" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/settings') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="settings" class="w-5 h-5 <%= isActive('/settings') ? 'text-blue-700' : 'text-red-600' %>"></i>
             <span>設定</span>
             <% if (isActive('/settings')) { %>
@@ -223,7 +256,7 @@
           </a>
         </li>
         <li>
-          <a href="/slideshow" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/slideshow') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/slideshow') ? 'page' : 'false' %>">
+          <a href="/slideshow" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/slideshow') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="images" class="w-5 h-5 <%= isActive('/slideshow') ? 'text-blue-700' : 'text-red-600' %>"></i>
             <span>スライドショー</span>
             <% if (isActive('/slideshow')) { %>
@@ -233,7 +266,7 @@
         </li>
         <% if (user && user.isAdmin) { %>
         <li>
-          <a href="/admin/admin-top" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/admin') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>" aria-current="<%= isActive('/admin') ? 'page' : 'false' %>">
+          <a href="/admin/admin-top" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/admin') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
             <i data-lucide="shield-check" class="w-5 h-5 <%= isActive('/admin') ? 'text-blue-700' : 'text-red-600' %>"></i>
             <span>管理画面</span>
             <% if (isActive('/admin')) { %>
@@ -250,17 +283,17 @@
     <div class="px-4 py-3">
       <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">関連サービス</p>
       <div class="mt-2 space-y-2">
-        <a href="https://www.allaboutme.jp/finance/list" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100">
+        <a href="https://www.allaboutme.jp/finance/list" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100">
           <span>Finance</span>
-          <span class="text-[11px] rounded-full bg-white/70 border border-amber-200 px-2 py-0.5">外部</span>
+          <span class="text-[11px] rounded-full bg-white/70 border border-rose-200 px-2 py-0.5">外部</span>
         </a>
-        <a href="https://www.allaboutme.jp/allaboutme/eventcal" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100">
+        <a href="https://www.allaboutme.jp/allaboutme/eventcal" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-800 hover:bg-cyan-100">
           <span>All About me</span>
-          <span class="text-[11px] rounded-full bg-white/70 border border-emerald-200 px-2 py-0.5">外部</span>
+          <span class="text-[11px] rounded-full bg-white/70 border border-cyan-200 px-2 py-0.5">外部</span>
         </a>
       </div>
     </div>
-</nav>
+  </nav>
 
 <script>
   (() => {
