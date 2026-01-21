@@ -60,8 +60,8 @@
 </header>
 <% } else { %>
 <% const headerClass = `${serviceHeaderClass} shadow-sm`; %>
-<header data-sticky-header class="sticky top-0 z-50 relative flex items-center justify-between gap-3 px-4 sm:px-6 py-3 transition-colors duration-300 border-b <%= headerClass %>">
-  <div class="flex items-center gap-3 text-lg font-semibold text-gray-800">
+<header data-sticky-header class="sticky top-0 z-50 relative flex items-center gap-3 px-4 sm:px-6 py-3 transition-colors duration-300 border-b <%= headerClass %>">
+  <div class="flex items-center gap-3 text-lg font-semibold text-gray-800 shrink-0">
     <button type="button" data-menu-open class="relative inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-gray-100 text-gray-700 cursor-pointer select-none z-[70] shrink-0" aria-label="メニューを開く" aria-expanded="false" aria-controls="app-menu-drawer" role="button">
       <span aria-hidden="true" class="absolute inset-0"></span>
       <i data-lucide="menu" class="w-6 h-6"></i>
@@ -73,12 +73,18 @@
     </a>
   </div>
 
-  <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-16 text-center font-bold truncate">
-    <span class="hidden sm:inline text-lg <%= serviceTitleClass %>">REPALACE｜暮らしを整える場所</span>
-    <span class="sm:hidden text-base <%= serviceTitleClass %>">REPALACE</span>
+  <div class="pointer-events-none flex-1 min-w-0 flex items-center justify-center px-2 text-center font-bold truncate">
+    <span class="hidden md:inline text-lg <%= serviceTitleClass %>">
+      <img src="/icon.png" alt="" class="inline-block w-9 h-9 mr-2 align-[-9px]" aria-hidden="true">
+      REPALACE｜暮らしを整える場所
+    </span>
+    <span class="md:hidden text-base <%= serviceTitleClass %>">
+      <img src="/icon.png" alt="" class="inline-block w-9 h-9 mr-2 align-[-9px]" aria-hidden="true">
+      REPALACE
+    </span>
   </div>
 
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-3 shrink-0">
     <% if (typeof user !== 'undefined' && user) { %>
       <a href="/notices" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="お知らせ" title="お知らせ">
         <i data-lucide="megaphone" class="w-4 h-4"></i>
