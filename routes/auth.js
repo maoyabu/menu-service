@@ -1206,13 +1206,16 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
 
 // 管理者用ログイン画面の表示
 router.get('/login', (req, res) => {
-  res.render('auth/login');
+  res.render('auth/login', { hideHeader: true });
 });
 
 // ユーザー用ログイン画面の表示
 router.get('/user/login', (req, res) => {
   const [registrationAlert] = req.flash('registrationAlert');
-  res.render('auth/userLogin', { registrationAlert: registrationAlert || null });
+  res.render('auth/userLogin', {
+    registrationAlert: registrationAlert || null,
+    hideHeader: true
+  });
 });
 
 // 管理者ログイン処理（メールアドレスまたはユーザー名で認証・手動検証）
