@@ -20,6 +20,9 @@
   : (currentService === 'packing'
     ? 'border-amber-200 bg-amber-50 text-amber-900'
     : (currentService === 'board' ? 'border-violet-200 bg-violet-50 text-violet-900' : 'border-blue-200 bg-blue-50 text-blue-900')); %>
+<% const serviceTitleClass = currentService === 'stock'
+  ? 'text-emerald-900'
+  : (currentService === 'packing' ? 'text-amber-900' : (currentService === 'board' ? 'text-violet-900' : 'text-blue-900')); %>
 
 <% if (onAdminRoute) { %>
 <% const headerClass = 'border-blue-300 bg-blue-100 text-blue-900 shadow'; %>
@@ -57,7 +60,7 @@
 </header>
 <% } else { %>
 <% const headerClass = `${serviceHeaderClass} shadow-sm`; %>
-<header data-sticky-header class="sticky top-0 z-50 flex items-center justify-between gap-3 px-4 sm:px-6 py-3 transition-colors duration-300 border-b <%= headerClass %>">
+<header data-sticky-header class="sticky top-0 z-50 relative flex items-center justify-between gap-3 px-4 sm:px-6 py-3 transition-colors duration-300 border-b <%= headerClass %>">
   <div class="flex items-center gap-3 text-lg font-semibold text-gray-800">
     <button type="button" data-menu-open class="relative inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-gray-100 text-gray-700 cursor-pointer select-none z-[70] shrink-0" aria-label="メニューを開く" aria-expanded="false" aria-controls="app-menu-drawer" role="button">
       <span aria-hidden="true" class="absolute inset-0"></span>
@@ -70,53 +73,13 @@
     </a>
   </div>
 
-  <div class="flex-1 text-center font-bold text-gray-800 truncate">
-    <span class="hidden sm:inline text-lg">REPALACE｜暮らしを整える場所</span>
-    <span class="sm:hidden text-base">REPALACE</span>
+  <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-16 text-center font-bold truncate">
+    <span class="hidden sm:inline text-lg <%= serviceTitleClass %>">REPALACE｜暮らしを整える場所</span>
+    <span class="sm:hidden text-base <%= serviceTitleClass %>">REPALACE</span>
   </div>
 
   <div class="flex items-center gap-3">
     <% if (typeof user !== 'undefined' && user) { %>
-      <label class="hidden sm:flex items-center gap-2 text-xs text-gray-500">
-        <span class="whitespace-nowrap">サービス</span>
-        <select class="border border-gray-300 rounded px-2 py-1 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-          data-service-switch>
-          <option value="plan" <%= currentService === 'plan' ? 'selected' : '' %>>7 DAYS PLAN</option>
-          <option value="stock" <%= currentService === 'stock' ? 'selected' : '' %>>ストック管理</option>
-          <option value="packing" <%= currentService === 'packing' ? 'selected' : '' %>>パッキングプラン</option>
-        </select>
-      </label>
-
-      <% const groups = Array.isArray(userGroups) ? userGroups : []; %>
-      <% const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; %>
-      <% const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
-      <% const effectiveGroupId = currentGroupId || defaultGroupId; %>
-      <div class="flex items-center gap-2 text-gray-600 hide-under-890">
-        <i data-lucide="users" class="w-5 h-5"></i>
-        <% if (groups.length > 1) { %>
-          <label class="text-sm">
-            <span class="sr-only">グループを選択</span>
-            <select class="border border-gray-300 rounded px-2 py-1 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-              data-group-switch>
-              <option value="" <%= effectiveGroupId === '' ? 'selected' : '' %>>グループ一覧</option>
-              <% groups.forEach((group) => { %>
-                <%
-                  const optionLabel = (defaultGroupId === String(group._id) ? '★ ' : '') + group.group_name;
-                  const isSelected = effectiveGroupId === String(group._id);
-                %>
-                <option value="<%= group._id %>" <%= isSelected ? 'selected' : '' %>><%= optionLabel %></option>
-              <% }) %>
-            </select>
-          </label>
-        <% } else if (groups.length === 1) { %>
-          <span class="text-sm px-2 py-1 bg-gray-100 rounded">
-            <%= (defaultGroupId === String(groups[0]._id || '') ? '★ ' : '') + groups[0].group_name %>
-          </span>
-        <% } else { %>
-          <span class="text-sm text-gray-400">グループ未所属</span>
-        <% } %>
-      </div>
-
       <a href="/notices" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="お知らせ" title="お知らせ">
         <i data-lucide="megaphone" class="w-4 h-4"></i>
       </a>
