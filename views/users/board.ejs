@@ -247,7 +247,7 @@
       if (!guideWrapper) return;
       guideWrapper.classList.toggle('hidden', hidden);
       if (guideToggle){
-        guideToggle.textContent = hidden ? 'ガイド表示' : '非表示';
+        guideToggle.textContent = hidden ? 'サービス概要の表示' : '非表示';
         guideToggle.setAttribute('aria-pressed', hidden ? 'false' : 'true');
       }
       try{ localStorage.setItem(GUIDE_KEY, hidden ? '1' : '0'); }catch(_){}

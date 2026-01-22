@@ -1,4 +1,62 @@
+<style>
+  .stock-hero-wrapper {
+    position: relative;
+    width: 100%;
+    margin: 0 0 1.25rem;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    min-height: 48px;
+  }
+  .stock-hero-image {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .stock-hero-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .stock-hero-toggle,
+  .stock-hero-switch {
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e2e8f0;
+    color: #1f2937;
+    font-size: 0.75rem;
+    font-weight: 600;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+  .stock-hero-switch {
+    background: #e6f4ea;
+    border-color: #cce6d4;
+    color: #2f6b46;
+  }
+  .stock-hero-toggle:hover,
+  .stock-hero-switch:hover {
+    background: #ffffff;
+  }
+  .stock-hero-wrapper.is-hidden .stock-hero-image {
+    display: none;
+  }
+</style>
+
 <section class="max-w-5xl mx-auto py-8 space-y-8">
+  <div class="stock-hero-wrapper" data-stock-hero>
+    <div class="stock-hero-controls">
+      <button type="button" class="stock-hero-toggle" data-stock-hero-toggle aria-pressed="true">非表示</button>
+      <button type="button" class="stock-hero-switch" data-stock-hero-switch>備品管理とは</button>
+    </div>
+    <img src="/pict/mystock.jpg" alt="ストック管理とは" class="stock-hero-image" data-stock-hero-image>
+  </div>
+
   <header class="space-y-2">
     <p class="text-xs font-semibold tracking-wide text-emerald-600">STOCK MANAGEMENT</p>
     <h1 class="text-2xl md:text-3xl font-bold text-gray-900">ストック管理トップ</h1>
@@ -100,3 +158,52 @@
     </div>
   </section>
 </section>
+
+<script>
+  (function(){
+    const wrapper = document.querySelector('[data-stock-hero]');
+    const toggleBtn = document.querySelector('[data-stock-hero-toggle]');
+    const switchBtn = document.querySelector('[data-stock-hero-switch]');
+    const image = document.querySelector('[data-stock-hero-image]');
+    if (!wrapper || !toggleBtn || !switchBtn || !image) return;
+
+    const visibilityKey = 'stockTopHeroVisibility';
+    const imageKey = 'stockTopHeroImage';
+    const images = {
+      mystock: { src: '/pict/mystock.jpg', alt: 'ストック管理とは', switchLabel: '備品管理とは' },
+      equipment: { src: '/pict/myEquipment.jpg', alt: '備品管理とは', switchLabel: 'ストック管理とは' }
+    };
+
+    const apply = (hidden, current) => {
+      const next = images[current] ? current : 'mystock';
+      wrapper.classList.toggle('is-hidden', hidden);
+      toggleBtn.textContent = hidden ? 'サービス概要の表示' : '非表示';
+      toggleBtn.setAttribute('aria-pressed', String(!hidden));
+      image.src = images[next].src;
+      image.alt = images[next].alt;
+      switchBtn.textContent = images[next].switchLabel;
+      switchBtn.setAttribute('aria-label', images[next].switchLabel);
+    };
+
+    let hidden = false;
+    let current = 'mystock';
+    try {
+      hidden = localStorage.getItem(visibilityKey) === 'hidden';
+      const stored = localStorage.getItem(imageKey);
+      if (stored) current = stored;
+    } catch (_e) {}
+    apply(hidden, current);
+
+    toggleBtn.addEventListener('click', () => {
+      const nextHidden = !wrapper.classList.contains('is-hidden');
+      apply(nextHidden, current);
+      try { localStorage.setItem(visibilityKey, nextHidden ? 'hidden' : 'visible'); } catch (_e) {}
+    });
+
+    switchBtn.addEventListener('click', () => {
+      current = current === 'mystock' ? 'equipment' : 'mystock';
+      apply(wrapper.classList.contains('is-hidden'), current);
+      try { localStorage.setItem(imageKey, current); } catch (_e) {}
+    });
+  })();
+</script>

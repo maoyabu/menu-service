@@ -280,6 +280,41 @@
   @media (max-width: 640px) {
     .floating-plan { bottom: -50px; }
   }
+  .plan-hero-wrapper {
+    position: relative;
+    width: 100%;
+    margin: 0 0 1rem;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    min-height: 48px;
+  }
+  .plan-hero-image {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .plan-hero-toggle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e2e8f0;
+    color: #1f2937;
+    font-size: 0.75rem;
+    font-weight: 600;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+  .plan-hero-toggle:hover {
+    background: #ffffff;
+  }
+  .plan-hero-wrapper.is-hidden .plan-hero-image {
+    display: none;
+  }
 </style>
 
 <section class="relative w-full overflow-hidden">
@@ -321,6 +356,10 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
           </button>
+        </div>
+        <div class="plan-hero-wrapper" data-plan-hero>
+          <button type="button" class="plan-hero-toggle" data-plan-toggle aria-pressed="true">非表示</button>
+          <img src="/pict/7daysplan.jpg" alt="7 DAYS PLAN" class="plan-hero-image">
         </div>
         <% const isEditMode = hasAfterNextWeekPlan; %>
         <a
@@ -428,6 +467,32 @@
     btn?.addEventListener('click', open);
     closeBtn?.addEventListener('click', close);
     modal?.addEventListener('click', (ev)=> { if (ev.target === modal) close(); });
+  })();
+</script>
+
+<script>
+  (function(){
+    const wrapper = document.querySelector('[data-plan-hero]');
+    const btn = document.querySelector('[data-plan-toggle]');
+    if (!wrapper || !btn) return;
+    const key = 'myTopPlanImageVisibility';
+    const apply = (hidden) => {
+      wrapper.classList.toggle('is-hidden', hidden);
+      btn.textContent = hidden ? 'サービス概要の表示' : '非表示';
+      btn.setAttribute('aria-pressed', String(!hidden));
+    };
+    let hidden = false;
+    try {
+      hidden = localStorage.getItem(key) === 'hidden';
+    } catch (_e) {}
+    apply(hidden);
+    btn.addEventListener('click', () => {
+      const nextHidden = !wrapper.classList.contains('is-hidden');
+      apply(nextHidden);
+      try {
+        localStorage.setItem(key, nextHidden ? 'hidden' : 'visible');
+      } catch (_e) {}
+    });
   })();
 </script>
 
