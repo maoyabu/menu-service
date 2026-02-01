@@ -2393,6 +2393,8 @@
     if (regenBtn) {
       const regenDefaultHTML = regenBtn.innerHTML;
       regenBtn.addEventListener('click', async () => {
+        const ok = window.confirm('1週間のメニューを再提案します。よろしいですか？');
+        if (!ok) return;
         const groupId = regenBtn.dataset.groupId || (window.weekMenuData && window.weekMenuData.currentGroupId) || '';
         const weekStartISO = regenBtn.dataset.weekStart || (window.weekMenuData && window.weekMenuData.weekStartISO) || '';
         if (!groupId || !weekStartISO) {

@@ -3018,6 +3018,8 @@
     const regenerateButton = document.querySelector('[data-action="regenerate-week"]');
     if (regenerateButton) {
       regenerateButton.addEventListener('click', () => {
+        const ok = window.confirm('1週間のメニューを再提案します。よろしいですか？');
+        if (!ok) return;
         const nextPlan = state.plan.map((day) => {
           const cloneDay = {
             ...day,
