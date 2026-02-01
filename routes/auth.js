@@ -1896,6 +1896,284 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   }
 });
 
+// Week menu PDF (print-friendly HTML)
+router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
+  try {
+    const REQUIRED_CLASS_TOTALS = new Map([
+      ['乳類', 8400],
+      ['チーズ', 140],
+      ['卵類', 1120],
+      ['肉類', 1680],
+      ['魚介類', 1680],
+      ['豆類', 1960],
+      ['野菜類', 1680],
+      ['いも及びでん粉類', 1400],
+      ['きのこ類', 8120],
+      ['果実類', 4200],
+      ['穀物', 9520],
+      ['藻類', 0],
+      ['その他', 0]
+    ]);
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
+    const requestedGroupId = req.query.group ? String(req.query.group) : '';
+    const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+    let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
+    if (currentGroupId && !userGroups.some((g) => g._id.toString() === currentGroupId)) {
+      currentGroupId = fallbackGroupId || '';
+    }
+
+    const planIdParam = req.query.plan && mongoose.Types.ObjectId.isValid(req.query.plan)
+      ? String(req.query.plan)
+      : '';
+    const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
+    const targetWeekStart = weekStartParam ? startOfWeek(weekStartParam) : getNextWeekStart();
+
+    let planDoc = null;
+    if (planIdParam) {
+      const plan = await WeeklyMenuPlan.findById(planIdParam).lean();
+      if (plan && (!currentGroupId || String(plan.group) === String(currentGroupId))) {
+        planDoc = plan;
+        if (!currentGroupId) currentGroupId = String(plan.group);
+      }
+    }
+    if (!planDoc && currentGroupId) {
+      planDoc = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
+    }
+
+    let weekStartDate = targetWeekStart;
+    let weekDates = getWeekDatesFromStart(weekStartDate);
+    let menuLookup = {};
+    const dayMeals = Array.from({ length: 7 }, () => ({
+      breakfast: [],
+      lunch: [],
+      dinner: []
+    }));
+    const summaryMap = new Map();
+
+    const normalizeUnit = (value) => String(value || '').trim().toLowerCase();
+    const toGrams = (amount, unit, meta) => {
+      if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
+      const u = normalizeUnit(unit);
+      if (!u) return null;
+      if (u === 'g' || u === 'グラム') return amount;
+      if (u === 'kg' || u === 'キログラム') return amount * 1000;
+      if (u === 'mg') return amount / 1000;
+      if (u === 'ml' || u === 'mL' || u === 'cc') return amount; // approximate
+      const conversions = Array.isArray(meta?.unitConversions) ? meta.unitConversions : [];
+      const hit = conversions.find((c) => String(c?.label || '').trim().toLowerCase() === u);
+      if (hit && typeof hit.grams === 'number' && !Number.isNaN(hit.grams)) {
+        return amount * hit.grams;
+      }
+      return null;
+    };
+    const addSummary = (classification, grams) => {
+      if (typeof grams !== 'number' || Number.isNaN(grams)) return;
+      const label = (classification && String(classification).trim()) ? String(classification).trim() : 'その他';
+      const next = (summaryMap.get(label) || 0) + grams;
+      summaryMap.set(label, next);
+    };
+
+    const pushMeal = (dayIndex, mealType, entry) => {
+      if (!dayMeals[dayIndex]) return;
+      if (!dayMeals[dayIndex][mealType]) return;
+      dayMeals[dayIndex][mealType].push(entry);
+    };
+
+    if (planDoc) {
+      weekStartDate = startOfWeek(planDoc.weekStart);
+      weekDates = getWeekDatesFromStart(weekStartDate);
+      const ids = new Set();
+      (planDoc.dayPlans || []).forEach((dp) => {
+        (dp.slots || []).forEach((slot) => {
+          if (slot?.menu) ids.add(String(slot.menu));
+        });
+      });
+      if (ids.size) {
+        const menus = await Menu.find({ _id: { $in: Array.from(ids) } })
+          .populate({ path: 'ingredients.name', select: 'ingredient classification unit unitConversions' })
+          .lean();
+        const menuDetailMap = new Map();
+        menus.forEach((m) => {
+          menuDetailMap.set(String(m._id), m);
+          menuLookup[String(m._id)] = {
+            name: m.name || '',
+            junle: m.junle || '',
+            kind: m.kind || ''
+          };
+        });
+        // accumulate ingredient totals (weekly)
+        menus.forEach((m) => {
+          (m.ingredients || []).forEach((it) => {
+            const meta = it?.name || {};
+            const grams = toGrams(it?.amount, it?.unit || '', meta);
+            addSummary(meta?.classification || '', grams);
+          });
+        });
+      }
+      (planDoc.dayPlans || []).forEach((dp) => {
+        const dayIndex = Number(dp.dayIndex);
+        const mealType = dp.mealType;
+        if (!Number.isFinite(dayIndex) || dayIndex < 0 || dayIndex > 6) return;
+        (dp.slots || []).forEach((slot) => {
+          if (!slot) return;
+          if (slot.dineOut) {
+            pushMeal(dayIndex, mealType, {
+              name: slot.dineOutName || '外食',
+              tag: '外食',
+              kind: '外食'
+            });
+            return;
+          }
+          const menu = menuLookup[String(slot.menu)] || null;
+          if (!menu) return;
+          pushMeal(dayIndex, mealType, {
+            name: menu.name,
+            tag: menu.junle,
+            kind: menu.kind || ''
+          });
+        });
+      });
+    } else {
+      // Generate a temporary plan when no saved plan is available
+      const kindSet = new Set();
+      Object.values(CATEGORY_CONFIG).forEach((config) => (config.kinds || []).forEach((k) => k && kindSet.add(k)));
+      const menusByKind = {};
+      await Promise.all(
+        Array.from(kindSet).map(async (kind) => {
+          const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
+            .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+            .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+            .lean();
+          menusByKind[kind] = docs.map(formatMenuDocument);
+        })
+      );
+      const combineMenusByKinds = (kinds) => {
+        const combined = new Map();
+        (kinds || []).forEach((kind) => {
+          (menusByKind[kind] || []).forEach((menu) => {
+            if (!combined.has(menu.id)) combined.set(menu.id, menu);
+          });
+        });
+        return Array.from(combined.values());
+      };
+      const menusByCategory = Object.entries(CATEGORY_CONFIG).reduce((acc, [key, config]) => {
+        acc[key] = combineMenusByKinds(config.kinds);
+        return acc;
+      }, {});
+      const generated = buildWeekPlanPayload(menusByCategory, { startDate: weekStartDate });
+      const plan = generated.plan || [];
+      menuLookup = generated.menuLookup || {};
+      const ingredientIds = new Set();
+      Object.values(menuLookup).forEach((menu) => {
+        (menu?.ingredients || []).forEach((it) => {
+          if (it?.id) ingredientIds.add(String(it.id));
+        });
+      });
+      const ingredientMetaMap = new Map();
+      if (ingredientIds.size) {
+        const docs = await Ingredient.find({ _id: { $in: Array.from(ingredientIds) } })
+          .select('classification unit unitConversions')
+          .lean();
+        docs.forEach((d) => {
+          ingredientMetaMap.set(String(d._id), d);
+        });
+      }
+      plan.forEach((day, index) => {
+        const b = Array.isArray(day.breakfastSlots) ? day.breakfastSlots : [];
+        const l = Array.isArray(day.lunchSlots) ? day.lunchSlots : [];
+        const dinnerBase = day?.dinner && typeof day.dinner === 'object'
+          ? ['staple', 'main', 'side', 'soup'].map((k) => day.dinner[k]).filter(Boolean)
+          : [];
+        const dinnerExtras = Array.isArray(day.dinnerExtras) ? day.dinnerExtras.filter(Boolean) : [];
+        const d = [...dinnerBase, ...dinnerExtras];
+        b.forEach((slot) => {
+          const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
+          if (menu) pushMeal(index, 'breakfast', { name: menu.name, tag: menu.junle || '', kind: menu.kind || '' });
+        });
+        l.forEach((slot) => {
+          const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
+          if (menu) pushMeal(index, 'lunch', { name: menu.name, tag: menu.junle || '', kind: menu.kind || '' });
+        });
+        d.forEach((slot) => {
+          const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
+          if (menu) pushMeal(index, 'dinner', { name: menu.name, tag: menu.junle || '', kind: menu.kind || '' });
+        });
+      });
+      // accumulate ingredient totals (weekly)
+      Object.values(menuLookup).forEach((menu) => {
+        (menu?.ingredients || []).forEach((it) => {
+          const meta = it?.id ? ingredientMetaMap.get(String(it.id)) : null;
+          const grams = toGrams(it?.amount, it?.unit || '', meta);
+          addSummary(it?.classification || meta?.classification || '', grams);
+        });
+      });
+    }
+
+    const titleStart = weekDates[0];
+    const titleEnd = weekDates[6];
+    const titleLabel = `${titleStart.getFullYear()}年${titleStart.getMonth() + 1}月${titleStart.getDate()}日 〜 ${titleEnd.getFullYear()}年${titleEnd.getMonth() + 1}月${titleEnd.getDate()}日の献立表`;
+    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+    const days = weekDates.map((date, index) => ({
+      label: `${date.getMonth() + 1}/${date.getDate()}(${weekdays[index] || ''})`,
+      meals: dayMeals[index] || { breakfast: [], lunch: [], dinner: [] }
+    }));
+    const weeklyMap = new Map();
+    summaryMap.forEach((grams, classification) => {
+      const label = (classification && String(classification).trim()) ? String(classification).trim() : 'その他';
+      weeklyMap.set(label, Math.round(grams * 10) / 10);
+    });
+    const allClasses = new Set([
+      ...Array.from(REQUIRED_CLASS_TOTALS.keys()),
+      ...Array.from(weeklyMap.keys())
+    ]);
+    const SUMMARY_ORDER = [
+      '乳類',
+      'チーズ',
+      '卵類',
+      '肉類',
+      '魚介類',
+      '豆類',
+      '野菜類',
+      'いも及びでん粉類',
+      'きのこ類',
+      '果実類',
+      '穀物',
+      '藻類',
+      'その他'
+    ];
+    const ordered = SUMMARY_ORDER.filter((label) => allClasses.has(label));
+    const extras = Array.from(allClasses).filter((label) => !SUMMARY_ORDER.includes(label));
+    const summaryRows = [...ordered, ...extras]
+      .map((classification) => {
+        const required = REQUIRED_CLASS_TOTALS.has(classification)
+          ? REQUIRED_CLASS_TOTALS.get(classification)
+          : 0;
+        const weekly = weeklyMap.get(classification) || 0;
+        const diff = Math.round((weekly - required) * 10) / 10;
+        return {
+          classification,
+          requiredGrams: required,
+          weeklyGrams: weekly,
+          diffGrams: diff
+        };
+      })
+      .map((row, idx) => ({ ...row, _order: idx }))
+      .sort((a, b) => a._order - b._order)
+      .map(({ _order, ...row }) => row);
+
+    return res.render('users/weekMenuPdf', {
+      titleLabel,
+      days,
+      summaryRows
+    });
+  } catch (err) {
+    console.error('week menu pdf error:', err);
+    return next(err);
+  }
+});
+
 // weekMenu2 direct entry (redirects to week-menu with view=2)
 router.get('/users/week-menu2', isLoggedIn, (req, res) => {
   const url = new URL(req.protocol + '://' + req.get('host') + req.originalUrl);

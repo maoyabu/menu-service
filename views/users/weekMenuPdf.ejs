@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title><%= titleLabel %></title>
+    <style>
+      @page { size: A4 landscape; margin: 0; }
+      html, body { margin: 0; padding: 0; }
+      body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif; color: #111827; }
+      .doc { width: 100%; }
+      .page {
+        width: 297mm;
+        padding: 10mm;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+      .page-first { page-break-after: always; }
+      h1 { font-size: 20px; font-weight: 800; margin: 0 0 12px 0; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #111827; }
+      th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
+      th { background: #f3f4f6; font-size: 14pt; text-align: center; font-weight: 700; }
+      .day-head { font-size: 14pt; font-weight: 700; }
+      .summary-table th { font-size: 14pt; font-weight: 700; }
+      .meal-col { width: 70px; font-weight: 700; background: #f3f4f6; text-align: center; vertical-align: middle; font-size: 14pt; }
+      .cell { min-height: 70px; }
+      .item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+      .name { font-size: 11px; font-weight: 500; }
+      .kind { font-weight: 700; }
+      .tag { font-size: 10px; padding: 2px 6px; border-radius: 9999px; border: 1px solid #d1d5db; color: #374151; display: inline-block; margin-bottom: 4px; }
+      .tag:empty { display: none; }
+      .empty { color: #9ca3af; font-size: 10px; }
+      .page-break { page-break-before: auto; }
+      .summary-title { font-size: 20px; font-weight: 800; margin: 0 0 10px 0; }
+      .summary-table thead tr { background: #f3f4f6; }
+      .summary-table th { background: transparent; }
+      .summary-table td { text-align: right; }
+      .summary-table td:first-child { text-align: left; font-weight: 600; }
+      .diff-neg { color: #dc2626; }
+      .class-cell { display: flex; align-items: center; gap: 8px; }
+      .icon-badge { width: 22px; height: 22px; border-radius: 9999px; border: 1px solid #fde68a; background: #fff7ed; display: inline-flex; align-items: center; justify-content: center; }
+      .icon-badge svg { width: 14px; height: 14px; stroke: #f97316; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin: 8px 0 10px;
+      }
+      .download-btn {
+        background: #10b981;
+        color: #ffffff;
+        border: none;
+        border-radius: 9999px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+      }
+      @media print {
+        .download-btn { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button type="button" id="download-pdf" class="download-btn">PDFをダウンロード</button>
+    </div>
+    <div class="doc" id="pdf-doc">
+    <div class="page page-first">
+      <h1><%= titleLabel %></h1>
+      <table>
+        <thead>
+          <tr>
+            <th class="meal-col">食事</th>
+            <% days.forEach((day) => { %>
+              <th class="day-head"><%= day.label %></th>
+            <% }) %>
+          </tr>
+        </thead>
+        <tbody>
+          <% const meals = ['breakfast', 'lunch', 'dinner']; %>
+          <% const mealLabels = { breakfast: '朝食', lunch: '昼食', dinner: '夕食' }; %>
+          <% meals.forEach((mealKey) => { %>
+            <tr class="meal-row">
+              <td class="meal-col"><%= mealLabels[mealKey] %></td>
+              <% days.forEach((day) => { %>
+                <td class="cell">
+                  <% const items = (day.meals && day.meals[mealKey]) ? day.meals[mealKey] : []; %>
+                  <% if (items.length === 0) { %>
+                    <div class="empty">-</div>
+                  <% } else { %>
+                    <% const firstTagItem = items.find((it) => it && it.tag); %>
+                    <% const mealTag = firstTagItem ? firstTagItem.tag : ''; %>
+                    <div class="tag"><%= mealTag %></div>
+                    <% items.forEach((item) => { %>
+                      <div class="item">
+                        <% if (item.kind) { %>
+                          <span class="name"><span class="kind"><%= item.kind %></span>：<%= item.name %></span>
+                        <% } else { %>
+                          <span class="name"><%= item.name %></span>
+                        <% } %>
+                      </div>
+                    <% }) %>
+                  <% } %>
+                </td>
+              <% }) %>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <div class="page">
+      <h2 class="summary-title">食材分類別の合計（週累計, g換算）</h2>
+      <%
+        const ICONS = {
+          '乳類': `<svg viewBox="0 0 24 24"><path d="M8 3h8l-1 4v3c0 1 1 2 1 3v6a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-6c0-1 1-2 1-3V7z"/><path d="M9 7h6"/><path d="M10 3v4"/></svg>`,
+          'チーズ': `<svg viewBox="0 0 24 24"><path d="M3 17l18-6-10-7z"/><path d="M12 9a1 1 0 1 0 0 .01"/><path d="M8.5 12a1 1 0 1 0 0 .01"/><path d="M15 13a1 1 0 1 0 0 .01"/></svg>`,
+          '卵類': `<svg viewBox="0 0 24 24"><path d="M12 3c4 0 7 5 7 9a7 7 0 1 1-14 0c0-4 3-9 7-9z"/></svg>`,
+          '肉類': `<svg viewBox="0 0 24 24"><path d="M9 7c0-2 2-4 4-4h1a4 4 0 0 1 4 4v1a6 6 0 0 1-6 6H9a3 3 0 0 0-3 3v1"/><circle cx="6" cy="19" r="2"/></svg>`,
+          '魚介類': `<svg viewBox="0 0 24 24"><path d="M4 12c4-4 12-4 16 0-4 4-12 4-16 0z"/><path d="M4 12l-3-2v4z"/><circle cx="15" cy="12" r="1"/></svg>`,
+          '豆類': `<svg viewBox="0 0 24 24"><path d="M8 7c3-2 7 1 6 4-1 3-4 4-6 3-3-1-3-5 0-7z"/></svg>`,
+          '野菜類': `<svg viewBox="0 0 24 24"><path d="M6 18c4-1 7-4 8-8"/><path d="M14 5c-1 4-4 7-8 8"/><path d="M16 8l3 3"/><path d="M9 19l-4 2"/></svg>`,
+          'いも及びでん粉類': `<svg viewBox="0 0 24 24"><path d="M7 7c3-3 9-1 9 4 0 5-6 7-9 4-3-3-2-6 0-8z"/></svg>`,
+          'きのこ類': `<svg viewBox="0 0 24 24"><path d="M4 12c0-4 4-7 8-7s8 3 8 7H4z"/><path d="M9 12v5a3 3 0 0 0 6 0v-5z"/></svg>`,
+          '果実類': `<svg viewBox="0 0 24 24"><path d="M12 7c4 0 7 3 7 7a7 7 0 0 1-14 0c0-4 3-7 7-7z"/><path d="M12 7c0-2 1-3 3-4"/><path d="M10 5h4"/></svg>`,
+          '穀物': `<svg viewBox="0 0 24 24"><path d="M7 17c0-3 2-6 5-8 3 2 5 5 5 8"/><path d="M7 17c0 2 2 4 5 4s5-2 5-4"/><path d="M12 5v4"/></svg>`,
+          '藻類': `<svg viewBox="0 0 24 24"><path d="M3 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M3 10c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>`,
+          'その他': `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>`
+        };
+      %>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>分類</th>
+            <th>必要量 (g)</th>
+            <th>週累計 (g)</th>
+            <th>差分 (g)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (Array.isArray(summaryRows) && summaryRows.length) { %>
+            <% summaryRows.forEach((row) => { %>
+              <tr>
+                <td>
+                  <div class="class-cell">
+                    <span class="icon-badge"><%- ICONS[row.classification] || ICONS['その他'] %></span>
+                    <span><%= row.classification %></span>
+                  </div>
+                </td>
+                <td><%= Math.round(Number(row.requiredGrams || 0)).toLocaleString('ja-JP') %></td>
+                <td><%= Math.round(Number(row.weeklyGrams || 0)).toLocaleString('ja-JP') %></td>
+                <td class="<%= Number(row.diffGrams || 0) < 0 ? 'diff-neg' : '' %>"><%= Math.round(Number(row.diffGrams || 0)).toLocaleString('ja-JP') %></td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr>
+              <td colspan="4" class="empty">-</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+    <script>
+      (() => {
+        const btn = document.getElementById('download-pdf');
+        const target = document.getElementById('pdf-doc');
+        if (!btn || !target || !window.html2pdf) return;
+        btn.addEventListener('click', () => {
+          const opt = {
+            margin: [0, 0, 0, 0],
+            filename: 'week-menu.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 1, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+            pagebreak: { mode: ['css'] }
+          };
+          window.html2pdf().set(opt).from(target).save();
+        });
+      })();
+    </script>
+  </body>
+</html>

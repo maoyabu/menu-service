@@ -134,6 +134,15 @@
   <div class="wm2-title justify-between">
     <h2>7 DAYS PLAN</h2>
     <div class="flex items-center gap-2">
+      <a
+        href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>"
+        target="_blank"
+        rel="noopener"
+        class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 shadow-sm"
+      >
+        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
+        1週間のメニューをPDFで表示
+      </a>
       <button
         type="button"
         id="wm2-regenerate"
