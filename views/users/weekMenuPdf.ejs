@@ -109,7 +109,7 @@
       </table>
     </div>
     <div class="page">
-      <h2 class="summary-title">食材分類別の合計（週累計, g換算）</h2>
+      <h2 class="summary-title">食材分類別の週一人当たり合計</h2>
       <%
         const ICONS = {
           '乳類': `<svg viewBox="0 0 24 24"><path d="M8 3h8l-1 4v3c0 1 1 2 1 3v6a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-6c0-1 1-2 1-3V7z"/><path d="M9 7h6"/><path d="M10 3v4"/></svg>`,
@@ -131,9 +131,9 @@
         <thead>
           <tr>
             <th>分類</th>
-            <th>必要量 (g)</th>
-            <th>週累計 (g)</th>
-            <th>差分 (g)</th>
+            <th>1週間の必要量 (g/人)</th>
+            <th>献立分合計量 (g/人)</th>
+            <th>過不足 (g/人)</th>
           </tr>
         </thead>
         <tbody>
@@ -148,7 +148,15 @@
                 </td>
                 <td><%= Math.round(Number(row.requiredGrams || 0)).toLocaleString('ja-JP') %></td>
                 <td><%= Math.round(Number(row.weeklyGrams || 0)).toLocaleString('ja-JP') %></td>
-                <td class="<%= Number(row.diffGrams || 0) < 0 ? 'diff-neg' : '' %>"><%= Math.round(Number(row.diffGrams || 0)).toLocaleString('ja-JP') %></td>
+                <td class="<%= Number(row.diffGrams || 0) < 0 ? 'diff-neg' : '' %>">
+                  <%
+                    const reqVal = Number(row.requiredGrams || 0);
+                    const diffVal = Number(row.diffGrams || 0);
+                    const pct = reqVal > 0 ? (diffVal / reqVal) * 100 : 0;
+                    const pctText = reqVal > 0 ? ` (${pct.toFixed(1)}%)` : '';
+                  %>
+                  <%= Math.round(diffVal).toLocaleString('ja-JP') %><%= pctText %>
+                </td>
               </tr>
             <% }) %>
           <% } else { %>
