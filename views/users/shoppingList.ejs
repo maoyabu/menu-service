@@ -63,28 +63,66 @@
         </label>`;
       return li;
     };
+    const normalizeClassLabel = (val) => (val && String(val).trim()) ? String(val).trim() : 'その他';
+    const sortClassLabels = (labels) => labels.sort((a, b) => {
+      if (a === 'その他' && b !== 'その他') return 1;
+      if (b === 'その他' && a !== 'その他') return -1;
+      return a.localeCompare(b, 'ja');
+    });
+    const groupByTypeAndClass = (items) => {
+      const groups = { ingredient: new Map(), seasoning: new Map() };
+      (items || []).forEach((it) => {
+        const type = it.type === 'seasoning' ? 'seasoning' : 'ingredient';
+        const label = normalizeClassLabel(it.classification);
+        if (!groups[type].has(label)) groups[type].set(label, []);
+        groups[type].get(label).push(it);
+      });
+      return groups;
+    };
+    const renderSection = (container, title, map, checked) => {
+      if (!map || map.size === 0) return;
+      const h = document.createElement('h3');
+      h.className = 'mt-4 text-sm font-semibold text-gray-700';
+      h.textContent = title;
+      container.appendChild(h);
+      const labels = sortClassLabels(Array.from(map.keys()));
+      labels.forEach((label) => {
+        const sub = document.createElement('h4');
+        sub.className = 'mt-3 text-xs font-semibold text-gray-500';
+        sub.textContent = label;
+        container.appendChild(sub);
+        const ul = document.createElement('ul');
+        ul.className = 'mt-2 space-y-2';
+        map.get(label).forEach((it) => {
+          ul.appendChild(makeLi(it, checked));
+        });
+        container.appendChild(ul);
+      });
+    };
 
     const render = () => {
       const st = stateCache || {};
       const toBuy = document.getElementById('to-buy');
       const purchased = document.getElementById('purchased');
-      toBuy.innerHTML = ''; purchased.innerHTML='';
-      // initial: top items unchecked (unless state), stock items checked and placed below
+      toBuy.innerHTML = '';
+      purchased.innerHTML = '';
       const combinedTop = dataTop.slice();
       const combinedBottom = dataStock.slice();
-      // apply state reclassification
-      combinedTop.forEach((it)=>{
+      const buyItems = [];
+      const doneItems = [];
+      const pushItem = (it, defaultChecked) => {
         const k = `${it.type}:${it.name}:${it.unit||''}`;
-        const isChecked = Object.prototype.hasOwnProperty.call(st, k) ? !!st[k] : false;
-        const li = makeLi(it, isChecked);
-        (isChecked ? purchased : toBuy).appendChild(li);
-      });
-      combinedBottom.forEach((it)=>{
-        const k = `${it.type}:${it.name}:${it.unit||''}`;
-        const isChecked = Object.prototype.hasOwnProperty.call(st, k) ? !!st[k] : true; // stock items default to checked (購入不要扱い)
-        const li = makeLi(it, isChecked);
-        (isChecked ? purchased : toBuy).appendChild(li);
-      });
+        const isChecked = Object.prototype.hasOwnProperty.call(st, k) ? !!st[k] : defaultChecked;
+        (isChecked ? doneItems : buyItems).push(it);
+      };
+      combinedTop.forEach((it)=> pushItem(it, false));
+      combinedBottom.forEach((it)=> pushItem(it, true));
+      const buyGrouped = groupByTypeAndClass(buyItems);
+      const doneGrouped = groupByTypeAndClass(doneItems);
+      renderSection(toBuy, '食材', buyGrouped.ingredient, false);
+      renderSection(toBuy, '調味料', buyGrouped.seasoning, false);
+      renderSection(purchased, '食材', doneGrouped.ingredient, true);
+      renderSection(purchased, '調味料', doneGrouped.seasoning, true);
     };
 
     const scheduleServerSave = () => {
@@ -116,16 +154,7 @@
       } else {
         scheduleServerSave();
       }
-      // move element between lists
-      const purchased = document.getElementById('purchased');
-      const toBuy = document.getElementById('to-buy');
-      if (cb.checked) {
-        purchased.appendChild(li);
-        li.classList.add('bg-blue-50/40','border-blue-100');
-      } else {
-        toBuy.appendChild(li);
-        li.classList.remove('bg-blue-50/40','border-blue-100');
-      }
+      render();
     });
 
     const init = async () => {

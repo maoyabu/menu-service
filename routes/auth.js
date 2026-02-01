@@ -390,12 +390,14 @@ const formatMenuDocument = (doc) => ({
   ingredients: (doc.ingredients || []).map((item) => ({
     id: item?.name?._id ? item.name._id.toString() : null,
     name: item?.name?.ingredient || '',
+    classification: item?.name?.classification || '',
     amount: typeof item?.amount === 'number' && !Number.isNaN(item.amount) ? item.amount : null,
     unit: item?.unit || (Array.isArray(item?.name?.unit) ? item.name.unit[0] : '') || ''
   })),
   seasoning: (doc.seasoning || []).map((item) => ({
     id: item?.name?._id ? item.name._id.toString() : null,
     name: item?.name?.seasoning || '',
+    classification: item?.name?.classification || '',
     amount: typeof item?.amount === 'number' && !Number.isNaN(item.amount) ? item.amount : null,
     unit: item?.unit || (Array.isArray(item?.name?.unit) ? item.name.unit[0] : '') || ''
   }))
@@ -483,8 +485,10 @@ const aggregateSummary = (plan, menuLookup, field) => {
       name: item.name,
       amount: 0,
       unit,
-      missingAmount: false
+      missingAmount: false,
+      classification: item.classification || ''
     };
+    if (!current.classification && item.classification) current.classification = item.classification;
 
     if (typeof item.amount === 'number' && !Number.isNaN(item.amount)) {
       current.amount += item.amount;
@@ -523,7 +527,8 @@ const aggregateSummary = (plan, menuLookup, field) => {
         typeof entry.amount === 'number' && !Number.isNaN(entry.amount)
           ? Math.round(entry.amount * 100) / 100
           : null,
-      missingAmount: entry.missingAmount
+      missingAmount: entry.missingAmount,
+      classification: entry.classification || ''
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
 };
@@ -1449,8 +1454,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     await Promise.all(
       Array.from(kindSet).map(async (kind) => {
         const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
-          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .lean();
         menusByKind[kind] = docs.map(formatMenuDocument);
       })
@@ -1606,8 +1611,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
       if (menuIdSet.size) {
         const menuDocs = await Menu.find({ _id: { $in: Array.from(menuIdSet) } })
-          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .lean();
 
         menuDocs.forEach((doc) => {
@@ -2023,8 +2028,8 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     const menusByKind = {};
     await Promise.all(Array.from(kindSet).map(async (kind) => {
       const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
-        .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-        .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+        .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+        .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
         .lean();
       menusByKind[kind] = docs.map(formatMenuDocument);
     }));
@@ -2069,8 +2074,8 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
       (existingPlan.dayPlans||[]).forEach((dp)=> (dp.slots||[]).forEach((s)=> s?.menu && ids.add(s.menu.toString())));
       if (ids.size) {
         const docs = await Menu.find({ _id: { $in: Array.from(ids) } })
-          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .lean();
         docs.forEach((d)=>{ const f=formatMenuDocument(d); menuLookup[f.id]=f; });
       }
@@ -2116,7 +2121,14 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
 
     const topItems = [];
     const bottomStockItems = [];
-    const toEntry = (x, type)=> ({ type, name: x.name, unit: x.unit, amount: x.amount, missingAmount: x.missingAmount });
+    const toEntry = (x, type)=> ({
+      type,
+      name: x.name,
+      unit: x.unit,
+      amount: x.amount,
+      missingAmount: x.missingAmount,
+      classification: x.classification || ''
+    });
     ingredients.forEach((x)=> (ingNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'ingredient')));
     seasonings.forEach((x)=> (seaNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'seasoning')));
 
@@ -2141,8 +2153,8 @@ router.get('/users/menu/:id', isLoggedIn, async (req, res, next) => {
       return res.redirect('/users/my-top');
     }
     const menu = await Menu.findById(id)
-      .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-      .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+      .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+      .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
       .lean();
     if (!menu) {
       req.flash('error', 'メニューが見つかりません');
@@ -2466,8 +2478,8 @@ router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
     await Promise.all(
       Array.from(kindSet).map(async (kind) => {
         const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
-          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .lean();
         menusByKind[kind] = docs.map(formatMenuDocument);
       })
@@ -2603,8 +2615,8 @@ router.post('/users/week-menu/shuffle-slot', isLoggedIn, async (req, res) => {
     await Promise.all(
       Array.from(kindSet).map(async (kind) => {
         const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
-          .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-          .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+          .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+          .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .lean();
         menusByKind[kind] = docs.map(formatMenuDocument);
       })
@@ -3097,8 +3109,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   let currentWeekMenuLookup = {};
   if (menuIdSet.size) {
     const menuDocs = await Menu.find({ _id: { $in: Array.from(menuIdSet) } })
-      .populate({ path: 'ingredients.name', select: 'ingredient unit' })
-      .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+      .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
+      .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
       .lean();
 
     currentWeekMenuLookup = menuDocs.reduce((acc, doc) => {
