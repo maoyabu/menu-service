@@ -1803,6 +1803,23 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     currentGroupUsers = await hydrateGroupUsers(currentGroupUsers);
     guidelineTotals = aggregateGuidelineTotals(currentGroupUsers);
+    const FIXED_DAILY_GUIDELINE_TOTALS = {
+      '乳類': 200,
+      'チーズ': 10,
+      '卵類': 80,
+      '肉類': 120,
+      '魚介類': 120,
+      '豆類': 100,
+      '野菜類': 310,
+      'いも及びでん粉類': 100,
+      'きのこ類': 30,
+      '果実類': 200,
+      '穀物': 500,
+      '藻類': 10,
+      '加工食品': 0,
+      'その他': 0
+    };
+    guidelineTotals = FIXED_DAILY_GUIDELINE_TOTALS;
 
     // グループ名・メンバー名の計算が終わったあと
     // console.log('currentGroupName:', currentGroupName);
@@ -1899,19 +1916,20 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 // Week menu PDF (print-friendly HTML)
 router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
   try {
-    const REQUIRED_CLASS_TOTALS = new Map([
-      ['乳類', 8400],
-      ['チーズ', 140],
-      ['卵類', 1120],
-      ['肉類', 1680],
-      ['魚介類', 1680],
-      ['豆類', 1960],
-      ['野菜類', 1680],
-      ['いも及びでん粉類', 1400],
-      ['きのこ類', 8120],
-      ['果実類', 4200],
-      ['穀物', 9520],
-      ['藻類', 0],
+    const REQUIRED_CLASS_DAILY = new Map([
+      ['乳類', 200],
+      ['チーズ', 10],
+      ['卵類', 80],
+      ['肉類', 120],
+      ['魚介類', 120],
+      ['豆類', 100],
+      ['野菜類', 310],
+      ['いも及びでん粉類', 100],
+      ['きのこ類', 30],
+      ['果実類', 200],
+      ['穀物', 500],
+      ['藻類', 10],
+      ['加工食品', 0],
       ['その他', 0]
     ]);
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
@@ -1931,6 +1949,7 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
     const targetWeekStart = weekStartParam ? startOfWeek(weekStartParam) : getNextWeekStart();
 
     let planDoc = null;
+    let participantsMap = {};
     if (planIdParam) {
       const plan = await WeeklyMenuPlan.findById(planIdParam).lean();
       if (plan && (!currentGroupId || String(plan.group) === String(currentGroupId))) {
@@ -1940,6 +1959,14 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
     }
     if (!planDoc && currentGroupId) {
       planDoc = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
+    }
+    if (planDoc) {
+      participantsMap = (planDoc.participants || []).reduce((acc, entry) => {
+        if (!entry) return acc;
+        const key = `${entry.dayIndex}:${entry.mealType}`;
+        acc[key] = Array.isArray(entry.users) ? entry.users.map((u) => String(u)) : [];
+        return acc;
+      }, {});
     }
 
     let weekStartDate = targetWeekStart;
@@ -1951,22 +1978,30 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       dinner: []
     }));
     const summaryMap = new Map();
+    const requiredMap = new Map();
+    const SEASONING_CAPTURE_CLASSES = new Set(['穀物', '乳類', 'チーズ']);
 
     const normalizeUnit = (value) => String(value || '').trim().toLowerCase();
+    const gramsFallbackByUnit = (unit) => {
+      const u = normalizeUnit(unit);
+      if (!u) return null;
+      if (['g', 'gram', 'grams', 'ｇ', 'グラム'].includes(u)) return 1;
+      if (['kg', 'kilogram', '㎏', 'キログラム'].includes(u)) return 1000;
+      if (['mg', 'milligram', '㎎', 'ミリグラム'].includes(u)) return 0.001;
+      return null;
+    };
     const toGrams = (amount, unit, meta) => {
       if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
       const u = normalizeUnit(unit);
       if (!u) return null;
-      if (u === 'g' || u === 'グラム') return amount;
-      if (u === 'kg' || u === 'キログラム') return amount * 1000;
-      if (u === 'mg') return amount / 1000;
       if (u === 'ml' || u === 'mL' || u === 'cc') return amount; // approximate
       const conversions = Array.isArray(meta?.unitConversions) ? meta.unitConversions : [];
       const hit = conversions.find((c) => String(c?.label || '').trim().toLowerCase() === u);
       if (hit && typeof hit.grams === 'number' && !Number.isNaN(hit.grams)) {
         return amount * hit.grams;
       }
-      return null;
+      const per = gramsFallbackByUnit(u);
+      return per ? amount * per : null;
     };
     const addSummary = (classification, grams) => {
       if (typeof grams !== 'number' || Number.isNaN(grams)) return;
@@ -1974,11 +2009,48 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       const next = (summaryMap.get(label) || 0) + grams;
       summaryMap.set(label, next);
     };
+    const dayCount = 7;
+    REQUIRED_CLASS_DAILY.forEach((daily, cls) => {
+      requiredMap.set(cls, Number(daily) * dayCount);
+    });
 
     const pushMeal = (dayIndex, mealType, entry) => {
       if (!dayMeals[dayIndex]) return;
       if (!dayMeals[dayIndex][mealType]) return;
       dayMeals[dayIndex][mealType].push(entry);
+    };
+
+    const defaultPeopleCount = calculateGroupSize(userGroups, currentGroupId);
+    const getPeopleCount = (participantsMap, dayIndex, mealType) => {
+      const key = `${dayIndex}:${mealType}`;
+      if (participantsMap && Object.prototype.hasOwnProperty.call(participantsMap, key)) {
+        const list = Array.isArray(participantsMap[key]) ? participantsMap[key] : [];
+        return list.length;
+      }
+      return defaultPeopleCount;
+    };
+    const addMenuToSummary = (menuDoc, peopleCount, extraCount, type = 'ingredient', metaMap = null) => {
+      if (!menuDoc) return;
+      const basePeople = Number(menuDoc.people) > 0 ? Number(menuDoc.people) : 1;
+      const multiplier = (peopleCount + (extraCount || 0)) > 0 ? ((peopleCount + (extraCount || 0)) / basePeople) : 1;
+      if (type === 'ingredient') {
+        (menuDoc.ingredients || []).forEach((it) => {
+          const meta = it?.name || {};
+          const fallback = metaMap && meta?._id ? metaMap.get(String(meta._id)) : null;
+          const cls = meta?.classification || fallback?.classification || '';
+          const grams = toGrams(Number(it?.amount) * multiplier, it?.unit || '', meta?.unitConversions ? meta : fallback);
+          addSummary(cls, grams);
+        });
+      } else {
+        (menuDoc.seasoning || []).forEach((it) => {
+          const meta = it?.name || {};
+          const fallback = metaMap && meta?._id ? metaMap.get(String(meta._id)) : null;
+          const cls = meta?.classification || fallback?.classification || '';
+          if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
+          const grams = toGrams(Number(it?.amount) * multiplier, it?.unit || '', meta?.unitConversions ? meta : fallback);
+          addSummary(cls, grams);
+        });
+      }
     };
 
     if (planDoc) {
@@ -1993,8 +2065,11 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       if (ids.size) {
         const menus = await Menu.find({ _id: { $in: Array.from(ids) } })
           .populate({ path: 'ingredients.name', select: 'ingredient classification unit unitConversions' })
+          .populate({ path: 'seasoning.name', select: 'seasoning classification unit unitConversions' })
           .lean();
         const menuDetailMap = new Map();
+        const ingredientIds = new Set();
+        const seasoningIds = new Set();
         menus.forEach((m) => {
           menuDetailMap.set(String(m._id), m);
           menuLookup[String(m._id)] = {
@@ -2002,15 +2077,45 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
             junle: m.junle || '',
             kind: m.kind || ''
           };
-        });
-        // accumulate ingredient totals (weekly)
-        menus.forEach((m) => {
           (m.ingredients || []).forEach((it) => {
-            const meta = it?.name || {};
-            const grams = toGrams(it?.amount, it?.unit || '', meta);
-            addSummary(meta?.classification || '', grams);
+            const id = it?.name?._id ? String(it.name._id) : '';
+            if (id) ingredientIds.add(id);
+          });
+          (m.seasoning || []).forEach((it) => {
+            const id = it?.name?._id ? String(it.name._id) : '';
+            if (id) seasoningIds.add(id);
           });
         });
+        const ingredientMetaMap = new Map();
+        if (ingredientIds.size) {
+          const docs = await Ingredient.find({ _id: { $in: Array.from(ingredientIds) } })
+            .select('classification unit unitConversions ingredient')
+            .lean();
+          docs.forEach((d) => ingredientMetaMap.set(String(d._id), d));
+        }
+        const seasoningMetaMap = new Map();
+        if (seasoningIds.size) {
+          const docs = await Seasoning.find({ _id: { $in: Array.from(seasoningIds) } })
+            .select('classification unit unitConversions seasoning')
+            .lean();
+          docs.forEach((d) => seasoningMetaMap.set(String(d._id), d));
+        }
+        // accumulate ingredient/seasoning totals (weekly) by slots
+        (planDoc.dayPlans || []).forEach((dp) => {
+          const dayIndex = Number(dp.dayIndex);
+          const mealType = dp.mealType;
+          if (!Number.isFinite(dayIndex) || dayIndex < 0 || dayIndex > 6) return;
+          const peopleCount = getPeopleCount(participantsMap, dayIndex, mealType);
+          (dp.slots || []).forEach((slot) => {
+            if (!slot || slot.dineOut) return;
+            const menuDoc = menuDetailMap.get(String(slot.menu));
+            if (!menuDoc) return;
+            const extraCount = Math.max(0, Number(slot?.prepExtra) || 0);
+            addMenuToSummary(menuDoc, peopleCount, extraCount, 'ingredient', ingredientMetaMap);
+            addMenuToSummary(menuDoc, peopleCount, extraCount, 'seasoning', seasoningMetaMap);
+          });
+        });
+        // required totals: per person per day * dayCount (already set)
       }
       (planDoc.dayPlans || []).forEach((dp) => {
         const dayIndex = Number(dp.dayIndex);
@@ -2066,9 +2171,13 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       const plan = generated.plan || [];
       menuLookup = generated.menuLookup || {};
       const ingredientIds = new Set();
+      const seasoningIds = new Set();
       Object.values(menuLookup).forEach((menu) => {
         (menu?.ingredients || []).forEach((it) => {
           if (it?.id) ingredientIds.add(String(it.id));
+        });
+        (menu?.seasoning || []).forEach((it) => {
+          if (it?.id) seasoningIds.add(String(it.id));
         });
       });
       const ingredientMetaMap = new Map();
@@ -2078,6 +2187,15 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
           .lean();
         docs.forEach((d) => {
           ingredientMetaMap.set(String(d._id), d);
+        });
+      }
+      const seasoningMetaMap = new Map();
+      if (seasoningIds.size) {
+        const docs = await Seasoning.find({ _id: { $in: Array.from(seasoningIds) } })
+          .select('classification unit unitConversions')
+          .lean();
+        docs.forEach((d) => {
+          seasoningMetaMap.set(String(d._id), d);
         });
       }
       plan.forEach((day, index) => {
@@ -2101,14 +2219,41 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
           if (menu) pushMeal(index, 'dinner', { name: menu.name, tag: menu.junle || '', kind: menu.kind || '' });
         });
       });
-      // accumulate ingredient totals (weekly)
-      Object.values(menuLookup).forEach((menu) => {
-        (menu?.ingredients || []).forEach((it) => {
+      // accumulate ingredient/seasoning totals (weekly) by slots
+      const peopleCount = defaultPeopleCount;
+      const applySlot = (slot) => {
+        if (!slot || slot.dineOut) return;
+        const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
+        if (!menu) return;
+        const extraCount = Math.max(0, Number(slot?.prepExtra) || 0);
+        const basePeople = Number(menu.people) > 0 ? Number(menu.people) : 1;
+        const multiplier = (peopleCount + extraCount) > 0 ? ((peopleCount + extraCount) / basePeople) : 1;
+        (menu.ingredients || []).forEach((it) => {
           const meta = it?.id ? ingredientMetaMap.get(String(it.id)) : null;
-          const grams = toGrams(it?.amount, it?.unit || '', meta);
+          const grams = toGrams(Number(it?.amount) * multiplier, it?.unit || '', meta);
           addSummary(it?.classification || meta?.classification || '', grams);
         });
+        (menu.seasoning || []).forEach((it) => {
+          const meta = it?.id ? seasoningMetaMap.get(String(it.id)) : null;
+          const cls = it?.classification || meta?.classification || '';
+          if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
+          const grams = toGrams(Number(it?.amount) * multiplier, it?.unit || '', meta);
+          addSummary(cls, grams);
+        });
+        // required totals are handled per day (not per slot)
+      };
+      plan.forEach((day) => {
+        (Array.isArray(day.breakfastSlots) ? day.breakfastSlots : []).forEach(applySlot);
+        (Array.isArray(day.lunchSlots) ? day.lunchSlots : []).forEach(applySlot);
+        let dinnerSlots = Array.isArray(day.dinnerSlots) ? day.dinnerSlots : [];
+        if (!dinnerSlots.length && day && day.dinner) {
+          const base = ['staple', 'main', 'side', 'soup'].map((k) => day.dinner[k]).filter(Boolean);
+          const extras = Array.isArray(day.dinnerExtras) ? day.dinnerExtras.filter(Boolean) : [];
+          dinnerSlots = [...base, ...extras];
+        }
+        dinnerSlots.forEach(applySlot);
       });
+      // required totals: per person per day * dayCount (already set)
     }
 
     const titleStart = weekDates[0];
@@ -2119,13 +2264,27 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       label: `${date.getMonth() + 1}/${date.getDate()}(${weekdays[index] || ''})`,
       meals: dayMeals[index] || { breakfast: [], lunch: [], dinner: [] }
     }));
+    let participantMax = defaultPeopleCount;
+    if (planDoc) {
+      participantMax = 0;
+      for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+        participantMax = Math.max(
+          participantMax,
+          getPeopleCount(participantsMap, dayIndex, 'breakfast'),
+          getPeopleCount(participantsMap, dayIndex, 'lunch'),
+          getPeopleCount(participantsMap, dayIndex, 'dinner')
+        );
+      }
+      participantMax = Math.max(1, participantMax || defaultPeopleCount);
+    }
     const weeklyMap = new Map();
     summaryMap.forEach((grams, classification) => {
       const label = (classification && String(classification).trim()) ? String(classification).trim() : 'その他';
-      weeklyMap.set(label, Math.round(grams * 10) / 10);
+      const perPerson = Math.round((grams / Math.max(1, participantMax)) * 10) / 10;
+      weeklyMap.set(label, perPerson);
     });
     const allClasses = new Set([
-      ...Array.from(REQUIRED_CLASS_TOTALS.keys()),
+      ...Array.from(REQUIRED_CLASS_DAILY.keys()),
       ...Array.from(weeklyMap.keys())
     ]);
     const SUMMARY_ORDER = [
@@ -2141,14 +2300,15 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       '果実類',
       '穀物',
       '藻類',
+      '加工食品',
       'その他'
     ];
     const ordered = SUMMARY_ORDER.filter((label) => allClasses.has(label));
     const extras = Array.from(allClasses).filter((label) => !SUMMARY_ORDER.includes(label));
     const summaryRows = [...ordered, ...extras]
       .map((classification) => {
-        const required = REQUIRED_CLASS_TOTALS.has(classification)
-          ? REQUIRED_CLASS_TOTALS.get(classification)
+        const required = requiredMap.has(classification)
+          ? Math.round(requiredMap.get(classification) * 10) / 10
           : 0;
         const weekly = weeklyMap.get(classification) || 0;
         const diff = Math.round((weekly - required) * 10) / 10;

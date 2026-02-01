@@ -1384,7 +1384,8 @@
         seasoningEntries: combinedSeasoningEntries,
         mode,
         dayCount: mode === 'week' ? spanDayCount : 1,
-        targetLabel: labelData
+        targetLabel: labelData,
+        participantCount: participantMax || defaultIds().length || 1
       });
       latestRequirementsSnapshot = {
         entries: combinedEntries,
@@ -1405,7 +1406,20 @@
         const box = document.createElement('div');
         const h = document.createElement('h4'); h.textContent = title; box.appendChild(h);
         const ul = document.createElement('ul');
-        Array.from(map.entries()).forEach(([k,v])=>{ const [name, unit] = k.split('|'); const li=document.createElement('li'); const valStr = (typeof v === 'number' && !Number.isNaN(v)) ? formatQty1(v) : ''; li.innerHTML = `<span>${name}</span><span>${valStr}${unit? unit: ''}</span>`; ul.appendChild(li); });
+        Array.from(map.entries()).forEach(([k,v])=>{
+          const [name, unit] = k.split('|');
+          const li = document.createElement('li');
+          const valStr = (typeof v === 'number' && !Number.isNaN(v)) ? formatQty1(v) : '';
+          let tagHtml = '';
+          if (title === '食材' && ingredientMetaCache.ready) {
+            const cls = resolveIngredientClass('', name);
+            if (cls) {
+              tagHtml = `<span class="ml-2 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-[10px] px-2 py-0.5">${cls}</span>`;
+            }
+          }
+          li.innerHTML = `<span>${name}${tagHtml}</span><span>${valStr}${unit? unit: ''}</span>`;
+          ul.appendChild(li);
+        });
         box.appendChild(ul);
         return box;
       };
@@ -1471,11 +1485,11 @@
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
       const requiredHeader = options.mode === 'week'
-        ? `${options.targetLabel || ''}\nまでの必要量`
-        : '1日の\n必要量';
+        ? `${options.targetLabel || ''}\nまでの必要量/人`
+        : '1日の\n必要量/人';
       const actualHeader = options.mode === 'week'
-        ? `${options.targetLabel || ''}\nまでの実績`
-        : '実績';
+        ? `${options.targetLabel || ''}\nまでの実績/人`
+        : '実績/人';
       headRow.innerHTML = `
         <th class="text-left text-[11px] font-semibold text-gray-500"></th>
         <th class="${metricsColClass} text-[11px] font-semibold text-gray-500 leading-tight whitespace-pre-line">${requiredHeader}</th>
@@ -1491,6 +1505,7 @@
         const rounded = Math.round(num);
         return `${rounded}g`;
       };
+      const personCount = Math.max(1, Number(options.participantCount) || 1);
       ING_CLASS_ORDER.forEach((cls) => {
         const grams = totals.get(cls);
         const actualVal = (typeof grams === 'number' && !Number.isNaN(grams)) ? grams : 0;
@@ -1499,6 +1514,7 @@
           : 0;
         const multiplier = options.mode === 'week' ? Math.max(1, Number(options.dayCount) || 1) : 1;
         const requiredVal = Number.isFinite(requiredValRaw) ? requiredValRaw * multiplier : 0;
+        const actualPerPerson = actualVal / personCount;
         if (!actualVal && !requiredVal) return;
         hasRows = true;
         const row = document.createElement('tr');
@@ -1520,12 +1536,12 @@
         label.textContent = cls;
         labelWrap.append(badge, label);
 
-        const shortageVal = requiredVal - actualVal;
-        const shortageClass = shortageVal > 0 ? 'text-red-600' : (shortageVal < 0 ? 'text-gray-900' : 'text-gray-500');
+        const shortageVal = actualPerPerson - requiredVal;
+        const shortageClass = shortageVal < 0 ? 'text-red-600' : (shortageVal > 0 ? 'text-gray-900' : 'text-gray-500');
         const shortageMagnitude = shortageVal === 0 ? '0' : String(Math.round(Math.abs(shortageVal)));
         const shortageText = shortageVal === 0
           ? '0g'
-          : `${shortageVal > 0 ? '-' : ''}${shortageMagnitude}g`;
+          : `${shortageVal < 0 ? '-' : ''}${shortageMagnitude}g`;
 
         const buildValue = (value, extraClass = 'text-gray-900') => {
           const el = document.createElement('td');
@@ -1543,7 +1559,7 @@
         row.append(
           labelCell,
           buildValue(formatWhole(requiredVal)),
-          buildValue(formatWhole(actualVal), 'text-blue-600'),
+          buildValue(formatWhole(actualPerPerson), 'text-blue-600'),
           shortageCol
         );
         tbody.appendChild(row);
