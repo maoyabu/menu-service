@@ -28,14 +28,19 @@
 
 <script>
   (function(){
-    const KEY = `shopping:<%= groupId %>:<%= weekStartISO %>`;
+    const groupId = '<%= groupId %>';
+    const weekStartISO = '<%= weekStartISO %>';
+    const KEY = `shopping:${groupId}:${weekStartISO}`;
+    const API_URL = '/users/shopping-list/api/state';
     const dataTop = <%- JSON.stringify(topItems || []) %>;
     const dataStock = <%- JSON.stringify(bottomStockItems || []) %>;
+    let stateCache = {};
+    let saveTimer = null;
 
-    const loadState = () => {
+    const loadLocalState = () => {
       try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(_) { return {}; }
     };
-    const saveState = (st) => { try { localStorage.setItem(KEY, JSON.stringify(st||{})); } catch(_){} };
+    const saveLocalState = (st) => { try { localStorage.setItem(KEY, JSON.stringify(st||{})); } catch(_){} };
     const fmtAmount = (item) => {
       if (item.missingAmount) return '数量未設定';
       if (item.amount == null) return '';
@@ -58,8 +63,9 @@
         </label>`;
       return li;
     };
+
     const render = () => {
-      const st = loadState();
+      const st = stateCache || {};
       const toBuy = document.getElementById('to-buy');
       const purchased = document.getElementById('purchased');
       toBuy.innerHTML = ''; purchased.innerHTML='';
@@ -69,16 +75,33 @@
       // apply state reclassification
       combinedTop.forEach((it)=>{
         const k = `${it.type}:${it.name}:${it.unit||''}`;
-        const isChecked = !!st[k];
+        const isChecked = Object.prototype.hasOwnProperty.call(st, k) ? !!st[k] : false;
         const li = makeLi(it, isChecked);
         (isChecked ? purchased : toBuy).appendChild(li);
       });
       combinedBottom.forEach((it)=>{
         const k = `${it.type}:${it.name}:${it.unit||''}`;
-        const isChecked = st.hasOwnProperty(k) ? !!st[k] : true; // stock items default to checked (購入不要扱い)
+        const isChecked = Object.prototype.hasOwnProperty.call(st, k) ? !!st[k] : true; // stock items default to checked (購入不要扱い)
         const li = makeLi(it, isChecked);
         (isChecked ? purchased : toBuy).appendChild(li);
       });
+    };
+
+    const scheduleServerSave = () => {
+      if (!groupId) return;
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        saveTimer = null;
+        try {
+          await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId, weekStart: weekStartISO, state: stateCache })
+          });
+        } catch (_) {
+          saveLocalState(stateCache);
+        }
+      }, 300);
     };
 
     document.addEventListener('change', (ev)=>{
@@ -86,9 +109,13 @@
       if (!cb) return;
       const li = ev.target.closest('li[data-key]'); if (!li) return;
       const key = li.dataset.key;
-      const st = loadState();
-      st[key] = !!cb.checked;
-      saveState(st);
+      stateCache = { ...(stateCache || {}) };
+      stateCache[key] = !!cb.checked;
+      if (!groupId) {
+        saveLocalState(stateCache);
+      } else {
+        scheduleServerSave();
+      }
       // move element between lists
       const purchased = document.getElementById('purchased');
       const toBuy = document.getElementById('to-buy');
@@ -101,8 +128,46 @@
       }
     });
 
-    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render();
-    window.refreshLucideIcons && window.refreshLucideIcons();
+    const init = async () => {
+      let st = {};
+      let local = {};
+      if (groupId) {
+        local = loadLocalState();
+        try {
+          const res = await fetch(`${API_URL}?group=${encodeURIComponent(groupId)}&weekStart=${encodeURIComponent(weekStartISO)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data.state === 'object') st = data.state || {};
+            const serverEmpty = !st || Object.keys(st).length === 0;
+            const localHas = local && Object.keys(local).length > 0;
+            if (serverEmpty && localHas) {
+              try {
+                await fetch(API_URL, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ groupId, weekStart: weekStartISO, state: local })
+                });
+                st = { ...local };
+              } catch (_) { /* keep local fallback */ }
+            }
+          } else {
+            st = local;
+          }
+        } catch (_) {
+          st = local;
+        }
+      } else {
+        st = loadLocalState();
+      }
+      stateCache = st || {};
+      render();
+      window.refreshLucideIcons && window.refreshLucideIcons();
+    };
+
+    if (document.readyState==='loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
   })();
 </script>
-

@@ -18,6 +18,7 @@ import MyEquipment from '../models/myEquipment.js';
 import Task from '../models/task.js';
 import Notice from '../models/notice.js';
 import PackingEvent from '../models/packingEvent.js';
+import ShoppingListState from '../models/shoppingListState.js';
 import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
 import { isLoggedIn } from '../middleware.js';
 import passport from 'passport';
@@ -1474,10 +1475,11 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
     const requestedGroupId = req.query.group ? String(req.query.group) : '';
     const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
 
-    let currentGroupId = requestedGroupId || defaultGroupId || fallbackGroupId || '';
+    let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
     if (currentGroupId && !userGroups.some((group) => group._id.toString() === currentGroupId)) {
       currentGroupId = fallbackGroupId || '';
     }
@@ -1897,14 +1899,117 @@ router.get('/users/week-menu2', isLoggedIn, (req, res) => {
   res.redirect('/users/week-menu' + (q.toString() ? ('?' + q.toString()) : ''));
 });
 
+// Active group selection (session-scoped)
+router.post('/users/active-group', isLoggedIn, async (req, res) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const groupId = typeof req.body?.groupId === 'string' ? req.body.groupId : '';
+    if (!groupId) {
+      if (req.session) req.session.activeGroupId = '';
+      return res.json({ ok: true });
+    }
+    const belongs = userGroups.some((g) => g._id.toString() === String(groupId));
+    if (!belongs) return res.status(403).json({ error: 'グループにアクセスできません。' });
+    if (req.session) req.session.activeGroupId = String(groupId);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('active group save error:', err);
+    return res.status(500).json({ error: 'アクティブグループの保存に失敗しました。' });
+  }
+});
+
+// Shopping list state (shared within group)
+router.get('/users/shopping-list/api/state', isLoggedIn, async (req, res) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
+    const requestedGroupId = typeof req.query.group === 'string' ? req.query.group : '';
+    const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+    let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
+    if (currentGroupId && !userGroups.some((g) => g._id.toString() === currentGroupId)) {
+      currentGroupId = fallbackGroupId || '';
+    }
+    if (!currentGroupId) return res.json({ state: {}, updatedAt: null });
+
+    const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
+    const targetWeekStart = startOfWeek(weekStartParam || new Date());
+    const doc = await ShoppingListState.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
+    const rawState = doc?.state || {};
+    const rawDates = doc?.dates || {};
+    const state = rawState instanceof Map ? Object.fromEntries(rawState.entries()) : rawState;
+    const dates = rawDates instanceof Map ? Object.fromEntries(rawDates.entries()) : rawDates;
+    return res.json({ state: state || {}, dates: dates || {}, updatedAt: doc?.updatedAt || null });
+  } catch (err) {
+    console.error('shopping list state load error:', err);
+    return res.status(500).json({ error: 'お買い物リストの取得に失敗しました。' });
+  }
+});
+
+router.post('/users/shopping-list/api/state', isLoggedIn, async (req, res) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
+    const requestedGroupId = typeof req.body?.groupId === 'string' ? req.body.groupId : '';
+    const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+    let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
+    if (currentGroupId && !userGroups.some((g) => g._id.toString() === currentGroupId)) {
+      currentGroupId = fallbackGroupId || '';
+    }
+    if (!currentGroupId) return res.status(400).json({ error: 'グループが見つかりません。' });
+
+    const weekStartParam = typeof req.body?.weekStart === 'string' ? req.body.weekStart : '';
+    const targetWeekStart = startOfWeek(weekStartParam || new Date());
+    const rawState = (req.body && typeof req.body.state === 'object') ? req.body.state : {};
+    const entries = Object.entries(rawState || {});
+    if (entries.length > 5000) {
+      return res.status(413).json({ error: '状態が大きすぎます。' });
+    }
+    const sanitizedState = {};
+    entries.forEach(([key, value]) => {
+      if (typeof key !== 'string' || !key) return;
+      if (key.length > 200) return;
+      sanitizedState[key] = !!value;
+    });
+
+    const rawDates = (req.body && typeof req.body.dates === 'object') ? req.body.dates : {};
+    const dateEntries = Object.entries(rawDates || {});
+    if (dateEntries.length > 5000) {
+      return res.status(413).json({ error: '状態が大きすぎます。' });
+    }
+    const sanitizedDates = {};
+    dateEntries.forEach(([key, value]) => {
+      if (typeof key !== 'string' || !key) return;
+      if (key.length > 200) return;
+      if (typeof value !== 'string' || value.length > 40) return;
+      const parsed = Date.parse(value);
+      if (Number.isNaN(parsed)) return;
+      sanitizedDates[key] = new Date(parsed).toISOString();
+    });
+
+    await ShoppingListState.findOneAndUpdate(
+      { group: currentGroupId, weekStart: targetWeekStart },
+      { $set: { state: sanitizedState, dates: sanitizedDates, updatedBy: req.user?._id || null } },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('shopping list state save error:', err);
+    return res.status(500).json({ error: 'お買い物リストの保存に失敗しました。' });
+  }
+});
+
 // Shopping list (next week by default): aggregate ingredients/seasonings and split by MyStock
 router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
   try {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
     const requestedGroupId = req.query.group ? String(req.query.group) : '';
     const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
-    let currentGroupId = requestedGroupId || defaultGroupId || fallbackGroupId || '';
+    let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
     if (currentGroupId && !userGroups.some((g)=> g._id.toString() === currentGroupId)) currentGroupId = fallbackGroupId || '';
 
     // Decide target week (next week by default)

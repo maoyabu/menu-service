@@ -2026,10 +2026,78 @@
       const data = window.weekMenuData || {}; const groupId = data.currentGroupId || '';
       const weekISO = data.weekStartISO || (Array.isArray(data.weekDates) && data.weekDates[0] && data.weekDates[0].dateISO) || '';
       const KEY = `shopping:${groupId}:${weekISO}`;
-      const state = (()=>{ try { return JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(_) { return {}; } })();
+      const API_URL = '/users/shopping-list/api/state';
+      const loadLocalState = () => { try { return JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(_) { return {}; } };
       const DKEY = KEY + ':dates';
-      const dates = (()=>{ try { return JSON.parse(localStorage.getItem(DKEY)||'{}'); } catch(_) { return {}; } })();
-      window.__wm2_supDates = dates;
+      const loadLocalDates = () => { try { return JSON.parse(localStorage.getItem(DKEY)||'{}'); } catch(_) { return {}; } };
+      const saveLocalState = (st) => { try { localStorage.setItem(KEY, JSON.stringify(st||{})); } catch(_) { } };
+      const saveLocalDates = (st) => { try { localStorage.setItem(DKEY, JSON.stringify(st||{})); } catch(_) { } };
+      const loadSharedState = async () => {
+        if (!groupId || !weekISO) {
+          return { state: loadLocalState(), dates: loadLocalDates() };
+        }
+        try {
+          const res = await fetch(`${API_URL}?group=${encodeURIComponent(groupId)}&weekStart=${encodeURIComponent(weekISO)}`);
+          if (!res.ok) throw new Error('fetch failed');
+          const data = await res.json();
+          const state = (data && typeof data.state === 'object') ? data.state : {};
+          const dates = (data && typeof data.dates === 'object') ? data.dates : {};
+          const serverEmpty = (!state || Object.keys(state).length === 0) && (!dates || Object.keys(dates).length === 0);
+          const localState = loadLocalState();
+          const localDates = loadLocalDates();
+          const localHas = (localState && Object.keys(localState).length > 0) || (localDates && Object.keys(localDates).length > 0);
+          if (serverEmpty && localHas) {
+            try {
+              await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  groupId,
+                  weekStart: weekISO,
+                  state: localState,
+                  dates: localDates
+                })
+              });
+              return { state: localState || {}, dates: localDates || {} };
+            } catch (_) {
+              return { state: localState || {}, dates: localDates || {} };
+            }
+          }
+          return { state, dates };
+        } catch (_) {
+          return { state: loadLocalState(), dates: loadLocalDates() };
+        }
+      };
+      const scheduleSharedSave = () => {
+        if (!groupId || !weekISO) return;
+        if (window.__wm2_supSaveTimer) clearTimeout(window.__wm2_supSaveTimer);
+        window.__wm2_supSaveTimer = setTimeout(async () => {
+          window.__wm2_supSaveTimer = null;
+          try {
+            await fetch(API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                groupId,
+                weekStart: weekISO,
+                state: window.__wm2_supStateCache || {},
+                dates: window.__wm2_supDates || {}
+              })
+            });
+          } catch (_) {
+            saveLocalState(window.__wm2_supStateCache || {});
+            saveLocalDates(window.__wm2_supDates || {});
+          }
+        }, 300);
+      };
+
+      if (!window.__wm2_supStateCache || !window.__wm2_supDates) {
+        const shared = await loadSharedState();
+        window.__wm2_supStateCache = shared.state || {};
+        window.__wm2_supDates = shared.dates || {};
+      }
+      const state = window.__wm2_supStateCache || {};
+      const dates = window.__wm2_supDates || {};
 
       const agg = computeWeekly();
       const fmtDate = (iso)=>{ try { const d=new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString('ja-JP'); } catch(_){ return ''; } };
@@ -2145,7 +2213,7 @@
           const cb = ev.target && ev.target.closest && ev.target.closest('#wm2-supplies input[type="checkbox"]');
           if (!cb) return;
           const li = cb.closest('li'); if (!li) return;
-          const key = li.dataset.key; const checked = !!cb.checked; state[key] = checked; try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(_){ }
+          const key = li.dataset.key; const checked = !!cb.checked; state[key] = checked;
           const buy = document.getElementById('wm2-sup-buy'); const done = document.getElementById('wm2-sup-done');
           const fromStock = li.dataset.fromStock === 'true';
           const stateTag = li.querySelector('[data-role="state"]');
@@ -2158,7 +2226,7 @@
             } else {
               // purchased: store date and render inline tag
               const nowISO = new Date().toISOString();
-              try { window.__wm2_supDates[key] = nowISO; localStorage.setItem(DKEY, JSON.stringify(window.__wm2_supDates)); } catch(_){}
+              try { window.__wm2_supDates[key] = nowISO; } catch(_){}
               if (inlineTag){ inlineTag.innerHTML = '<span class="pill state purchased">購入済み ' + (fmtDate(nowISO) || '') + '</span>'; }
               if (stateTag){ stateTag.textContent=''; stateTag.classList.add('hidden'); stateTag.classList.remove('stock','purchased'); }
             }
@@ -2166,8 +2234,9 @@
             buy.appendChild(li); li.classList.remove('checked');
             if (stateTag){ stateTag.textContent=''; stateTag.classList.add('hidden'); stateTag.classList.remove('stock','purchased'); }
             if (inlineTag){ inlineTag.innerHTML=''; }
-            try { delete window.__wm2_supDates[key]; localStorage.setItem(DKEY, JSON.stringify(window.__wm2_supDates)); } catch(_){}
+            try { delete window.__wm2_supDates[key]; } catch(_){}
           }
+          scheduleSharedSave();
         });
         // Add-to-MyStock button handler (open modal for details)
         document.addEventListener('click', async (ev)=>{

@@ -96,6 +96,7 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   res.locals.userGroups = [];
   res.locals.userDefaultGroupId = '';
+  res.locals.selectedGroupId = '';
   if (!req.user) {
     return next();
   }
@@ -113,10 +114,15 @@ app.use(async (req, res, next) => {
 
     res.locals.userGroups = groups || [];
     res.locals.userDefaultGroupId = req.user.defaultGroup ? req.user.defaultGroup.toString() : '';
+    const activeGroupId = req.session?.activeGroupId ? String(req.session.activeGroupId) : '';
+    const hasActive = !!activeGroupId && (res.locals.userGroups || []).some((g) => String(g._id) === activeGroupId);
+    res.locals.selectedGroupId = hasActive ? activeGroupId : '';
+    if (activeGroupId && !hasActive) req.session.activeGroupId = '';
     return next();
   } catch (err) {
     res.locals.userGroups = [];
     res.locals.userDefaultGroupId = req.user.defaultGroup ? req.user.defaultGroup.toString() : '';
+    res.locals.selectedGroupId = '';
     return next(err);
   }
 });

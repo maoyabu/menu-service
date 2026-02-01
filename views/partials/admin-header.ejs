@@ -128,9 +128,23 @@
     selects.forEach((sel)=>{
       sel.addEventListener('change', async (ev)=>{
         const id = ev.target.value;
-        if (!id) return;
+        if (!id) {
+          try{
+            await fetch('/users/active-group', {
+              method:'POST',
+              headers:{ 'Content-Type':'application/json' },
+              body: JSON.stringify({ groupId: '' })
+            });
+          }catch(_){}
+          reloadSamePage();
+          return;
+        }
         try{
-          await fetch(`/settings/groups/${encodeURIComponent(id)}/default`, { method:'POST', headers:{ 'Content-Type':'application/json' } });
+          await fetch('/users/active-group', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ groupId: id })
+          });
         }catch(_){}
         reloadSamePage();
       });
