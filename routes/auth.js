@@ -21,6 +21,7 @@ import PackingEvent from '../models/packingEvent.js';
 import ShoppingListState from '../models/shoppingListState.js';
 import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
 import { isLoggedIn } from '../middleware.js';
+import ExcelJS from 'exceljs';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 // ===== Password Reset (Forgot / Reset) =====
@@ -2330,6 +2331,273 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
     });
   } catch (err) {
     console.error('week menu pdf error:', err);
+    return next(err);
+  }
+});
+
+// Week menu ingredient/seasoning detail (Excel)
+router.get('/users/week-menu/ingredients.xlsx', isLoggedIn, async (req, res, next) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
+    const requestedGroupId = req.query.group ? String(req.query.group) : '';
+    const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+    let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
+    if (currentGroupId && !userGroups.some((g) => g._id.toString() === currentGroupId)) {
+      currentGroupId = fallbackGroupId || '';
+    }
+
+    const planIdParam = req.query.plan && mongoose.Types.ObjectId.isValid(req.query.plan)
+      ? String(req.query.plan)
+      : '';
+    const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
+    const targetWeekStart = weekStartParam ? startOfWeek(weekStartParam) : getNextWeekStart();
+
+    let planDoc = null;
+    if (planIdParam) {
+      const plan = await WeeklyMenuPlan.findById(planIdParam).lean();
+      if (plan && (!currentGroupId || String(plan.group) === String(currentGroupId))) {
+        planDoc = plan;
+        if (!currentGroupId) currentGroupId = String(plan.group);
+      }
+    }
+    if (!planDoc && currentGroupId) {
+      planDoc = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
+    }
+
+    let weekStartDate = targetWeekStart;
+    let weekDates = getWeekDatesFromStart(weekStartDate);
+    let plan = [];
+    let menuLookup = {};
+    let participantsMap = {};
+    if (planDoc) {
+      weekStartDate = startOfWeek(planDoc.weekStart);
+      weekDates = getWeekDatesFromStart(weekStartDate);
+      participantsMap = (planDoc.participants || []).reduce((acc, entry) => {
+        if (!entry) return acc;
+        const key = `${entry.dayIndex}:${entry.mealType}`;
+        acc[key] = Array.isArray(entry.users) ? entry.users.map((u) => String(u)) : [];
+        return acc;
+      }, {});
+      const basePlan = weekDates.map((date, index) => ({
+        index,
+        dateISO: date.toISOString(),
+        breakfastSlots: [],
+        lunchSlots: [],
+        dinner: { staple: null, main: null, side: null, soup: null },
+        dinnerExtras: []
+      }));
+      const ids = new Set();
+      (planDoc.dayPlans || []).forEach((dp) => (dp.slots || []).forEach((s) => s?.menu && ids.add(String(s.menu))));
+      if (ids.size) {
+        const docs = await Menu.find({ _id: { $in: Array.from(ids) } })
+          .populate({ path: 'ingredients.name', select: 'ingredient classification unit unitConversions' })
+          .populate({ path: 'seasoning.name', select: 'seasoning classification unit unitConversions' })
+          .lean();
+        docs.forEach((d) => {
+          const f = formatMenuDocument(d);
+          menuLookup[f.id] = f;
+        });
+      }
+      (planDoc.dayPlans || []).forEach((dp) => {
+        const target = basePlan[dp.dayIndex]; if (!target) return;
+        (dp.slots || []).forEach((slot) => {
+          const map = SLOT_TYPE_DETAILS[slot?.slotType]; if (!map) return;
+          const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra) || 0 };
+          if (map.meal === 'breakfast') target.breakfastSlots.push(data);
+          else if (map.meal === 'lunch') target.lunchSlots.push(data);
+          else if (map.key === 'extras') target.dinnerExtras.push(data);
+          else if (!target.dinner[map.key]) target.dinner[map.key] = data;
+          else target.dinnerExtras.push(data);
+        });
+      });
+      plan = basePlan;
+    } else {
+      const kindSet = new Set();
+      Object.values(CATEGORY_CONFIG).forEach((config) => (config.kinds || []).forEach((k) => k && kindSet.add(k)));
+      const menusByKind = {};
+      await Promise.all(
+        Array.from(kindSet).map(async (kind) => {
+          const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
+            .populate({ path: 'ingredients.name', select: 'ingredient unit classification unitConversions' })
+            .populate({ path: 'seasoning.name', select: 'seasoning unit classification unitConversions' })
+            .lean();
+          menusByKind[kind] = docs.map(formatMenuDocument);
+        })
+      );
+      const combineMenusByKinds = (kinds) => {
+        const combined = new Map();
+        (kinds || []).forEach((kind) => {
+          (menusByKind[kind] || []).forEach((menu) => { if (!combined.has(menu.id)) combined.set(menu.id, menu); });
+        });
+        return Array.from(combined.values());
+      };
+      const menusByCategory = Object.entries(CATEGORY_CONFIG).reduce((acc, [key, config]) => {
+        acc[key] = combineMenusByKinds(config.kinds);
+        return acc;
+      }, {});
+      const generated = buildWeekPlanPayload(menusByCategory, { startDate: weekStartDate });
+      plan = generated.plan || [];
+      menuLookup = generated.menuLookup || {};
+    }
+
+    const ingredientMetaMap = new Map();
+    const seasoningMetaMap = new Map();
+    const ingredientIds = new Set();
+    const seasoningIds = new Set();
+    Object.values(menuLookup).forEach((menu) => {
+      (menu?.ingredients || []).forEach((it) => {
+        if (it?.id) ingredientIds.add(String(it.id));
+      });
+      (menu?.seasoning || []).forEach((it) => {
+        if (it?.id) seasoningIds.add(String(it.id));
+      });
+    });
+    if (ingredientIds.size) {
+      const docs = await Ingredient.find({ _id: { $in: Array.from(ingredientIds) } })
+        .select('classification unit unitConversions ingredient')
+        .lean();
+      docs.forEach((d) => ingredientMetaMap.set(String(d._id), d));
+    }
+    if (seasoningIds.size) {
+      const docs = await Seasoning.find({ _id: { $in: Array.from(seasoningIds) } })
+        .select('classification unit unitConversions seasoning')
+        .lean();
+      docs.forEach((d) => seasoningMetaMap.set(String(d._id), d));
+    }
+
+    const defaultPeopleCount = calculateGroupSize(userGroups, currentGroupId);
+    const getPeopleCount = (dayIndex, mealType) => {
+      const key = `${dayIndex}:${mealType}`;
+      if (participantsMap && Object.prototype.hasOwnProperty.call(participantsMap, key)) {
+        const list = Array.isArray(participantsMap[key]) ? participantsMap[key] : [];
+        return list.length;
+      }
+      return defaultPeopleCount;
+    };
+    const normalizeUnit = (value) => String(value || '').trim().toLowerCase();
+    const gramsFallbackByUnit = (unit) => {
+      const u = normalizeUnit(unit);
+      if (!u) return null;
+      if (['g', 'gram', 'grams', 'ｇ', 'グラム'].includes(u)) return 1;
+      if (['kg', 'kilogram', '㎏', 'キログラム'].includes(u)) return 1000;
+      if (['mg', 'milligram', '㎎', 'ミリグラム'].includes(u)) return 0.001;
+      return null;
+    };
+    const toGrams = (amount, unit, meta) => {
+      if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
+      const u = normalizeUnit(unit);
+      if (!u) return null;
+      if (u === 'ml' || u === 'mL' || u === 'cc') return amount;
+      const conversions = Array.isArray(meta?.unitConversions) ? meta.unitConversions : [];
+      const hit = conversions.find((c) => String(c?.label || '').trim().toLowerCase() === u);
+      if (hit && typeof hit.grams === 'number' && !Number.isNaN(hit.grams)) return amount * hit.grams;
+      const per = gramsFallbackByUnit(u);
+      return per ? amount * per : null;
+    };
+
+    const rows = [];
+    const round1 = (val) => {
+      const num = typeof val === 'number' ? val : NaN;
+      if (!Number.isFinite(num)) return null;
+      return Math.round(num * 10) / 10;
+    };
+    const format1 = (val) => {
+      const num = round1(val);
+      return num === null ? '' : num.toFixed(1);
+    };
+    const pushEntries = (dayIndex, mealType, slot) => {
+      if (!slot || slot.dineOut) return;
+      const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
+      if (!menu) return;
+      const mealLabel = mealType === 'breakfast' ? '朝食' : (mealType === 'lunch' ? '昼食' : '夕食');
+      const peopleCount = getPeopleCount(dayIndex, mealType);
+      const peopleSafe = Math.max(1, peopleCount);
+      const extra = Math.max(0, Number(slot?.prepExtra) || 0);
+      const basePeople = Number(menu.people) > 0 ? Number(menu.people) : 1;
+      const totalMultiplier = (peopleCount + extra) > 0 ? ((peopleCount + extra) / basePeople) : 1;
+      const perPersonMultiplier = (peopleCount + extra) > 0 ? ((peopleCount + extra) / (basePeople * peopleSafe)) : (1 / peopleSafe);
+      const date = weekDates[dayIndex];
+      const dateLabel = `${date.getMonth() + 1}/${date.getDate()}`;
+      (menu.ingredients || []).forEach((it) => {
+        const amount = Number(it?.amount);
+        if (!Number.isFinite(amount)) return;
+        const scaledPerPerson = amount * perPersonMultiplier;
+        const unit = it?.unit || '';
+        const meta = it?.id ? ingredientMetaMap.get(String(it.id)) : null;
+        const grams = toGrams(scaledPerPerson, unit, meta || it);
+        const cls = it?.classification || meta?.classification || '';
+        const qtyText = `${format1(scaledPerPerson)}${unit || ''}`;
+        const gramText = grams === null ? '' : format1(grams);
+        rows.push([dateLabel, '食材', mealLabel, cls, it?.name || '', qtyText, gramText ]);
+      });
+      (menu.seasoning || []).forEach((it) => {
+        const amount = Number(it?.amount);
+        if (!Number.isFinite(amount)) return;
+        const scaledPerPerson = amount * perPersonMultiplier;
+        const unit = it?.unit || '';
+        const meta = it?.id ? seasoningMetaMap.get(String(it.id)) : null;
+        const grams = toGrams(scaledPerPerson, unit, meta || it);
+        const cls = it?.classification || meta?.classification || '';
+        const qtyText = `${format1(scaledPerPerson)}${unit || ''}`;
+        const gramText = grams === null ? '' : format1(grams);
+        rows.push([dateLabel, '調味料', mealLabel, cls, it?.name || '', qtyText, gramText ]);
+      });
+    };
+
+    plan.forEach((day, idx) => {
+      (Array.isArray(day.breakfastSlots) ? day.breakfastSlots : []).forEach((slot) => pushEntries(idx, 'breakfast', slot));
+      (Array.isArray(day.lunchSlots) ? day.lunchSlots : []).forEach((slot) => {
+        const key = slot?.categoryKey === 'breakfastMain' ? 'breakfast' : 'lunch';
+        pushEntries(idx, key, slot);
+      });
+      let dinnerSlots = Array.isArray(day.dinnerSlots) ? day.dinnerSlots : [];
+      if (!dinnerSlots.length && day?.dinner) {
+        const base = ['staple','main','side','soup'].map((k) => day.dinner[k]).filter(Boolean);
+        const extras = Array.isArray(day.dinnerExtras) ? day.dinnerExtras.filter(Boolean) : [];
+        dinnerSlots = [...base, ...extras];
+      }
+      dinnerSlots.forEach((slot) => pushEntries(idx, 'dinner', slot));
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('週の食材・調味料明細');
+    const header = ['日付', '区分', '食事', '食材分類', '名称', '数量', 'g換算'];
+    sheet.addRow(header);
+    rows
+      .sort((a, b) => {
+        const d = String(a[0]).localeCompare(String(b[0]), 'ja');
+        if (d !== 0) return d;
+        const t = String(a[1]).localeCompare(String(b[1]), 'ja');
+        if (t !== 0) return t;
+        return String(a[4]).localeCompare(String(b[4]), 'ja');
+      })
+      .forEach((r) => sheet.addRow(r));
+    sheet.autoFilter = { from: 'A1', to: 'G1' };
+    const headerRow = sheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E6F4EA' } };
+      cell.alignment = { vertical: 'middle' };
+    });
+    sheet.columns = [
+      { width: 8 },
+      { width: 8 },
+      { width: 8 },
+      { width: 16 },
+      { width: 24 },
+      { width: 14 },
+      { width: 10 }
+    ];
+
+    const filename = `week-ingredients-${weekStartDate.toISOString().slice(0,10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('week menu excel error:', err);
     return next(err);
   }
 });
