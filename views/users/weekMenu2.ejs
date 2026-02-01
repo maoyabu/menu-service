@@ -434,6 +434,8 @@
       const amount = entry.amount;
       if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
       const unit = entry.unit || '';
+      const unitLower = normalizeUnitLabel(unit).toLowerCase();
+      if (unitLower === 'ml' || unitLower === 'mL'.toLowerCase() || unitLower === 'cc') return amount;
       // Always honor direct重量単位（g/kg/mg）優先で換算し、誤ったマスタ設定で上書きされないようにする
       let gPerUnit = gramsFallbackByUnit(unit);
       if (!gPerUnit) {
@@ -449,6 +451,8 @@
       const amount = entry.amount;
       if (typeof amount !== 'number' || Number.isNaN(amount)) return null;
       const unit = entry.unit || '';
+      const unitLower = normalizeUnitLabel(unit).toLowerCase();
+      if (unitLower === 'ml' || unitLower === 'mL'.toLowerCase() || unitLower === 'cc') return amount;
       // Seasoningsも同様に基本のg換算を優先する
       let gPerUnit = gramsFallbackByUnit(unit);
       if (!gPerUnit) {
@@ -1278,12 +1282,13 @@
         const val = parseFloat(amount);
         map.set(key, Number.isNaN(val) ? prev : prev + val);
       };
-      const appendEntry = (collector, it, scaled) => {
+      const appendEntry = (collector, it, scaled, people) => {
         collector.push({
           id: it?.id ? String(it.id) : '',
           name: it?.name || '',
           unit: it?.unit || '',
-          amount: scaled
+          amount: scaled,
+          people: Math.max(1, Number(people) || 1)
         });
       };
       const applyMenus = (entries, people) => {
@@ -1297,14 +1302,14 @@
             const raw = Number(it?.amount);
             const scaled = raw * multiplier;
             addAmount(agg.ingredients, it?.name || '', scaled, it?.unit);
-            if (!Number.isNaN(raw)) appendEntry(classEntries, it, scaled);
+            if (!Number.isNaN(raw)) appendEntry(classEntries, it, scaled, people);
           });
           (Array.isArray(m.seasoning) ? m.seasoning : []).forEach((it) => {
             const raw = Number(it?.amount);
             if (Number.isNaN(raw)) return;
             const scaled = raw * multiplier;
             addAmount(agg.seasonings, it?.name || '', scaled, it?.unit);
-            appendEntry(seasoningClassEntries, it, scaled);
+            appendEntry(seasoningClassEntries, it, scaled, people);
           });
         });
       };
@@ -1469,20 +1474,22 @@
       }
 
       const totals = new Map();
-      entries.forEach(({ id, name, amount, unit }) => {
+      entries.forEach(({ id, name, amount, unit, people }) => {
         const grams = convertEntryToGrams({ id, name, amount, unit });
         if (typeof grams !== 'number' || Number.isNaN(grams)) return;
         const cls = resolveIngredientClass(id, name);
-        totals.set(cls, (totals.get(cls) || 0) + grams);
+        const perPerson = grams / Math.max(1, Number(people) || 1);
+        totals.set(cls, (totals.get(cls) || 0) + perPerson);
       });
 
       if (needsSeasoningMeta) {
-        seasoningEntries.forEach(({ id, name, amount, unit }) => {
+        seasoningEntries.forEach(({ id, name, amount, unit, people }) => {
           const cls = resolveSeasoningClass(id, name);
           if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
           const grams = convertSeasoningEntryToGrams({ id, name, amount, unit });
           if (typeof grams !== 'number' || Number.isNaN(grams)) return;
-          totals.set(cls, (totals.get(cls) || 0) + grams);
+          const perPerson = grams / Math.max(1, Number(people) || 1);
+          totals.set(cls, (totals.get(cls) || 0) + perPerson);
         });
       }
 
@@ -1512,7 +1519,6 @@
         const rounded = Math.round(num);
         return `${rounded}g`;
       };
-      const personCount = Math.max(1, Number(options.participantCount) || 1);
       ING_CLASS_ORDER.forEach((cls) => {
         const grams = totals.get(cls);
         const actualVal = (typeof grams === 'number' && !Number.isNaN(grams)) ? grams : 0;
@@ -1521,7 +1527,6 @@
           : 0;
         const multiplier = options.mode === 'week' ? Math.max(1, Number(options.dayCount) || 1) : 1;
         const requiredVal = Number.isFinite(requiredValRaw) ? requiredValRaw * multiplier : 0;
-        const actualPerPerson = actualVal / personCount;
         if (!actualVal && !requiredVal) return;
         hasRows = true;
         const row = document.createElement('tr');
@@ -1543,7 +1548,7 @@
         label.textContent = cls;
         labelWrap.append(badge, label);
 
-        const shortageVal = actualPerPerson - requiredVal;
+        const shortageVal = actualVal - requiredVal;
         const shortageClass = shortageVal < 0 ? 'text-red-600' : (shortageVal > 0 ? 'text-gray-900' : 'text-gray-500');
         const shortageMagnitude = shortageVal === 0 ? '0' : String(Math.round(Math.abs(shortageVal)));
         const shortageText = shortageVal === 0
@@ -1566,7 +1571,7 @@
         row.append(
           labelCell,
           buildValue(formatWhole(requiredVal)),
-          buildValue(formatWhole(actualPerPerson), 'text-blue-600'),
+          buildValue(formatWhole(actualVal), 'text-blue-600'),
           shortageCol
         );
         tbody.appendChild(row);
