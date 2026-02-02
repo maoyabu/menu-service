@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import Menu from '../models/menu.js';
@@ -14,6 +15,7 @@ import Mymenu from '../models/mymenu.js';
 import AdminLog from '../models/adminLog.js';
 import Notice from '../models/notice.js';
 import User from '../models/users.js';
+import FoodGuideline from '../models/foodGuideline.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { normalizeSeasonList } from '../utils/season.js';
 // import { writeFileSync } from 'fs';
@@ -24,6 +26,75 @@ import ExcelJS from 'exceljs';
 const router = express.Router();
 // 管理画面は管理者のみアクセス可能
 router.use(isAdmin);
+
+const FOOD_GUIDELINE_CLASSIFICATIONS = [
+  '乳類',
+  'チーズ',
+  '卵類',
+  '肉類',
+  '魚介類',
+  '豆類',
+  '野菜類',
+  'いも及びでん粉類',
+  'きのこ類',
+  '果実類',
+  '穀物',
+  '藻類',
+  '加工食品',
+  'その他'
+];
+
+const normalizeSexLabel = (value) => {
+  if (!value) return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (raw === '男' || raw === '男性') return '男';
+  if (raw === '女' || raw === '女性') return '女';
+  if (raw.includes('男')) return '男';
+  if (raw.includes('女')) return '女';
+  const lower = raw.toLowerCase();
+  if (lower.startsWith('m')) return '男';
+  if (lower.startsWith('f')) return '女';
+  return '';
+};
+
+const parseAgeRange = (input) => {
+  const raw = typeof input === 'string' ? input.trim() : '';
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/[歳]/g, '')
+    .replace(/[〜~－–—]/g, '-')
+    .replace(/[，]/g, ',')
+    .replace(/\s+/g, '');
+  let start = null;
+  let end = null;
+  if (cleaned.endsWith('-')) {
+    start = Number(cleaned.slice(0, -1));
+    end = null;
+  } else if (cleaned.includes('-')) {
+    const [a, b] = cleaned.split('-', 2);
+    start = Number(a);
+    end = Number(b);
+  } else if (cleaned.includes(',')) {
+    const [a, b] = cleaned.split(',', 2);
+    start = Number(a);
+    end = Number(b);
+  } else {
+    start = Number(cleaned);
+    end = Number(cleaned);
+  }
+  if (!Number.isFinite(start) || (end !== null && !Number.isFinite(end))) return null;
+  if (end !== null && end < start) return null;
+  return { start, end };
+};
+
+const formatAgeRange = (start, end) => {
+  if (!Number.isFinite(start)) return '';
+  if (end === null || typeof end === 'undefined') return `${start}-`;
+  if (!Number.isFinite(end)) return '';
+  if (start === end) return `${start}`;
+  return `${start}-${end}`;
+};
 
 async function logAdminAction(action, payload = {}) {
   try {
@@ -1563,6 +1634,162 @@ router.post('/seasoning-delete/:id', async (req, res) => {
   } catch (err) {
     console.error('調味料削除エラー:', err);
     res.status(500).send('調味料を削除できませんでした');
+  }
+});
+
+// --- 食品の目安量 管理 ---
+router.get('/food-guideline-list', async (req, res) => {
+  try {
+    const { classification, sex } = req.query;
+    const filter = {};
+    if (classification) filter.classification = classification;
+    if (sex) filter.sex = normalizeSexLabel(sex);
+    const guidelines = await FoodGuideline.find(filter)
+      .sort({ ageStart: 1, ageEnd: 1, sex: 1, classification: 1 })
+      .lean();
+
+    const currentQuery = req.originalUrl.includes('?')
+      ? req.originalUrl.slice(req.originalUrl.indexOf('?') + 1)
+      : '';
+
+    res.render('admin/food-guideline-list', {
+      guidelines: (guidelines || []).map((row) => ({
+        ...row,
+        ageRangeLabel: formatAgeRange(row.ageStart, row.ageEnd)
+      })),
+      classifications: FOOD_GUIDELINE_CLASSIFICATIONS,
+      selectedClassification: classification || '',
+      selectedSex: normalizeSexLabel(sex) || '',
+      currentQuery
+    });
+  } catch (err) {
+    console.error('食品の目安量取得エラー:', err);
+    res.status(500).send('食品の目安量を取得できませんでした');
+  }
+});
+
+router.post('/food-guideline-list', (req, res) => {
+  const classification = req.body.classification;
+  const sex = normalizeSexLabel(req.body.sex);
+  const query = new URLSearchParams();
+  if (classification) query.append('classification', classification);
+  if (sex) query.append('sex', sex);
+  res.redirect(`/admin/food-guideline-list?${query.toString()}`);
+});
+
+router.get('/food-guideline-new', async (req, res) => {
+  try {
+    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
+    const copyFrom = typeof req.query.copyFrom === 'string' ? req.query.copyFrom : '';
+    let prefill = null;
+    if (copyFrom && mongoose.Types.ObjectId.isValid(copyFrom)) {
+      const src = await FoodGuideline.findById(copyFrom).lean();
+      if (src) {
+        prefill = {
+          ageRange: formatAgeRange(src.ageStart, src.ageEnd),
+          sex: src.sex || '',
+          classification: src.classification || '',
+          requiredGrams: Number(src.requiredGrams || 0)
+        };
+      }
+    }
+    res.render('admin/food-guideline-new', {
+      classifications: FOOD_GUIDELINE_CLASSIFICATIONS,
+      returnTo,
+      prefill
+    });
+  } catch (err) {
+    console.error('食品の目安量新規作成ページ表示エラー:', err);
+    res.status(500).send('食品の目安量新規作成ページを表示できませんでした');
+  }
+});
+
+router.post('/food-guideline-new', async (req, res) => {
+  try {
+    const { ageRange, sex, classification, requiredGrams, returnTo } = req.body;
+    const parsed = parseAgeRange(ageRange);
+    if (!parsed) {
+      return res.status(400).send('年齢範囲の形式が正しくありません');
+    }
+    await FoodGuideline.create({
+      ageStart: parsed.start,
+      ageEnd: parsed.end,
+      sex: normalizeSexLabel(sex),
+      classification: classification || '',
+      requiredGrams: Number(requiredGrams)
+    });
+    if (returnTo && typeof returnTo === 'string') {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/food-guideline-list${sanitized ? `?${sanitized}` : ''}`);
+    } else {
+      res.redirect('/admin/food-guideline-list');
+    }
+  } catch (err) {
+    console.error('食品の目安量保存エラー:', err);
+    res.status(500).send('食品の目安量を保存できませんでした');
+  }
+});
+
+router.get('/food-guideline-edit/:id', async (req, res) => {
+  try {
+    const guideline = await FoodGuideline.findById(req.params.id).lean();
+    if (!guideline) {
+      return res.status(404).send('該当のデータが見つかりません');
+    }
+    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
+    res.render('admin/food-guideline-edit', {
+      guideline: {
+        ...guideline,
+        ageRangeLabel: formatAgeRange(guideline.ageStart, guideline.ageEnd)
+      },
+      classifications: FOOD_GUIDELINE_CLASSIFICATIONS,
+      returnTo
+    });
+  } catch (err) {
+    console.error('食品の目安量編集画面表示エラー:', err);
+    res.status(500).send('編集画面を表示できませんでした');
+  }
+});
+
+router.post('/food-guideline-edit/:id', async (req, res) => {
+  try {
+    const { ageRange, sex, classification, requiredGrams, returnTo } = req.body;
+    const parsed = parseAgeRange(ageRange);
+    if (!parsed) {
+      return res.status(400).send('年齢範囲の形式が正しくありません');
+    }
+    await FoodGuideline.findByIdAndUpdate(req.params.id, {
+      ageStart: parsed.start,
+      ageEnd: parsed.end,
+      sex: normalizeSexLabel(sex),
+      classification: classification || '',
+      requiredGrams: Number(requiredGrams)
+    });
+    if (returnTo && typeof returnTo === 'string') {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/food-guideline-list${sanitized ? `?${sanitized}` : ''}`);
+    } else {
+      res.redirect('/admin/food-guideline-list');
+    }
+  } catch (err) {
+    console.error('食品の目安量更新エラー:', err);
+    res.status(500).send('食品の目安量を更新できませんでした');
+  }
+});
+
+router.post('/food-guideline-delete/:id', async (req, res) => {
+  try {
+    const returnTo = typeof req.body.returnTo === 'string' ? req.body.returnTo : '';
+    await FoodGuideline.findByIdAndDelete(req.params.id);
+    if (returnTo) {
+      const sanitized = returnTo.replace(/^\?/, '');
+      res.redirect(`/admin/food-guideline-list${sanitized ? `?${sanitized}` : ''}`);
+    } else {
+      res.redirect('/admin/food-guideline-list');
+    }
+  } catch (err) {
+    console.error('食品の目安量削除エラー:', err);
+    res.status(500).send('食品の目安量を削除できませんでした');
   }
 });
 

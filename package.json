@@ -1,7 +1,8 @@
 {
   "type": "module",
   "scripts": {
-    "start": "node index.mjs"
+    "start": "node index.mjs",
+    "seed:guideline": "node seeds/importGuideline.js"
   },
   "dependencies": {
     "@adminjs/express": "^4.0.1",

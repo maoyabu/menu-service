@@ -1,0 +1,46 @@
+<div class="max-w-3xl mx-auto bg-white p-8 rounded-md shadow">
+  <h1 class="text-2xl font-semibold mb-4 flex items-center space-x-2">
+    <i data-lucide="clipboard-list" class="w-6 h-6 text-gray-700"></i>
+    <span>食品の目安量 編集</span>
+  </h1>
+  <p class="text-sm text-gray-500 mb-6">登録済みの情報を更新してください</p>
+
+  <form action="/admin/food-guideline-edit/<%= guideline._id %>" method="POST" class="space-y-6">
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <label class="block mb-1 text-sm font-bold">年齢範囲 *</label>
+        <input type="text" name="ageRange" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= guideline.ageRangeLabel || '' %>" required>
+        <p class="text-xs text-gray-500 mt-1">「1-2」は1歳〜2歳、「70-」は70歳以上を意味します。</p>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-bold">性別 *</label>
+        <select name="sex" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+          <option value="">選択してください</option>
+          <option value="男" <%= guideline.sex === '男' ? 'selected' : '' %>>男性</option>
+          <option value="女" <%= guideline.sex === '女' ? 'selected' : '' %>>女性</option>
+        </select>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-bold">分類 *</label>
+        <select name="classification" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
+          <option value="">選択してください</option>
+          <% classifications.forEach(cat => { %>
+            <option value="<%= cat %>" <%= guideline.classification === cat ? 'selected' : '' %>><%= cat %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-bold">必要量 (g) *</label>
+        <input type="number" name="requiredGrams" min="0" step="1" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= guideline.requiredGrams %>" required>
+      </div>
+    </div>
+
+    <div class="text-right mt-8">
+      <button type="submit" class="inline-flex items-center space-x-2 px-5 py-2 rounded bg-gray-900 text-white hover:bg-gray-800">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        <span>更新</span>
+      </button>
+    </div>
+  </form>
+</div>

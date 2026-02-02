@@ -1,6 +1,5 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import fs from 'fs';
 import User from '../models/users.js';
 import Menu from '../models/menu.js';
 import Mymenu from '../models/mymenu.js';
@@ -10,6 +9,7 @@ import Notification from '../models/notification.js';
 import SearchLog from '../models/searchLog.js';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
+import FoodGuideline from '../models/foodGuideline.js';
 import MenuDo from '../models/menuDo.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { shouldSendTemplate } from '../utils/mailSettings.js';
@@ -38,45 +38,23 @@ const __dirname = path.resolve();
 
 const router = express.Router();
 
-const FOOD_CLASSIFICATIONS = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
-const guidelineCsvPath = path.join(__dirname, 'seeds/guideline.csv');
-let guidelineRowsCache = null;
-
-const ensureGuidelineRows = () => {
-  if (guidelineRowsCache) return guidelineRowsCache;
-  try {
-    const raw = fs.readFileSync(guidelineCsvPath, 'utf8');
-    const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    if (!lines.length) {
-      guidelineRowsCache = [];
-      return guidelineRowsCache;
-    }
-    const headerLine = lines.shift().replace(/^\uFEFF/, '');
-    const headers = headerLine.split(',');
-    const classIndexMap = {};
-    FOOD_CLASSIFICATIONS.forEach((cls) => {
-      classIndexMap[cls] = headers.indexOf(cls);
-    });
-    guidelineRowsCache = lines.map((line) => {
-      const cells = line.split(',');
-      const startAge = Number(cells[0]);
-      const endAge = Number(cells[1]);
-      const sex = (cells[2] || '').trim();
-      const values = {};
-      FOOD_CLASSIFICATIONS.forEach((cls) => {
-        const idx = classIndexMap[cls];
-        const val = idx >= 0 ? Number(cells[idx]) : 0;
-        values[cls] = Number.isFinite(val) ? val : 0;
-      });
-      if (!Number.isFinite(startAge) || !Number.isFinite(endAge)) return null;
-      return { startAge, endAge, sex, values };
-    }).filter(Boolean);
-  } catch (err) {
-    console.warn('Guideline CSV load failed:', err?.message || err);
-    guidelineRowsCache = [];
-  }
-  return guidelineRowsCache;
+const DEFAULT_GUIDELINE_TOTALS = {
+  '乳類': 200,
+  'チーズ': 10,
+  '卵類': 80,
+  '肉類': 120,
+  '魚介類': 120,
+  '豆類': 100,
+  '野菜類': 310,
+  'いも及びでん粉類': 100,
+  'きのこ類': 30,
+  '果実類': 200,
+  '穀物': 500,
+  '藻類': 10,
+  '加工食品': 0,
+  'その他': 0
 };
+const FOOD_CLASSIFICATIONS = Object.keys(DEFAULT_GUIDELINE_TOTALS);
 
 const normalizeSexForGuideline = (value) => {
   if (!value) return '';
@@ -105,25 +83,83 @@ const calculateAgeFromISO = (iso) => {
   return age;
 };
 
-const findGuidelineRow = (age, sexCode) => {
-  if (typeof age !== 'number' || Number.isNaN(age)) return null;
-  const targetSex = normalizeSexForGuideline(sexCode);
-  const rows = ensureGuidelineRows();
-  if (!rows.length) return null;
-  const match = rows.find((row) => {
-    if (age < row.startAge || age > row.endAge) return false;
-    if (targetSex && row.sex && row.sex !== targetSex) return false;
-    return targetSex ? row.sex === targetSex : true;
+const buildGuidelineIndex = (rows = []) => {
+  const index = new Map();
+  rows.forEach((row) => {
+    const cls = (row.classification || '').trim();
+    if (!cls) return;
+    const sex = normalizeSexForGuideline(row.sex || '');
+    const key = `${cls}|${sex}`;
+    if (!index.has(key)) index.set(key, []);
+    const startAge = Number(row.ageStart);
+    const endAge = (row.ageEnd === null || typeof row.ageEnd === 'undefined') ? null : Number(row.ageEnd);
+    if (!Number.isFinite(startAge) || (endAge !== null && !Number.isFinite(endAge))) return;
+    index.get(key).push({
+      startAge,
+      endAge,
+      required: Number(row.requiredGrams) || 0
+    });
   });
-  if (match) return match;
-  return rows.find((row) => age >= row.startAge && age <= row.endAge) || null;
+  index.forEach((list) => {
+    list.sort((a, b) => {
+      if (a.startAge !== b.startAge) return a.startAge - b.startAge;
+      const aEnd = a.endAge === null ? Infinity : a.endAge;
+      const bEnd = b.endAge === null ? Infinity : b.endAge;
+      return aEnd - bEnd;
+    });
+  });
+  return index;
 };
 
-const aggregateGuidelineTotals = (members = []) => {
-  const totals = {};
-  FOOD_CLASSIFICATIONS.forEach((cls) => { totals[cls] = 0; });
-  if (!Array.isArray(members) || !members.length) return totals;
+const pickGuidelineEntry = (entries = [], age) => {
+  if (!entries.length || typeof age !== 'number' || Number.isNaN(age)) return null;
+  const hits = entries.filter((row) => age >= row.startAge && (row.endAge === null || age <= row.endAge));
+  if (!hits.length) return null;
+  hits.sort((a, b) => {
+    const aRange = (a.endAge === null ? Infinity : a.endAge) - a.startAge;
+    const bRange = (b.endAge === null ? Infinity : b.endAge) - b.startAge;
+    if (aRange !== bRange) return aRange - bRange;
+    return a.startAge - b.startAge;
+  });
+  return hits[0];
+};
+
+const findGuidelineAmount = (age, sexCode, classification, index) => {
+  if (typeof age !== 'number' || Number.isNaN(age)) return 0;
+  const cls = (classification || '').trim();
+  if (!cls) return 0;
+  const sex = normalizeSexForGuideline(sexCode);
+  if (sex) {
+    const entry = pickGuidelineEntry(index.get(`${cls}|${sex}`) || [], age);
+    if (entry) return entry.required;
+  }
+  const neutral = pickGuidelineEntry(index.get(`${cls}|`) || [], age);
+  if (neutral) return neutral.required;
+  if (!sex) {
+    const merged = [
+      ...(index.get(`${cls}|男`) || []),
+      ...(index.get(`${cls}|女`) || [])
+    ];
+    const entry = pickGuidelineEntry(merged, age);
+    if (entry) return entry.required;
+  }
+  return 0;
+};
+
+const aggregateGuidelineTotals = async (members = []) => {
+  const sums = {};
+  FOOD_CLASSIFICATIONS.forEach((cls) => { sums[cls] = 0; });
+  const perUserTotals = {};
+  if (!Array.isArray(members) || !members.length) {
+    return { totals: { ...DEFAULT_GUIDELINE_TOTALS }, perUserTotals, memberCount: 0, source: 'default' };
+  }
+  const rows = await FoodGuideline.find().lean();
+  if (!rows.length) {
+    return { totals: { ...DEFAULT_GUIDELINE_TOTALS }, perUserTotals, memberCount: members.length, source: 'default' };
+  }
+  const index = buildGuidelineIndex(rows);
   const seen = new Set();
+  let counted = 0;
   members.forEach((member) => {
     if (!member) return;
     const id = member.id ? String(member.id) : '';
@@ -132,14 +168,25 @@ const aggregateGuidelineTotals = (members = []) => {
       seen.add(id);
     }
     const age = calculateAgeFromISO(member.birthDateISO || member.birthDate);
-    const guideline = findGuidelineRow(age, member.sex);
-    if (!guideline) return;
+    if (typeof age !== 'number' || Number.isNaN(age)) return;
+    const userTotals = {};
     FOOD_CLASSIFICATIONS.forEach((cls) => {
-      const value = Number(guideline.values?.[cls]) || 0;
-      totals[cls] += value;
+      userTotals[cls] = findGuidelineAmount(age, member.sex, cls, index);
+    });
+    if (id) perUserTotals[id] = userTotals;
+    counted += 1;
+    FOOD_CLASSIFICATIONS.forEach((cls) => {
+      sums[cls] += userTotals[cls];
     });
   });
-  return totals;
+  if (!counted) {
+    return { totals: { ...DEFAULT_GUIDELINE_TOTALS }, perUserTotals, memberCount: 0, source: 'default' };
+  }
+  const averages = {};
+  FOOD_CLASSIFICATIONS.forEach((cls) => {
+    averages[cls] = sums[cls] / counted;
+  });
+  return { totals: averages, perUserTotals, memberCount: counted, source: 'db' };
 };
 
 const toISODateString = (value) => {
@@ -1803,24 +1850,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     }
 
     currentGroupUsers = await hydrateGroupUsers(currentGroupUsers);
-    guidelineTotals = aggregateGuidelineTotals(currentGroupUsers);
-    const FIXED_DAILY_GUIDELINE_TOTALS = {
-      '乳類': 200,
-      'チーズ': 10,
-      '卵類': 80,
-      '肉類': 120,
-      '魚介類': 120,
-      '豆類': 100,
-      '野菜類': 310,
-      'いも及びでん粉類': 100,
-      'きのこ類': 30,
-      '果実類': 200,
-      '穀物': 500,
-      '藻類': 10,
-      '加工食品': 0,
-      'その他': 0
-    };
-    guidelineTotals = FIXED_DAILY_GUIDELINE_TOTALS;
+    const guidelineData = await aggregateGuidelineTotals(currentGroupUsers);
+    guidelineTotals = guidelineData.totals;
+    const guidelineByUser = guidelineData.perUserTotals || {};
 
     // グループ名・メンバー名の計算が終わったあと
     // console.log('currentGroupName:', currentGroupName);
@@ -1898,6 +1930,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     currentGroupMembers,
     currentGroupUsers,
     guidelineTotals,
+    guidelineByUser,
     currentUserId: req.user?._id ? String(req.user._id) : '',
     currentUserIsGroupOwner,
     participantsMap,
@@ -1917,22 +1950,6 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 // Week menu PDF (print-friendly HTML)
 router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
   try {
-    const REQUIRED_CLASS_DAILY = new Map([
-      ['乳類', 200],
-      ['チーズ', 10],
-      ['卵類', 80],
-      ['肉類', 120],
-      ['魚介類', 120],
-      ['豆類', 100],
-      ['野菜類', 310],
-      ['いも及びでん粉類', 100],
-      ['きのこ類', 30],
-      ['果実類', 200],
-      ['穀物', 500],
-      ['藻類', 10],
-      ['加工食品', 0],
-      ['その他', 0]
-    ]);
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
@@ -1941,6 +1958,38 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
     let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
     if (currentGroupId && !userGroups.some((g) => g._id.toString() === currentGroupId)) {
       currentGroupId = fallbackGroupId || '';
+    }
+
+    let guidelineTotals = { ...DEFAULT_GUIDELINE_TOTALS };
+    if (currentGroupId) {
+      const groupDoc = await Group.findById(currentGroupId)
+        .populate({ path: 'createdBy', select: 'displayname username email sex birth_date' })
+        .populate({ path: 'members', select: 'displayname username email sex birth_date' })
+        .lean();
+      if (groupDoc) {
+        const usersList = [];
+        const owner = groupDoc.createdBy || null;
+        if (owner && owner._id) {
+          usersList.push({
+            id: String(owner._id),
+            name: owner.displayname || owner.username || owner.email || '',
+            sex: owner.sex || '',
+            birthDateISO: toISODateString(owner.birth_date)
+          });
+        }
+        (groupDoc.members || []).filter(Boolean).forEach((member) => {
+          if (owner && String(member._id) === String(owner._id)) return;
+          usersList.push({
+            id: String(member._id),
+            name: member.displayname || member.username || member.email || '',
+            sex: member.sex || '',
+            birthDateISO: toISODateString(member.birth_date)
+          });
+        });
+        const hydratedUsers = await hydrateGroupUsers(usersList);
+        const guidelineData = await aggregateGuidelineTotals(hydratedUsers);
+        guidelineTotals = guidelineData.totals || guidelineTotals;
+      }
     }
 
     const planIdParam = req.query.plan && mongoose.Types.ObjectId.isValid(req.query.plan)
@@ -2011,8 +2060,9 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       summaryMap.set(label, next);
     };
     const dayCount = 7;
-    REQUIRED_CLASS_DAILY.forEach((daily, cls) => {
-      requiredMap.set(cls, Number(daily) * dayCount);
+    FOOD_CLASSIFICATIONS.forEach((cls) => {
+      const daily = Number(guidelineTotals?.[cls]) || 0;
+      requiredMap.set(cls, daily * dayCount);
     });
 
     const pushMeal = (dayIndex, mealType, entry) => {
@@ -2285,7 +2335,7 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       weeklyMap.set(label, perPerson);
     });
     const allClasses = new Set([
-      ...Array.from(REQUIRED_CLASS_DAILY.keys()),
+      ...FOOD_CLASSIFICATIONS,
       ...Array.from(weeklyMap.keys())
     ]);
     const SUMMARY_ORDER = [

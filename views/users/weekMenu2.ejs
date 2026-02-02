@@ -244,6 +244,7 @@
     const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
     const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
     const guidelineTotals = (window.weekMenuData && window.weekMenuData.guidelineTotals) || {};
+    const guidelineByUser = (window.weekMenuData && window.weekMenuData.guidelineByUser) || {};
     const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
     const ING_CLASS_ICONS = {
       '乳類': 'cup-soda',
@@ -575,10 +576,11 @@
         totals.set(cls, (totals.get(cls) || 0) + grams);
       });
       const multiplier = mode === 'week' ? Math.max(1, Number(dayCount) || 1) : 1;
+      const requiredTotals = buildGuidelineTotalsForIds(snapshot?.participantIds);
       const shortages = [];
       ING_CLASS_ORDER.forEach((cls) => {
-        const requiredValRaw = guidelineTotals && Object.prototype.hasOwnProperty.call(guidelineTotals, cls)
-          ? Number(guidelineTotals[cls])
+        const requiredValRaw = requiredTotals && Object.prototype.hasOwnProperty.call(requiredTotals, cls)
+          ? Number(requiredTotals[cls])
           : 0;
         const required = Number.isFinite(requiredValRaw) ? requiredValRaw * multiplier : 0;
         const actual = totals.get(cls) || 0;
@@ -767,10 +769,40 @@
 
     const keyFor = (dayIndex, meal) => `${dayIndex}:${meal}`;
     const defaultIds = () => groupUsers.map((u) => String(u.id));
+    function buildGuidelineTotalsForIds(ids) {
+      const baseIds = Array.isArray(ids) && ids.length ? ids.map(String) : defaultIds();
+      const sums = {};
+      ING_CLASS_ORDER.forEach((cls) => { sums[cls] = 0; });
+      let count = 0;
+      baseIds.forEach((id) => {
+        const entry = guidelineByUser && guidelineByUser[id];
+        if (!entry) return;
+        count += 1;
+        ING_CLASS_ORDER.forEach((cls) => {
+          const val = Number(entry[cls]) || 0;
+          sums[cls] += val;
+        });
+      });
+      if (!count) return guidelineTotals || {};
+      const averages = {};
+      ING_CLASS_ORDER.forEach((cls) => {
+        averages[cls] = sums[cls] / count;
+      });
+      return averages;
+    }
     const getIds = (dayIndex, meal) => {
       const ids = participantsByMeal[keyFor(dayIndex, meal)];
       if (Array.isArray(ids)) return ids.map(String); // 空配列は「誰も参加しない」を意味する
       return defaultIds(); // 未設定のときのみ全員
+    };
+    const collectParticipantIds = (indices) => {
+      const ids = new Set();
+      (indices || []).forEach((idx) => {
+        ['breakfast', 'lunch', 'dinner'].forEach((meal) => {
+          getIds(idx, meal).forEach((id) => ids.add(String(id)));
+        });
+      });
+      return Array.from(ids);
     };
     const setIds = (dayIndex, meal, ids) => { participantsByMeal[keyFor(dayIndex, meal)] = Array.from(new Set(ids.map(String))); };
     function renderAttendees(dayIndex){
@@ -1379,6 +1411,7 @@
       const combinedEntries = [];
       const combinedSeasoningEntries = [];
       let participantMax = 0;
+      const participantIds = collectParticipantIds(indicesForClassification);
       indicesForClassification.forEach((idx) => {
         if (idx < 0 || idx >= plan.length) return;
         const target = idx === safeIndex ? dayAgg : aggregateDayData(plan[idx], idx);
@@ -1397,7 +1430,8 @@
         mode,
         dayCount: mode === 'week' ? spanDayCount : 1,
         targetLabel: labelData,
-        participantCount: participantMax || defaultIds().length || 1
+        participantCount: participantMax || defaultIds().length || 1,
+        participantIds
       });
       latestRequirementsSnapshot = {
         entries: combinedEntries,
@@ -1406,6 +1440,7 @@
         dayCount: mode === 'week' ? spanDayCount : 1,
         targetLabel: labelData,
         participantCount: participantMax || defaultIds().length || 1,
+        participantIds,
         selectedIndex: safeIndex
       };
       suggestBtn.addEventListener('click', () => {
@@ -1519,11 +1554,12 @@
         const rounded = Math.round(num);
         return `${rounded}g`;
       };
+      const requiredTotals = buildGuidelineTotalsForIds(options.participantIds);
       ING_CLASS_ORDER.forEach((cls) => {
         const grams = totals.get(cls);
         const actualVal = (typeof grams === 'number' && !Number.isNaN(grams)) ? grams : 0;
-        const requiredValRaw = guidelineTotals && Object.prototype.hasOwnProperty.call(guidelineTotals, cls)
-          ? Number(guidelineTotals[cls])
+        const requiredValRaw = requiredTotals && Object.prototype.hasOwnProperty.call(requiredTotals, cls)
+          ? Number(requiredTotals[cls])
           : 0;
         const multiplier = options.mode === 'week' ? Math.max(1, Number(options.dayCount) || 1) : 1;
         const requiredVal = Number.isFinite(requiredValRaw) ? requiredValRaw * multiplier : 0;
