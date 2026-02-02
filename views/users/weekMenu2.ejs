@@ -576,7 +576,9 @@
         totals.set(cls, (totals.get(cls) || 0) + grams);
       });
       const multiplier = mode === 'week' ? Math.max(1, Number(dayCount) || 1) : 1;
-      const requiredTotals = buildGuidelineTotalsForIds(snapshot?.participantIds);
+      const requiredTotals = mode === 'day'
+        ? getGuidelineForCurrentUser()
+        : buildGuidelineTotalsForIds(snapshot?.participantIds);
       const shortages = [];
       ING_CLASS_ORDER.forEach((cls) => {
         const requiredValRaw = requiredTotals && Object.prototype.hasOwnProperty.call(requiredTotals, cls)
@@ -769,6 +771,15 @@
 
     const keyFor = (dayIndex, meal) => `${dayIndex}:${meal}`;
     const defaultIds = () => groupUsers.map((u) => String(u.id));
+    const getCurrentUserName = () => {
+      if (!currentUserId) return '';
+      const hit = groupUsers.find((u) => String(u.id) === String(currentUserId));
+      return hit && hit.name ? hit.name : '';
+    };
+    const getGuidelineForCurrentUser = () => {
+      const entry = guidelineByUser && currentUserId ? guidelineByUser[String(currentUserId)] : null;
+      return entry && Object.keys(entry).length ? entry : (guidelineTotals || {});
+    };
     function buildGuidelineTotalsForIds(ids) {
       const baseIds = Array.isArray(ids) && ids.length ? ids.map(String) : defaultIds();
       const sums = {};
@@ -1533,9 +1544,10 @@
       table.className = 'w-full mt-2 text-[13px]';
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
+      const userName = getCurrentUserName();
       const requiredHeader = options.mode === 'week'
-        ? `${options.targetLabel || ''}\nまでの必要量/人`
-        : '1日の\n必要量/人';
+        ? `${userName ? `${userName}さん` : 'ログインユーザー'}の${options.targetLabel || ''}\nまでの必要量`
+        : `${userName ? `${userName}さん` : 'ログインユーザー'}の\n1日の必要量`;
       const actualHeader = options.mode === 'week'
         ? `${options.targetLabel || ''}\nまでの実績/人`
         : '実績/人';
@@ -1554,7 +1566,9 @@
         const rounded = Math.round(num);
         return `${rounded}g`;
       };
-      const requiredTotals = buildGuidelineTotalsForIds(options.participantIds);
+      const requiredTotals = options.mode === 'day'
+        ? getGuidelineForCurrentUser()
+        : buildGuidelineTotalsForIds(options.participantIds);
       ING_CLASS_ORDER.forEach((cls) => {
         const grams = totals.get(cls);
         const actualVal = (typeof grams === 'number' && !Number.isNaN(grams)) ? grams : 0;
