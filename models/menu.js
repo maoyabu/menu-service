@@ -87,7 +87,7 @@ const menuSchema = new mongoose.Schema({
     },
     share: {
         type: Boolean,
-        default: false
+        default: true
     },
     entry_date:{
         type: Date,

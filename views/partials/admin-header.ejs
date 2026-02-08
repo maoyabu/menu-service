@@ -6,6 +6,7 @@
 <% const currentService = onAdminRoute ? 'admin' : (isBoardService ? 'board' : (isPackingService ? 'packing' : (isStockService ? 'stock' : 'plan'))); %>
 <% const safeSelectedGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; %>
 <% const safeDefaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
+<% const headerGroupName = (() => { const groups = Array.isArray(userGroups) ? userGroups : []; const gid = safeSelectedGroupId || safeDefaultGroupId; const g = groups.find((gr)=> String(gr._id || '') === String(gid)); return g ? g.group_name : ''; })(); %>
 <% const serviceLabel = currentService === 'board'
   ? `${(Array.isArray(userGroups) ? (userGroups.find((g)=> String(g._id||'') === String((safeSelectedGroupId || safeDefaultGroupId || '')))?.group_name || 'グループ') : 'グループ')}の掲示板`
   : (currentService === 'stock' ? 'ストック管理' : (currentService === 'packing' ? 'パッキングプラン' : '7 DAYS PLAN')); %>
@@ -71,9 +72,13 @@
       <i data-lucide="<%= serviceIcon %>" class="w-5 h-5 <%= serviceAccent %>"></i>
       <span class="text-base font-semibold <%= serviceAccent %>"><%= serviceLabel %></span>
     </a>
+    <span class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/70 px-3 py-1 text-xs font-semibold text-gray-700">
+      <i data-lucide="users" class="w-4 h-4"></i>
+      <span><%= headerGroupName || 'グループ未選択' %></span>
+    </span>
   </div>
 
-  <div class="pointer-events-none flex-1 min-w-0 flex items-center justify-center px-2 text-center font-bold truncate">
+  <div class="pointer-events-none flex-1 min-w-0 flex items-center justify-center px-2 text-center font-bold">
     <span class="hidden md:inline text-lg <%= serviceTitleClass %>">
       <img src="/icon.png" alt="" class="inline-block w-9 h-9 mr-2 align-[-9px]" aria-hidden="true">
       REPALACE｜暮らしを整える場所

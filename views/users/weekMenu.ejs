@@ -575,8 +575,10 @@
   window.weekMenuData = {
     plan: JSON.parse('<%- serialize(plan) %>'),
     menusByCategory: JSON.parse('<%- serialize(menusByCategory) %>'),
+    modalMenus: JSON.parse('<%- serialize(typeof modalMenus !== "undefined" ? modalMenus : []) %>'),
     menuLookup: JSON.parse('<%- serialize(menuLookup) %>'),
     categoryConfig: JSON.parse('<%- serialize(categoryConfig) %>'),
+    allKinds: JSON.parse('<%- serialize(typeof allKinds !== "undefined" ? allKinds : []) %>'),
     weekDates: JSON.parse('<%- serialize(weekDates) %>'),
     weekRangeLabel: <%- serialize(weekRangeLabel) %>,
     currentGroupId: <%- serialize(currentGroupId || '') %>,
@@ -1823,6 +1825,10 @@
     // 全カテゴリの kinds を横断的に集約（明示的に「デザート」も含める）
     const getGlobalKinds = () => {
       try {
+        const dynamic = Array.isArray(window.weekMenuData?.allKinds)
+          ? window.weekMenuData.allKinds.filter(Boolean)
+          : [];
+        if (dynamic.length) return dynamic;
         const set = new Set();
         if (categoryConfig && typeof categoryConfig === 'object') {
           Object.keys(categoryConfig).forEach((key) => {
@@ -2004,9 +2010,12 @@
     const openMenuModal = (categoryKey, slot) => {
       if (!modalElements.overlay || !slot) return;
 
-      const options = Array.isArray(menusByCategory[categoryKey])
-        ? menusByCategory[categoryKey].slice()
-        : [];
+      const modalMenus = Array.isArray(window.weekMenuData?.modalMenus)
+        ? window.weekMenuData.modalMenus
+        : null;
+      const options = modalMenus
+        ? modalMenus.slice()
+        : (Array.isArray(menusByCategory?.[categoryKey]) ? menusByCategory[categoryKey].slice() : []);
       const currentMenu = slot.menuId ? menuLookup[slot.menuId] || null : null;
 
       if (currentMenu && !options.some((menu) => menu.id === currentMenu.id)) {

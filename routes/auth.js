@@ -1491,12 +1491,18 @@ router.post('/logout', (req, res, next) => {
 //weekMenu.ejsを開く
 router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   try {
-    const kindSet = new Set();
+    const configKindSet = new Set();
     Object.values(CATEGORY_CONFIG).forEach((config) => {
       (config.kinds || []).forEach((kind) => {
-        if (kind) kindSet.add(kind);
+        if (kind) configKindSet.add(kind);
       });
     });
+
+    const rawDistinctKinds = await Menu.distinct('kind', { isPrivate: { $ne: true } });
+    const allKinds = (rawDistinctKinds || [])
+      .map((k) => (typeof k === 'string' ? k.trim() : ''))
+      .filter(Boolean);
+    const kindSet = new Set([...configKindSet, ...allKinds]);
     const menusByKind = {};
 
     await Promise.all(
@@ -1525,6 +1531,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       acc[key] = combineMenusByKinds(config.kinds);
       return acc;
     }, {});
+
+    const modalKinds = allKinds.length ? allKinds : Array.from(kindSet);
+    const modalMenus = combineMenusByKinds(modalKinds);
 
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
@@ -1913,6 +1922,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 	res.render(viewTemplate, {
     categoryConfig: CATEGORY_CONFIG,
     menusByCategory,
+    modalMenus,
+    allKinds,
     menuLookup,
     plan,
     weekDates: weekDatesForView,

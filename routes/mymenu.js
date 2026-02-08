@@ -1029,7 +1029,7 @@ router.post('/from-url', async (req, res, next) => {
       favorite = 'false', frequency = '3',
       makeAhead = 'false',
       basicMenu = 'false',
-      share = 'false', shareScope = 'group'
+      share = 'true', shareScope = 'all'
     } = req.body;
 
     const ingredients = (Array.isArray(ingredient_ids) ? ingredient_ids : [ingredient_ids]).filter(Boolean).map((id, i) => ({
@@ -1320,7 +1320,7 @@ router.post('/original', async (req, res, next) => {
       makeAhead = 'false',
       basicMenu = 'false',
       hidden = 'false',
-      share = 'false', shareScope = 'group'
+      share = 'true', shareScope = 'all'
     } = req.body;
 
     const ingredients = (Array.isArray(ingredient_ids) ? ingredient_ids : [ingredient_ids]).filter(Boolean).map((id, i) => ({
