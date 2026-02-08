@@ -1990,8 +1990,12 @@
 
     const selectMenuFromModal = (menuId) => {
       if (!modalState.isOpen || !modalState.slot) return;
-      const nextMenu = menuLookup[menuId];
+      const nextMenu = menuLookup[menuId]
+        || modalState.options.find((menu) => menu && menu.id === menuId);
       if (!nextMenu) return;
+      if (!menuLookup[menuId]) {
+        menuLookup[menuId] = nextMenu;
+      }
       modalState.slot.menuId = nextMenu.id;
       modalState.slot.dineOut = false;
       const inferred = inferDinnerCategoryKey(nextMenu);
