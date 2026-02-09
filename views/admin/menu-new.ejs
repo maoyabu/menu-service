@@ -43,6 +43,38 @@
       </label>
     </div>
 
+    <div class="p-4 bg-gray-50 border rounded-lg space-y-3">
+      <div class="flex flex-wrap items-center gap-4">
+        <span class="text-sm font-bold text-gray-700">レシピタイプ</span>
+        <label class="inline-flex items-center gap-2 text-sm font-medium">
+          <input type="radio" name="menuType" value="single" class="w-4 h-4 text-blue-600 border-gray-300" checked>
+          <span>従来レシピ</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm font-medium">
+          <input type="radio" name="menuType" value="set" class="w-4 h-4 text-blue-600 border-gray-300">
+          <span>セットメニュー</span>
+        </label>
+      </div>
+      <div id="set-type-section" class="hidden">
+        <p class="text-sm font-bold text-gray-700 mb-2">セット種別</p>
+        <div class="flex flex-wrap gap-3 text-sm">
+          <label class="inline-flex items-center gap-2">
+            <input type="radio" name="setType" value="morning" class="w-4 h-4 text-blue-600 border-gray-300">
+            <span>モーニング</span>
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="radio" name="setType" value="lunch" class="w-4 h-4 text-blue-600 border-gray-300">
+            <span>ランチ</span>
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="radio" name="setType" value="dinner" class="w-4 h-4 text-blue-600 border-gray-300">
+            <span>ディナー</span>
+          </label>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500">セットメニューを選ぶとURL・画像・食材・調味料は登録せず、既存レシピから構成します。</p>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
         <label class="block mb-1 text-sm font-bold">レシピ名 *</label>
@@ -139,7 +171,7 @@
         </div>
         <p class="text-xs text-gray-500 mt-1">春(3-5月)、夏(6-9月)、秋(10-11月)、冬(12-2月)</p>
       </div>
-      <div class="md:col-span-2">
+      <div class="md:col-span-2" id="menu-url-section">
         <label class="block mb-1 text-sm font-bold">URL *</label>
         <div class="flex flex-col sm:flex-row sm:items-center gap-2">
           <input type="url" name="url" id="menu-url-input" class="flex-1 border rounded-md px-3 py-2 bg-gray-50" placeholder="https://example.com" required>
@@ -150,7 +182,7 @@
         </div>
         <p class="text-xs text-gray-500 mt-1">URLを入力するとボタンから別タブで確認できます。</p>
       </div>
-      <div class="md:col-span-2">
+      <div class="md:col-span-2" id="menu-image-section">
         <label class="block mb-1 text-sm font-bold">画像URL</label>
         <div class="flex flex-col md:flex-row md:items-start gap-4">
           <div class="flex-1 space-y-2">
@@ -181,7 +213,20 @@
 
     <hr class="my-6">
 
-    <div>
+    <div id="set-menu-section" class="hidden">
+      <div class="flex items-center justify-start gap-3">
+        <label class="block mb-1 text-sm font-bold">セットに含めるメニュー</label>
+        <button type="button" id="open-set-menu-modal" class="inline-flex items-center border rounded px-3 py-1 text-sm bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100">
+          <span class="text-xl leading-none">＋</span><span class="ml-1">メニューを追加</span>
+        </button>
+      </div>
+      <div class="border rounded-lg p-4 bg-white shadow-sm space-y-2">
+        <div id="set-menu-list" class="space-y-2 text-sm text-gray-500">メニューを追加してください</div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">セットメニューや自分自身は追加できません。</p>
+    </div>
+
+    <div id="ingredients-section">
       <div class="flex items-center justify-start gap-3">
         <label class="block mb-1 text-sm font-bold">食材</label>
         <button type="button" class="inline-flex items-center border rounded px-3 py-1 text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100" onclick="addIngredient()">
@@ -195,7 +240,7 @@
 
     <hr class="my-6">
 
-    <div>
+    <div id="seasonings-section">
       <div class="flex items-center justify-start gap-3">
         <label class="block mb-1 text-sm font-bold">調味料</label>
         <button type="button" class="inline-flex items-center border rounded px-3 py-1 text-sm bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100" onclick="addSeasoning()">
@@ -715,6 +760,297 @@ async function toggleFavorite(button, id, type) {
     });
   });
 </script>
+
+<script>
+  const setMenuCandidates = <%- JSON.stringify(setMenuCandidates || []) %>;
+  const initialSetMenus = <%- JSON.stringify([]) %>;
+
+  function setSectionEnabled(sectionId, enabled) {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    section.classList.toggle('hidden', !enabled);
+    section.querySelectorAll('input, select, textarea, button').forEach((el) => {
+      if (el.id === 'open-set-menu-modal') return;
+      if (enabled) {
+        el.removeAttribute('disabled');
+      } else {
+        el.setAttribute('disabled', 'disabled');
+      }
+    });
+  }
+
+  function toggleRequired(inputId, isRequired) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (isRequired) input.setAttribute('required', 'required');
+    else input.removeAttribute('required');
+  }
+
+  function applyMenuTypeState() {
+    const checked = document.querySelector('input[name="menuType"]:checked');
+    const isSet = checked && checked.value === 'set';
+    setSectionEnabled('set-type-section', isSet);
+    setSectionEnabled('set-menu-section', isSet);
+    setSectionEnabled('menu-url-section', !isSet);
+    setSectionEnabled('menu-image-section', !isSet);
+    setSectionEnabled('ingredients-section', !isSet);
+    setSectionEnabled('seasonings-section', !isSet);
+    toggleRequired('menu-url-input', !isSet);
+
+    document.querySelectorAll('input[name="setType"]').forEach((el) => {
+      if (isSet) el.setAttribute('required', 'required');
+      else el.removeAttribute('required');
+    });
+  }
+
+  const setMenuState = {
+    selected: new Map()
+  };
+
+  function normalizeText(value) {
+    return String(value || '').toLowerCase();
+  }
+
+  function matchKeyword(item, keyword) {
+    if (!keyword) return true;
+    const text = [item.name, item.menu, item.kind, item.junle, item.cook].map(normalizeText).join(' ');
+    return text.includes(keyword);
+  }
+
+  function renderSetMenuList() {
+    const listEl = document.getElementById('set-menu-list');
+    if (!listEl) return;
+    const values = Array.from(setMenuState.selected.values());
+    if (!values.length) {
+      listEl.textContent = 'メニューを追加してください';
+      return;
+    }
+    listEl.innerHTML = '';
+    values.forEach((item) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'flex flex-wrap items-center gap-3 border border-gray-200 rounded p-2 bg-gray-50';
+
+      const hidden = document.createElement('input');
+      hidden.type = 'hidden';
+      hidden.name = 'set_menu_ids[]';
+      hidden.value = item._id;
+      wrap.appendChild(hidden);
+
+      if (item.imageUrl) {
+        const img = document.createElement('img');
+        img.src = item.imageUrl;
+        img.alt = item.name || 'menu image';
+        img.className = 'w-12 h-12 rounded object-cover';
+        wrap.appendChild(img);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+        placeholder.textContent = 'NO IMG';
+        wrap.appendChild(placeholder);
+      }
+
+      const info = document.createElement('div');
+      info.className = 'min-w-[180px]';
+      const title = document.createElement('div');
+      title.className = 'font-medium text-gray-800';
+      title.textContent = item.name || '名称未設定';
+      const meta = document.createElement('div');
+      meta.className = 'text-xs text-gray-500';
+      meta.textContent = [item.menu, item.kind, item.junle, item.cook].filter(Boolean).join(' / ');
+      info.appendChild(title);
+      info.appendChild(meta);
+      wrap.appendChild(info);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'ml-auto px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', () => {
+        setMenuState.selected.delete(item._id);
+        renderSetMenuList();
+        renderSetMenuResults();
+      });
+      wrap.appendChild(removeBtn);
+
+      listEl.appendChild(wrap);
+    });
+  }
+
+  function renderSetMenuResults() {
+    const resultsEl = document.getElementById('set-menu-results');
+    if (!resultsEl) return;
+    const keyword = normalizeText(document.getElementById('set-menu-keyword')?.value || '');
+    const menuFilter = document.getElementById('set-menu-filter-menu')?.value || '';
+    const kindFilter = document.getElementById('set-menu-filter-kind')?.value || '';
+    const junleFilter = document.getElementById('set-menu-filter-junle')?.value || '';
+    const cookFilter = document.getElementById('set-menu-filter-cook')?.value || '';
+
+    const filtered = setMenuCandidates.filter((item) => {
+      if (item.menuType === 'set') return false;
+      if (menuFilter && item.menu !== menuFilter) return false;
+      if (kindFilter && item.kind !== kindFilter) return false;
+      if (junleFilter && item.junle !== junleFilter) return false;
+      if (cookFilter && item.cook !== cookFilter) return false;
+      return matchKeyword(item, keyword);
+    });
+
+    resultsEl.innerHTML = '';
+    if (!filtered.length) {
+      const empty = document.createElement('div');
+      empty.className = 'text-sm text-gray-500';
+      empty.textContent = '条件に一致するメニューがありません。';
+      resultsEl.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach((item) => {
+      const row = document.createElement('label');
+      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
+      checkbox.checked = setMenuState.selected.has(item._id);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) setMenuState.selected.set(item._id, item);
+        else setMenuState.selected.delete(item._id);
+        renderSetMenuList();
+      });
+      row.appendChild(checkbox);
+
+      if (item.imageUrl) {
+        const img = document.createElement('img');
+        img.src = item.imageUrl;
+        img.alt = item.name || 'menu image';
+        img.className = 'w-12 h-12 rounded object-cover';
+        row.appendChild(img);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+        placeholder.textContent = 'NO IMG';
+        row.appendChild(placeholder);
+      }
+
+      const info = document.createElement('div');
+      info.className = 'flex-1';
+      const title = document.createElement('div');
+      title.className = 'font-medium text-gray-800';
+      title.textContent = item.name || '名称未設定';
+      const meta = document.createElement('div');
+      meta.className = 'text-xs text-gray-500';
+      meta.textContent = [item.menu, item.kind, item.junle, item.cook].filter(Boolean).join(' / ');
+      info.appendChild(title);
+      info.appendChild(meta);
+      row.appendChild(info);
+
+      resultsEl.appendChild(row);
+    });
+  }
+
+  function openSetMenuModal() {
+    const modal = document.getElementById('set-menu-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    renderSetMenuResults();
+  }
+
+  function closeSetMenuModal() {
+    const modal = document.getElementById('set-menu-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const openBtn = document.getElementById('open-set-menu-modal');
+    const closeBtn = document.getElementById('set-menu-close');
+    const applyBtn = document.getElementById('set-menu-apply');
+    const overlay = document.getElementById('set-menu-overlay');
+
+    if (openBtn) openBtn.addEventListener('click', openSetMenuModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeSetMenuModal);
+    if (applyBtn) applyBtn.addEventListener('click', closeSetMenuModal);
+    if (overlay) overlay.addEventListener('click', closeSetMenuModal);
+
+    ['set-menu-keyword','set-menu-filter-menu','set-menu-filter-kind','set-menu-filter-junle','set-menu-filter-cook']
+      .forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', renderSetMenuResults);
+        el.addEventListener('change', renderSetMenuResults);
+      });
+
+    initialSetMenus.forEach((item) => {
+      if (!item || !item._id) return;
+      setMenuState.selected.set(item._id, item);
+    });
+
+    document.querySelectorAll('input[name="menuType"]').forEach((el) => {
+      el.addEventListener('change', applyMenuTypeState);
+    });
+
+    applyMenuTypeState();
+    renderSetMenuList();
+  });
+</script>
+
+<!-- セットメニュー選択モーダル -->
+<div id="set-menu-modal" class="fixed inset-0 z-50 hidden">
+  <div id="set-menu-overlay" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative mx-auto mt-10 w-[860px] max-w-[96vw] rounded-2xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b px-5 py-3">
+      <h3 class="font-semibold">メニューを追加</h3>
+      <button type="button" id="set-menu-close" class="text-gray-500">✕</button>
+    </div>
+    <div class="p-4 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500">フリーワード</label>
+          <input id="set-menu-keyword" class="w-full border rounded px-3 py-2" placeholder="例: 白米 / 味噌">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">メニュー</label>
+          <select id="set-menu-filter-menu" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% (menuList || []).forEach(name => { %>
+              <option value="<%= name %>"><%= name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">種類</label>
+          <select id="set-menu-filter-kind" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% (kindList || []).forEach(kind => { %>
+              <option value="<%= kind %>"><%= kind %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">ジャンル</label>
+          <select id="set-menu-filter-junle" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% junleList.forEach(junle => { %>
+              <option value="<%= junle %>"><%= junle %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">調理方法</label>
+          <select id="set-menu-filter-cook" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% (cookList || []).forEach(cook => { %>
+              <option value="<%= cook %>"><%= cook %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+      <div id="set-menu-results" class="max-h-[45vh] overflow-auto border rounded p-3 bg-gray-50 space-y-2"></div>
+      <div class="text-right">
+        <button type="button" id="set-menu-apply" class="px-4 py-2 rounded bg-gray-900 text-white text-sm">追加する</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- モーダルUI -->
 <div id="ingredient-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">

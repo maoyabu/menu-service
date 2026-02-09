@@ -626,7 +626,8 @@ router.get('/menu-list', async (req, res) => {
 
     const menus = await Menu.find(composedFilter)
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
-      .populate({ path: 'seasoning.name', model: 'Seasoning' });
+      .populate({ path: 'seasoning.name', model: 'Seasoning' })
+      .populate({ path: 'setMenus', select: 'imageUrl name menu kind junle cook menuType' });
 
     // kind, junle, cook のユニークな一覧を取得
     const allMenus = await Menu.find(); // 全体から取得するため再取得
@@ -700,6 +701,9 @@ router.get('/menu-new', async (req, res) => {
 
     // Fetch all existing menu names from DB (distinct)
     const menuList = await Menu.find().distinct('menu');
+    const setMenuCandidates = await Menu.find({ menuType: { $ne: 'set' } })
+      .select('name menu kind junle cook imageUrl menuType')
+      .lean();
 
     // 🔽 食材と調味料の取得を short_nutrition 含めて取得
     const ingredientsRaw = await Ingredient.find().select('ingredient classification unit energy protein lipid carbohydrate');
@@ -734,6 +738,7 @@ router.get('/menu-new', async (req, res) => {
       cookList,
       ingredients,
       seasonings,
+      setMenuCandidates,
       junleListJSON: JSON.stringify(junleList),
       initialIngredients,
       initialSeasonings,
@@ -883,6 +888,8 @@ router.post('/menu-new', async (req, res) => {
       junle,
       cook,
       menu,
+      menuType = 'single',
+      setType = '',
       url,
       imageUrl,
       time,
@@ -899,23 +906,46 @@ router.post('/menu-new', async (req, res) => {
       seasoning_ids = [],
       seasoning_amounts = [],
       seasoning_units = [],
+      set_menu_ids = [],
       filters: filtersRaw = ''
     } = req.body;
     const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
+    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+
     // 食材の構造を整える
-    const ingredients = ingredient_ids.map((id, index) => ({
-      name: id,
-      amount: ingredient_amounts[index],
-      unit: ingredient_units[index]
-    }));
+    const ingredients = normalizedMenuType === 'set'
+      ? []
+      : ingredient_ids.map((id, index) => ({
+          name: id,
+          amount: ingredient_amounts[index],
+          unit: ingredient_units[index]
+        }));
 
     // 調味料の構造を整える
-    const seasonings = seasoning_ids.map((id, index) => ({
-      name: id,
-      amount: seasoning_amounts[index],
-      unit: seasoning_units[index]
-    }));
+    const seasonings = normalizedMenuType === 'set'
+      ? []
+      : seasoning_ids.map((id, index) => ({
+          name: id,
+          amount: seasoning_amounts[index],
+          unit: seasoning_units[index]
+        }));
+
+    let setMenus = [];
+    if (normalizedMenuType === 'set') {
+      const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
+      const candidateIds = rawSetMenus
+        .map((id) => String(id || '').trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id));
+      const uniqueIds = Array.from(new Set(candidateIds));
+      if (uniqueIds.length) {
+        const validMenus = await Menu.find({ _id: { $in: uniqueIds }, menuType: { $ne: 'set' } })
+          .select('_id')
+          .lean();
+        setMenus = validMenus.map((m) => m._id);
+      }
+    }
     const selectedSeasons = normalizeSeasonList(season);
 
     const newMenu = new Menu({
@@ -924,8 +954,11 @@ router.post('/menu-new', async (req, res) => {
       junle,
       cook,
       menu,
-      url,
-      imageUrl,
+      menuType: normalizedMenuType,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setMenus,
+      url: normalizedMenuType === 'set' ? '' : url,
+      imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
       comment,
@@ -964,7 +997,8 @@ router.get('/menu-edit/:id', async (req, res) => {
   try {
     const menu = await Menu.findById(req.params.id)
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
-      .populate({ path: 'seasoning.name', model: 'Seasoning' });
+      .populate({ path: 'seasoning.name', model: 'Seasoning' })
+      .populate({ path: 'setMenus', select: 'name menu kind junle cook imageUrl menuType' });
     if (!menu) {
       return res.status(404).send('該当レシピが見つかりません');
     }
@@ -976,6 +1010,9 @@ router.get('/menu-edit/:id', async (req, res) => {
 
     // Fetch all existing menu names from DB (distinct)
     const menuList = await Menu.find().distinct('menu');
+    const setMenuCandidates = await Menu.find({ _id: { $ne: menu._id }, menuType: { $ne: 'set' } })
+      .select('name menu kind junle cook imageUrl menuType')
+      .lean();
 
     // 追加: 食材と調味料を取得（栄養情報含む）＋ short_nutrition を動的生成
     const ingredientsRaw = await Ingredient.find().select('ingredient classification unit energy protein lipid carbohydrate');
@@ -1021,6 +1058,17 @@ router.get('/menu-edit/:id', async (req, res) => {
       seasonings,
       ingredientList: ingredients,
       seasoningList: seasonings,
+      setMenuCandidates,
+      initialSetMenus: (menu.setMenus || []).map((m) => ({
+        _id: m?._id,
+        name: m?.name,
+        menu: m?.menu,
+        kind: m?.kind,
+        junle: m?.junle,
+        cook: m?.cook,
+        imageUrl: m?.imageUrl,
+        menuType: m?.menuType
+      })),
       genreList,
       seasoningGenreList,
       initialIngredients,
@@ -1044,6 +1092,8 @@ router.post('/menu-edit/:id', async (req, res) => {
       junle,
       cook,
       menu,
+      menuType = 'single',
+      setType = '',
       url,
       imageUrl,
       time,
@@ -1060,23 +1110,47 @@ router.post('/menu-edit/:id', async (req, res) => {
       seasoning_ids = [],
       seasoning_amounts = [],
       seasoning_units = [],
+      set_menu_ids = [],
       filters: filtersRaw = ''
     } = req.body;
     const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
+    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+
     // 食材の構造を整える
-    const ingredients = ingredient_ids.map((id, index) => ({
-      name: id,
-      amount: ingredient_amounts[index],
-      unit: ingredient_units[index]
-    }));
+    const ingredients = normalizedMenuType === 'set'
+      ? []
+      : ingredient_ids.map((id, index) => ({
+          name: id,
+          amount: ingredient_amounts[index],
+          unit: ingredient_units[index]
+        }));
 
     // 調味料の構造を整える
-    const seasonings = seasoning_ids.map((id, index) => ({
-      name: id,
-      amount: seasoning_amounts[index],
-      unit: seasoning_units[index]
-    }));
+    const seasonings = normalizedMenuType === 'set'
+      ? []
+      : seasoning_ids.map((id, index) => ({
+          name: id,
+          amount: seasoning_amounts[index],
+          unit: seasoning_units[index]
+        }));
+
+    let setMenus = [];
+    if (normalizedMenuType === 'set') {
+      const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
+      const candidateIds = rawSetMenus
+        .map((id) => String(id || '').trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .filter((id) => id !== String(req.params.id || ''));
+      const uniqueIds = Array.from(new Set(candidateIds));
+      if (uniqueIds.length) {
+        const validMenus = await Menu.find({ _id: { $in: uniqueIds }, menuType: { $ne: 'set' } })
+          .select('_id')
+          .lean();
+        setMenus = validMenus.map((m) => m._id);
+      }
+    }
     const selectedSeasons = normalizeSeasonList(season);
 
     await Menu.findByIdAndUpdate(req.params.id, {
@@ -1085,8 +1159,11 @@ router.post('/menu-edit/:id', async (req, res) => {
       junle,
       cook,
       menu,
-      url,
-      imageUrl,
+      menuType: normalizedMenuType,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setMenus,
+      url: normalizedMenuType === 'set' ? '' : url,
+      imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
       comment,

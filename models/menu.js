@@ -23,6 +23,21 @@ const menuSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    menuType: {
+        type: String,
+        enum: ['single', 'set'],
+        default: 'single'
+    },
+    setType: {
+        type: String,
+        enum: ['morning', 'lunch', 'dinner']
+    },
+    setMenus: [
+    {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Menu'
+    }
+    ],
     url: {
         type: String,
         default: ''

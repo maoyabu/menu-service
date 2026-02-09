@@ -104,7 +104,53 @@
     <% menus.forEach(menu => { %>
       <div class="border rounded-xl shadow hover:shadow-md transition bg-white flex flex-col overflow-hidden">
         <div class="w-full h-48 bg-gray-100 border-b border-gray-200 flex items-center justify-center text-sm text-gray-400">
-          <% if (menu.imageUrl) { %>
+          <% if (menu.menuType === 'set') { %>
+            <% const setImages = (menu.setMenus || []).map(m => m?.imageUrl).filter(Boolean); %>
+            <% const imgCount = Math.min(setImages.length, 5); %>
+            <% if (imgCount > 0) { %>
+              <% const gridClass = imgCount <= 2 ? (imgCount === 1 ? 'grid-cols-1 grid-rows-1' : 'grid-cols-2 grid-rows-1') : (imgCount === 3 ? 'grid-cols-2 grid-rows-2' : (imgCount === 4 ? 'grid-cols-2 grid-rows-2' : 'grid-cols-2 grid-rows-3')); %>
+              <div class="w-full h-full grid <%= gridClass %> gap-[1px] bg-gray-200">
+                <% if (imgCount === 1) { %>
+                  <div class="w-full h-full bg-gray-100">
+                    <img src="<%= setImages[0] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                  </div>
+                <% } else if (imgCount === 2) { %>
+                  <% for (let i = 0; i < 2; i++) { %>
+                    <div class="w-full h-full bg-gray-100">
+                      <img src="<%= setImages[i] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                    </div>
+                  <% } %>
+                <% } else if (imgCount === 3) { %>
+                  <div class="w-full h-full bg-gray-100 col-span-2">
+                    <img src="<%= setImages[0] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                  </div>
+                  <div class="w-full h-full bg-gray-100">
+                    <img src="<%= setImages[1] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                  </div>
+                  <div class="w-full h-full bg-gray-100">
+                    <img src="<%= setImages[2] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                  </div>
+                <% } else if (imgCount === 4) { %>
+                  <% for (let i = 0; i < 4; i++) { %>
+                    <div class="w-full h-full bg-gray-100">
+                      <img src="<%= setImages[i] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                    </div>
+                  <% } %>
+                <% } else { %>
+                  <div class="w-full h-full bg-gray-100 col-span-2">
+                    <img src="<%= setImages[0] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                  </div>
+                  <% for (let i = 1; i < 5; i++) { %>
+                    <div class="w-full h-full bg-gray-100">
+                      <img src="<%= setImages[i] %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
+                    </div>
+                  <% } %>
+                <% } %>
+              </div>
+            <% } else { %>
+              no image
+            <% } %>
+          <% } else if (menu.imageUrl) { %>
             <img src="<%= menu.imageUrl %>" alt="<%= menu.name %>" class="w-full h-full object-cover">
           <% } else { %>
             no image
