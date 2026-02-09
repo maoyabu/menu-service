@@ -157,6 +157,15 @@
     .weekly-day-button .day-label { font-size: 0.58rem; }
     .weekly-day-button .day-date { font-size: 0.85rem; }
   }
+  .weekplan-set-grid{ display:grid; width:100%; height:100%; gap:1px; background:#e5e7eb; }
+  .weekplan-set-grid.one{ grid-template-columns:1fr; grid-template-rows:1fr; }
+  .weekplan-set-grid.two{ grid-template-columns:repeat(2,1fr); grid-template-rows:1fr; }
+  .weekplan-set-grid.three,
+  .weekplan-set-grid.four{ grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); }
+  .weekplan-set-grid.five{ grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(3,1fr); }
+  .weekplan-set-grid .tile{ background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .weekplan-set-grid .tile img{ width:100%; height:100%; object-fit:cover; }
+  .weekplan-set-grid .tile.span-2{ grid-column:1 / 3; }
   /* --- hero carousel --- */
   /* --- hero ribbon slider --- */
   .ribbon-shell { position: relative; }
@@ -967,6 +976,49 @@
       return parts.length ? parts.join(' + ') : '数量未設定';
     };
 
+    const buildSetMenuLink = (menuId) => {
+      const base = (window.myTopData && window.myTopData.currentWeekLink) || (window.myTopData && window.myTopData.weekMenuBaseUrl) || '/users/week-menu2';
+      const safeBase = String(base).replace('/users/week-menu', '/users/week-menu2');
+      try {
+        const u = new URL(safeBase, window.location.origin);
+        if (menuId) u.searchParams.set('setMenuId', menuId);
+        return u.pathname + u.search;
+      } catch (_) {
+        return safeBase;
+      }
+    };
+
+    const buildSetMenuGrid = (images) => {
+      const count = Math.min(images.length, 5);
+      if (!count) return null;
+      const grid = document.createElement('div');
+      grid.className = `weekplan-set-grid ${count === 1 ? 'one' : (count === 2 ? 'two' : (count === 3 ? 'three' : (count === 4 ? 'four' : 'five')))}`;
+      const addTile = (src, span) => {
+        const tile = document.createElement('div');
+        tile.className = `tile${span ? ' span-2' : ''}`;
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'menu image';
+        tile.appendChild(img);
+        grid.appendChild(tile);
+      };
+      if (count === 3) {
+        addTile(images[0], true);
+        addTile(images[1], false);
+        addTile(images[2], false);
+      } else if (count === 5) {
+        addTile(images[0], true);
+        for (let i = 1; i < 5; i += 1) {
+          addTile(images[i], false);
+        }
+      } else {
+        for (let i = 0; i < count; i += 1) {
+          addTile(images[i], false);
+        }
+      }
+      return grid;
+    };
+
     const renderDayDetails = (day) => {
       if (!recipesTitleEl || !recipesBodyEl || !ingredientsTitleEl || !ingredientsBodyEl) {
         return;
@@ -1005,7 +1057,13 @@
             nameRow.className = 'flex items-center justify-between gap-3';
             const nameSpan = document.createElement('span');
             nameSpan.className = 'text-sm font-semibold text-gray-900';
-            if (slot.menu && slot.menu.url) {
+            if (slot.menu && slot.menu.menuType === 'set') {
+              const link = document.createElement('a');
+              link.href = buildSetMenuLink(slot.menu.id);
+              link.className = 'hover:underline';
+              link.textContent = slot.menu.name || 'セットメニュー';
+              nameSpan.appendChild(link);
+            } else if (slot.menu && slot.menu.url) {
               const link = document.createElement('a');
               link.href = slot.menu.url;
               link.target = 'menuWindow';
@@ -1048,36 +1106,67 @@
             }
 
             // 画像とメインタグオーバーレイ
-            if (slot.menu && slot.menu.url && slot.menu.imageUrl) {
-              const imageLinkWrap = document.createElement('a');
-              imageLinkWrap.href = slot.menu.url;
-              imageLinkWrap.target = 'menuWindow';
-              imageLinkWrap.rel = 'noopener';
-              imageLinkWrap.className = 'block overflow-hidden rounded-lg border border-blue-100 bg-blue-100/60 relative';
+            if (slot.menu) {
+              const isSet = slot.menu.menuType === 'set';
+              const setImages = isSet && Array.isArray(slot.menu.setMenus)
+                ? slot.menu.setMenus.map((m) => m && m.imageUrl).filter(Boolean)
+                : [];
+              const hasSingleImage = slot.menu.imageUrl && slot.menu.url;
+              if (isSet && setImages.length) {
+                const imageLinkWrap = document.createElement('a');
+                imageLinkWrap.href = buildSetMenuLink(slot.menu.id);
+                imageLinkWrap.className = 'block overflow-hidden rounded-lg border border-blue-100 bg-blue-100/60 relative';
+                const grid = buildSetMenuGrid(setImages);
+                if (grid) {
+                  const overlayWrap = document.createElement('div');
+                  overlayWrap.className = 'relative';
+                  overlayWrap.appendChild(grid);
+                  if (slot.categoryLabel) {
+                    const overlayTag = document.createElement('span');
+                    overlayTag.className = 'absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2 py-1 text-xs font-semibold';
+                    overlayTag.textContent = slot.categoryLabel;
+                    overlayWrap.appendChild(overlayTag);
+                  }
+                  imageLinkWrap.appendChild(overlayWrap);
+                  slotWrap.prepend(imageLinkWrap);
+                  window.weekPlanImageExclusions = window.weekPlanImageExclusions || [];
+                  setImages.forEach((imgUrl) => {
+                    if (imgUrl && !window.weekPlanImageExclusions.includes(imgUrl)) {
+                      window.weekPlanImageExclusions.push(imgUrl);
+                    }
+                  });
+                }
+              } else if (hasSingleImage) {
+                const imageLinkWrap = document.createElement('a');
+                imageLinkWrap.href = slot.menu.url;
+                imageLinkWrap.target = 'menuWindow';
+                imageLinkWrap.rel = 'noopener';
+                imageLinkWrap.className = 'block overflow-hidden rounded-lg border border-blue-100 bg-blue-100/60 relative';
 
-              const img = document.createElement('img');
-              img.src = slot.menu.imageUrl;
-              img.alt = slot.menu.name;
-              img.className = 'w-full h-32 object-cover';
+                const img = document.createElement('img');
+                img.src = slot.menu.imageUrl;
+                img.alt = slot.menu.name;
+                img.className = 'w-full h-32 object-cover';
 
-              if (slot.categoryLabel) {
-                const overlayTag = document.createElement('span');
-                overlayTag.className = 'absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2 py-1 text-xs font-semibold';
-                overlayTag.textContent = slot.categoryLabel;
-                const overlayWrap = document.createElement('div');
-                overlayWrap.className = 'relative';
-                overlayWrap.appendChild(img);
-                overlayWrap.appendChild(overlayTag);
-                imageLinkWrap.appendChild(overlayWrap);
-              } else {
-                imageLinkWrap.appendChild(img);
-              }
-              slotWrap.prepend(imageLinkWrap);
-              // 週のプランで使用している画像を除外候補に追加
-              if (slot.menu && slot.menu.imageUrl) {
-                window.weekPlanImageExclusions = window.weekPlanImageExclusions || [];
-                if (!window.weekPlanImageExclusions.includes(slot.menu.imageUrl)) {
-                  window.weekPlanImageExclusions.push(slot.menu.imageUrl);
+                if (slot.categoryLabel) {
+                  const overlayTag = document.createElement('span');
+                  overlayTag.className = 'absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2 py-1 text-xs font-semibold';
+                  overlayTag.textContent = slot.categoryLabel;
+                  const overlayWrap = document.createElement('div');
+                  overlayWrap.className = 'relative';
+                  overlayWrap.appendChild(img);
+                  overlayWrap.appendChild(overlayTag);
+                  imageLinkWrap.appendChild(overlayWrap);
+                } else {
+                  imageLinkWrap.appendChild(img);
+                }
+                slotWrap.prepend(imageLinkWrap);
+                // 週のプランで使用している画像を除外候補に追加
+                if (slot.menu && slot.menu.imageUrl) {
+                  window.weekPlanImageExclusions = window.weekPlanImageExclusions || [];
+                  if (!window.weekPlanImageExclusions.includes(slot.menu.imageUrl)) {
+                    window.weekPlanImageExclusions.push(slot.menu.imageUrl);
+                  }
                 }
               }
             }

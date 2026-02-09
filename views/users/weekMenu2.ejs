@@ -52,6 +52,15 @@
   .wm2-card { border:1px solid #e5e7eb; border-radius:16px; background:#fff; overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
   .wm2-card .img { height:160px; background:#eef2ff; position:relative; }
   .wm2-card .img img{ width:100%; height:100%; object-fit:cover; }
+  .wm2-set-grid{ display:grid; width:100%; height:100%; gap:1px; background:#e5e7eb; }
+  .wm2-set-grid.one{ grid-template-columns:1fr; grid-template-rows:1fr; }
+  .wm2-set-grid.two{ grid-template-columns:repeat(2, 1fr); grid-template-rows:1fr; }
+  .wm2-set-grid.three,
+  .wm2-set-grid.four{ grid-template-columns:repeat(2, 1fr); grid-template-rows:repeat(2, 1fr); }
+  .wm2-set-grid.five{ grid-template-columns:repeat(2, 1fr); grid-template-rows:repeat(3, 1fr); }
+  .wm2-set-grid .tile{ background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .wm2-set-grid .tile img{ width:100%; height:100%; object-fit:cover; }
+  .wm2-set-grid .tile.span-2{ grid-column:1 / 3; }
   /* Favorite overlay over image */
   .wm2-card .img .fav-overlay{ position:absolute; top:8px; right:8px; z-index:2; }
   .wm2-card .img .fav-overlay .icon-button{ background:rgba(255,255,255,0.92); }
@@ -106,6 +115,25 @@
   #wm2-supplies .pill.state{ font-size:10px; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
   #wm2-supplies .pill.state.stock{ background:#f3e8ff; border-color:#d8b4fe; color:#6d28d9; }
   #wm2-supplies .pill.state.purchased{ background:#e0f2fe; border-color:#bae6fd; color:#1d4ed8; }
+
+  /* Set menu detail modal */
+  #wm2-set-modal{ position:fixed; inset:0; z-index:80; display:none; }
+  #wm2-set-modal.is-open{ display:block; }
+  #wm2-set-modal .overlay{ position:absolute; inset:0; background:rgba(15,23,42,.45); }
+  #wm2-set-modal .panel{ position:relative; margin:40px auto; width:900px; max-width:96vw; background:#fff; border-radius:18px; box-shadow:0 20px 40px rgba(15,23,42,.2); }
+  #wm2-set-modal .panel-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
+  #wm2-set-modal .panel-body{ padding:16px; display:flex; flex-direction:column; gap:16px; max-height:72vh; overflow:auto; }
+  .wm2-set-item{ border:1px solid #e5e7eb; border-radius:16px; padding:12px; background:#fafafa; }
+  .wm2-set-item-head{ display:flex; gap:12px; align-items:flex-start; }
+  .wm2-set-thumb{ width:96px; height:72px; border-radius:12px; overflow:hidden; background:#e2e8f0; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:#64748b; }
+  .wm2-set-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .wm2-set-meta{ display:flex; flex-direction:column; gap:6px; flex:1; }
+  .wm2-set-title{ font-weight:700; color:#0f172a; }
+  .wm2-set-tags{ display:flex; flex-wrap:wrap; gap:6px; }
+  .wm2-set-tag{ display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:9999px; font-size:11px; border:1px solid #e2e8f0; background:#f8fafc; color:#334155; }
+  .wm2-set-tag.ing{ background:#ecfdf5; border-color:#bbf7d0; color:#065f46; }
+  .wm2-set-tag.sea{ background:#fff7ed; border-color:#fed7aa; color:#92400e; }
+  .wm2-set-link{ align-self:flex-start; margin-left:auto; font-size:12px; padding:6px 10px; border-radius:9999px; border:1px solid #cbd5f5; color:#1d4ed8; background:#eff6ff; }
 
   /* Section spacing tuning: allow padding from utility classes */
   #wm2-section{ }
@@ -221,6 +249,18 @@
     </div>
   </div>
 </section>
+
+<!-- Set menu detail modal -->
+<div id="wm2-set-modal" aria-hidden="true">
+  <div class="overlay" data-close></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="wm2-set-modal-title">
+    <div class="panel-header">
+      <h3 id="wm2-set-modal-title" class="font-semibold">セットメニュー</h3>
+      <button type="button" class="text-gray-500" data-close>✕</button>
+    </div>
+    <div class="panel-body" id="wm2-set-modal-body"></div>
+  </div>
+</div>
 
 <script>
   (function(){
@@ -417,9 +457,9 @@
       const nameKey = name ? String(name) : '';
       return (idKey && seasoningMetaCache.byId.get(idKey)) || (nameKey && seasoningMetaCache.byName.get(nameKey)) || null;
     };
-    const resolveIngredientClass = (id, name) => {
+    const resolveIngredientClass = (id, name, fallbackClassification) => {
       const meta = getIngredientMeta(id, name);
-      const raw = meta?.classification || DEFAULT_ING_CLASS;
+      const raw = meta?.classification || fallbackClassification || DEFAULT_ING_CLASS;
       return ING_CLASS_SET.has(raw) ? raw : DEFAULT_ING_CLASS;
     };
     const gramsPerUnit = (meta, unit) => {
@@ -427,8 +467,17 @@
       const key = normalizeUnitLabel(unit);
       if (!key) return null;
       if (meta.grams.has(key)) return meta.grams.get(key);
-      const lower = meta.gramsLower.get(key.toLowerCase());
-      return typeof lower === 'number' ? lower : null;
+      const keyLower = key.toLowerCase();
+      const lower = meta.gramsLower.get(keyLower);
+      if (typeof lower === 'number') return lower;
+      // Fuzzy match: allow unit label to include suffix like "切れ"
+      for (const [labelLower, grams] of meta.gramsLower.entries()) {
+        if (!labelLower) continue;
+        if (keyLower.startsWith(labelLower) || labelLower.startsWith(keyLower)) {
+          if (typeof grams === 'number') return grams;
+        }
+      }
+      return null;
     };
     const convertEntryToGrams = (entry) => {
       if (!entry) return null;
@@ -464,9 +513,9 @@
       if (!gPerUnit || !Number.isFinite(gPerUnit) || gPerUnit <= 0) return null;
       return amount * gPerUnit;
     };
-    const resolveSeasoningClass = (id, name) => {
+    const resolveSeasoningClass = (id, name, fallbackClassification) => {
       const meta = getSeasoningMeta(id, name);
-      const raw = meta?.classification || DEFAULT_ING_CLASS;
+      const raw = meta?.classification || fallbackClassification || DEFAULT_ING_CLASS;
       return ING_CLASS_SET.has(raw) ? raw : DEFAULT_ING_CLASS;
     };
     let requirementsRenderToken = 0;
@@ -539,7 +588,7 @@
         const name = it?.ingredient || it?.name?.ingredient || it?.name?.name || it?.name || '';
         const grams = convertEntryToGrams({ id, name, amount: scaled, unit: it?.unit });
         if (!grams || !Number.isFinite(grams)) return;
-        const cls = resolveIngredientClass(id, name);
+        const cls = resolveIngredientClass(id, name, it?.classification || '');
         totals.set(cls, (totals.get(cls) || 0) + grams);
       });
       // capture seasoning grams for classes we count
@@ -550,7 +599,7 @@
         const scaled = raw * multiplier;
         const id = (it && (it.id || it._id || it.name?._id || it.name)) ? String(it.id || it._id || it.name?._id || it.name) : '';
         const name = it?.seasoning || it?.name?.seasoning || it?.name?.name || it?.name || '';
-        const cls = resolveSeasoningClass(id, name);
+        const cls = resolveSeasoningClass(id, name, it?.classification || '');
         if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
         const grams = convertSeasoningEntryToGrams({ id, name, amount: scaled, unit: it?.unit });
         if (!grams || !Number.isFinite(grams)) return;
@@ -562,14 +611,14 @@
       if (!snapshot) return [];
       const { entries, seasoningEntries, mode, dayCount } = snapshot;
       const totals = new Map();
-      (entries || []).forEach(({ id, name, amount, unit }) => {
+      (entries || []).forEach(({ id, name, amount, unit, classification }) => {
         const grams = convertEntryToGrams({ id, name, amount, unit });
         if (typeof grams !== 'number' || Number.isNaN(grams)) return;
-        const cls = resolveIngredientClass(id, name);
+        const cls = resolveIngredientClass(id, name, classification || '');
         totals.set(cls, (totals.get(cls) || 0) + grams);
       });
-      (seasoningEntries || []).forEach(({ id, name, amount, unit }) => {
-        const cls = resolveSeasoningClass(id, name);
+      (seasoningEntries || []).forEach(({ id, name, amount, unit, classification }) => {
+        const cls = resolveSeasoningClass(id, name, classification || '');
         if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
         const grams = convertSeasoningEntryToGrams({ id, name, amount, unit });
         if (typeof grams !== 'number' || Number.isNaN(grams)) return;
@@ -1056,6 +1105,8 @@
       const shopName = (slot.dineOutName || '').trim();
       const shopUrl = (slot.dineOutUrl || '').trim();
       const detail = m.cook || m.junle || m.kind || m.menu || '';
+      const menuType = m.menuType || 'single';
+      const setMenus = Array.isArray(m.setMenus) ? m.setMenus : [];
       let mealType = 'dinner';
       if (slot?.categoryKey === 'breakfastMain') {
         mealType = 'breakfast';
@@ -1068,6 +1119,9 @@
       return {
         hasMenu:true,
         isDineOut,
+        menuId: m.id || (slot.menuId ? String(slot.menuId) : ''),
+        menuType,
+        setMenus,
         name: m.name,
         imageUrl: m.imageUrl || '',
         url: m.url || '',
@@ -1081,6 +1135,33 @@
         mealType,
         mealLabel: mealType === 'breakfast' ? '朝食' : (mealType === 'lunch' ? 'ランチ' : 'ディナー')
       };
+    }
+
+    function buildSetMenuGrid(images, title){
+      const count = Math.min(images.length, 5);
+      if (!count) return '';
+      const gridClass = count === 1 ? 'one' : (count === 2 ? 'two' : (count === 3 ? 'three' : (count === 4 ? 'four' : 'five')));
+      let html = `<div class="wm2-set-grid ${gridClass}">`;
+      const renderTile = (src, span) => {
+        const spanClass = span ? ' span-2' : '';
+        return `<div class="tile${spanClass}"><img src="${src}" alt="${title || ''}"></div>`;
+      };
+      if (count === 3) {
+        html += renderTile(images[0], true);
+        html += renderTile(images[1], false);
+        html += renderTile(images[2], false);
+      } else if (count === 5) {
+        html += renderTile(images[0], true);
+        for (let i = 1; i < 5; i += 1) {
+          html += renderTile(images[i], false);
+        }
+      } else {
+        for (let i = 0; i < count; i += 1) {
+          html += renderTile(images[i], false);
+        }
+      }
+      html += '</div>';
+      return html;
     }
 
     function cardEl(row){
@@ -1108,16 +1189,26 @@
       const mealBadgeClass = row.mealType === 'breakfast'
         ? 'bg-amber-50 text-amber-700 border border-amber-200'
         : 'bg-blue-50 text-blue-700 border border-blue-200';
+      const isSetMenu = row.menuType === 'set';
+      const setImages = isSetMenu
+        ? (row.setMenus || []).map((m) => m && m.imageUrl).filter(Boolean)
+        : [];
+      const imageHtml = isSetMenu
+        ? (setImages.length ? buildSetMenuGrid(setImages, row.name) : '<div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>')
+        : (row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`) : '');
+      const nameHtml = isSetMenu
+        ? `<button type="button" class="hover:underline text-left" data-action="open-set-menu" data-menu-id="${row.menuId}">${row.name}</button>`
+        : (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\" class=\"hover:underline\">${row.name}</a>`: row.name);
       wrap.innerHTML = `
         <div class=\"img\" data-element=\"dish-image\">
           ${showMealBadge ? `<span class=\"absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${mealBadgeClass}\">${row.mealLabel || ''}</span>` : ''}
-          ${row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`): ''}
+          ${imageHtml}
           <div class=\"fav-overlay\">
             <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"toggle-favorite\" aria-pressed=\"false\" title=\"お気に入り\"><span class=\"sr-only\">お気に入りに追加</span><span class=\"lucide w-4 h-4\" data-lucide=\"heart\"></span></button>
           </div>
         </div>
         <div class=\"p-3 space-y-2\">
-          <div class=\"wm2-title\" data-element=\"dish-name\">${row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\" class=\"hover:underline\">${row.name}</a>`: row.name}</div>
+          <div class=\"wm2-title\" data-element=\"dish-name\">${nameHtml}</div>
           <div class=\"wm2-badges\" data-element=\"dish-chips\">${chipsHtml}</div>
           <p class=\"text-xs text-gray-500 hidden\" data-element=\"dish-detail\"></p>
         </div>`;
@@ -1329,6 +1420,7 @@
         collector.push({
           id: it?.id ? String(it.id) : '',
           name: it?.name || '',
+          classification: it?.classification || '',
           unit: it?.unit || '',
           amount: scaled,
           people: Math.max(1, Number(people) || 1)
@@ -1339,20 +1431,26 @@
           const m = entry && entry.menu ? entry.menu : entry;
           if (!m) return;
           const extra = Math.max(0, Number(entry && entry.extra) || 0);
-          const basePeople = Number(m.people) > 0 ? Number(m.people) : 1;
-          const multiplier = (people + extra) > 0 ? ((people + extra) / basePeople) : 1;
-          (Array.isArray(m.ingredients) ? m.ingredients : []).forEach((it) => {
-            const raw = Number(it?.amount);
-            const scaled = raw * multiplier;
-            addAmount(agg.ingredients, it?.name || '', scaled, it?.unit);
-            if (!Number.isNaN(raw)) appendEntry(classEntries, it, scaled, people);
-          });
-          (Array.isArray(m.seasoning) ? m.seasoning : []).forEach((it) => {
-            const raw = Number(it?.amount);
-            if (Number.isNaN(raw)) return;
-            const scaled = raw * multiplier;
-            addAmount(agg.seasonings, it?.name || '', scaled, it?.unit);
-            appendEntry(seasoningClassEntries, it, scaled, people);
+          const menusToApply = (m.menuType === 'set' && Array.isArray(m.setMenus) && m.setMenus.length)
+            ? m.setMenus
+            : [m];
+          menusToApply.forEach((targetMenu) => {
+            if (!targetMenu) return;
+            const basePeople = Number(targetMenu.people) > 0 ? Number(targetMenu.people) : 1;
+            const multiplier = (people + extra) > 0 ? ((people + extra) / basePeople) : 1;
+            (Array.isArray(targetMenu.ingredients) ? targetMenu.ingredients : []).forEach((it) => {
+              const raw = Number(it?.amount);
+              const scaled = raw * multiplier;
+              addAmount(agg.ingredients, it?.name || '', scaled, it?.unit);
+              if (!Number.isNaN(raw)) appendEntry(classEntries, it, scaled, people);
+            });
+            (Array.isArray(targetMenu.seasoning) ? targetMenu.seasoning : []).forEach((it) => {
+              const raw = Number(it?.amount);
+              if (Number.isNaN(raw)) return;
+              const scaled = raw * multiplier;
+              addAmount(agg.seasonings, it?.name || '', scaled, it?.unit);
+              appendEntry(seasoningClassEntries, it, scaled, people);
+            });
           });
         });
       };
@@ -1485,6 +1583,135 @@
       reqEl.appendChild(sec('調味料', agg.seasonings));
     }
 
+    const setModalEl = () => document.getElementById('wm2-set-modal');
+    const setModalTitleEl = () => document.getElementById('wm2-set-modal-title');
+    const setModalBodyEl = () => document.getElementById('wm2-set-modal-body');
+    const formatAmountLabel = (item) => {
+      const amount = (typeof item?.amount === 'number' && !Number.isNaN(item.amount))
+        ? Math.round(item.amount * 100) / 100
+        : null;
+      const unit = item?.unit || '';
+      return amount === null ? '' : `${amount}${unit || ''}`;
+    };
+    const buildTag = (text, cls) => {
+      const span = document.createElement('span');
+      span.className = `wm2-set-tag ${cls || ''}`.trim();
+      span.textContent = text;
+      return span;
+    };
+    const closeSetMenuModal = () => {
+      const modal = setModalEl();
+      if (modal) modal.classList.remove('is-open');
+    };
+    const renderSetMenuModal = (menu) => {
+      const modal = setModalEl();
+      const body = setModalBodyEl();
+      const titleEl = setModalTitleEl();
+      if (!modal || !body || !titleEl) return;
+      titleEl.textContent = menu?.name ? `${menu.name} のメニュー` : 'セットメニュー';
+      body.innerHTML = '';
+      const menus = Array.isArray(menu?.setMenus) ? menu.setMenus : [];
+      if (!menus.length) {
+        const empty = document.createElement('div');
+        empty.className = 'text-sm text-gray-500';
+        empty.textContent = '登録されたメニューがありません。';
+        body.appendChild(empty);
+        return;
+      }
+      menus.forEach((m) => {
+        const item = document.createElement('div');
+        item.className = 'wm2-set-item';
+
+        const head = document.createElement('div');
+        head.className = 'wm2-set-item-head';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'wm2-set-thumb';
+        if (m?.imageUrl) {
+          const img = document.createElement('img');
+          img.src = m.imageUrl;
+          img.alt = m.name || 'menu image';
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = 'no image';
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'wm2-set-meta';
+        const title = document.createElement('div');
+        title.className = 'wm2-set-title';
+        title.textContent = m?.name || '名称未設定';
+        meta.appendChild(title);
+
+        const metaRow = document.createElement('div');
+        metaRow.className = 'wm2-set-tags';
+        if (m?.time) metaRow.appendChild(buildTag(`時間 ${String(m.time).endsWith('分') ? m.time : m.time + '分'}`, ''));
+        if (m?.people) metaRow.appendChild(buildTag(`人数 ${m.people}人`, ''));
+        if (m?.junle) metaRow.appendChild(buildTag(`ジャンル ${m.junle}`, ''));
+        if (m?.cook) metaRow.appendChild(buildTag(`調理方法 ${m.cook}`, ''));
+        meta.appendChild(metaRow);
+
+        head.appendChild(thumb);
+        head.appendChild(meta);
+
+        if (m?.url) {
+          const link = document.createElement('a');
+          link.className = 'wm2-set-link';
+          link.href = m.url;
+          link.target = 'menuWindow';
+          link.rel = 'noopener';
+          link.textContent = 'レシピサイト';
+          head.appendChild(link);
+        }
+
+        item.appendChild(head);
+
+        const ingBlock = document.createElement('div');
+        const ingLabel = document.createElement('div');
+        ingLabel.className = 'text-xs font-semibold text-emerald-700 mb-1';
+        ingLabel.textContent = '食材';
+        ingBlock.appendChild(ingLabel);
+        const ingTags = document.createElement('div');
+        ingTags.className = 'wm2-set-tags';
+        (Array.isArray(m?.ingredients) ? m.ingredients : []).forEach((it) => {
+          const label = `${it?.name || ''}${formatAmountLabel(it) ? ' ' + formatAmountLabel(it) : ''}`.trim();
+          if (label) ingTags.appendChild(buildTag(label, 'ing'));
+        });
+        if (!ingTags.children.length) {
+          ingTags.appendChild(buildTag('登録なし', ''));
+        }
+        ingBlock.appendChild(ingTags);
+        item.appendChild(ingBlock);
+
+        const seaBlock = document.createElement('div');
+        const seaLabel = document.createElement('div');
+        seaLabel.className = 'text-xs font-semibold text-amber-700 mb-1';
+        seaLabel.textContent = '調味料';
+        seaBlock.appendChild(seaLabel);
+        const seaTags = document.createElement('div');
+        seaTags.className = 'wm2-set-tags';
+        (Array.isArray(m?.seasoning) ? m.seasoning : []).forEach((it) => {
+          const label = `${it?.name || ''}${formatAmountLabel(it) ? ' ' + formatAmountLabel(it) : ''}`.trim();
+          if (label) seaTags.appendChild(buildTag(label, 'sea'));
+        });
+        if (!seaTags.children.length) {
+          seaTags.appendChild(buildTag('登録なし', ''));
+        }
+        seaBlock.appendChild(seaTags);
+        item.appendChild(seaBlock);
+
+        body.appendChild(item);
+      });
+      modal.classList.add('is-open');
+    };
+
+    const openSetMenuModalById = (menuId) => {
+      if (!menuId) return;
+      const menu = lookup && lookup[menuId] ? lookup[menuId] : null;
+      if (!menu || menu.menuType !== 'set') return;
+      renderSetMenuModal(menu);
+    };
+
     function renderClassSummary(target, entries, formatQty, token, options = {}){
       if (!target) return;
       target.innerHTML = '';
@@ -1520,17 +1747,17 @@
       }
 
       const totals = new Map();
-      entries.forEach(({ id, name, amount, unit, people }) => {
+      entries.forEach(({ id, name, amount, unit, people, classification }) => {
         const grams = convertEntryToGrams({ id, name, amount, unit });
         if (typeof grams !== 'number' || Number.isNaN(grams)) return;
-        const cls = resolveIngredientClass(id, name);
+        const cls = resolveIngredientClass(id, name, classification || '');
         const perPerson = grams / Math.max(1, Number(people) || 1);
         totals.set(cls, (totals.get(cls) || 0) + perPerson);
       });
 
       if (needsSeasoningMeta) {
-        seasoningEntries.forEach(({ id, name, amount, unit, people }) => {
-          const cls = resolveSeasoningClass(id, name);
+        seasoningEntries.forEach(({ id, name, amount, unit, people, classification }) => {
+          const cls = resolveSeasoningClass(id, name, classification || '');
           if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
           const grams = convertSeasoningEntryToGrams({ id, name, amount, unit });
           if (typeof grams !== 'number' || Number.isNaN(grams)) return;
@@ -1643,6 +1870,19 @@
     document.addEventListener('weekplan:rendered', rebuild);
     // Refresh after primary interactions from weekMenu (without disturbing anchor navigation)
     document.addEventListener('click', (e) => {
+      const closeBtn = e.target.closest('#wm2-set-modal [data-close]');
+      if (closeBtn) {
+        e.preventDefault();
+        closeSetMenuModal();
+        return;
+      }
+      const setBtn = e.target.closest('[data-action="open-set-menu"]');
+      if (setBtn) {
+        e.preventDefault();
+        const menuId = setBtn.dataset.menuId || '';
+        openSetMenuModalById(menuId);
+        return;
+      }
       const needsRefresh =
         e.target.closest('[data-menu-option]') ||
         e.target.closest('[data-fav-action="submit"]') ||
@@ -1659,7 +1899,20 @@
         setTimeout(function(){ if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); }, 120);
       }
     });
-    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', rebuild); else rebuild();
+    const checkInitialSetMenu = () => {
+      let targetId = '';
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        targetId = params.get('setMenuId') || '';
+      } catch (_) { targetId = ''; }
+      if (targetId) openSetMenuModalById(targetId);
+    };
+    if (document.readyState==='loading') {
+      document.addEventListener('DOMContentLoaded', () => { rebuild(); checkInitialSetMenu(); });
+    } else {
+      rebuild();
+      checkInitialSetMenu();
+    }
   })();
 
   // Fallback proxy removed to avoid duplicate click handling (caused recursion)

@@ -419,37 +419,73 @@ const SLOT_TYPE_DETAILS = Object.freeze({
   'dinner-flex': { meal: 'dinner', key: 'extras', categoryKey: 'dinnerFlexible' }
 });
 
-const formatMenuDocument = (doc) => ({
-  id: doc._id.toString(),
-  name: doc.name,
-  yomi: doc.yomi || '',
-  kind: doc.kind,
-  cook: doc.cook,
-  people: doc.people,
-  material: !!doc.material,
-  url: doc.url || (`/users/menu/${doc._id.toString()}`),
-  imageUrl: doc.imageUrl || '',
-  menu: doc.menu,
-  junle: doc.junle,
-  time: doc.time,
-  makeAhead: !!doc.makeAhead,
-  basicMenu: !!doc.basicMenu,
-  season: normalizeSeasonList(doc.season || []),
-  ingredients: (doc.ingredients || []).map((item) => ({
-    id: item?.name?._id ? item.name._id.toString() : null,
-    name: item?.name?.ingredient || '',
-    classification: item?.name?.classification || '',
-    amount: typeof item?.amount === 'number' && !Number.isNaN(item.amount) ? item.amount : null,
-    unit: item?.unit || (Array.isArray(item?.name?.unit) ? item.name.unit[0] : '') || ''
-  })),
-  seasoning: (doc.seasoning || []).map((item) => ({
-    id: item?.name?._id ? item.name._id.toString() : null,
-    name: item?.name?.seasoning || '',
-    classification: item?.name?.classification || '',
-    amount: typeof item?.amount === 'number' && !Number.isNaN(item.amount) ? item.amount : null,
-    unit: item?.unit || (Array.isArray(item?.name?.unit) ? item.name.unit[0] : '') || ''
-  }))
-});
+const formatIngredientItems = (items = []) => (items || []).map((item) => ({
+  id: item?.name?._id ? item.name._id.toString() : null,
+  name: item?.name?.ingredient || '',
+  classification: item?.name?.classification || '',
+  amount: typeof item?.amount === 'number' && !Number.isNaN(item.amount) ? item.amount : null,
+  unit: item?.unit || (Array.isArray(item?.name?.unit) ? item.name.unit[0] : '') || ''
+}));
+
+const formatSeasoningItems = (items = []) => (items || []).map((item) => ({
+  id: item?.name?._id ? item.name._id.toString() : null,
+  name: item?.name?.seasoning || '',
+  classification: item?.name?.classification || '',
+  amount: typeof item?.amount === 'number' && !Number.isNaN(item.amount) ? item.amount : null,
+  unit: item?.unit || (Array.isArray(item?.name?.unit) ? item.name.unit[0] : '') || ''
+}));
+
+const formatSetMenuDocument = (doc) => {
+  if (!doc || !doc._id) return null;
+  return {
+    id: doc._id.toString(),
+    name: doc.name || '',
+    yomi: doc.yomi || '',
+    kind: doc.kind || '',
+    cook: doc.cook || '',
+    people: doc.people,
+    material: !!doc.material,
+    url: doc.url || (`/users/menu/${doc._id.toString()}`),
+    imageUrl: doc.imageUrl || '',
+    menu: doc.menu || '',
+    junle: doc.junle || '',
+    time: doc.time,
+    makeAhead: !!doc.makeAhead,
+    basicMenu: !!doc.basicMenu,
+    season: normalizeSeasonList(doc.season || []),
+    menuType: doc.menuType || 'single',
+    setType: doc.setType || '',
+    ingredients: formatIngredientItems(doc.ingredients || []),
+    seasoning: formatSeasoningItems(doc.seasoning || [])
+  };
+};
+
+const formatMenuDocument = (doc) => {
+  const id = doc._id.toString();
+  const isSet = doc.menuType === 'set';
+  return {
+    id,
+    name: doc.name,
+    yomi: doc.yomi || '',
+    kind: doc.kind,
+    cook: doc.cook,
+    people: doc.people,
+    material: !!doc.material,
+    url: isSet ? '' : (doc.url || (`/users/menu/${id}`)),
+    imageUrl: doc.imageUrl || '',
+    menu: doc.menu,
+    junle: doc.junle,
+    time: doc.time,
+    makeAhead: !!doc.makeAhead,
+    basicMenu: !!doc.basicMenu,
+    season: normalizeSeasonList(doc.season || []),
+    menuType: doc.menuType || 'single',
+    setType: doc.setType || '',
+    setMenus: (doc.setMenus || []).map(formatSetMenuDocument).filter(Boolean),
+    ingredients: formatIngredientItems(doc.ingredients || []),
+    seasoning: formatSeasoningItems(doc.seasoning || [])
+  };
+};
 
 const startOfDay = (value) => {
   let date;
@@ -524,6 +560,14 @@ const selectRandomMenu = (menus) => {
 const aggregateSummary = (plan, menuLookup, field) => {
   const accumulator = new Map();
 
+  const resolveAggregationMenus = (menu) => {
+    if (!menu) return [];
+    if (menu.menuType === 'set' && Array.isArray(menu.setMenus) && menu.setMenus.length) {
+      return menu.setMenus;
+    }
+    return [menu];
+  };
+
   const accumulate = (item) => {
     if (!item?.name) return;
     const unit = item.unit || '';
@@ -563,7 +607,9 @@ const aggregateSummary = (plan, menuLookup, field) => {
       const menu = menuLookup[slot.menuId];
       if (!menu) return;
 
-      (menu[field] || []).forEach(accumulate);
+      resolveAggregationMenus(menu).forEach((targetMenu) => {
+        (targetMenu[field] || []).forEach(accumulate);
+      });
     });
   });
 
@@ -1510,6 +1556,14 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
           .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+          .populate({
+            path: 'setMenus',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            populate: [
+              { path: 'ingredients.name', select: 'ingredient unit classification' },
+              { path: 'seasoning.name', select: 'seasoning unit classification' }
+            ]
+          })
           .lean();
         menusByKind[kind] = docs.map(formatMenuDocument);
       })
@@ -1670,6 +1724,14 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         const menuDocs = await Menu.find({ _id: { $in: Array.from(menuIdSet) } })
           .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+          .populate({
+            path: 'setMenus',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            populate: [
+              { path: 'ingredients.name', select: 'ingredient unit classification' },
+              { path: 'seasoning.name', select: 'seasoning unit classification' }
+            ]
+          })
           .lean();
 
         menuDocs.forEach((doc) => {
@@ -2797,6 +2859,14 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
       const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
         .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
         .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+        .populate({
+          path: 'setMenus',
+          select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+          populate: [
+            { path: 'ingredients.name', select: 'ingredient unit classification' },
+            { path: 'seasoning.name', select: 'seasoning unit classification' }
+          ]
+        })
         .lean();
       menusByKind[kind] = docs.map(formatMenuDocument);
     }));
@@ -2843,6 +2913,14 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
         const docs = await Menu.find({ _id: { $in: Array.from(ids) } })
           .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+          .populate({
+            path: 'setMenus',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            populate: [
+              { path: 'ingredients.name', select: 'ingredient unit classification' },
+              { path: 'seasoning.name', select: 'seasoning unit classification' }
+            ]
+          })
           .lean();
         docs.forEach((d)=>{ const f=formatMenuDocument(d); menuLookup[f.id]=f; });
       }
@@ -3878,6 +3956,14 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     const menuDocs = await Menu.find({ _id: { $in: Array.from(menuIdSet) } })
       .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
       .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+      .populate({
+        path: 'setMenus',
+        select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+        populate: [
+          { path: 'ingredients.name', select: 'ingredient unit classification' },
+          { path: 'seasoning.name', select: 'seasoning unit classification' }
+        ]
+      })
       .lean();
 
     currentWeekMenuLookup = menuDocs.reduce((acc, doc) => {
@@ -3890,7 +3976,16 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   // --- Build header image candidates (name + imageUrl) from Menu, excluding this week's images ---
   const usedImageSet = new Set(
     Object.values(currentWeekMenuLookup || {})
-      .map((m) => (m && m.imageUrl ? String(m.imageUrl) : ''))
+      .flatMap((m) => {
+        const urls = [];
+        if (m && m.imageUrl) urls.push(String(m.imageUrl));
+        if (m && m.menuType === 'set' && Array.isArray(m.setMenus)) {
+          m.setMenus.forEach((sm) => {
+            if (sm && sm.imageUrl) urls.push(String(sm.imageUrl));
+          });
+        }
+        return urls;
+      })
       .filter(Boolean)
   );
 
@@ -4024,24 +4119,33 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 
   const aggregateItems = (menus, field) => {
     const itemsMap = new Map(); // name -> Map<unit, { amount, missingAmount }>
+    const resolveAggregationMenus = (menu) => {
+      if (!menu) return [];
+      if (menu.menuType === 'set' && Array.isArray(menu.setMenus) && menu.setMenus.length) {
+        return menu.setMenus;
+      }
+      return [menu];
+    };
     menus.forEach((menu) => {
-      if (!menu) return;
-      (menu[field] || []).forEach((item) => {
-        if (!item?.name) return;
-        const name = item.name;
-        const unit = item.unit || '';
-        const unitMap = itemsMap.get(name) || new Map();
-        const current = unitMap.get(unit) || {
-          amount: 0,
-          missingAmount: false
-        };
-        if (typeof item.amount === 'number' && !Number.isNaN(item.amount)) {
-          current.amount += item.amount;
-        } else {
-          current.missingAmount = true;
-        }
-        unitMap.set(unit, current);
-        itemsMap.set(name, unitMap);
+      resolveAggregationMenus(menu).forEach((targetMenu) => {
+        if (!targetMenu) return;
+        (targetMenu[field] || []).forEach((item) => {
+          if (!item?.name) return;
+          const name = item.name;
+          const unit = item.unit || '';
+          const unitMap = itemsMap.get(name) || new Map();
+          const current = unitMap.get(unit) || {
+            amount: 0,
+            missingAmount: false
+          };
+          if (typeof item.amount === 'number' && !Number.isNaN(item.amount)) {
+            current.amount += item.amount;
+          } else {
+            current.missingAmount = true;
+          }
+          unitMap.set(unit, current);
+          itemsMap.set(name, unitMap);
+        });
       });
     });
 
