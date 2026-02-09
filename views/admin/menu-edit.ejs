@@ -79,7 +79,7 @@
           </label>
         </div>
       </div>
-      <p class="text-xs text-gray-500">セットメニューを選ぶとURL・画像・食材・調味料は登録せず、既存レシピから構成します。</p>
+      <p class="text-xs text-gray-500">セットメニューを選ぶとURL・画像・調味料は登録せず、既存レシピから構成します。必要に応じて食材を追加できます。</p>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- 1. レシピ名* -->
@@ -1008,7 +1008,7 @@ function toggleNutritionInfo(btn) {
     setSectionEnabled('set-menu-section', isSet);
     setSectionEnabled('menu-url-section', !isSet);
     setSectionEnabled('menu-image-section', !isSet);
-    setSectionEnabled('ingredients-section', !isSet);
+    setSectionEnabled('ingredients-section', true);
     setSectionEnabled('seasonings-section', !isSet);
     toggleRequired('menu-url-input', !isSet);
 

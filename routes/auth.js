@@ -562,10 +562,14 @@ const aggregateSummary = (plan, menuLookup, field) => {
 
   const resolveAggregationMenus = (menu) => {
     if (!menu) return [];
-    if (menu.menuType === 'set' && Array.isArray(menu.setMenus) && menu.setMenus.length) {
-      return menu.setMenus;
+    const list = [];
+    if (Array.isArray(menu.ingredients) && menu.ingredients.length) list.push(menu);
+    if (Array.isArray(menu.seasoning) && menu.seasoning.length && !list.includes(menu)) list.push(menu);
+    if (menu.menuType === 'set' && Array.isArray(menu.setMenus)) {
+      menu.setMenus.forEach((m) => { if (m) list.push(m); });
     }
-    return [menu];
+    if (!list.length) list.push(menu);
+    return list;
   };
 
   const accumulate = (item) => {
@@ -4121,10 +4125,14 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     const itemsMap = new Map(); // name -> Map<unit, { amount, missingAmount }>
     const resolveAggregationMenus = (menu) => {
       if (!menu) return [];
-      if (menu.menuType === 'set' && Array.isArray(menu.setMenus) && menu.setMenus.length) {
-        return menu.setMenus;
+      const list = [];
+      if (Array.isArray(menu.ingredients) && menu.ingredients.length) list.push(menu);
+      if (Array.isArray(menu.seasoning) && menu.seasoning.length && !list.includes(menu)) list.push(menu);
+      if (menu.menuType === 'set' && Array.isArray(menu.setMenus)) {
+        menu.setMenus.forEach((m) => { if (m) list.push(m); });
       }
-      return [menu];
+      if (!list.length) list.push(menu);
+      return list;
     };
     menus.forEach((menu) => {
       resolveAggregationMenus(menu).forEach((targetMenu) => {

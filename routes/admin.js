@@ -914,14 +914,12 @@ router.post('/menu-new', async (req, res) => {
     const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
     const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
 
-    // 食材の構造を整える
-    const ingredients = normalizedMenuType === 'set'
-      ? []
-      : ingredient_ids.map((id, index) => ({
-          name: id,
-          amount: ingredient_amounts[index],
-          unit: ingredient_units[index]
-        }));
+    // 食材の構造を整える（セットメニューでも追加可）
+    const ingredients = ingredient_ids.map((id, index) => ({
+      name: id,
+      amount: ingredient_amounts[index],
+      unit: ingredient_units[index]
+    }));
 
     // 調味料の構造を整える
     const seasonings = normalizedMenuType === 'set'
@@ -1118,14 +1116,12 @@ router.post('/menu-edit/:id', async (req, res) => {
     const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
     const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
 
-    // 食材の構造を整える
-    const ingredients = normalizedMenuType === 'set'
-      ? []
-      : ingredient_ids.map((id, index) => ({
-          name: id,
-          amount: ingredient_amounts[index],
-          unit: ingredient_units[index]
-        }));
+    // 食材の構造を整える（セットメニューでも追加可）
+    const ingredients = ingredient_ids.map((id, index) => ({
+      name: id,
+      amount: ingredient_amounts[index],
+      unit: ingredient_units[index]
+    }));
 
     // 調味料の構造を整える
     const seasonings = normalizedMenuType === 'set'

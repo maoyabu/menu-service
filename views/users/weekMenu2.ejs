@@ -577,35 +577,42 @@
     const calcMenuClassTotals = (menu, participantCount = 1) => {
       const totals = new Map();
       if (!menu) return { totals, seasonal: false };
-      const basePeople = Number(menu.people) > 0 ? Number(menu.people) : 1;
-      const multiplier = participantCount > 0 ? (participantCount / basePeople) : 1;
-      const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
-      ingredients.forEach((it) => {
-        const raw = Number(it?.amount);
-        if (!Number.isFinite(raw)) return;
-        const scaled = raw * multiplier;
-        const id = (it && (it.id || it._id || it.name?._id || it.name)) ? String(it.id || it._id || it.name?._id || it.name) : '';
-        const name = it?.ingredient || it?.name?.ingredient || it?.name?.name || it?.name || '';
-        const grams = convertEntryToGrams({ id, name, amount: scaled, unit: it?.unit });
-        if (!grams || !Number.isFinite(grams)) return;
-        const cls = resolveIngredientClass(id, name, it?.classification || '');
-        totals.set(cls, (totals.get(cls) || 0) + grams);
+      const menusToApply = (menu.menuType === 'set' && Array.isArray(menu.setMenus) && menu.setMenus.length)
+        ? [menu, ...menu.setMenus]
+        : [menu];
+      let seasonalFlag = false;
+      menusToApply.forEach((target) => {
+        if (!target) return;
+        seasonalFlag = seasonalFlag || menuHasSeasonal(target);
+        const basePeople = Number(target.people) > 0 ? Number(target.people) : 1;
+        const multiplier = participantCount > 0 ? (participantCount / basePeople) : 1;
+        const ingredients = Array.isArray(target.ingredients) ? target.ingredients : [];
+        ingredients.forEach((it) => {
+          const raw = Number(it?.amount);
+          if (!Number.isFinite(raw)) return;
+          const scaled = raw * multiplier;
+          const id = (it && (it.id || it._id || it.name?._id || it.name)) ? String(it.id || it._id || it.name?._id || it.name) : '';
+          const name = it?.ingredient || it?.name?.ingredient || it?.name?.name || it?.name || '';
+          const grams = convertEntryToGrams({ id, name, amount: scaled, unit: it?.unit });
+          if (!grams || !Number.isFinite(grams)) return;
+          const cls = resolveIngredientClass(id, name, it?.classification || '');
+          totals.set(cls, (totals.get(cls) || 0) + grams);
+        });
+        const seasonings = Array.isArray(target.seasoning) ? target.seasoning : [];
+        seasonings.forEach((it) => {
+          const raw = Number(it?.amount);
+          if (!Number.isFinite(raw)) return;
+          const scaled = raw * multiplier;
+          const id = (it && (it.id || it._id || it.name?._id || it.name)) ? String(it.id || it._id || it.name?._id || it.name) : '';
+          const name = it?.seasoning || it?.name?.seasoning || it?.name?.name || it?.name || '';
+          const cls = resolveSeasoningClass(id, name, it?.classification || '');
+          if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
+          const grams = convertSeasoningEntryToGrams({ id, name, amount: scaled, unit: it?.unit });
+          if (!grams || !Number.isFinite(grams)) return;
+          totals.set(cls, (totals.get(cls) || 0) + grams);
+        });
       });
-      // capture seasoning grams for classes we count
-      const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
-      seasonings.forEach((it) => {
-        const raw = Number(it?.amount);
-        if (!Number.isFinite(raw)) return;
-        const scaled = raw * multiplier;
-        const id = (it && (it.id || it._id || it.name?._id || it.name)) ? String(it.id || it._id || it.name?._id || it.name) : '';
-        const name = it?.seasoning || it?.name?.seasoning || it?.name?.name || it?.name || '';
-        const cls = resolveSeasoningClass(id, name, it?.classification || '');
-        if (!SEASONING_CAPTURE_CLASSES.has(cls)) return;
-        const grams = convertSeasoningEntryToGrams({ id, name, amount: scaled, unit: it?.unit });
-        if (!grams || !Number.isFinite(grams)) return;
-        totals.set(cls, (totals.get(cls) || 0) + grams);
-      });
-      return { totals, seasonal: menuHasSeasonal(menu) };
+      return { totals, seasonal: seasonalFlag };
     };
     const computeShortages = (snapshot) => {
       if (!snapshot) return [];
@@ -1432,7 +1439,7 @@
           if (!m) return;
           const extra = Math.max(0, Number(entry && entry.extra) || 0);
           const menusToApply = (m.menuType === 'set' && Array.isArray(m.setMenus) && m.setMenus.length)
-            ? m.setMenus
+            ? [m, ...m.setMenus]
             : [m];
           menusToApply.forEach((targetMenu) => {
             if (!targetMenu) return;
