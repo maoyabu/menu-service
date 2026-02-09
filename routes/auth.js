@@ -3594,6 +3594,9 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
 
     const groupId = planDoc.group?._id || planDoc.group;
     if (!groupId) return res.status(404).json({ error: '対象のグループが見つかりません。' });
+    if (!planDoc.createdBy) {
+      planDoc.createdBy = planDoc.group?.createdBy || req.user?._id || undefined;
+    }
 
     // 権限: 対象グループのメンバー（または作成者）であること
     const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
@@ -3743,6 +3746,9 @@ router.post('/users/week-menu/participants/reset', isLoggedIn, async (req, res) 
 
     // グループ管理者のみ許可
     const group = planDoc.group;
+    if (!planDoc.createdBy) {
+      planDoc.createdBy = group?.createdBy || req.user?._id || undefined;
+    }
     const isOwner = group && String(group.createdBy) === String(req.user._id);
     if (!isOwner) return res.status(403).json({ error: '管理者のみ実行可能です。' });
 
