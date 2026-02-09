@@ -3592,9 +3592,12 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
     const planDoc = await WeeklyMenuPlan.findById(planId).populate('group').exec();
     if (!planDoc) return res.status(404).json({ error: '対象の週次メニューが見つかりません。' });
 
+    const groupId = planDoc.group?._id || planDoc.group;
+    if (!groupId) return res.status(404).json({ error: '対象のグループが見つかりません。' });
+
     // 権限: 対象グループのメンバー（または作成者）であること
     const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
-    const belongs = groups.some((g) => String(g._id) === String(planDoc.group._id));
+    const belongs = groups.some((g) => String(g._id) === String(groupId));
     if (!belongs) return res.status(403).json({ error: '権限がありません。' });
 
     // 該当エントリを取得/作成
@@ -3641,9 +3644,10 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
 
     // ---- メール通知ロジック ----
     try {
-      const groupId = planDoc.group._id || planDoc.group;
+      const targetGroupId = planDoc.group?._id || planDoc.group || groupId;
+      if (!targetGroupId) throw new Error('group missing');
       // 送信対象はグループ作成者 + メンバーをフル取得してから抽出（メール可の全員、自分除外）
-      const groupFull = await Group.findById(groupId)
+      const groupFull = await Group.findById(targetGroupId)
         .populate({ path: 'createdBy', select: 'email displayname username isMail' })
         .populate({ path: 'members', select: 'email displayname username isMail' })
         .lean();
@@ -3651,7 +3655,7 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
       if (groupFull?.createdBy) rawUsers.push(groupFull.createdBy);
       if (Array.isArray(groupFull?.members)) rawUsers.push(...groupFull.members);
       // 逆引き（User 側の groups にこの groupId を持つユーザーも対象）
-      const userSideMembers = await User.find({ groups: groupId })
+      const userSideMembers = await User.find({ groups: targetGroupId })
         .select('email displayname username isMail')
         .lean();
       rawUsers.push(...(userSideMembers || []));
@@ -3687,8 +3691,8 @@ router.post('/users/week-menu/participants', isLoggedIn, async (req, res) => {
             const scheduledAt = scheduleFor(false);
             for (const r of toList) {
               await Notification.findOneAndUpdate(
-                { group: groupId, recipient: r.id, actor: req.user._id, type: 'notEating', scheduledAt },
-                { $setOnInsert: { group: groupId, recipient: r.id, actor: req.user._id, type: 'notEating', scheduledAt }, $push: { items: { date: targetDate, mealType: meal, reason: (typeof reason === 'string' ? reason.trim() : '') } } },
+                { group: targetGroupId, recipient: r.id, actor: req.user._id, type: 'notEating', scheduledAt },
+                { $setOnInsert: { group: targetGroupId, recipient: r.id, actor: req.user._id, type: 'notEating', scheduledAt }, $push: { items: { date: targetDate, mealType: meal, reason: (typeof reason === 'string' ? reason.trim() : '') } } },
                 { upsert: true }
               );
             }
