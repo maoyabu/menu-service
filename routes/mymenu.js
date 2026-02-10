@@ -1227,7 +1227,10 @@ router.get('/original', async (req, res, next) => {
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
     ].filter(Boolean)));
     const menuNames = await Menu.find().distinct('menu');
-    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames });
+    const setMenuCandidates = await Menu.find({ menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
+      .select('name menu kind junle cook imageUrl menuType')
+      .lean();
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, setMenuCandidates });
   } catch (err) { next(err); }
 });
 
@@ -1278,7 +1281,10 @@ router.get('/duplicate/:id', async (req, res, next) => {
     // Render original creation view with prefill
     const myOriginalCount = await Mymenu.countDocuments({ user: req.user._id, sourceType: 'original' });
     const menuNames = await Menu.find().distinct('menu');
-    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, prefillOriginal: prefill });
+    const setMenuCandidates = await Menu.find({ menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
+      .select('name menu kind junle cook imageUrl menuType')
+      .lean();
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, setMenuCandidates, prefillOriginal: prefill });
   } catch (err) { next(err); }
 });
 
@@ -1291,7 +1297,11 @@ router.get('/original-list', async (req, res, next) => {
       criteria.$or = [ { hidden: { $exists: false } }, { hidden: false } ];
     }
     const list = await Mymenu.find(criteria)
-      .populate('menu', 'name imageUrl kind junle cook update_date entry_date')
+      .populate({
+        path: 'menu',
+        select: 'name imageUrl kind junle cook update_date entry_date menuType setMenus',
+        populate: { path: 'setMenus', select: 'imageUrl menuType' }
+      })
       .sort({ update_date: -1, entry_date: -1 })
       .lean();
     res.render('users/myMenuOriginalList', { list, showHidden });
@@ -1314,6 +1324,7 @@ router.post('/original', async (req, res, next) => {
       imageUrl, time, people,
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
+      menuType = 'single', setType = '', set_menu_ids = [],
       instruction = '',
       comment = '',
       favorite = 'false', frequency = '3',
@@ -1334,11 +1345,35 @@ router.post('/original', async (req, res, next) => {
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
 
+    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+    let setMenus = [];
+    if (normalizedMenuType === 'set') {
+      const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
+      const candidateIds = rawSetMenus
+        .map((id) => String(id || '').trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id));
+      const uniqueIds = Array.from(new Set(candidateIds));
+      if (uniqueIds.length) {
+        const validMenus = await Menu.find({ _id: { $in: uniqueIds }, menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
+          .select('_id')
+          .lean();
+        setMenus = validMenus.map((m) => m._id);
+      }
+    }
+
     // オリジナルは URL なし。作り方とコメントを別々に保存
     const newMenu = await Menu.create({
       name, yomi, menu, kind, junle, cook,
-      url: '', imageUrl, time, people: Number(people) || 1,
-      ingredients, seasoning: seasonings,
+      menuType: normalizedMenuType,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setMenus,
+      url: '',
+      imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
+      time,
+      people: Number(people) || 1,
+      ingredients,
+      seasoning: normalizedMenuType === 'set' ? [] : seasonings,
       instructionText: String(instruction || ''),
       comment: String(comment || ''),
       makeAhead: String(makeAhead) === 'true',
@@ -1599,13 +1634,18 @@ router.get('/edit/:menuId', async (req, res, next) => {
       req.flash('error', '編集権限がありません');
       return res.redirect('/users/my-menu/shared-register?fav=mine');
     }
-    const menuDoc = await Menu.findById(menuId).lean();
+    const menuDoc = await Menu.findById(menuId)
+      .populate({ path: 'setMenus', select: 'name menu kind junle cook imageUrl menuType' })
+      .lean();
     if (!menuDoc) {
       req.flash('error', 'メニューが見つかりません');
       return res.redirect('/users/my-menu/shared-register?fav=mine');
     }
     const { kinds, junles, cooks } = await getFacetLists();
     const menuNames = await Menu.find().distinct('menu');
+    const setMenuCandidates = await Menu.find({ _id: { $ne: menuId }, menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
+      .select('name menu kind junle cook imageUrl menuType')
+      .lean();
     // グローバル + 自グループの候補を表示
     const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
@@ -1636,7 +1676,7 @@ router.get('/edit/:menuId', async (req, res, next) => {
     const publicUrl = (owned && owned.share && owned.shareScope === 'public' && owned.publicToken)
       ? `${baseUrl}/users/my-menu/public/${owned.publicToken}`
       : '';
-    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned, instructionText, commentText, publicUrl });
+    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned, instructionText, commentText, publicUrl, setMenuCandidates });
   } catch (err) { next(err); }
 });
 
@@ -1677,7 +1717,10 @@ router.post('/edit/:menuId', async (req, res, next) => {
       ingredient_units = [],
       seasoning_ids = [],
       seasoning_amounts = [],
-      seasoning_units = []
+      seasoning_units = [],
+      menuType = 'single',
+      setType = '',
+      set_menu_ids = []
     } = req.body;
 
     const ingredients = (Array.isArray(ingredient_ids) ? ingredient_ids : [ingredient_ids]).filter(Boolean).map((id, i) => ({
@@ -1690,12 +1733,41 @@ router.post('/edit/:menuId', async (req, res, next) => {
       amount: Array.isArray(seasoning_amounts) ? seasoning_amounts[i] : seasoning_amounts,
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
+    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+    let setMenus = [];
+    if (normalizedMenuType === 'set') {
+      const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
+      const candidateIds = rawSetMenus
+        .map((id) => String(id || '').trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .filter((id) => id !== String(menuId));
+      const uniqueIds = Array.from(new Set(candidateIds));
+      if (uniqueIds.length) {
+        const validMenus = await Menu.find({ _id: { $in: uniqueIds }, menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
+          .select('_id')
+          .lean();
+        setMenus = validMenus.map((m) => m._id);
+      }
+    }
     const updatePayload = {
-      name, kind, junle, cook, menu, url, imageUrl, time, people: Number(people) || 1,
+      name,
+      kind,
+      junle,
+      cook,
+      menu,
+      menuType: normalizedMenuType,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setMenus,
+      url: normalizedMenuType === 'set' ? '' : url,
+      imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
+      time,
+      people: Number(people) || 1,
       comment,
       makeAhead: String(makeAhead) === 'true',
       basicMenu: String(basicMenu) === 'true',
-      ingredients, seasoning: seasonings
+      ingredients,
+      seasoning: normalizedMenuType === 'set' ? [] : seasonings
     };
     if (owned && owned.sourceType === 'original') {
       updatePayload.instructionText = String(instruction || '');
