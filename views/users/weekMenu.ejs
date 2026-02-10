@@ -1,5 +1,10 @@
 <%
-  const serialize = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
+  const serialize = (value) =>
+    JSON.stringify(value)
+      .replace(/</g, '\\u003c')
+      .replace(/'/g, '\\u0027')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
   const displayRow = (menuLookup, slot) => {
     if (!slot) {
       return {
@@ -584,13 +589,13 @@
 
 <script>
   window.weekMenuData = {
-    plan: JSON.parse('<%- serialize(plan) %>'),
-    menusByCategory: JSON.parse('<%- serialize(menusByCategory) %>'),
-    modalMenus: JSON.parse('<%- serialize(typeof modalMenus !== "undefined" ? modalMenus : []) %>'),
-    menuLookup: JSON.parse('<%- serialize(menuLookup) %>'),
-    categoryConfig: JSON.parse('<%- serialize(categoryConfig) %>'),
-    allKinds: JSON.parse('<%- serialize(typeof allKinds !== "undefined" ? allKinds : []) %>'),
-    weekDates: JSON.parse('<%- serialize(weekDates) %>'),
+    plan: <%- serialize(plan) %>,
+    menusByCategory: <%- serialize(menusByCategory) %>,
+    modalMenus: <%- serialize(typeof modalMenus !== "undefined" ? modalMenus : []) %>,
+    menuLookup: <%- serialize(menuLookup) %>,
+    categoryConfig: <%- serialize(categoryConfig) %>,
+    allKinds: <%- serialize(typeof allKinds !== "undefined" ? allKinds : []) %>,
+    weekDates: <%- serialize(weekDates) %>,
     weekRangeLabel: <%- serialize(weekRangeLabel) %>,
     currentGroupId: <%- serialize(currentGroupId || '') %>,
     groupSize: <%- serialize(groupSize || 1) %>,
@@ -601,16 +606,16 @@
     // 換算用のグループ名とメンバー名を保持
     currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
     currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>,
-    myMenuIds: JSON.parse('<%- serialize(myMenuIds || []) %>'),
+    myMenuIds: <%- serialize(myMenuIds || []) %>,
     // 参加者・ユーザー情報
     currentUserId: <%- serialize(typeof currentUserId !== 'undefined' ? currentUserId : '') %>,
-    currentGroupUsers: JSON.parse('<%- serialize(typeof currentGroupUsers !== "undefined" ? currentGroupUsers : []) %>'),
-    guidelineTotals: JSON.parse('<%- serialize(typeof guidelineTotals !== "undefined" ? guidelineTotals : {}) %>'),
-    guidelineByUser: JSON.parse('<%- serialize(typeof guidelineByUser !== "undefined" ? guidelineByUser : {}) %>'),
+    currentGroupUsers: <%- serialize(typeof currentGroupUsers !== "undefined" ? currentGroupUsers : []) %>,
+    guidelineTotals: <%- serialize(typeof guidelineTotals !== "undefined" ? guidelineTotals : {}) %>,
+    guidelineByUser: <%- serialize(typeof guidelineByUser !== "undefined" ? guidelineByUser : {}) %>,
     currentUserIsGroupOwner: <%- serialize(typeof currentUserIsGroupOwner !== 'undefined' ? currentUserIsGroupOwner : false) %>,
-    participantsByMeal: JSON.parse('<%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>'),
-    doRecords: JSON.parse('<%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>'),
-    menuFilterSettings: JSON.parse('<%- serialize(typeof weekMenuSettings !== "undefined" ? weekMenuSettings : {}) %>')
+    participantsByMeal: <%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>,
+    doRecords: <%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>,
+    menuFilterSettings: <%- serialize(typeof weekMenuSettings !== "undefined" ? weekMenuSettings : {}) %>
   };
 </script>
 

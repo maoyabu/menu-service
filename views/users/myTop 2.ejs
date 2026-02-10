@@ -1,5 +1,10 @@
 <%
-  const serialize = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
+  const serialize = (value) =>
+    JSON.stringify(value)
+      .replace(/</g, '\\u003c')
+      .replace(/'/g, '\\u0027')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
   const currentUserName = (typeof user !== 'undefined' && user)
     ? (user.displayname || user.username || user.email || 'ユーザー')
     : 'ユーザー';
