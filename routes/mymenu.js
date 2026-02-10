@@ -100,7 +100,11 @@ router.get('/', async (req, res, next) => {
       .lean();
 
     const myOriginalSamples = await Mymenu.find({ user: userId, sourceType: 'original' })
-      .populate('menu', 'name imageUrl kind')
+      .populate({
+        path: 'menu',
+        select: 'name imageUrl kind menuType setMenus',
+        populate: { path: 'setMenus', select: 'imageUrl' }
+      })
       .sort({ update_date: -1, entry_date: -1 })
       .limit(4)
       .lean();
@@ -123,7 +127,11 @@ router.get('/', async (req, res, next) => {
         group: currentGroup._id,
         user: { $ne: userId }
       })
-        .populate('menu', 'name imageUrl kind junle cook')
+        .populate({
+          path: 'menu',
+          select: 'name imageUrl kind junle cook menuType setMenus',
+          populate: { path: 'setMenus', select: 'imageUrl' }
+        })
         .populate('user', 'displayname username')
         .sort({ update_date: -1, entry_date: -1 })
         .lean();
