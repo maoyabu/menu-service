@@ -183,16 +183,30 @@
               <option value="">すべて</option>
             </select>
           </div>
-          <div class="flex items-end">
-            <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
-              <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
-              <span>つくりおきのみ</span>
-            </label>
-            <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap ml-3">
-              <input type="checkbox" data-menu-modal-basic class="w-4 h-4 text-blue-600 border-gray-300 rounded">
-              <span>基本メニューのみ</span>
+          <div class="flex flex-wrap items-end gap-3">
+            <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+              <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                <span>つくりおきのみ</span>
+              </label>
+              <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                <input type="checkbox" data-menu-modal-basic class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                <span>基本メニューのみ</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3 text-sm text-gray-700" data-menu-modal-filter-box>
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">このメニューで絞り込み中</p>
+            <label class="inline-flex items-center gap-2 text-xs font-semibold text-amber-800">
+              <input type="checkbox" data-menu-modal-filter-toggle class="w-4 h-4 text-amber-600 border-gray-300 rounded">
+              <span>この絞り込みを一括解除</span>
             </label>
           </div>
+          <div class="mt-2 flex flex-wrap gap-2" data-menu-modal-filter-list></div>
+          <p class="mt-2 text-xs text-amber-700/80" data-menu-modal-filter-empty>絞り込み対象がありません。</p>
         </div>
 
         <div class="hidden rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800" data-menu-modal-current>
@@ -598,7 +612,8 @@
     guidelineByUser: JSON.parse('<%- serialize(typeof guidelineByUser !== "undefined" ? guidelineByUser : {}) %>'),
     currentUserIsGroupOwner: <%- serialize(typeof currentUserIsGroupOwner !== 'undefined' ? currentUserIsGroupOwner : false) %>,
     participantsByMeal: JSON.parse('<%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>'),
-    doRecords: JSON.parse('<%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>')
+    doRecords: JSON.parse('<%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>'),
+    menuFilterSettings: JSON.parse('<%- serialize(typeof weekMenuSettings !== "undefined" ? weekMenuSettings : {}) %>')
   };
 </script>
 
@@ -1799,6 +1814,10 @@
       cookSelect: document.querySelector('[data-menu-modal-cook]'),
       prepOnly: document.querySelector('[data-menu-modal-prep]'),
       basicOnly: document.querySelector('[data-menu-modal-basic]'),
+      filterBox: document.querySelector('[data-menu-modal-filter-box]'),
+      filterList: document.querySelector('[data-menu-modal-filter-list]'),
+      filterEmpty: document.querySelector('[data-menu-modal-filter-empty]'),
+      filterToggle: document.querySelector('[data-menu-modal-filter-toggle]'),
       list: document.querySelector('[data-menu-modal-list]'),
       empty: document.querySelector('[data-menu-modal-empty]'),
       currentSection: document.querySelector('[data-menu-modal-current]'),
@@ -1818,8 +1837,54 @@
         junle: '',
         cook: '',
         prepOnly: false,
-        basicOnly: false
+        basicOnly: false,
+        ignoreFilter: false
+      },
+      menuFilter: {
+        mealType: '',
+        enabled: false,
+        allowedMenus: [],
+        activeMenus: []
       }
+    };
+
+    const getMenuFilterSettings = () => {
+      const settings = (window.weekMenuData && window.weekMenuData.menuFilterSettings) || {};
+      const normalize = (value) => (Array.isArray(value) ? value : (value ? [value] : []))
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .filter(Boolean);
+      return {
+        breakfastMenus: normalize(settings.breakfastMenus),
+        lunchMenus: normalize(settings.lunchMenus),
+        breakfastFilterEnabled: settings.breakfastFilterEnabled !== false,
+        lunchFilterEnabled: settings.lunchFilterEnabled !== false
+      };
+    };
+
+    const getMealTypeFromCategory = (categoryKey) => {
+      if (!categoryKey) return '';
+      if (String(categoryKey).startsWith('breakfast')) return 'breakfast';
+      if (String(categoryKey).startsWith('lunch')) return 'lunch';
+      return '';
+    };
+
+    const getBaseModalOptions = () => {
+      let options = modalState.options.slice();
+      const filter = modalState.menuFilter;
+      if (filter && filter.enabled) {
+        const allowed = new Set((filter.activeMenus || []).filter(Boolean));
+        if (allowed.size > 0) {
+          const currentId = modalState.currentMenu?.id || '';
+          options = options.filter((menu) => {
+            if (!menu) return false;
+            if (currentId && menu.id === currentId) return true;
+            const key = menu.menu ? String(menu.menu).trim() : '';
+            if (!key) return false;
+            return allowed.has(key);
+          });
+        }
+      }
+      return options;
     };
 
     // 全カテゴリの kinds を横断的に集約（明示的に「デザート」も含める）
@@ -1868,6 +1933,68 @@
       }
     };
 
+    const refreshModalSelectOptions = () => {
+      const baseOptions = getBaseModalOptions();
+      const kindsFromOptions = baseOptions.map((menu) => menu.kind);
+      const allKinds = [...kindsFromOptions, ...getGlobalKinds()];
+      populateSelectOptions(modalElements.kindSelect, allKinds, modalState.filters.kind || '');
+      populateSelectOptions(modalElements.junleSelect, baseOptions.map((menu) => menu.junle), modalState.filters.junle || '');
+      populateSelectOptions(modalElements.cookSelect, baseOptions.map((menu) => menu.cook), modalState.filters.cook || '');
+      if (modalElements.kindSelect) modalState.filters.kind = modalElements.kindSelect.value || '';
+      if (modalElements.junleSelect) modalState.filters.junle = modalElements.junleSelect.value || '';
+      if (modalElements.cookSelect) modalState.filters.cook = modalElements.cookSelect.value || '';
+    };
+
+    const renderMenuFilterBox = () => {
+      if (!modalElements.filterBox || !modalElements.filterList || !modalElements.filterToggle || !modalElements.filterEmpty) return;
+      const filter = modalState.menuFilter || { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
+      const mealType = filter.mealType || '';
+      const allowedMenus = (filter.allowedMenus || []).filter(Boolean);
+      const allowSet = new Set(allowedMenus);
+      const activeSet = new Set((filter.activeMenus || []).filter(Boolean));
+      const showBox = mealType === 'breakfast' || mealType === 'lunch';
+      if (!showBox) {
+        modalElements.filterBox.classList.add('hidden');
+        return;
+      }
+      modalElements.filterBox.classList.remove('hidden');
+      modalElements.filterToggle.checked = !filter.enabled;
+      modalElements.filterList.innerHTML = '';
+
+      if (!allowSet.size) {
+        modalElements.filterEmpty.classList.remove('hidden');
+      } else {
+        modalElements.filterEmpty.classList.add('hidden');
+        allowedMenus.slice().sort((a, b) => a.localeCompare(b, 'ja')).forEach((label) => {
+          const wrap = document.createElement('label');
+          wrap.className = 'inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-semibold text-amber-800';
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.checked = activeSet.has(label);
+          input.value = label;
+          input.className = 'w-4 h-4 text-amber-600 border-gray-300 rounded';
+          input.addEventListener('change', () => {
+            const next = new Set((modalState.menuFilter.activeMenus || []).filter(Boolean));
+            if (!input.checked) next.delete(label);
+            else next.add(label);
+            modalState.menuFilter.activeMenus = Array.from(next);
+            refreshModalSelectOptions();
+            renderMenuFilterBox();
+            renderModalList();
+          });
+          if (!filter.enabled) input.disabled = true;
+          const span = document.createElement('span');
+          span.textContent = label;
+          wrap.appendChild(input);
+          wrap.appendChild(span);
+          modalElements.filterList.appendChild(wrap);
+        });
+      }
+      modalElements.filterList.querySelectorAll('input').forEach((el) => {
+        el.disabled = !filter.enabled;
+      });
+    };
+
     const applyModalFilters = () => {
       const { search, kind, junle, cook, prepOnly, basicOnly } = modalState.filters;
       const query = search.trim().toLowerCase();
@@ -1877,7 +2004,8 @@
         cook: cook || ''
       };
 
-      return modalState.options.filter((menu) => {
+      const baseOptions = getBaseModalOptions();
+      return baseOptions.filter((menu) => {
         if (!menu) return false;
         if (activeFilters.kind && menu.kind !== activeFilters.kind) return false;
         if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
@@ -1969,7 +2097,8 @@
       modalState.categoryKey = '';
       modalState.options = [];
       modalState.currentMenu = null;
-      modalState.filters = { search: '', kind: '', junle: '', cook: '', prepOnly: false, basicOnly: false };
+      modalState.filters = { search: '', kind: '', junle: '', cook: '', prepOnly: false, basicOnly: false, ignoreFilter: false };
+      modalState.menuFilter = { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
       if (modalElements.overlay) {
         modalElements.overlay.classList.add('hidden');
         modalElements.overlay.setAttribute('aria-hidden', 'true');
@@ -2035,38 +2164,39 @@
         }, new Map())
       ).map(([, value]) => value);
 
+      const settings = getMenuFilterSettings();
+      const mealType = getMealTypeFromCategory(categoryKey);
+      const filterEnabled = mealType === 'breakfast'
+        ? settings.breakfastFilterEnabled !== false
+        : (mealType === 'lunch' ? settings.lunchFilterEnabled !== false : false);
+      const allowedMenus = mealType === 'breakfast'
+        ? (settings.breakfastMenus || [])
+        : (mealType === 'lunch' ? (settings.lunchMenus || []) : []);
+
       modalState.isOpen = true;
       modalState.slot = slot;
       modalState.categoryKey = categoryKey;
       modalState.currentMenu = currentMenu;
       modalState.options = deduped.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      const allowedList = Array.isArray(allowedMenus) ? allowedMenus : [];
+      modalState.menuFilter = {
+        mealType,
+        enabled: !!filterEnabled,
+        allowedMenus: allowedList,
+        activeMenus: allowedList.slice()
+      };
       modalState.filters = {
         search: '',
         kind: '',
         junle: currentMenu?.junle || '',
         cook: '',
         prepOnly: false,
-        basicOnly: false
+        basicOnly: false,
+        ignoreFilter: false
       };
 
-      // 種類(kind) はメニュー由来 + グローバル定義（デザート等）を統合
-      const kindsFromOptions = modalState.options.map((menu) => menu.kind);
-      const allKinds = [...kindsFromOptions, ...getGlobalKinds()];
-      populateSelectOptions(
-        modalElements.kindSelect,
-        allKinds,
-        ''
-      );
-      populateSelectOptions(
-        modalElements.junleSelect,
-        modalState.options.map((menu) => menu.junle),
-        modalState.filters.junle
-      );
-      populateSelectOptions(
-        modalElements.cookSelect,
-        modalState.options.map((menu) => menu.cook),
-        ''
-      );
+      refreshModalSelectOptions();
+      renderMenuFilterBox();
 
       if (
         modalState.filters.junle &&
@@ -2094,6 +2224,8 @@
       if (modalElements.basicOnly) {
         modalElements.basicOnly.checked = false;
       }
+
+      renderMenuFilterBox();
 
       modalElements.overlay.classList.remove('hidden');
       modalElements.overlay.setAttribute('aria-hidden', 'false');
@@ -2161,6 +2293,16 @@
     if (modalElements.basicOnly) {
       modalElements.basicOnly.addEventListener('change', (event) => {
         modalState.filters.basicOnly = !!event.target.checked;
+        renderModalList();
+      });
+    }
+
+    if (modalElements.filterToggle) {
+      modalElements.filterToggle.addEventListener('change', (event) => {
+        const disabled = !!event.target.checked;
+        modalState.menuFilter.enabled = !disabled;
+        refreshModalSelectOptions();
+        renderMenuFilterBox();
         renderModalList();
       });
     }

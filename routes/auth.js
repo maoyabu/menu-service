@@ -56,6 +56,38 @@ const DEFAULT_GUIDELINE_TOTALS = {
 };
 const FOOD_CLASSIFICATIONS = Object.keys(DEFAULT_GUIDELINE_TOTALS);
 
+const WEEK_MENU_SETTINGS_DEFAULTS = {
+  breakfastMenus: ['モーニング'],
+  lunchMenus: [
+    'カレーライス',
+    '丼',
+    'パスタ',
+    'うどん',
+    '焼きそば',
+    'そうめん',
+    'そば',
+    'ちゃんぽん',
+    'ラーメン',
+    'ハンバーガー',
+    'サンドイッチ',
+    '定食'
+  ],
+  breakfastFilterEnabled: true,
+  lunchFilterEnabled: true
+};
+
+const normalizeWeekMenuSettings = (raw = {}) => {
+  const toArray = (value) => (Array.isArray(value) ? value : (value ? [value] : []))
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean);
+  return {
+    breakfastMenus: toArray(raw.breakfastMenus).length ? toArray(raw.breakfastMenus) : WEEK_MENU_SETTINGS_DEFAULTS.breakfastMenus.slice(),
+    lunchMenus: toArray(raw.lunchMenus).length ? toArray(raw.lunchMenus) : WEEK_MENU_SETTINGS_DEFAULTS.lunchMenus.slice(),
+    breakfastFilterEnabled: raw.breakfastFilterEnabled !== false,
+    lunchFilterEnabled: raw.lunchFilterEnabled !== false
+  };
+};
+
 const normalizeSexForGuideline = (value) => {
   if (!value) return '';
   const raw = String(value).trim();
@@ -1538,6 +1570,55 @@ router.post('/logout', (req, res, next) => {
 });
 
 
+// 7 DAYS PLAN menu filter settings (user-scoped)
+router.get('/users/week-menu/settings', isLoggedIn, async (req, res) => {
+  try {
+    const rawMenus = await Menu.distinct('menu', { isPrivate: { $ne: true } });
+    const menus = (rawMenus || [])
+      .map((m) => (typeof m === 'string' ? m.trim() : ''))
+      .filter(Boolean)
+      .filter((m, idx, arr) => arr.indexOf(m) === idx)
+      .sort((a, b) => a.localeCompare(b, 'ja'));
+
+    const userDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+    const settings = normalizeWeekMenuSettings(userDoc?.weekMenuSettings || {});
+    return res.json({ menus, settings });
+  } catch (err) {
+    console.error('week menu settings fetch error:', err);
+    return res.status(500).json({ error: '設定情報を取得できませんでした。' });
+  }
+});
+
+router.post('/users/week-menu/settings', isLoggedIn, async (req, res) => {
+  try {
+    const rawMenus = await Menu.distinct('menu', { isPrivate: { $ne: true } });
+    const allowed = new Set(
+      (rawMenus || [])
+        .map((m) => (typeof m === 'string' ? m.trim() : ''))
+        .filter(Boolean)
+    );
+    const toArray = (value) => (Array.isArray(value) ? value : (value ? [value] : []))
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+
+    const breakfastMenus = toArray(req.body?.breakfastMenus).filter((v) => allowed.has(v));
+    const lunchMenus = toArray(req.body?.lunchMenus).filter((v) => allowed.has(v));
+    const payload = {
+      breakfastMenus,
+      lunchMenus,
+      breakfastFilterEnabled: req.body?.breakfastFilterEnabled !== false && String(req.body?.breakfastFilterEnabled) !== 'false',
+      lunchFilterEnabled: req.body?.lunchFilterEnabled !== false && String(req.body?.lunchFilterEnabled) !== 'false'
+    };
+
+    await User.findByIdAndUpdate(req.user._id, { weekMenuSettings: payload });
+    const settings = normalizeWeekMenuSettings(payload);
+    return res.json({ ok: true, settings });
+  } catch (err) {
+    console.error('week menu settings save error:', err);
+    return res.status(500).json({ error: '設定を保存できませんでした。' });
+  }
+});
+
 //weekMenu.ejsを開く
 router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   try {
@@ -1984,6 +2065,14 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       console.warn('DO records fetch failed:', e?.message || e);
     }
 
+    let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+    try {
+      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+      weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+    } catch (e) {
+      weekMenuSettings = normalizeWeekMenuSettings({});
+    }
+
 	const viewTemplate = 'users/weekMenu2';
 	res.render(viewTemplate, {
     categoryConfig: CATEGORY_CONFIG,
@@ -2015,7 +2104,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     myMenuIds,
     weekMenuView,
     doRecords,
-    weekMenuMode
+    weekMenuMode,
+    weekMenuSettings
 	});
   
   } catch (err) {

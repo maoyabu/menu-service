@@ -171,6 +171,12 @@
               <% } %>
             </a>
           </li>
+          <li>
+            <button type="button" data-weekmenu-settings-open class="group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition text-gray-700 hover:bg-gray-50">
+              <i data-lucide="settings" class="w-5 h-5 text-gray-500 group-hover:text-gray-700"></i>
+              <span>7 DAYS PLAN 設定</span>
+            </button>
+          </li>
         <% } else if (currentService === 'stock') { %>
           <li>
             <a href="/users/stock-top" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/stock-top') ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700 hover:bg-gray-50' %>">
@@ -351,6 +357,226 @@
     <% } %>
   </div>
 </aside>
+
+<!-- 7 DAYS PLAN 設定モーダル -->
+<div id="weekmenu-settings-modal" class="fixed inset-0 z-[62] hidden" aria-hidden="true">
+  <div class="absolute inset-0 bg-black/40" data-weekmenu-settings-close></div>
+  <div class="relative mx-auto mt-10 w-[900px] max-w-[96vw] rounded-2xl bg-white shadow-2xl border border-gray-200">
+    <div class="flex items-center justify-between border-b px-5 py-3">
+      <h3 class="font-semibold text-gray-900">7 DAYS PLAN 設定</h3>
+      <button type="button" class="text-gray-500" data-weekmenu-settings-close>✕</button>
+    </div>
+    <div class="p-5 space-y-5">
+      <p class="text-sm text-gray-600">「メニューを追加」モーダルに表示する候補を、朝食・ランチごとに絞り込めます。</p>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold text-blue-700">朝食</h4>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" data-weekmenu-settings-breakfast-enabled class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+              <span>絞り込みを有効にする</span>
+            </label>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="search" data-weekmenu-settings-breakfast-search placeholder="朝食メニューを検索" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+            <button type="button" data-weekmenu-settings-breakfast-clear class="px-3 py-2 text-xs rounded border">全解除</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2 max-h-[240px] overflow-auto border rounded-lg bg-white p-2" data-weekmenu-settings-breakfast-list></div>
+        </div>
+        <div class="rounded-xl border border-amber-100 bg-amber-50/40 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold text-amber-700">ランチ</h4>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" data-weekmenu-settings-lunch-enabled class="w-4 h-4 text-amber-600 border-gray-300 rounded">
+              <span>絞り込みを有効にする</span>
+            </label>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="search" data-weekmenu-settings-lunch-search placeholder="ランチメニューを検索" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+            <button type="button" data-weekmenu-settings-lunch-clear class="px-3 py-2 text-xs rounded border">全解除</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2 max-h-[240px] overflow-auto border rounded-lg bg-white p-2" data-weekmenu-settings-lunch-list></div>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-gray-500">※「絞り込み解除（全件表示）」はメニュー追加モーダル内で一時的に切り替え可能です。</p>
+        <div class="flex gap-2">
+          <button type="button" data-weekmenu-settings-close class="px-4 py-2 rounded-lg border text-sm">閉じる</button>
+          <button type="button" data-weekmenu-settings-save class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm">保存する</button>
+        </div>
+      </div>
+      <p class="text-xs text-red-600 hidden" data-weekmenu-settings-error></p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const modal = document.getElementById('weekmenu-settings-modal');
+    if (!modal) return;
+    const openButtons = document.querySelectorAll('[data-weekmenu-settings-open]');
+    const closeButtons = modal.querySelectorAll('[data-weekmenu-settings-close]');
+    const saveButton = modal.querySelector('[data-weekmenu-settings-save]');
+    const errorEl = modal.querySelector('[data-weekmenu-settings-error]');
+    const breakfastListEl = modal.querySelector('[data-weekmenu-settings-breakfast-list]');
+    const lunchListEl = modal.querySelector('[data-weekmenu-settings-lunch-list]');
+    const breakfastEnabledEl = modal.querySelector('[data-weekmenu-settings-breakfast-enabled]');
+    const lunchEnabledEl = modal.querySelector('[data-weekmenu-settings-lunch-enabled]');
+    const breakfastSearchEl = modal.querySelector('[data-weekmenu-settings-breakfast-search]');
+    const lunchSearchEl = modal.querySelector('[data-weekmenu-settings-lunch-search]');
+    const breakfastClearBtn = modal.querySelector('[data-weekmenu-settings-breakfast-clear]');
+    const lunchClearBtn = modal.querySelector('[data-weekmenu-settings-lunch-clear]');
+
+    const defaults = {
+      breakfastMenus: ['モーニング'],
+      lunchMenus: [
+        'カレーライス',
+        '丼',
+        'パスタ',
+        'うどん',
+        '焼きそば',
+        'そうめん',
+        'そば',
+        'ちゃんぽん',
+        'ラーメン',
+        'ハンバーガー',
+        'サンドイッチ',
+        '定食'
+      ],
+      breakfastFilterEnabled: true,
+      lunchFilterEnabled: true
+    };
+
+    let cachedMenus = [];
+    let cachedSettings = null;
+
+    const normalizeSettings = (raw) => {
+      const toArray = (v) => (Array.isArray(v) ? v : (v ? [v] : []))
+        .map((x) => (typeof x === 'string' ? x.trim() : ''))
+        .filter(Boolean);
+      return {
+        breakfastMenus: toArray(raw?.breakfastMenus).length ? toArray(raw?.breakfastMenus) : defaults.breakfastMenus.slice(),
+        lunchMenus: toArray(raw?.lunchMenus).length ? toArray(raw?.lunchMenus) : defaults.lunchMenus.slice(),
+        breakfastFilterEnabled: raw?.breakfastFilterEnabled !== false,
+        lunchFilterEnabled: raw?.lunchFilterEnabled !== false
+      };
+    };
+
+    const openModal = async () => {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      if (errorEl) errorEl.classList.add('hidden');
+      if (!cachedSettings || !cachedMenus.length) {
+        try {
+          const res = await fetch('/users/week-menu/settings');
+          if (!res.ok) throw new Error('fetch failed');
+          const json = await res.json();
+          cachedMenus = Array.isArray(json.menus) ? json.menus : [];
+          cachedSettings = normalizeSettings(json.settings || {});
+        } catch (e) {
+          if (errorEl) {
+            errorEl.textContent = '設定の読み込みに失敗しました。';
+            errorEl.classList.remove('hidden');
+          }
+          cachedMenus = [];
+          cachedSettings = normalizeSettings({});
+        }
+      }
+      renderLists();
+    };
+
+    const closeModal = () => {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    };
+
+    const renderList = (container, menus, selectedSet, keyword) => {
+      if (!container) return;
+      container.innerHTML = '';
+      const list = menus.filter((m) => !keyword || m.toLowerCase().includes(keyword.toLowerCase()));
+      list.forEach((menu) => {
+        const id = `wm-setting-${container.dataset.role || 'menu'}-${menu}`;
+        const label = document.createElement('label');
+        label.className = 'inline-flex items-center gap-2 text-sm px-2 py-1 rounded border border-gray-200 bg-gray-50';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = menu;
+        input.checked = selectedSet.has(menu);
+        input.className = 'w-4 h-4 text-blue-600 border-gray-300 rounded';
+        const span = document.createElement('span');
+        span.textContent = menu;
+        label.appendChild(input);
+        label.appendChild(span);
+        container.appendChild(label);
+      });
+    };
+
+    const renderLists = () => {
+      const settings = cachedSettings || normalizeSettings({});
+      if (breakfastEnabledEl) breakfastEnabledEl.checked = settings.breakfastFilterEnabled !== false;
+      if (lunchEnabledEl) lunchEnabledEl.checked = settings.lunchFilterEnabled !== false;
+      const breakfastSelected = new Set(settings.breakfastMenus || []);
+      const lunchSelected = new Set(settings.lunchMenus || []);
+      renderList(breakfastListEl, cachedMenus, breakfastSelected, breakfastSearchEl?.value || '');
+      renderList(lunchListEl, cachedMenus, lunchSelected, lunchSearchEl?.value || '');
+    };
+
+    const collectSelected = (container) => {
+      if (!container) return [];
+      return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+        .map((el) => el.value)
+        .filter(Boolean);
+    };
+
+    openButtons.forEach((btn) => btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal();
+    }));
+    closeButtons.forEach((btn) => btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeModal();
+    }));
+    if (breakfastSearchEl) breakfastSearchEl.addEventListener('input', renderLists);
+    if (lunchSearchEl) lunchSearchEl.addEventListener('input', renderLists);
+    if (breakfastClearBtn) breakfastClearBtn.addEventListener('click', () => {
+      if (breakfastListEl) breakfastListEl.querySelectorAll('input[type="checkbox"]').forEach((c) => { c.checked = false; });
+    });
+    if (lunchClearBtn) lunchClearBtn.addEventListener('click', () => {
+      if (lunchListEl) lunchListEl.querySelectorAll('input[type="checkbox"]').forEach((c) => { c.checked = false; });
+    });
+
+    if (saveButton) {
+      saveButton.addEventListener('click', async () => {
+        try {
+          if (errorEl) errorEl.classList.add('hidden');
+          const payload = {
+            breakfastMenus: collectSelected(breakfastListEl),
+            lunchMenus: collectSelected(lunchListEl),
+            breakfastFilterEnabled: breakfastEnabledEl ? breakfastEnabledEl.checked : true,
+            lunchFilterEnabled: lunchEnabledEl ? lunchEnabledEl.checked : true
+          };
+          const res = await fetch('/users/week-menu/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error('save failed');
+          const json = await res.json();
+          cachedSettings = normalizeSettings(json.settings || payload);
+          if (window.weekMenuData) {
+            window.weekMenuData.menuFilterSettings = cachedSettings;
+          }
+          closeModal();
+        } catch (e) {
+          if (errorEl) {
+            errorEl.textContent = '設定の保存に失敗しました。';
+            errorEl.classList.remove('hidden');
+          }
+        }
+      });
+    }
+  })();
+</script>
 
 <script>
   (function(){

@@ -105,6 +105,37 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     }
+  },
+  weekMenuSettings: {
+    breakfastMenus: {
+      type: [String],
+      default: () => ['モーニング']
+    },
+    lunchMenus: {
+      type: [String],
+      default: () => [
+        'カレーライス',
+        '丼',
+        'パスタ',
+        'うどん',
+        '焼きそば',
+        'そうめん',
+        'そば',
+        'ちゃんぽん',
+        'ラーメン',
+        'ハンバーガー',
+        'サンドイッチ',
+        '定食'
+      ]
+    },
+    breakfastFilterEnabled: {
+      type: Boolean,
+      default: true
+    },
+    lunchFilterEnabled: {
+      type: Boolean,
+      default: true
+    }
   }
 });
 
