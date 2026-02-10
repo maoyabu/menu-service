@@ -1618,11 +1618,59 @@
       titleEl.textContent = menu?.name ? `${menu.name} のメニュー` : 'セットメニュー';
       body.innerHTML = '';
       const menus = Array.isArray(menu?.setMenus) ? menu.setMenus : [];
+      const classSection = document.createElement('div');
+      const classTitle = document.createElement('div');
+      classTitle.className = 'text-sm font-semibold text-gray-800';
+      classTitle.textContent = '食材分類別の合計 (g換算)';
+      classSection.appendChild(classTitle);
+      const classBox = document.createElement('div');
+      classBox.className = 'mt-2 rounded-2xl border border-amber-100 bg-amber-50/60 p-3 text-xs';
+      classSection.appendChild(classBox);
+      body.appendChild(classSection);
+
+      const classEntries = [];
+      const seasoningClassEntries = [];
+      const appendEntry = (collector, it, people) => {
+        collector.push({
+          id: it?.id ? String(it.id) : '',
+          name: it?.name || '',
+          classification: it?.classification || '',
+          unit: it?.unit || '',
+          amount: (typeof it?.amount === 'number' && !Number.isNaN(it.amount)) ? it.amount : null,
+          people: Math.max(1, Number(people) || 1)
+        });
+      };
+      const addMenuEntries = (targetMenu) => {
+        if (!targetMenu) return;
+        const people = Math.max(1, Number(targetMenu.people) || 1);
+        (Array.isArray(targetMenu.ingredients) ? targetMenu.ingredients : []).forEach((it) => appendEntry(classEntries, it, people));
+        (Array.isArray(targetMenu.seasoning) ? targetMenu.seasoning : []).forEach((it) => appendEntry(seasoningClassEntries, it, people));
+      };
+      addMenuEntries(menu);
+      menus.forEach(addMenuEntries);
+
+      const formatQty1 = (val) => {
+        if (typeof val !== 'number' || Number.isNaN(val)) return '';
+        const n = Math.round(val * 10) / 10;
+        return n % 1 ? n.toFixed(1) : String(n);
+      };
+      requirementsRenderToken += 1;
+      const renderToken = requirementsRenderToken;
+      renderClassSummary(classBox, classEntries, formatQty1, renderToken, {
+        seasoningEntries: seasoningClassEntries,
+        mode: 'day',
+        dayCount: 1,
+        targetLabel: '',
+        participantCount: 1,
+        participantIds: []
+      });
+
       if (!menus.length) {
         const empty = document.createElement('div');
         empty.className = 'text-sm text-gray-500';
         empty.textContent = '登録されたメニューがありません。';
         body.appendChild(empty);
+        modal.classList.add('is-open');
         return;
       }
       menus.forEach((m) => {
