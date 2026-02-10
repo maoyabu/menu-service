@@ -29,8 +29,9 @@ const menuSchema = new mongoose.Schema({
         default: 'single'
     },
     setType: {
-        type: String,
-        enum: ['morning', 'lunch', 'dinner']
+        type: [String],
+        enum: ['morning', 'lunch', 'dinner'],
+        default: []
     },
     setMenus: [
     {

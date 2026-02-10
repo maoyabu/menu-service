@@ -1346,7 +1346,7 @@ router.post('/original', async (req, res, next) => {
       imageUrl, time, people,
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
-      menuType = 'single', setType = '', set_menu_ids = [],
+      menuType = 'single', setType = [], set_menu_ids = [],
       instruction = '',
       comment = '',
       favorite = 'false', frequency = '3',
@@ -1368,7 +1368,10 @@ router.post('/original', async (req, res, next) => {
     }));
 
     const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
-    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+    const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
+    const normalizedSetType = rawSetTypes
+      .map((t) => String(t || '').trim())
+      .filter((t) => ['morning', 'lunch', 'dinner'].includes(t));
     let setMenus = [];
     if (normalizedMenuType === 'set') {
       const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
@@ -1388,7 +1391,7 @@ router.post('/original', async (req, res, next) => {
     const newMenu = await Menu.create({
       name, yomi, menu, kind, junle, cook,
       menuType: normalizedMenuType,
-      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
       url: '',
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
@@ -1741,7 +1744,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       seasoning_amounts = [],
       seasoning_units = [],
       menuType = 'single',
-      setType = '',
+      setType = [],
       set_menu_ids = []
     } = req.body;
 
@@ -1756,7 +1759,10 @@ router.post('/edit/:menuId', async (req, res, next) => {
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
     const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
-    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+    const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
+    const normalizedSetType = rawSetTypes
+      .map((t) => String(t || '').trim())
+      .filter((t) => ['morning', 'lunch', 'dinner'].includes(t));
     let setMenus = [];
     if (normalizedMenuType === 'set') {
       const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
@@ -1779,7 +1785,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       cook,
       menu,
       menuType: normalizedMenuType,
-      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
       url: normalizedMenuType === 'set' ? '' : url,
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,

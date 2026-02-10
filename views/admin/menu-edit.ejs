@@ -49,6 +49,7 @@
       </label>
     </div>
     <% const isSetMenu = menu.menuType === 'set'; %>
+    <% const setTypes = Array.isArray(menu.setType) ? menu.setType : (menu.setType ? [menu.setType] : []); %>
 
     <div class="p-4 bg-gray-50 border rounded-lg space-y-3">
       <div class="flex flex-wrap items-center gap-4">
@@ -66,15 +67,15 @@
         <p class="text-sm font-bold text-gray-700 mb-2">セット種別</p>
         <div class="flex flex-wrap gap-3 text-sm">
           <label class="inline-flex items-center gap-2">
-            <input type="radio" name="setType" value="morning" class="w-4 h-4 text-blue-600 border-gray-300" <%= menu.setType === 'morning' ? 'checked' : '' %>>
+            <input type="checkbox" name="setType[]" value="morning" class="w-4 h-4 text-blue-600 border-gray-300" <%= setTypes.includes('morning') ? 'checked' : '' %>>
             <span>モーニング</span>
           </label>
           <label class="inline-flex items-center gap-2">
-            <input type="radio" name="setType" value="lunch" class="w-4 h-4 text-blue-600 border-gray-300" <%= menu.setType === 'lunch' ? 'checked' : '' %>>
+            <input type="checkbox" name="setType[]" value="lunch" class="w-4 h-4 text-blue-600 border-gray-300" <%= setTypes.includes('lunch') ? 'checked' : '' %>>
             <span>ランチ</span>
           </label>
           <label class="inline-flex items-center gap-2">
-            <input type="radio" name="setType" value="dinner" class="w-4 h-4 text-blue-600 border-gray-300" <%= menu.setType === 'dinner' ? 'checked' : '' %>>
+            <input type="checkbox" name="setType[]" value="dinner" class="w-4 h-4 text-blue-600 border-gray-300" <%= setTypes.includes('dinner') ? 'checked' : '' %>>
             <span>ディナー</span>
           </label>
         </div>
@@ -1012,10 +1013,7 @@ function toggleNutritionInfo(btn) {
     setSectionEnabled('seasonings-section', !isSet);
     toggleRequired('menu-url-input', !isSet);
 
-    document.querySelectorAll('input[name="setType"]').forEach((el) => {
-      if (isSet) el.setAttribute('required', 'required');
-      else el.removeAttribute('required');
-    });
+    // setType validation handled on submit (checkbox group)
   }
 
   const setMenuState = {
@@ -1205,6 +1203,20 @@ function toggleNutritionInfo(btn) {
 
     applyMenuTypeState();
     renderSetMenuList();
+
+    const form = document.querySelector('form');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        const checked = document.querySelector('input[name="menuType"]:checked');
+        const isSet = checked && checked.value === 'set';
+        if (!isSet) return;
+        const any = Array.from(document.querySelectorAll('input[name="setType[]"]')).some((el) => el.checked);
+        if (!any) {
+          e.preventDefault();
+          alert('セット種別を1つ以上選択してください。');
+        }
+      });
+    }
   });
 </script>
 

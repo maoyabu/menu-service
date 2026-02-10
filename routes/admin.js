@@ -889,7 +889,7 @@ router.post('/menu-new', async (req, res) => {
       cook,
       menu,
       menuType = 'single',
-      setType = '',
+      setType = [],
       url,
       imageUrl,
       time,
@@ -912,7 +912,10 @@ router.post('/menu-new', async (req, res) => {
     const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
     const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
-    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+    const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
+    const normalizedSetType = rawSetTypes
+      .map((t) => String(t || '').trim())
+      .filter((t) => ['morning', 'lunch', 'dinner'].includes(t));
 
     // 食材の構造を整える（セットメニューでも追加可）
     const ingredients = ingredient_ids.map((id, index) => ({
@@ -953,7 +956,7 @@ router.post('/menu-new', async (req, res) => {
       cook,
       menu,
       menuType: normalizedMenuType,
-      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
       url: normalizedMenuType === 'set' ? '' : url,
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
@@ -1091,7 +1094,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       cook,
       menu,
       menuType = 'single',
-      setType = '',
+      setType = [],
       url,
       imageUrl,
       time,
@@ -1114,7 +1117,10 @@ router.post('/menu-edit/:id', async (req, res) => {
     const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
     const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
-    const normalizedSetType = ['morning', 'lunch', 'dinner'].includes(setType) ? setType : undefined;
+    const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
+    const normalizedSetType = rawSetTypes
+      .map((t) => String(t || '').trim())
+      .filter((t) => ['morning', 'lunch', 'dinner'].includes(t));
 
     // 食材の構造を整える（セットメニューでも追加可）
     const ingredients = ingredient_ids.map((id, index) => ({
@@ -1156,7 +1162,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       cook,
       menu,
       menuType: normalizedMenuType,
-      setType: normalizedMenuType === 'set' ? normalizedSetType : undefined,
+      setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
       url: normalizedMenuType === 'set' ? '' : url,
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
