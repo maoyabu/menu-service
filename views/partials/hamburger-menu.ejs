@@ -532,6 +532,7 @@
       e.preventDefault();
       openModal();
     }));
+    window.addEventListener('weekmenu-settings:open', () => openModal());
     closeButtons.forEach((btn) => btn.addEventListener('click', (e) => {
       e.preventDefault();
       closeModal();

@@ -193,7 +193,10 @@
 
         <div class="rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3 text-sm text-gray-700" data-menu-modal-filter-box>
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">このメニューで絞り込み中</p>
+            <div class="inline-flex items-center gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">このメニューで絞り込み中</p>
+              <button type="button" data-menu-modal-settings-open class="px-2 py-1 text-[11px] rounded-full border border-amber-300 bg-white text-amber-700 hover:bg-amber-100">絞込み設定</button>
+            </div>
             <label class="inline-flex items-center gap-2 text-xs font-semibold text-amber-800">
               <input type="checkbox" data-menu-modal-filter-toggle class="w-4 h-4 text-amber-600 border-gray-300 rounded">
               <span>この絞り込みを一括解除</span>
@@ -2291,6 +2294,13 @@
         renderModalList();
       });
     }
+
+    document.querySelectorAll('[data-menu-modal-settings-open]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('weekmenu-settings:open'));
+      });
+    });
 
     if (modalElements.closeButtons.length) {
       modalElements.closeButtons.forEach((button) => {
