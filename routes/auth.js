@@ -4290,7 +4290,11 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       group: currentGroupId,
       user: { $ne: req.user._id }
     })
-      .populate('menu', 'name imageUrl kind junle cook')
+      .populate({
+        path: 'menu',
+        select: 'name imageUrl kind junle cook menuType setMenus',
+        populate: { path: 'setMenus', select: 'imageUrl' }
+      })
       .populate('user', 'displayname username')
       .sort({ update_date: -1, entry_date: -1 })
       .limit(10)
@@ -4299,14 +4303,22 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 
   // MyTop 用：自分のマイメニュー 4件、グループメンバーのマイメニュー 2件
   const myOwnMyMenus = await Mymenu.find({ user: req.user._id })
-    .populate('menu', 'name imageUrl kind')
+    .populate({
+      path: 'menu',
+      select: 'name imageUrl kind menuType setMenus',
+      populate: { path: 'setMenus', select: 'imageUrl' }
+    })
     .sort({ update_date: -1, entry_date: -1 })
     .limit(4)
     .lean();
 
   const groupMemberMyMenus = currentGroupId
     ? await Mymenu.find({ group: currentGroupId, user: { $ne: req.user._id } })
-        .populate('menu', 'name imageUrl kind')
+        .populate({
+          path: 'menu',
+          select: 'name imageUrl kind menuType setMenus',
+          populate: { path: 'setMenus', select: 'imageUrl' }
+        })
         .populate('user', 'displayname username')
         .sort({ update_date: -1, entry_date: -1 })
         .limit(2)

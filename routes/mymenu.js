@@ -200,6 +200,8 @@ router.get('/shared-register', async (req, res, next) => {
     }
 
     const adminShared = await Menu.find(menuFilter.length ? { $and: [...menuFilter, { isPrivate: { $ne: true } }] } : { isPrivate: { $ne: true } })
+      .select('name kind junle cook time imageUrl url season menuType setMenus')
+      .populate({ path: 'setMenus', select: 'imageUrl' })
       .lean();
 
     // 会員の共有メニュー（Mymenu.share = true）
@@ -208,7 +210,11 @@ router.get('/shared-register', async (req, res, next) => {
     const myGroupIds = new Set(groups.map((g) => g._id.toString()));
 
     const sharedUserMenus = await Mymenu.find({ share: true })
-      .populate('menu')
+      .populate({
+        path: 'menu',
+        select: 'name kind junle cook time imageUrl url season menuType setMenus',
+        populate: { path: 'setMenus', select: 'imageUrl' }
+      })
       .populate('user', 'displayname username email')
       .lean();
 
@@ -265,6 +271,8 @@ router.get('/shared-register', async (req, res, next) => {
         cook: m.cook || '',
         time: m.time || '',
         imageUrl: m.imageUrl || '',
+        menuType: m.menuType || 'single',
+        setImages: Array.isArray(m.setMenus) ? m.setMenus.map((x) => x?.imageUrl).filter(Boolean) : [],
         url: m.url || '',
         by: null,
         canEdit: myEditableMenuIds.has(m._id.toString()),
@@ -282,6 +290,10 @@ router.get('/shared-register', async (req, res, next) => {
       if (existing) {
         if (!existing.by && byName) existing.by = byName;
         existing.canEdit = existing.canEdit || myEditableMenuIds.has(id);
+        if (!existing.menuType && m.menuType) existing.menuType = m.menuType;
+        if ((!existing.setImages || !existing.setImages.length) && Array.isArray(m.setMenus)) {
+          existing.setImages = m.setMenus.map((x) => x?.imageUrl).filter(Boolean);
+        }
         if (ingredientIds.length) {
           const merged = new Set([...(existing.ingredientIds || []), ...ingredientIds]);
           existing.ingredientIds = Array.from(merged);
@@ -300,6 +312,8 @@ router.get('/shared-register', async (req, res, next) => {
           cook: m.cook || '',
           time: m.time || '',
           imageUrl: m.imageUrl || '',
+          menuType: m.menuType || 'single',
+          setImages: Array.isArray(m.setMenus) ? m.setMenus.map((x) => x?.imageUrl).filter(Boolean) : [],
           url: m.url || '',
           by: byName,
           canEdit: myEditableMenuIds.has(id),
