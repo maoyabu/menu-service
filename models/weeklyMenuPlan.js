@@ -136,6 +136,12 @@ const weeklyMenuPlanSchema = new Schema({
     type: [participantEntrySchema],
     default: []
   },
+  // 任意: 日単位のコメント
+  dayComments: [{
+    dayIndex: { type: Number, min: 0, max: 6, required: true },
+    date: { type: Date },
+    comment: { type: String, default: '' }
+  }],
   // 任意: 参加しない理由の履歴（ユーザーごと / 日×食事単位）
   participantReasons: [{
     dayIndex: { type: Number, min: 0, max: 6 },

@@ -857,7 +857,8 @@
         ? rawPlan.map((day) => ({
             ...day,
             breakfastSlots: Array.isArray(day?.breakfastSlots) ? day.breakfastSlots : [],
-            lunchSlots: Array.isArray(day?.lunchSlots) ? day.lunchSlots : []
+            lunchSlots: Array.isArray(day?.lunchSlots) ? day.lunchSlots : [],
+            dayComment: (day && typeof day.dayComment === 'string') ? day.dayComment : ''
           }))
         : []
     };
@@ -1017,6 +1018,11 @@
     const ensureLunchSlots = (day) => {
       if (!day.lunchSlots) day.lunchSlots = [];
       return day.lunchSlots;
+    };
+    const ensureDayComment = (day) => {
+      if (!day) return '';
+      if (typeof day.dayComment !== 'string') day.dayComment = '';
+      return day.dayComment;
     };
 
     const slotIsBreakfast = (slot) => slot?.categoryKey === 'breakfastMain';
@@ -1664,6 +1670,27 @@
           if (!slot) return 0;
           return Math.max(0, Number(slot.prepExtra) || 0);
         } catch(_) { return 0; }
+      };
+      // set/get day comment (per day)
+      window.weekMenuAPI.setDayComment = (dayIndex, text) => {
+        try {
+          const day = state.plan?.[dayIndex];
+          if (!day) return false;
+          day.dayComment = typeof text === 'string' ? text : '';
+          try {
+            if (window && window.weekMenuData) {
+              window.weekMenuData.planSnapshot = JSON.parse(JSON.stringify(buildPlanSnapshot()));
+            }
+          } catch (_) { /* noop */ }
+          return true;
+        } catch(_) { return false; }
+      };
+      window.weekMenuAPI.getDayComment = (dayIndex) => {
+        try {
+          const day = state.plan?.[dayIndex];
+          if (!day) return '';
+          return typeof day.dayComment === 'string' ? day.dayComment : '';
+        } catch(_) { return ''; }
       };
       window.weekMenuAPI.addMenuToMeal = (dayIndex, mealKey, menuId, categoryKey = '') => {
         try {
@@ -2480,11 +2507,18 @@
       const weekStartISO = weekDates[0]?.dateISO || (state.plan[0]?.dateISO ?? null) || (dayPlans[0]?.dateISO ?? null);
       const weekEndISO = weekDates[weekDates.length - 1]?.dateISO || (state.plan[state.plan.length - 1]?.dateISO ?? weekStartISO);
 
+      const dayComments = (state.plan || []).map((day, index) => ({
+        dayIndex: typeof day?.index === 'number' ? day.index : index,
+        dateISO: weekDates[day?.index ?? index]?.dateISO || day?.dateISO || null,
+        comment: ensureDayComment(day) || ''
+      }));
+
       return {
         groupId: currentGroupId,
         weekStart: weekStartISO,
         weekEnd: weekEndISO,
         dayPlans,
+        dayComments,
         title: weekRangeLabel ? `${weekRangeLabel}の献立` : '',
         planId: state.planId || undefined
       };

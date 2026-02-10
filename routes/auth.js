@@ -1786,7 +1786,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         breakfastSlots: [],
         lunchSlots: [],
         dinner: { staple: null, main: null, side: null, soup: null },
-        dinnerExtras: []
+        dinnerExtras: [],
+        dayComment: ''
       }));
 
       menuLookup = {};
@@ -1833,6 +1834,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           const iso = new Date(dayPlan.date).toISOString();
           target.dateISO = iso;
         }
+        // dayComment is stored separately (dayComments)
 
         (dayPlan.slots || []).forEach((slot) => {
           const map = SLOT_TYPE_DETAILS[slot?.slotType];
@@ -1872,6 +1874,15 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         });
       });
 
+      if (Array.isArray(existingPlan.dayComments)) {
+        existingPlan.dayComments.forEach((entry) => {
+          if (!entry || typeof entry.dayIndex !== 'number') return;
+          const target = basePlan[entry.dayIndex];
+          if (!target) return;
+          target.dayComment = typeof entry.comment === 'string' ? entry.comment : '';
+        });
+      }
+
       plan = basePlan;
       ingredientSummary = aggregateSummary(plan, menuLookup, 'ingredients');
       seasoningSummary = aggregateSummary(plan, menuLookup, 'seasoning');
@@ -1889,7 +1900,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         myMenuFrequency,
         currentSeason: currentSeasonLabel
       });
-      plan = generated.plan;
+      plan = (generated.plan || []).map((day) => ({
+        ...day,
+        dayComment: (day && typeof day.dayComment === 'string') ? day.dayComment : ''
+      }));
       menuLookup = generated.menuLookup;
       ingredientSummary = generated.ingredientSummary;
       seasoningSummary = generated.seasoningSummary;
@@ -3126,6 +3140,7 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
       weekStart,
       weekEnd,
       dayPlans,
+      dayComments,
       title,
       description
     } = req.body || {};
@@ -3225,6 +3240,22 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
       return res.status(400).json({ error: '保存するメニューがありません。' });
     }
 
+    const parsedDayComments = Array.isArray(dayComments)
+      ? dayComments
+          .map((entry) => {
+            if (!entry || typeof entry.dayIndex !== 'number' || entry.dayIndex < 0 || entry.dayIndex > 6) return null;
+            const date = entry.dateISO ? new Date(entry.dateISO) : (entry.date ? new Date(entry.date) : null);
+            if (date && Number.isNaN(date.getTime())) return null;
+            if (date) date.setHours(0, 0, 0, 0);
+            return {
+              dayIndex: entry.dayIndex,
+              date: date || undefined,
+              comment: typeof entry.comment === 'string' ? entry.comment.trim() : ''
+            };
+          })
+          .filter(Boolean)
+      : [];
+
     const planId = req.body?.planId && mongoose.Types.ObjectId.isValid(req.body.planId)
       ? req.body.planId
       : '';
@@ -3234,7 +3265,8 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
       weekEnd: parsedWeekEnd,
       title: title || '',
       description: description || '',
-      dayPlans: parsedDayPlans
+      dayPlans: parsedDayPlans,
+      dayComments: parsedDayComments
     };
 
     const updateOptions = { new: true, runValidators: true, timestamps: true };

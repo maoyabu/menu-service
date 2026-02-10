@@ -83,6 +83,8 @@
   .wm2-mini-icons .mini.is-prep{ color:#2563eb; border-color:#bfdbfe; background:#eff6ff; }
   .wm2-mini-icons .mini.is-edit{ color:#334155; border-color:#e5e7eb; background:#ffffff; }
   .wm2-actions{ display:flex; gap:8px; justify-content:flex-end; padding:8px 12px 12px; }
+  .wm2-day-comment{ border:1px dashed #cbd5e1; border-radius:12px; background:#f8fafc; padding:10px; }
+  .wm2-day-comment .edit-btn{ font-size:11px; color:#2563eb; text-decoration:underline; }
   /* Card list: up to 3 columns */
   .wm2-list{ display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:14px; }
   @media (min-width: 768px){ .wm2-list{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -206,7 +208,10 @@
   <!-- Two columns: Left recipes for selected day, Right requirements for selected day -->
   <div id="wm2-main">
     <div>
-      <h3 class="text-sm font-semibold mb-2" id="wm2-left-title"></h3>
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-semibold" id="wm2-left-title"></h3>
+        <button type="button" id="wm2-day-comment-btn" class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">今日の食事コメント</button>
+      </div>
       <div class="space-y-6">
         <!-- Breakfast -->
         <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-3" id="wm2-box-breakfast" data-day="0" data-meal="breakfast">
@@ -240,6 +245,14 @@
             <button type="button" id="wm2-btn-add-dinner" class="wm2-add" data-action="add-dinner-slot"><span class="lucide w-4 h-4" data-lucide="plus"></span>メニューを追加</button>
           </div>
           <div id="wm2-day-dinner" class="wm2-list"></div>
+          <div class="wm2-day-comment mt-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-slate-600">今日の食事コメント</span>
+              <button type="button" id="wm2-day-comment-edit" class="edit-btn">編集</button>
+            </div>
+            <div id="wm2-day-comment-text" class="mt-1 text-sm text-slate-700 whitespace-pre-wrap"></div>
+            <div id="wm2-day-comment-empty" class="mt-1 text-xs text-slate-400">コメントは未入力です</div>
+          </div>
         </div>
       </div>
     </div>
@@ -259,6 +272,24 @@
       <button type="button" class="text-gray-500" data-close>✕</button>
     </div>
     <div class="panel-body" id="wm2-set-modal-body"></div>
+  </div>
+</div>
+
+<!-- Day comment modal -->
+<div id="wm2-comment-modal" class="fixed inset-0 z-[85] hidden">
+  <div class="absolute inset-0 bg-black/40" data-close></div>
+  <div class="relative mx-auto mt-10 w-[720px] max-w-[96vw] rounded-xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b px-5 py-3">
+      <h3 class="font-semibold">今日の食事コメント</h3>
+      <button type="button" class="text-gray-500" data-close>✕</button>
+    </div>
+    <div class="p-4 space-y-3">
+      <textarea id="wm2-comment-input" class="w-full border rounded-lg px-3 py-2 text-sm" rows="5" placeholder="メモなど"></textarea>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" class="px-3 py-1.5 rounded border" data-close>キャンセル</button>
+        <button type="button" id="wm2-comment-save" class="px-4 py-1.5 rounded bg-blue-600 text-white text-sm">保存</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1085,6 +1116,69 @@
       const days = Math.floor(ms / (24 * 60 * 60 * 1000));
       return Math.max(1, days + 1);
     };
+    const commentModal = document.getElementById('wm2-comment-modal');
+    const commentInput = document.getElementById('wm2-comment-input');
+    const commentSaveBtn = document.getElementById('wm2-comment-save');
+    const commentOpenBtn = document.getElementById('wm2-day-comment-btn');
+    const commentEditBtn = document.getElementById('wm2-day-comment-edit');
+    const commentTextEl = document.getElementById('wm2-day-comment-text');
+    const commentEmptyEl = document.getElementById('wm2-day-comment-empty');
+    const getDayComment = (dayIndex) => {
+      if (window.weekMenuAPI && window.weekMenuAPI.getDayComment) {
+        return window.weekMenuAPI.getDayComment(dayIndex) || '';
+      }
+      const plan = getPlanData();
+      const day = plan[dayIndex];
+      return day && typeof day.dayComment === 'string' ? day.dayComment : '';
+    };
+    const setDayComment = (dayIndex, text) => {
+      if (window.weekMenuAPI && window.weekMenuAPI.setDayComment) {
+        window.weekMenuAPI.setDayComment(dayIndex, text);
+      } else {
+        const plan = getPlanData();
+        const day = plan[dayIndex];
+        if (day) day.dayComment = typeof text === 'string' ? text : '';
+        try {
+          if (window.weekMenuData && window.weekMenuData.planSnapshot) {
+            window.weekMenuData.planSnapshot = JSON.parse(JSON.stringify(plan));
+          }
+        } catch(_) {}
+      }
+    };
+    const syncDayCommentView = (dayIndex) => {
+      const text = getDayComment(dayIndex);
+      if (commentTextEl) commentTextEl.textContent = text || '';
+      if (commentEmptyEl) commentEmptyEl.classList.toggle('hidden', !!text);
+      if (commentTextEl) commentTextEl.classList.toggle('hidden', !text);
+    };
+    const openCommentModal = () => {
+      if (!commentModal || !commentInput) return;
+      commentInput.value = getDayComment(sel) || '';
+      commentModal.classList.remove('hidden');
+      commentModal.setAttribute('aria-hidden', 'false');
+      try { commentInput.focus(); } catch(_) {}
+    };
+    const closeCommentModal = () => {
+      if (!commentModal) return;
+      commentModal.classList.add('hidden');
+      commentModal.setAttribute('aria-hidden', 'true');
+    };
+    if (commentModal) {
+      commentModal.addEventListener('click', (ev) => {
+        if (ev.target && ev.target.hasAttribute('data-close')) closeCommentModal();
+      });
+    }
+    if (commentOpenBtn) commentOpenBtn.addEventListener('click', openCommentModal);
+    if (commentEditBtn) commentEditBtn.addEventListener('click', openCommentModal);
+    if (commentSaveBtn) {
+      commentSaveBtn.addEventListener('click', () => {
+        const text = String(commentInput?.value || '');
+        setDayComment(sel, text);
+        syncDayCommentView(sel);
+        try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch(_) {}
+        closeCommentModal();
+      });
+    }
 
     function buildPills(){
       const row = document.getElementById('wm2-days'); if (!row) return; row.innerHTML='';
@@ -1233,6 +1327,7 @@
 
       const plan = getPlanData();
       const day = plan[sel] || {};
+      syncDayCommentView(sel);
       const breakfastWrap = document.getElementById('wm2-day-breakfast'); if (breakfastWrap){ breakfastWrap.innerHTML=''; }
       const lunchWrap = document.getElementById('wm2-day-lunch'); if (lunchWrap){ lunchWrap.innerHTML=''; }
       const dinnerWrap = document.getElementById('wm2-day-dinner'); if (dinnerWrap){ dinnerWrap.innerHTML=''; }
