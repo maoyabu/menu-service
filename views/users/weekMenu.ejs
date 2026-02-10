@@ -157,42 +157,36 @@
       <div class="flex-1 space-y-5 overflow-y-auto px-6 py-6">
         <div class="grid gap-4 md:grid-cols-4">
           <div class="md:col-span-2">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">キーワード</label>
-            <div class="relative">
-              <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-300">
-                <span class="lucide w-4 h-4" data-lucide="search"></span>
-              </span>
-              <input type="search" data-menu-modal-search placeholder="レシピ名・よみ・メニューで検索" class="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
-            </div>
-          </div>
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">種類</label>
-            <select data-menu-modal-kind class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="">すべて</option>
-            </select>
-          </div>
-          <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">ジャンル</label>
             <select data-menu-modal-junle class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
               <option value="">すべて</option>
             </select>
           </div>
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">調理方法</label>
-            <select data-menu-modal-cook class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">種類</label>
+            <select data-menu-modal-kind class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
               <option value="">すべて</option>
             </select>
           </div>
-          <div class="flex flex-wrap items-end gap-3">
-            <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-              <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
-                <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
-                <span>つくりおきのみ</span>
-              </label>
-              <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
-                <input type="checkbox" data-menu-modal-basic class="w-4 h-4 text-blue-600 border-gray-300 rounded">
-                <span>基本メニューのみ</span>
-              </label>
+          <div class="md:col-span-4">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">キーワード</label>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="relative flex-1 min-w-[220px]">
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-300">
+                  <span class="lucide w-4 h-4" data-lucide="search"></span>
+                </span>
+                <input type="search" data-menu-modal-search placeholder="レシピ名・よみ・メニューで検索" class="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              </div>
+              <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                  <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                  <span>つくりおきのみ</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap" data-menu-modal-dinner-set-wrap>
+                  <input type="checkbox" data-menu-modal-dinner-set class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                  <span>定番ディナーセット</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -1811,9 +1805,9 @@
       searchInput: document.querySelector('[data-menu-modal-search]'),
       kindSelect: document.querySelector('[data-menu-modal-kind]'),
       junleSelect: document.querySelector('[data-menu-modal-junle]'),
-      cookSelect: document.querySelector('[data-menu-modal-cook]'),
       prepOnly: document.querySelector('[data-menu-modal-prep]'),
-      basicOnly: document.querySelector('[data-menu-modal-basic]'),
+      dinnerSetOnly: document.querySelector('[data-menu-modal-dinner-set]'),
+      dinnerSetWrap: document.querySelector('[data-menu-modal-dinner-set-wrap]'),
       filterBox: document.querySelector('[data-menu-modal-filter-box]'),
       filterList: document.querySelector('[data-menu-modal-filter-list]'),
       filterEmpty: document.querySelector('[data-menu-modal-filter-empty]'),
@@ -1835,9 +1829,8 @@
         search: '',
         kind: '',
         junle: '',
-        cook: '',
         prepOnly: false,
-        basicOnly: false,
+        dinnerSetOnly: false,
         ignoreFilter: false
       },
       menuFilter: {
@@ -1865,6 +1858,7 @@
       if (!categoryKey) return '';
       if (String(categoryKey).startsWith('breakfast')) return 'breakfast';
       if (String(categoryKey).startsWith('lunch')) return 'lunch';
+      if (String(categoryKey).startsWith('dinner')) return 'dinner';
       return '';
     };
 
@@ -1939,10 +1933,8 @@
       const allKinds = [...kindsFromOptions, ...getGlobalKinds()];
       populateSelectOptions(modalElements.kindSelect, allKinds, modalState.filters.kind || '');
       populateSelectOptions(modalElements.junleSelect, baseOptions.map((menu) => menu.junle), modalState.filters.junle || '');
-      populateSelectOptions(modalElements.cookSelect, baseOptions.map((menu) => menu.cook), modalState.filters.cook || '');
       if (modalElements.kindSelect) modalState.filters.kind = modalElements.kindSelect.value || '';
       if (modalElements.junleSelect) modalState.filters.junle = modalElements.junleSelect.value || '';
-      if (modalElements.cookSelect) modalState.filters.cook = modalElements.cookSelect.value || '';
     };
 
     const renderMenuFilterBox = () => {
@@ -1952,6 +1944,9 @@
       const allowedMenus = (filter.allowedMenus || []).filter(Boolean);
       const allowSet = new Set(allowedMenus);
       const activeSet = new Set((filter.activeMenus || []).filter(Boolean));
+      if (modalElements.dinnerSetWrap) {
+        modalElements.dinnerSetWrap.classList.toggle('hidden', mealType !== 'dinner');
+      }
       const showBox = mealType === 'breakfast' || mealType === 'lunch';
       if (!showBox) {
         modalElements.filterBox.classList.add('hidden');
@@ -1996,12 +1991,11 @@
     };
 
     const applyModalFilters = () => {
-      const { search, kind, junle, cook, prepOnly, basicOnly } = modalState.filters;
+      const { search, kind, junle, prepOnly, dinnerSetOnly } = modalState.filters;
       const query = search.trim().toLowerCase();
       const activeFilters = {
         kind: kind || '',
-        junle: junle || '',
-        cook: cook || ''
+        junle: junle || ''
       };
 
       const baseOptions = getBaseModalOptions();
@@ -2009,9 +2003,8 @@
         if (!menu) return false;
         if (activeFilters.kind && menu.kind !== activeFilters.kind) return false;
         if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
-        if (activeFilters.cook && menu.cook !== activeFilters.cook) return false;
         if (prepOnly && !menu.makeAhead) return false;
-        if (basicOnly && !menu.basicMenu) return false;
+        if (dinnerSetOnly && menu.menu !== '定番ディナーセット') return false;
         if (!query) return true;
         // 検索対象を「レシピ名・よみ・メニュー」に限定
         const candidates = [
@@ -2097,7 +2090,7 @@
       modalState.categoryKey = '';
       modalState.options = [];
       modalState.currentMenu = null;
-      modalState.filters = { search: '', kind: '', junle: '', cook: '', prepOnly: false, basicOnly: false, ignoreFilter: false };
+      modalState.filters = { search: '', kind: '', junle: '', prepOnly: false, dinnerSetOnly: false, ignoreFilter: false };
       modalState.menuFilter = { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
       if (modalElements.overlay) {
         modalElements.overlay.classList.add('hidden');
@@ -2189,9 +2182,8 @@
         search: '',
         kind: '',
         junle: currentMenu?.junle || '',
-        cook: '',
         prepOnly: false,
-        basicOnly: false,
+        dinnerSetOnly: false,
         ignoreFilter: false
       };
 
@@ -2221,8 +2213,8 @@
       if (modalElements.prepOnly) {
         modalElements.prepOnly.checked = false;
       }
-      if (modalElements.basicOnly) {
-        modalElements.basicOnly.checked = false;
+      if (modalElements.dinnerSetOnly) {
+        modalElements.dinnerSetOnly.checked = false;
       }
 
       renderMenuFilterBox();
@@ -2276,13 +2268,6 @@
       });
     }
 
-    if (modalElements.cookSelect) {
-      modalElements.cookSelect.addEventListener('change', (event) => {
-        modalState.filters.cook = event.target.value || '';
-        renderModalList();
-      });
-    }
-
     if (modalElements.prepOnly) {
       modalElements.prepOnly.addEventListener('change', (event) => {
         modalState.filters.prepOnly = !!event.target.checked;
@@ -2290,9 +2275,9 @@
       });
     }
 
-    if (modalElements.basicOnly) {
-      modalElements.basicOnly.addEventListener('change', (event) => {
-        modalState.filters.basicOnly = !!event.target.checked;
+    if (modalElements.dinnerSetOnly) {
+      modalElements.dinnerSetOnly.addEventListener('change', (event) => {
+        modalState.filters.dinnerSetOnly = !!event.target.checked;
         renderModalList();
       });
     }
