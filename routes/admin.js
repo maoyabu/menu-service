@@ -582,7 +582,7 @@ router.post('/equipment-delete/:id', async (req, res) => {
 // レシピ一覧画面（DBから取得）
 router.get('/menu-list', async (req, res) => {
   try {
-    const { kind, junle, cook, keyword, image: imageFilter, makeAhead, basicMenu } = req.query;
+    const { kind, junle, cook, keyword, image: imageFilter, makeAhead, basicMenu, arrangeMenu } = req.query;
 
     const filterConditions = [];
 
@@ -621,13 +621,17 @@ router.get('/menu-list', async (req, res) => {
     if (toBool(basicMenu)) {
       filterConditions.push({ basicMenu: true });
     }
+    if (toBool(arrangeMenu)) {
+      filterConditions.push({ menuType: 'arrange' });
+    }
 
     const composedFilter = filterConditions.length ? { $and: filterConditions } : {};
 
     const menus = await Menu.find(composedFilter)
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
       .populate({ path: 'seasoning.name', model: 'Seasoning' })
-      .populate({ path: 'setMenus', select: 'imageUrl name menu kind junle cook menuType' });
+      .populate({ path: 'setMenus', select: 'imageUrl name menu kind junle cook menuType' })
+      .populate({ path: 'arrangeBaseMenu', select: 'imageUrl name menu kind junle cook menuType' });
 
     // kind, junle, cook のユニークな一覧を取得
     const allMenus = await Menu.find(); // 全体から取得するため再取得
@@ -645,6 +649,7 @@ router.get('/menu-list', async (req, res) => {
     if (imageFilter) appliedParams.append('image', imageFilter);
     if (toBool(makeAhead)) appliedParams.append('makeAhead', 'true');
     if (toBool(basicMenu)) appliedParams.append('basicMenu', 'true');
+    if (toBool(arrangeMenu)) appliedParams.append('arrangeMenu', 'true');
     const filterQueryString = appliedParams.toString();
     const filterQueryEncoded = encodeURIComponent(filterQueryString);
 
@@ -660,6 +665,7 @@ router.get('/menu-list', async (req, res) => {
       selectedImageFilter: imageFilter || '',
       selectedMakeAhead: toBool(makeAhead) ? 'true' : '',
       selectedBasicMenu: toBool(basicMenu) ? 'true' : '',
+      selectedArrangeMenu: toBool(arrangeMenu) ? 'true' : '',
       menusJSON: JSON.stringify(menus), // 🔸追加
       ingredientList,
       seasoningList,
@@ -674,7 +680,7 @@ router.get('/menu-list', async (req, res) => {
 
 // レシピ一覧絞り込み処理（POST → GET へリダイレクト）
 router.post('/menu-list', (req, res) => {
-  const { kind, junle, cook, keyword, image, makeAhead, basicMenu } = req.body;
+  const { kind, junle, cook, keyword, image, makeAhead, basicMenu, arrangeMenu } = req.body;
 
   const query = new URLSearchParams();
   if (kind) query.append('kind', kind);
@@ -684,6 +690,7 @@ router.post('/menu-list', (req, res) => {
   if (image) query.append('image', image);
   if (makeAhead) query.append('makeAhead', makeAhead);
   if (basicMenu) query.append('basicMenu', basicMenu);
+  if (arrangeMenu) query.append('arrangeMenu', arrangeMenu);
 
   res.redirect(`/admin/menu-list?${query.toString()}`);
 });
@@ -739,6 +746,7 @@ router.get('/menu-new', async (req, res) => {
       ingredients,
       seasonings,
       setMenuCandidates,
+      arrangeMenuCandidates: setMenuCandidates,
       junleListJSON: JSON.stringify(junleList),
       initialIngredients,
       initialSeasonings,
@@ -907,11 +915,14 @@ router.post('/menu-new', async (req, res) => {
       seasoning_amounts = [],
       seasoning_units = [],
       set_menu_ids = [],
+      arrange_base_menu_id = '',
       filters: filtersRaw = ''
     } = req.body;
     const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
-    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedMenuType = menuType === 'set'
+      ? 'set'
+      : (menuType === 'arrange' ? 'arrange' : 'single');
     const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
     const normalizedSetType = rawSetTypes
       .map((t) => String(t || '').trim())
@@ -947,7 +958,17 @@ router.post('/menu-new', async (req, res) => {
         setMenus = validMenus.map((m) => m._id);
       }
     }
-    const selectedSeasons = normalizeSeasonList(season);
+    let arrangeBaseMenu = null;
+    if (normalizedMenuType === 'arrange') {
+      const candidateId = String(arrange_base_menu_id || '').trim();
+      if (mongoose.Types.ObjectId.isValid(candidateId)) {
+        const baseMenu = await Menu.findOne({ _id: candidateId, menuType: { $ne: 'set' } })
+          .select('_id')
+          .lean();
+        if (baseMenu) arrangeBaseMenu = baseMenu._id;
+      }
+    }
+    const selectedSeasons = normalizedMenuType === 'arrange' ? [] : normalizeSeasonList(season);
 
     const newMenu = new Menu({
       name,
@@ -958,15 +979,16 @@ router.post('/menu-new', async (req, res) => {
       menuType: normalizedMenuType,
       setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
+      arrangeBaseMenu: normalizedMenuType === 'arrange' ? arrangeBaseMenu : null,
       url: normalizedMenuType === 'set' ? '' : url,
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
       comment,
       yomi,
-      material: toBool(material),
-      makeAhead: toBool(makeAhead),
-      basicMenu: toBool(basicMenu),
+      material: normalizedMenuType === 'arrange' ? false : toBool(material),
+      makeAhead: normalizedMenuType === 'arrange' ? false : toBool(makeAhead),
+      basicMenu: normalizedMenuType === 'arrange' ? false : toBool(basicMenu),
       isPrivate: toBool(req.body.isPrivate),
       ingredients,
       seasoning: seasonings,
@@ -999,7 +1021,8 @@ router.get('/menu-edit/:id', async (req, res) => {
     const menu = await Menu.findById(req.params.id)
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
       .populate({ path: 'seasoning.name', model: 'Seasoning' })
-      .populate({ path: 'setMenus', select: 'name menu kind junle cook imageUrl menuType' });
+      .populate({ path: 'setMenus', select: 'name menu kind junle cook imageUrl menuType' })
+      .populate({ path: 'arrangeBaseMenu', select: 'name menu kind junle cook imageUrl menuType' });
     if (!menu) {
       return res.status(404).send('該当レシピが見つかりません');
     }
@@ -1060,6 +1083,7 @@ router.get('/menu-edit/:id', async (req, res) => {
       ingredientList: ingredients,
       seasoningList: seasonings,
       setMenuCandidates,
+      arrangeMenuCandidates: setMenuCandidates,
       initialSetMenus: (menu.setMenus || []).map((m) => ({
         _id: m?._id,
         name: m?.name,
@@ -1070,6 +1094,18 @@ router.get('/menu-edit/:id', async (req, res) => {
         imageUrl: m?.imageUrl,
         menuType: m?.menuType
       })),
+      initialArrangeBaseMenu: menu.arrangeBaseMenu
+        ? {
+            _id: menu.arrangeBaseMenu?._id,
+            name: menu.arrangeBaseMenu?.name,
+            menu: menu.arrangeBaseMenu?.menu,
+            kind: menu.arrangeBaseMenu?.kind,
+            junle: menu.arrangeBaseMenu?.junle,
+            cook: menu.arrangeBaseMenu?.cook,
+            imageUrl: menu.arrangeBaseMenu?.imageUrl,
+            menuType: menu.arrangeBaseMenu?.menuType
+          }
+        : null,
       genreList,
       seasoningGenreList,
       initialIngredients,
@@ -1112,11 +1148,14 @@ router.post('/menu-edit/:id', async (req, res) => {
       seasoning_amounts = [],
       seasoning_units = [],
       set_menu_ids = [],
+      arrange_base_menu_id = '',
       filters: filtersRaw = ''
     } = req.body;
     const filters = typeof filtersRaw === 'string' ? filtersRaw.replace(/^\?/, '') : '';
 
-    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedMenuType = menuType === 'set'
+      ? 'set'
+      : (menuType === 'arrange' ? 'arrange' : 'single');
     const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
     const normalizedSetType = rawSetTypes
       .map((t) => String(t || '').trim())
@@ -1153,7 +1192,17 @@ router.post('/menu-edit/:id', async (req, res) => {
         setMenus = validMenus.map((m) => m._id);
       }
     }
-    const selectedSeasons = normalizeSeasonList(season);
+    let arrangeBaseMenu = null;
+    if (normalizedMenuType === 'arrange') {
+      const candidateId = String(arrange_base_menu_id || '').trim();
+      if (mongoose.Types.ObjectId.isValid(candidateId) && candidateId !== String(req.params.id || '')) {
+        const baseMenu = await Menu.findOne({ _id: candidateId, menuType: { $ne: 'set' } })
+          .select('_id')
+          .lean();
+        if (baseMenu) arrangeBaseMenu = baseMenu._id;
+      }
+    }
+    const selectedSeasons = normalizedMenuType === 'arrange' ? [] : normalizeSeasonList(season);
 
     await Menu.findByIdAndUpdate(req.params.id, {
       name,
@@ -1164,15 +1213,16 @@ router.post('/menu-edit/:id', async (req, res) => {
       menuType: normalizedMenuType,
       setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
+      arrangeBaseMenu: normalizedMenuType === 'arrange' ? arrangeBaseMenu : null,
       url: normalizedMenuType === 'set' ? '' : url,
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
       comment,
       yomi,
-      material: toBool(material),
-      makeAhead: toBool(makeAhead),
-      basicMenu: toBool(basicMenu),
+      material: normalizedMenuType === 'arrange' ? false : toBool(material),
+      makeAhead: normalizedMenuType === 'arrange' ? false : toBool(makeAhead),
+      basicMenu: normalizedMenuType === 'arrange' ? false : toBool(basicMenu),
       isPrivate: toBool(req.body.isPrivate),
       ingredients,
       seasoning: seasonings,

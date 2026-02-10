@@ -25,8 +25,13 @@ const menuSchema = new mongoose.Schema({
     },
     menuType: {
         type: String,
-        enum: ['single', 'set'],
+        enum: ['single', 'set', 'arrange'],
         default: 'single'
+    },
+    arrangeBaseMenu: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Menu',
+        default: null
     },
     setType: {
         type: [String],

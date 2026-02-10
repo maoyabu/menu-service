@@ -73,6 +73,10 @@
       </div>
       <div class="md:col-span-3 flex flex-wrap items-center gap-3">
         <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+          <input type="checkbox" name="arrangeMenu" value="true" class="w-4 h-4 text-blue-600 border-gray-300 rounded" <%= selectedArrangeMenu ? 'checked' : '' %>>
+          <span>アレンジメニューのみ</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
           <input type="checkbox" name="basicMenu" value="true" class="w-4 h-4 text-blue-600 border-gray-300 rounded" <%= selectedBasicMenu ? 'checked' : '' %>>
           <span>基本メニューのみ</span>
         </label>
@@ -180,6 +184,9 @@
             </div>
           </div>
           <div class="flex flex-wrap gap-1 text-sm text-gray-600">
+            <% if (menu.menuType === 'arrange') { %>
+              <span class="inline-block bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-semibold text-emerald-700">アレンジ</span>
+            <% } %>
             <% if (menu.basicMenu) { %>
               <span class="inline-block bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-semibold text-emerald-700">基本メニュー</span>
             <% } %>
@@ -255,6 +262,8 @@
         if (makeAhead) makeAhead.checked = false;
         const basicMenu = form.querySelector('input[name="basicMenu"]');
         if (basicMenu) basicMenu.checked = false;
+        const arrangeMenu = form.querySelector('input[name="arrangeMenu"]');
+        if (arrangeMenu) arrangeMenu.checked = false;
         form.submit();
       });
     }
@@ -270,9 +279,23 @@
         document.getElementById('modalTitle').innerText = menu.name;
 
         const modalContent = document.getElementById('modalContent');
+        const typeLabel = menu.menuType === 'set'
+          ? 'セットメニュー'
+          : (menu.menuType === 'arrange' ? 'アレンジメニュー' : '従来レシピ');
+        const arrangeBaseLabel = menu.menuType === 'arrange'
+          ? (menu.arrangeBaseMenu?.name || menu.arrangeBaseMenu?.menu || '未設定')
+          : '-';
         modalContent.innerHTML = `
           <p class="text-sm text-gray-500">レシピの詳細情報</p>
           <div class="grid grid-cols-2 gap-4 text-sm text-gray-800">
+            <div>
+              <p class="font-medium">レシピタイプ</p>
+              <p>${typeLabel}</p>
+            </div>
+            <div>
+              <p class="font-medium">アレンジ元</p>
+              <p>${arrangeBaseLabel}</p>
+            </div>
             <div>
               <p class="font-medium">種類</p>
               <p>${menu.kind || ''}</p>

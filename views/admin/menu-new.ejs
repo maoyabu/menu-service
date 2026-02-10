@@ -54,6 +54,10 @@
           <input type="radio" name="menuType" value="set" class="w-4 h-4 text-blue-600 border-gray-300">
           <span>セットメニュー</span>
         </label>
+        <label class="inline-flex items-center gap-2 text-sm font-medium">
+          <input type="radio" name="menuType" value="arrange" class="w-4 h-4 text-blue-600 border-gray-300">
+          <span>アレンジメニュー</span>
+        </label>
       </div>
       <div id="set-type-section" class="hidden">
         <p class="text-sm font-bold text-gray-700 mb-2">セット種別</p>
@@ -120,7 +124,7 @@
           <% }) %>
         </datalist>
       </div>
-      <div>
+      <div id="basic-menu-section">
         <p class="block mb-2 text-sm font-bold text-gray-700">基本メニュー</p>
         <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer">
           <input type="hidden" name="basicMenu" value="false">
@@ -133,7 +137,7 @@
           <span>基本メニューにする</span>
         </label>
       </div>
-      <div>
+      <div id="material-menu-section">
         <p class="block mb-2 text-sm font-bold text-gray-700">素材フラグ</p>
         <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer">
           <input type="hidden" name="material" value="false">
@@ -146,7 +150,7 @@
           <span>素材メニューにする</span>
         </label>
       </div>
-      <div>
+      <div id="makeahead-menu-section">
         <p class="block mb-2 text-sm font-bold text-gray-700">つくりおき</p>
         <label class="inline-flex items-center gap-3 text-sm font-medium cursor-pointer">
           <input type="hidden" name="makeAhead" value="false">
@@ -159,7 +163,7 @@
           <span>つくりおき向き</span>
         </label>
       </div>
-      <div class="md:col-span-2">
+      <div class="md:col-span-2" id="season-menu-section">
         <label class="block mb-1 text-sm font-bold">旬な季節</label>
         <div class="flex flex-wrap gap-3 text-sm">
           <% ['春','夏','秋','冬'].forEach(season => { %>
@@ -224,6 +228,20 @@
         <div id="set-menu-list" class="space-y-2 text-sm text-gray-500">メニューを追加してください</div>
       </div>
       <p class="text-xs text-gray-500 mt-2">セットメニューや自分自身は追加できません。</p>
+    </div>
+
+    <input type="hidden" name="arrange_base_menu_id" id="arrange-base-input" value="">
+    <div id="arrange-base-section" class="hidden">
+      <div class="flex items-center justify-start gap-3">
+        <label class="block mb-1 text-sm font-bold">アレンジ元メニュー</label>
+        <button type="button" id="open-arrange-base-modal" class="inline-flex items-center border rounded px-3 py-1 text-sm bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100">
+          <span class="text-xl leading-none">＋</span><span class="ml-1">メニューを選択</span>
+        </button>
+      </div>
+      <div class="border rounded-lg p-4 bg-white shadow-sm space-y-2">
+        <div id="arrange-base-selected" class="space-y-2 text-sm text-gray-500">メニューを選択してください</div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">アレンジの元になるメニューを1つ選択してください。</p>
     </div>
 
     <div id="ingredients-section">
@@ -763,7 +781,9 @@ async function toggleFavorite(button, id, type) {
 
 <script>
   const setMenuCandidates = <%- JSON.stringify(setMenuCandidates || []) %>;
+  const arrangeMenuCandidates = <%- JSON.stringify(arrangeMenuCandidates || []) %>;
   const initialSetMenus = <%- JSON.stringify([]) %>;
+  const initialArrangeBaseMenu = null;
 
   function setSectionEnabled(sectionId, enabled) {
     const section = document.getElementById(sectionId);
@@ -789,13 +809,24 @@ async function toggleFavorite(button, id, type) {
   function applyMenuTypeState() {
     const checked = document.querySelector('input[name="menuType"]:checked');
     const isSet = checked && checked.value === 'set';
+    const isArrange = checked && checked.value === 'arrange';
     setSectionEnabled('set-type-section', isSet);
     setSectionEnabled('set-menu-section', isSet);
+    setSectionEnabled('arrange-base-section', isArrange);
     setSectionEnabled('menu-url-section', !isSet);
     setSectionEnabled('menu-image-section', !isSet);
     setSectionEnabled('ingredients-section', true);
     setSectionEnabled('seasonings-section', !isSet);
+    setSectionEnabled('basic-menu-section', !isArrange);
+    setSectionEnabled('material-menu-section', !isArrange);
+    setSectionEnabled('makeahead-menu-section', !isArrange);
+    setSectionEnabled('season-menu-section', !isArrange);
     toggleRequired('menu-url-input', !isSet);
+
+    if (isArrange) {
+      const menuInput = document.querySelector('input[name="menu"]');
+      if (menuInput && !menuInput.value) menuInput.value = 'アレンジメニュー';
+    }
 
     // setType validation handled on submit (checkbox group)
   }
@@ -944,6 +975,148 @@ async function toggleFavorite(button, id, type) {
     });
   }
 
+  const arrangeBaseState = {
+    selected: null
+  };
+
+  function renderArrangeBaseSelected() {
+    const holder = document.getElementById('arrange-base-selected');
+    const hiddenInput = document.getElementById('arrange-base-input');
+    if (!holder) return;
+    if (!arrangeBaseState.selected) {
+      holder.textContent = 'メニューを選択してください';
+      if (hiddenInput) hiddenInput.value = '';
+      return;
+    }
+    const item = arrangeBaseState.selected;
+    if (hiddenInput) hiddenInput.value = item._id;
+    holder.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'flex flex-wrap items-center gap-3 border border-gray-200 rounded p-2 bg-gray-50';
+
+    if (item.imageUrl) {
+      const img = document.createElement('img');
+      img.src = item.imageUrl;
+      img.alt = item.name || 'menu image';
+      img.className = 'w-12 h-12 rounded object-cover';
+      wrap.appendChild(img);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+      placeholder.textContent = 'NO IMG';
+      wrap.appendChild(placeholder);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'min-w-[180px]';
+    const title = document.createElement('div');
+    title.className = 'font-medium text-gray-800';
+    title.textContent = item.name || '名称未設定';
+    const meta = document.createElement('div');
+    meta.className = 'text-xs text-gray-500';
+    meta.textContent = [item.menu, item.kind, item.junle, item.cook].filter(Boolean).join(' / ');
+    info.appendChild(title);
+    info.appendChild(meta);
+    wrap.appendChild(info);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'ml-auto px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => {
+      arrangeBaseState.selected = null;
+      renderArrangeBaseSelected();
+    });
+    wrap.appendChild(removeBtn);
+
+    holder.appendChild(wrap);
+  }
+
+  function renderArrangeBaseResults() {
+    const resultsEl = document.getElementById('arrange-base-results');
+    if (!resultsEl) return;
+    const keyword = normalizeText(document.getElementById('arrange-base-keyword')?.value || '');
+    const menuFilter = document.getElementById('arrange-base-filter-menu')?.value || '';
+    const kindFilter = document.getElementById('arrange-base-filter-kind')?.value || '';
+    const junleFilter = document.getElementById('arrange-base-filter-junle')?.value || '';
+    const cookFilter = document.getElementById('arrange-base-filter-cook')?.value || '';
+
+    const filtered = arrangeMenuCandidates.filter((item) => {
+      if (item.menuType === 'set') return false;
+      if (menuFilter && item.menu !== menuFilter) return false;
+      if (kindFilter && item.kind !== kindFilter) return false;
+      if (junleFilter && item.junle !== junleFilter) return false;
+      if (cookFilter && item.cook !== cookFilter) return false;
+      return matchKeyword(item, keyword);
+    });
+
+    resultsEl.innerHTML = '';
+    if (!filtered.length) {
+      const empty = document.createElement('div');
+      empty.className = 'text-sm text-gray-500';
+      empty.textContent = '条件に一致するメニューがありません。';
+      resultsEl.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'flex items-start gap-3 border rounded p-2 bg-white';
+
+      if (item.imageUrl) {
+        const img = document.createElement('img');
+        img.src = item.imageUrl;
+        img.alt = item.name || 'menu image';
+        img.className = 'w-12 h-12 rounded object-cover';
+        row.appendChild(img);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+        placeholder.textContent = 'NO IMG';
+        row.appendChild(placeholder);
+      }
+
+      const info = document.createElement('div');
+      info.className = 'flex-1';
+      const title = document.createElement('div');
+      title.className = 'font-medium text-gray-800';
+      title.textContent = item.name || '名称未設定';
+      const meta = document.createElement('div');
+      meta.className = 'text-xs text-gray-500';
+      meta.textContent = [item.menu, item.kind, item.junle, item.cook].filter(Boolean).join(' / ');
+      info.appendChild(title);
+      info.appendChild(meta);
+      row.appendChild(info);
+
+      const selectBtn = document.createElement('button');
+      selectBtn.type = 'button';
+      selectBtn.className = 'ml-auto px-3 py-1.5 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-500';
+      selectBtn.textContent = '選択';
+      selectBtn.addEventListener('click', () => {
+        arrangeBaseState.selected = item;
+        renderArrangeBaseSelected();
+        closeArrangeBaseModal();
+      });
+      row.appendChild(selectBtn);
+
+      resultsEl.appendChild(row);
+    });
+  }
+
+  function openArrangeBaseModal() {
+    const modal = document.getElementById('arrange-base-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    renderArrangeBaseResults();
+  }
+
+  function closeArrangeBaseModal() {
+    const modal = document.getElementById('arrange-base-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+  }
+
   function openSetMenuModal() {
     const modal = document.getElementById('set-menu-modal');
     if (!modal) return;
@@ -962,11 +1135,17 @@ async function toggleFavorite(button, id, type) {
     const closeBtn = document.getElementById('set-menu-close');
     const applyBtn = document.getElementById('set-menu-apply');
     const overlay = document.getElementById('set-menu-overlay');
+    const arrangeOpenBtn = document.getElementById('open-arrange-base-modal');
+    const arrangeCloseBtn = document.getElementById('arrange-base-close');
+    const arrangeOverlay = document.getElementById('arrange-base-overlay');
 
     if (openBtn) openBtn.addEventListener('click', openSetMenuModal);
     if (closeBtn) closeBtn.addEventListener('click', closeSetMenuModal);
     if (applyBtn) applyBtn.addEventListener('click', closeSetMenuModal);
     if (overlay) overlay.addEventListener('click', closeSetMenuModal);
+    if (arrangeOpenBtn) arrangeOpenBtn.addEventListener('click', openArrangeBaseModal);
+    if (arrangeCloseBtn) arrangeCloseBtn.addEventListener('click', closeArrangeBaseModal);
+    if (arrangeOverlay) arrangeOverlay.addEventListener('click', closeArrangeBaseModal);
 
     ['set-menu-keyword','set-menu-filter-menu','set-menu-filter-kind','set-menu-filter-junle','set-menu-filter-cook']
       .forEach((id) => {
@@ -975,11 +1154,23 @@ async function toggleFavorite(button, id, type) {
         el.addEventListener('input', renderSetMenuResults);
         el.addEventListener('change', renderSetMenuResults);
       });
+    ['arrange-base-keyword','arrange-base-filter-menu','arrange-base-filter-kind','arrange-base-filter-junle','arrange-base-filter-cook']
+      .forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', renderArrangeBaseResults);
+        el.addEventListener('change', renderArrangeBaseResults);
+      });
 
     initialSetMenus.forEach((item) => {
       if (!item || !item._id) return;
       setMenuState.selected.set(item._id, item);
     });
+
+    if (initialArrangeBaseMenu && initialArrangeBaseMenu._id) {
+      arrangeBaseState.selected = initialArrangeBaseMenu;
+    }
+    renderArrangeBaseSelected();
 
     document.querySelectorAll('input[name="menuType"]').forEach((el) => {
       el.addEventListener('change', applyMenuTypeState);
@@ -993,11 +1184,21 @@ async function toggleFavorite(button, id, type) {
       form.addEventListener('submit', (e) => {
         const checked = document.querySelector('input[name="menuType"]:checked');
         const isSet = checked && checked.value === 'set';
-        if (!isSet) return;
-        const any = Array.from(document.querySelectorAll('input[name="setType[]"]')).some((el) => el.checked);
-        if (!any) {
-          e.preventDefault();
-          alert('セット種別を1つ以上選択してください。');
+        const isArrange = checked && checked.value === 'arrange';
+        if (isSet) {
+          const any = Array.from(document.querySelectorAll('input[name="setType[]"]')).some((el) => el.checked);
+          if (!any) {
+            e.preventDefault();
+            alert('セット種別を1つ以上選択してください。');
+          }
+          return;
+        }
+        if (isArrange) {
+          const baseId = document.getElementById('arrange-base-input')?.value;
+          if (!baseId) {
+            e.preventDefault();
+            alert('アレンジ元メニューを選択してください。');
+          }
         }
       });
     }
@@ -1059,6 +1260,62 @@ async function toggleFavorite(button, id, type) {
       <div class="text-right">
         <button type="button" id="set-menu-apply" class="px-4 py-2 rounded bg-gray-900 text-white text-sm">追加する</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- アレンジ元メニュー選択モーダル -->
+<div id="arrange-base-modal" class="fixed inset-0 z-50 hidden">
+  <div id="arrange-base-overlay" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative mx-auto mt-10 w-[860px] max-w-[96vw] rounded-2xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b px-5 py-3">
+      <h3 class="font-semibold">アレンジ元メニューを選択</h3>
+      <button type="button" id="arrange-base-close" class="text-gray-500">✕</button>
+    </div>
+    <div class="p-4 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500">フリーワード</label>
+          <input id="arrange-base-keyword" class="w-full border rounded px-3 py-2" placeholder="例: 白米 / 味噌">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">メニュー</label>
+          <select id="arrange-base-filter-menu" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% (menuList || []).forEach(name => { %>
+              <option value="<%= name %>"><%= name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">種類</label>
+          <select id="arrange-base-filter-kind" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% (kindList || []).forEach(kind => { %>
+              <option value="<%= kind %>"><%= kind %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">ジャンル</label>
+          <select id="arrange-base-filter-junle" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% junleList.forEach(junle => { %>
+              <option value="<%= junle %>"><%= junle %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">調理方法</label>
+          <select id="arrange-base-filter-cook" class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+            <% (cookList || []).forEach(cook => { %>
+              <option value="<%= cook %>"><%= cook %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+      <div id="arrange-base-results" class="max-h-[45vh] overflow-auto border rounded p-3 bg-gray-50 space-y-2"></div>
     </div>
   </div>
 </div>
