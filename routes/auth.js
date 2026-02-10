@@ -3419,6 +3419,14 @@ router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
         const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
           .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+          .populate({
+            path: 'setMenus',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            populate: [
+              { path: 'ingredients.name', select: 'ingredient unit classification' },
+              { path: 'seasoning.name', select: 'seasoning unit classification' }
+            ]
+          })
           .lean();
         menusByKind[kind] = docs.map(formatMenuDocument);
       })
@@ -3556,6 +3564,14 @@ router.post('/users/week-menu/shuffle-slot', isLoggedIn, async (req, res) => {
         const docs = await Menu.find({ kind, isPrivate: { $ne: true } })
           .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
+          .populate({
+            path: 'setMenus',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            populate: [
+              { path: 'ingredients.name', select: 'ingredient unit classification' },
+              { path: 'seasoning.name', select: 'seasoning unit classification' }
+            ]
+          })
           .lean();
         menusByKind[kind] = docs.map(formatMenuDocument);
       })
