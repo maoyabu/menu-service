@@ -94,7 +94,11 @@ router.get('/', async (req, res, next) => {
     ]);
 
     const mySharedSamples = await Mymenu.find({ user: userId, sourceType: 'shared' })
-      .populate('menu', 'name imageUrl kind')
+      .populate({
+        path: 'menu',
+        select: 'name imageUrl kind menuType setMenus',
+        populate: { path: 'setMenus', select: 'imageUrl' }
+      })
       .sort({ update_date: -1, entry_date: -1 })
       .limit(4)
       .lean();

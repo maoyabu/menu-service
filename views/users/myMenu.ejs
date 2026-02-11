@@ -63,7 +63,34 @@
         <% (mySharedSamples || []).forEach(function(mm){ const m = mm.menu || {}; %>
           <div class="overflow-hidden rounded-xl border">
             <div class="h-24 bg-gray-100">
-              <% if (m.imageUrl) { %>
+              <% const __isSet = (m.menuType === 'set') || (Array.isArray(m.setMenus) && m.setMenus.length); %>
+              <% if (__isSet) { %>
+                <% const setImages = (m.setMenus || []).map(x => x?.imageUrl).filter(Boolean); %>
+                <% const imgCount = Math.min(setImages.length, 5); %>
+                <% if (imgCount > 0) { %>
+                  <% const gridClass = imgCount === 1 ? 'one' : (imgCount === 2 ? 'two' : (imgCount === 3 ? 'three' : (imgCount === 4 ? 'four' : 'five'))); %>
+                  <div class="mymenu-grid <%= gridClass %>">
+                    <% if (imgCount === 3) { %>
+                      <div class="tile span-2"><img src="<%= setImages[0] %>" alt=""></div>
+                      <div class="tile"><img src="<%= setImages[1] %>" alt=""></div>
+                      <div class="tile"><img src="<%= setImages[2] %>" alt=""></div>
+                    <% } else if (imgCount === 5) { %>
+                      <div class="tile span-2"><img src="<%= setImages[0] %>" alt=""></div>
+                      <% for (let i = 1; i < 5; i++) { %>
+                        <div class="tile"><img src="<%= setImages[i] %>" alt=""></div>
+                      <% } %>
+                    <% } else { %>
+                      <% for (let i = 0; i < imgCount; i++) { %>
+                        <div class="tile"><img src="<%= setImages[i] %>" alt=""></div>
+                      <% } %>
+                    <% } %>
+                  </div>
+                <% } else if (m.imageUrl) { %>
+                  <img src="<%= m.imageUrl %>" alt="<%= m.name %>" class="w-full h-full object-cover" />
+                <% } else { %>
+                  <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>
+                <% } %>
+              <% } else if (m.imageUrl) { %>
                 <img src="<%= m.imageUrl %>" alt="<%= m.name %>" class="w-full h-full object-cover" />
               <% } else { %>
                 <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>
