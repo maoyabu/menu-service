@@ -58,6 +58,12 @@ const FOOD_CLASSIFICATIONS = Object.keys(DEFAULT_GUIDELINE_TOTALS);
 
 const WEEK_MENU_SETTINGS_DEFAULTS = {
   breakfastMenus: ['モーニング'],
+  breakfastRatios: {
+    japanese: 3,
+    western: 4,
+    chinese: 0,
+    other: 0
+  },
   lunchMenus: [
     'カレーライス',
     '丼',
@@ -72,8 +78,90 @@ const WEEK_MENU_SETTINGS_DEFAULTS = {
     'サンドイッチ',
     '定食'
   ],
+  lunchRatios: {
+    japanese: 2,
+    western: 3,
+    chinese: 2,
+    other: 0
+  },
   breakfastFilterEnabled: true,
   lunchFilterEnabled: true
+};
+
+const normalizeBreakfastRatios = (raw = {}) => {
+  const keys = ['japanese', 'western', 'chinese', 'other'];
+  const sanitized = keys.reduce((acc, key) => {
+    const value = Number(raw?.[key]);
+    acc[key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    return acc;
+  }, {});
+  const sum = keys.reduce((acc, key) => acc + sanitized[key], 0);
+  if (sum <= 0) {
+    return { ...WEEK_MENU_SETTINGS_DEFAULTS.breakfastRatios };
+  }
+  if (sum === 7) return sanitized;
+
+  const scaled = keys.map((key) => {
+    const rawValue = sanitized[key];
+    const scaledValue = (rawValue / sum) * 7;
+    return { key, rawValue, scaledValue };
+  });
+  const floored = {};
+  let total = 0;
+  scaled.forEach(({ key, scaledValue }) => {
+    const value = Math.floor(scaledValue);
+    floored[key] = value;
+    total += value;
+  });
+  let remainder = 7 - total;
+  if (remainder > 0) {
+    const byFraction = scaled
+      .map(({ key, scaledValue }) => ({ key, fraction: scaledValue - Math.floor(scaledValue) }))
+      .sort((a, b) => b.fraction - a.fraction);
+    for (let i = 0; i < remainder; i += 1) {
+      const target = byFraction[i % byFraction.length];
+      floored[target.key] += 1;
+    }
+  }
+  return floored;
+};
+
+const normalizeLunchRatios = (raw = {}) => {
+  const keys = ['japanese', 'western', 'chinese', 'other'];
+  const sanitized = keys.reduce((acc, key) => {
+    const value = Number(raw?.[key]);
+    acc[key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    return acc;
+  }, {});
+  const sum = keys.reduce((acc, key) => acc + sanitized[key], 0);
+  if (sum <= 0) {
+    return { ...WEEK_MENU_SETTINGS_DEFAULTS.lunchRatios };
+  }
+  if (sum === 7) return sanitized;
+
+  const scaled = keys.map((key) => {
+    const rawValue = sanitized[key];
+    const scaledValue = (rawValue / sum) * 7;
+    return { key, rawValue, scaledValue };
+  });
+  const floored = {};
+  let total = 0;
+  scaled.forEach(({ key, scaledValue }) => {
+    const value = Math.floor(scaledValue);
+    floored[key] = value;
+    total += value;
+  });
+  let remainder = 7 - total;
+  if (remainder > 0) {
+    const byFraction = scaled
+      .map(({ key, scaledValue }) => ({ key, fraction: scaledValue - Math.floor(scaledValue) }))
+      .sort((a, b) => b.fraction - a.fraction);
+    for (let i = 0; i < remainder; i += 1) {
+      const target = byFraction[i % byFraction.length];
+      floored[target.key] += 1;
+    }
+  }
+  return floored;
 };
 
 const normalizeWeekMenuSettings = (raw = {}) => {
@@ -82,7 +170,9 @@ const normalizeWeekMenuSettings = (raw = {}) => {
     .filter(Boolean);
   return {
     breakfastMenus: toArray(raw.breakfastMenus).length ? toArray(raw.breakfastMenus) : WEEK_MENU_SETTINGS_DEFAULTS.breakfastMenus.slice(),
+    breakfastRatios: normalizeBreakfastRatios(raw.breakfastRatios || {}),
     lunchMenus: toArray(raw.lunchMenus).length ? toArray(raw.lunchMenus) : WEEK_MENU_SETTINGS_DEFAULTS.lunchMenus.slice(),
+    lunchRatios: normalizeLunchRatios(raw.lunchRatios || {}),
     breakfastFilterEnabled: raw.breakfastFilterEnabled !== false,
     lunchFilterEnabled: raw.lunchFilterEnabled !== false
   };
@@ -814,34 +904,105 @@ const pickBreakfastByBucket = ({ menus, bucketKey, myMenuFrequency = {}, current
 const buildBreakfastPlan = (menus, options = {}) => {
   const {
     myMenuFrequency = {},
-    currentSeason = ''
+    currentSeason = '',
+    breakfastMenuFilter = [],
+    breakfastRatios = {},
+    preferredSetMenuIds = new Set()
   } = options;
+
   const baseMenus = filterBaseMenus(menus);
-  const seasonalMenus = filterSeasonalMenus(baseMenus, currentSeason);
-  const fallbackMenus = seasonalMenus.length ? seasonalMenus : baseMenus;
+  const allowList = new Set(
+    (breakfastMenuFilter || [])
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean)
+  );
+  let filteredMenus = baseMenus;
+  if (allowList.size) {
+    filteredMenus = baseMenus.filter((menu) => allowList.has(String(menu?.menu || '').trim()));
+  }
+  if (!filteredMenus.length) filteredMenus = baseMenus;
+
+  const seasonalMenus = filterSeasonalMenus(filteredMenus, currentSeason);
+  const fallbackMenus = seasonalMenus.length ? seasonalMenus : filteredMenus;
+  if (!fallbackMenus.length) {
+    return Array.from({ length: 7 }, () => []);
+  }
+
+  const classify = (menu) => {
+    const junle = String(menu?.junle || '').trim();
+    if (junle.includes('和')) return 'japanese';
+    if (junle.includes('洋')) return 'western';
+    if (junle.includes('中')) return 'chinese';
+    return 'other';
+  };
+
+  const buckets = { japanese: [], western: [], chinese: [], other: [] };
+  fallbackMenus.forEach((menu) => {
+    buckets[classify(menu)].push(menu);
+  });
+
+  const ratio = normalizeBreakfastRatios(breakfastRatios || {});
+  const keys = ['japanese', 'western', 'chinese', 'other'];
+  const counts = { ...ratio };
+  const availableKeys = keys.filter((key) => buckets[key].length);
+  if (!availableKeys.length) {
+    return Array.from({ length: 7 }, () => []);
+  }
+  keys.forEach((key) => {
+    if (counts[key] > 0 && !buckets[key].length) {
+      let remaining = counts[key];
+      counts[key] = 0;
+      let idx = 0;
+      while (remaining > 0) {
+        const target = availableKeys[idx % availableKeys.length];
+        counts[target] += 1;
+        remaining -= 1;
+        idx += 1;
+      }
+    }
+  });
+
+  const dayTypes = [];
+  keys.forEach((key) => {
+    for (let i = 0; i < counts[key]; i += 1) dayTypes.push(key);
+  });
+  while (dayTypes.length < 7) {
+    dayTypes.push(availableKeys[dayTypes.length % availableKeys.length]);
+  }
+  if (dayTypes.length > 7) dayTypes.length = 7;
+
   const usedIds = new Set();
   let favoriteQuota = 3;
-  const toSlot = (menu) => ({
-    menuId: menu.id,
-    categoryKey: 'breakfastMain',
-    favorite: false,
-    dineOut: false
-  });
-  const fillToTarget = (slots, targetCount, fillPool = fallbackMenus) => {
-    if (!fillPool) return slots;
-    while (slots.length < targetCount) {
-      const extra = pickFromCandidates(fillPool);
-      if (!extra) break;
-      slots.push(toSlot(extra));
-    }
-    return slots;
+
+  const isPreferredSetMenu = (menu) => {
+    if (!menu || menu.menuType !== 'set') return false;
+    if (!preferredSetMenuIds || !preferredSetMenuIds.has(menu.id)) return false;
+    const setType = menu.setType;
+    if (Array.isArray(setType)) return setType.includes('morning');
+    if (typeof setType === 'string') return setType === 'morning';
+    return false;
   };
-  const pickFromCandidates = (candidates, { allowReuse = false, allowFallback = true } = {}) => {
-    const seasonalCandidates = filterSeasonalMenus(candidates, currentSeason);
-    const pool = seasonalCandidates.length ? seasonalCandidates : candidates;
-    const sorted = sortMenusByPreference(pool, myMenuFrequency);
-    const pickPreferred = (list, preferFavorites) =>
-      list.find((menu) => {
+
+  const pickMenuFromPool = (pool) => {
+    if (!pool.length) return null;
+    const allowReuse = usedIds.size >= pool.length;
+    const available = allowReuse ? pool : pool.filter((menu) => !usedIds.has(menu.id));
+    if (!available.length) return null;
+
+    const preferredSet = available.filter(isPreferredSetMenu);
+    if (preferredSet.length) {
+      const sorted = sortMenusByPreference(preferredSet, myMenuFrequency);
+      const picked = sorted[0] || preferredSet[0] || null;
+      if (picked) {
+        usedIds.add(picked.id);
+        if (myMenuFrequency[picked.id] && favoriteQuota > 0) favoriteQuota -= 1;
+      }
+      return picked;
+    }
+
+    const sorted = sortMenusByPreference(available, myMenuFrequency);
+    const pickPreferred = (preferFavorites) =>
+      sorted.find((menu) => {
         if (!menu) return false;
         if (!allowReuse && usedIds.has(menu.id)) return false;
         if (!preferFavorites) return true;
@@ -850,88 +1011,84 @@ const buildBreakfastPlan = (menus, options = {}) => {
 
     let picked = null;
     if (favoriteQuota > 0) {
-      picked = pickPreferred(sorted, true) || pickPreferred(sorted, false);
+      picked = pickPreferred(true) || pickPreferred(false);
     } else {
-      picked = pickPreferred(sorted.filter((m) => !myMenuFrequency[m?.id]), false) || pickPreferred(sorted, false);
-    }
-
-    if (!picked && allowFallback && fallbackMenus.length) {
-      const fallbackSorted = sortMenusByPreference(fallbackMenus, myMenuFrequency);
-      if (favoriteQuota > 0) {
-        picked = pickPreferred(fallbackSorted, true) || pickPreferred(fallbackSorted, false);
-      } else {
-        picked = pickPreferred(fallbackSorted.filter((m) => !myMenuFrequency[m?.id]), false) || pickPreferred(fallbackSorted, false);
-      }
+      picked = pickPreferred(false);
     }
 
     if (picked) {
-      if (!allowReuse || !usedIds.has(picked.id)) {
-        usedIds.add(picked.id);
-      }
-      if (myMenuFrequency[picked.id] && favoriteQuota > 0) {
-        favoriteQuota -= 1;
-      }
+      usedIds.add(picked.id);
+      if (myMenuFrequency[picked.id] && favoriteQuota > 0) favoriteQuota -= 1;
     }
     return picked;
   };
 
-  const buildWesternSet = () => {
-    const slots = [];
-    const bread = pickFromCandidates(
-      filterMenusByKeyword(fallbackMenus, ['食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ'])
-    );
-    if (bread) slots.push(toSlot(bread));
-
-    const yogurt = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['ヨーグルト']));
-    if (yogurt) slots.push(toSlot(yogurt));
-
-    const egg = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['目玉焼き', 'スクランブルエッグ', 'オムレツ']));
-    if (egg) slots.push(toSlot(egg));
-
-    const soupCandidates = filterMenusByKeyword(fallbackMenus, ['スープ'], { junle: '洋食' });
-    const soup = pickFromCandidates(soupCandidates.length ? soupCandidates : filterMenusByKeyword(fallbackMenus, ['スープ']));
-    if (soup) slots.push(toSlot(soup));
-
-    return fillToTarget(slots, 4, fallbackMenus);
-  };
-
-  const buildJapaneseSet = () => {
-    const slots = [];
-    const rice = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['白米', 'おにぎり', '卵かけご飯']), { allowFallback: false });
-    if (rice) slots.push(toSlot(rice));
-
-    const misoSoup = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['味噌汁']), { allowFallback: false });
-    if (misoSoup) slots.push(toSlot(misoSoup));
-
-    const fish = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['焼き魚', '干物']), { allowFallback: false });
-    if (fish) slots.push(toSlot(fish));
-
-    const natto = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['納豆', 'しらす', 'ふりかけ']), { allowFallback: false });
-    if (natto) slots.push(toSlot(natto));
-
-    const tamago = pickFromCandidates(filterMenusByKeyword(fallbackMenus, ['卵焼き']), { allowFallback: false });
-    if (tamago) slots.push(toSlot(tamago));
-
-    return slots;
-  };
-
-  const buildPlateSet = () => {
-    const plateCandidates = (fallbackMenus || []).filter((m) => m && m.kind === 'モーニングプレート');
-    const menu = pickFromCandidates(plateCandidates.length ? plateCandidates : fallbackMenus, { allowReuse: true });
-    return menu ? [toSlot(menu)] : [];
-  };
-
-  const dayTypes = shuffleArray(['western', 'western', 'western', 'japanese', 'japanese', 'plate', 'plate']);
-
-  return dayTypes.map((type) => {
-    if (type === 'japanese') return buildJapaneseSet();
-    if (type === 'plate') return buildPlateSet();
-    return buildWesternSet();
+  return shuffleArray(dayTypes).map((type) => {
+    const pool = buckets[type].length ? buckets[type] : fallbackMenus;
+    const picked = pickMenuFromPool(pool);
+    if (!picked) return [];
+    return [{
+      menuId: picked.id,
+      categoryKey: 'breakfastMain',
+      favorite: false,
+      dineOut: false
+    }];
   });
 };
 
+const pickBreakfastCandidate = ({
+  menus,
+  myMenuFrequency = {},
+  currentSeason = '',
+  breakfastMenuFilter = [],
+  preferredSetMenuIds = new Set(),
+  excludeMenuId = ''
+}) => {
+  const baseMenus = filterBaseMenus(menus);
+  const allowList = new Set(
+    (breakfastMenuFilter || [])
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean)
+  );
+  let filteredMenus = baseMenus;
+  if (allowList.size) {
+    filteredMenus = baseMenus.filter((menu) => allowList.has(String(menu?.menu || '').trim()));
+  }
+  if (!filteredMenus.length) filteredMenus = baseMenus;
+  const seasonalMenus = filterSeasonalMenus(filteredMenus, currentSeason);
+  let pool = seasonalMenus.length ? seasonalMenus : filteredMenus;
+  if (excludeMenuId) {
+    pool = pool.filter((menu) => menu?.id !== excludeMenuId);
+  }
+  if (!pool.length) return null;
+
+  const isPreferredSetMenu = (menu) => {
+    if (!menu || menu.menuType !== 'set') return false;
+    if (!preferredSetMenuIds || !preferredSetMenuIds.has(menu.id)) return false;
+    const setType = menu.setType;
+    if (Array.isArray(setType)) return setType.includes('morning');
+    if (typeof setType === 'string') return setType === 'morning';
+    return false;
+  };
+
+  const preferredSet = pool.filter(isPreferredSetMenu);
+  if (preferredSet.length) {
+    const sorted = sortMenusByPreference(preferredSet, myMenuFrequency);
+    return sorted[0] || preferredSet[0] || null;
+  }
+
+  const sorted = sortMenusByPreference(pool, myMenuFrequency);
+  return sorted[0] || pool[0] || null;
+};
+
 const buildLunchPlan = (menus, options = {}) => {
-  const { myMenuFrequency = {}, currentSeason = '' } = options;
+  const {
+    myMenuFrequency = {},
+    currentSeason = '',
+    lunchMenuFilter = [],
+    lunchRatios = {},
+    preferredOriginalMenuIds = new Set()
+  } = options;
   const LUNCH_EXCLUDE_KEYWORDS = [
     '食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ',
     'ヨーグルト',
@@ -945,12 +1102,23 @@ const buildLunchPlan = (menus, options = {}) => {
     '卵焼き'
   ];
   const baseMenus = filterBaseMenus(menus, { excludeKeywords: LUNCH_EXCLUDE_KEYWORDS });
-  const seasonalMenus = filterSeasonalMenus(baseMenus, currentSeason);
-  const fallbackMenus = seasonalMenus.length ? seasonalMenus : baseMenus;
+  const allowList = new Set(
+    (lunchMenuFilter || [])
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean)
+  );
+  let filteredMenus = baseMenus;
+  if (allowList.size) {
+    filteredMenus = baseMenus.filter((menu) => allowList.has(String(menu?.menu || '').trim()));
+  }
+  if (!filteredMenus.length) filteredMenus = baseMenus;
+  const seasonalMenus = filterSeasonalMenus(filteredMenus, currentSeason);
+  const fallbackMenus = seasonalMenus.length ? seasonalMenus : filteredMenus;
   const rawAllowedMenus = (menus || []).filter((m) => m && m.material !== true && (!m.kind || ['主食・ごはん', '主食・麺', '主食'].includes(m.kind)));
   const usedIds = new Set();
-  let favoriteQuota = 5;
   const allowedKinds = new Set(['主食・ごはん', '主食・麺', '主食']);
+  let favoriteQuota = 5;
+
   const filtered = (fallbackMenus || []).filter((menu) => {
     if (!menu) return false;
     if (menu.kind && !allowedKinds.has(menu.kind)) return false;
@@ -958,52 +1126,122 @@ const buildLunchPlan = (menus, options = {}) => {
     return true;
   });
 
-  const pickLunch = () => {
-    const seasonal = filterSeasonalMenus(filtered, currentSeason);
-    let pool = seasonal.length ? seasonal : filtered;
-    if (pool.length < 3) {
-      // フィルタで候補が少なすぎる場合は、主食系かつ素材フラグなしの全候補を使う
-      pool = rawAllowedMenus.length ? rawAllowedMenus : pool;
+  const classify = (menu) => {
+    const junle = String(menu?.junle || '').trim();
+    if (junle.includes('和')) return 'japanese';
+    if (junle.includes('洋')) return 'western';
+    if (junle.includes('中')) return 'chinese';
+    return 'other';
+  };
+
+  const ratio = normalizeLunchRatios(lunchRatios || {});
+  const keys = ['japanese', 'western', 'chinese', 'other'];
+  const buckets = { japanese: [], western: [], chinese: [], other: [] };
+  filtered.forEach((menu) => {
+    buckets[classify(menu)].push(menu);
+  });
+  const availableKeys = keys.filter((key) => buckets[key].length);
+  if (!availableKeys.length) {
+    return Array.from({ length: 7 }, () => []);
+  }
+
+  const counts = { ...ratio };
+  keys.forEach((key) => {
+    if (counts[key] > 0 && !buckets[key].length) {
+      let remaining = counts[key];
+      counts[key] = 0;
+      let idx = 0;
+      while (remaining > 0) {
+        const target = availableKeys[idx % availableKeys.length];
+        counts[target] += 1;
+        remaining -= 1;
+        idx += 1;
+      }
     }
-    const allowReuse = usedIds.size >= pool.length;
-    const sorted = sortMenusByPreference(pool, myMenuFrequency);
+  });
+
+  const dayTypes = [];
+  keys.forEach((key) => {
+    for (let i = 0; i < counts[key]; i += 1) dayTypes.push(key);
+  });
+  while (dayTypes.length < 7) {
+    dayTypes.push(availableKeys[dayTypes.length % availableKeys.length]);
+  }
+  if (dayTypes.length > 7) dayTypes.length = 7;
+
+  const isPreferredTeishoku = (menu) => {
+    if (!menu || !preferredOriginalMenuIds || !preferredOriginalMenuIds.has(menu.id)) return false;
+    const kind = String(menu?.kind || '');
+    const text = getMenuText(menu);
+    return kind === '定食' || text.includes('定食');
+  };
+
+  const pickFromPool = (pool) => {
+    if (!pool.length) return null;
+    let candidatePool = pool;
+    if (candidatePool.length < 3) {
+      candidatePool = rawAllowedMenus.length ? rawAllowedMenus : candidatePool;
+    }
+    if (!candidatePool.length) return null;
+    const allowReuse = usedIds.size >= candidatePool.length;
+    const available = allowReuse ? candidatePool : candidatePool.filter((m) => !usedIds.has(m.id));
+    if (!available.length) return null;
+
+    const preferredTeishoku = available.filter(isPreferredTeishoku);
+    if (preferredTeishoku.length) {
+      const sorted = sortMenusByPreference(preferredTeishoku, myMenuFrequency);
+      const picked = sorted[0] || preferredTeishoku[0] || null;
+      if (picked) {
+        usedIds.add(picked.id);
+        if (myMenuFrequency[picked.id] && favoriteQuota > 0) favoriteQuota -= 1;
+      }
+      return picked;
+    }
+
+    const sorted = sortMenusByPreference(available, myMenuFrequency);
     const chunk = sorted.slice(0, Math.min(5, sorted.length));
     const shuffledTop = shuffleArray(chunk);
-    const pickFromList = (list) => {
-      return (list || []).find((m) => {
+    const pickFromList = (list, preferFavorites) => {
+      const base = (list || []).filter((m) => {
         if (!m) return false;
         if (!allowReuse && usedIds.has(m.id)) return false;
         return true;
-      }) || null;
+      });
+      if (!base.length) return null;
+      if (preferFavorites) {
+        const fav = base.find((m) => !!myMenuFrequency[m.id]);
+        if (fav) return fav;
+      }
+      return base[0] || null;
     };
 
-    let picked = pickFromList(shuffledTop);
-
+    let picked = pickFromList(shuffledTop, favoriteQuota > 0);
     if (!picked) {
       const shuffledAll = shuffleArray(sorted);
-      picked = pickFromList(shuffledAll);
+      picked = pickFromList(shuffledAll, favoriteQuota > 0);
     }
-
-    if (!picked && fallbackMenus.length) {
-      const fallbackShuffled = shuffleArray(fallbackMenus);
-      picked = fallbackShuffled.find((m) => allowReuse || !usedIds.has(m?.id)) || fallbackShuffled[0] || null;
+    if (!picked) {
+      const shuffledAll = shuffleArray(available);
+      picked = pickFromList(shuffledAll, favoriteQuota > 0);
     }
-
     if (picked) {
       usedIds.add(picked.id);
       if (myMenuFrequency[picked.id] && favoriteQuota > 0) favoriteQuota -= 1;
-      return {
-        menuId: picked.id,
-        categoryKey: 'lunchMain',
-        favorite: false,
-        dineOut: false
-      };
     }
-    return null;
+    return picked;
   };
 
-  // 7 days
-  return Array.from({ length: 7 }, () => pickLunch()).map((slot) => (slot ? [slot] : []));
+  return shuffleArray(dayTypes).map((type) => {
+    const pool = buckets[type].length ? buckets[type] : filtered;
+    const picked = pickFromPool(pool);
+    if (!picked) return [];
+    return [{
+      menuId: picked.id,
+      categoryKey: 'lunchMain',
+      favorite: false,
+      dineOut: false
+    }];
+  });
 };
 
 const pickLunchCandidate = ({ menus, myMenuFrequency = {}, currentSeason = '', excludeMenuId = '' }) => {
@@ -1259,8 +1497,11 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
   const {
     startDate,
     myMenuFrequency = {},
-    currentSeason = ''
+    currentSeason = '',
+    weekMenuSettings = {},
+    preferredSetMenuIds = new Set()
   } = options;
+  const normalizedSettings = normalizeWeekMenuSettings(weekMenuSettings || {});
   const menuLookup = {};
   Object.values(menusByCategory).forEach((menus) => {
     menus.forEach((menu) => {
@@ -1273,11 +1514,18 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
   const weekDates = getWeekDatesFromStart(weekStartDate);
   const breakfastPlan = buildBreakfastPlan(menusByCategory.breakfastMain || [], {
     myMenuFrequency,
-    currentSeason: seasonLabel
+    currentSeason: seasonLabel,
+    breakfastMenuFilter: normalizedSettings.breakfastMenus || [],
+    breakfastFilterEnabled: normalizedSettings.breakfastFilterEnabled !== false,
+    breakfastRatios: normalizedSettings.breakfastRatios || {},
+    preferredSetMenuIds
   });
   const lunchPlan = buildLunchPlan(menusByCategory.lunchMain || [], {
     myMenuFrequency,
-    currentSeason: seasonLabel
+    currentSeason: seasonLabel,
+    lunchMenuFilter: normalizedSettings.lunchMenus || [],
+    lunchRatios: normalizedSettings.lunchRatios || {},
+    preferredOriginalMenuIds: preferredSetMenuIds
   });
   const dinnerPlan = buildDinnerPlan(menusByCategory, {
     myMenuFrequency,
@@ -1605,7 +1853,9 @@ router.post('/users/week-menu/settings', isLoggedIn, async (req, res) => {
     const lunchMenus = toArray(req.body?.lunchMenus).filter((v) => allowed.has(v));
     const payload = {
       breakfastMenus,
+      breakfastRatios: normalizeBreakfastRatios(req.body?.breakfastRatios || {}),
       lunchMenus,
+      lunchRatios: normalizeLunchRatios(req.body?.lunchRatios || {}),
       breakfastFilterEnabled: req.body?.breakfastFilterEnabled !== false && String(req.body?.breakfastFilterEnabled) !== 'false',
       lunchFilterEnabled: req.body?.lunchFilterEnabled !== false && String(req.body?.lunchFilterEnabled) !== 'false'
     };
@@ -1743,11 +1993,24 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     if (currentGroupId) {
       try {
         myMenuDocsForGroup = await Mymenu.find({ user: req.user._id, group: currentGroupId })
-          .select('menu frequency')
+          .select('menu frequency sourceType')
           .lean();
       } catch (e) {
         myMenuDocsForGroup = [];
       }
+    }
+    const preferredSetMenuIds = new Set(
+      (myMenuDocsForGroup || [])
+        .filter((entry) => entry?.sourceType === 'original' && entry?.menu)
+        .map((entry) => String(entry.menu))
+    );
+
+    let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+    try {
+      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+      weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+    } catch (e) {
+      weekMenuSettings = normalizeWeekMenuSettings({});
     }
 
     let groupSize = 1;
@@ -1898,7 +2161,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       const generated = buildWeekPlanPayload(menusByCategory, {
         startDate: targetWeekStart,
         myMenuFrequency,
-        currentSeason: currentSeasonLabel
+        currentSeason: currentSeasonLabel,
+        weekMenuSettings,
+        preferredSetMenuIds
       });
       plan = (generated.plan || []).map((day) => ({
         ...day,
@@ -2077,14 +2342,6 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       }
     } catch (e) {
       console.warn('DO records fetch failed:', e?.message || e);
-    }
-
-    let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
-    try {
-      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
-      weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
-    } catch (e) {
-      weekMenuSettings = normalizeWeekMenuSettings({});
     }
 
 	const viewTemplate = 'users/weekMenu2';
@@ -2399,7 +2656,31 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
         acc[key] = combineMenusByKinds(config.kinds);
         return acc;
       }, {});
-      const generated = buildWeekPlanPayload(menusByCategory, { startDate: weekStartDate });
+      let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+      let preferredSetMenuIds = new Set();
+      try {
+        const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+        weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+      } catch (e) {
+        weekMenuSettings = normalizeWeekMenuSettings({});
+      }
+      try {
+        if (currentGroupId) {
+          const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu sourceType').lean();
+          preferredSetMenuIds = new Set(
+            (mymenus || [])
+              .filter((entry) => entry?.sourceType === 'original' && entry?.menu)
+              .map((entry) => String(entry.menu))
+          );
+        }
+      } catch (e) {
+        preferredSetMenuIds = new Set();
+      }
+      const generated = buildWeekPlanPayload(menusByCategory, {
+        startDate: weekStartDate,
+        weekMenuSettings,
+        preferredSetMenuIds
+      });
       const plan = generated.plan || [];
       menuLookup = generated.menuLookup || {};
       const ingredientIds = new Set();
@@ -2668,7 +2949,31 @@ router.get('/users/week-menu/ingredients.xlsx', isLoggedIn, async (req, res, nex
         acc[key] = combineMenusByKinds(config.kinds);
         return acc;
       }, {});
-      const generated = buildWeekPlanPayload(menusByCategory, { startDate: weekStartDate });
+      let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+      let preferredSetMenuIds = new Set();
+      try {
+        const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+        weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+      } catch (e) {
+        weekMenuSettings = normalizeWeekMenuSettings({});
+      }
+      try {
+        if (currentGroupId) {
+          const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu sourceType').lean();
+          preferredSetMenuIds = new Set(
+            (mymenus || [])
+              .filter((entry) => entry?.sourceType === 'original' && entry?.menu)
+              .map((entry) => String(entry.menu))
+          );
+        }
+      } catch (e) {
+        preferredSetMenuIds = new Set();
+      }
+      const generated = buildWeekPlanPayload(menusByCategory, {
+        startDate: weekStartDate,
+        weekMenuSettings,
+        preferredSetMenuIds
+      });
       plan = generated.plan || [];
       menuLookup = generated.menuLookup || {};
     }
@@ -2993,13 +3298,27 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
       existingPlan = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
     }
     let myMenuFrequency = {};
+    let preferredSetMenuIds = new Set();
     if (currentGroupId) {
       try {
-        const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu frequency').lean();
+        const mymenus = await Mymenu.find({ user: req.user._id, group: currentGroupId }).select('menu frequency sourceType').lean();
         myMenuFrequency = buildMyMenuFrequencyMap(mymenus);
+        preferredSetMenuIds = new Set(
+          (mymenus || [])
+            .filter((entry) => entry?.sourceType === 'original' && entry?.menu)
+            .map((entry) => String(entry.menu))
+        );
       } catch (e) {
         myMenuFrequency = {};
+        preferredSetMenuIds = new Set();
       }
+    }
+    let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+    try {
+      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+      weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+    } catch (e) {
+      weekMenuSettings = normalizeWeekMenuSettings({});
     }
     const currentSeasonLabel = monthToSeason(new Date().getMonth() + 1);
     let plan = [];
@@ -3051,7 +3370,9 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
       const generated = buildWeekPlanPayload(menusByCategory, {
         startDate: targetWeekStart,
         myMenuFrequency,
-        currentSeason: currentSeasonLabel
+        currentSeason: currentSeasonLabel,
+        weekMenuSettings,
+        preferredSetMenuIds
       });
       plan = generated.plan; menuLookup = generated.menuLookup; baseWeekDates = generated.weekDates.map(w=> new Date(w.dateISO));
       targetWeekStart = startOfWeek(new Date(generated.weekStartISO));
@@ -3479,18 +3800,34 @@ router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
 
     // MyMenu frequency for prioritization
     let myMenuFrequency = {};
+    let preferredSetMenuIds = new Set();
     try {
-      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu frequency').lean();
+      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu frequency sourceType').lean();
       myMenuFrequency = buildMyMenuFrequencyMap(mymenus);
+      preferredSetMenuIds = new Set(
+        (mymenus || [])
+          .filter((entry) => entry?.sourceType === 'original' && entry?.menu)
+          .map((entry) => String(entry.menu))
+      );
     } catch (e) {
       myMenuFrequency = {};
+      preferredSetMenuIds = new Set();
     }
 
     const currentSeasonLabel = monthToSeason(baseWeekStart.getMonth() + 1);
+    let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+    try {
+      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+      weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+    } catch (e) {
+      weekMenuSettings = normalizeWeekMenuSettings({});
+    }
     const generated = buildWeekPlanPayload(menusByCategory, {
       startDate: baseWeekStart,
       myMenuFrequency,
-      currentSeason: currentSeasonLabel
+      currentSeason: currentSeasonLabel,
+      weekMenuSettings,
+      preferredSetMenuIds
     });
 
     const slotToDoc = (slot) => {
@@ -3622,18 +3959,34 @@ router.post('/users/week-menu/shuffle-slot', isLoggedIn, async (req, res) => {
 
     // MyMenu frequency for prioritization
     let myMenuFrequency = {};
+    let preferredSetMenuIds = new Set();
     try {
-      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu frequency').lean();
+      const mymenus = await Mymenu.find({ user: req.user._id, group: groupId }).select('menu frequency sourceType').lean();
       myMenuFrequency = buildMyMenuFrequencyMap(mymenus);
+      preferredSetMenuIds = new Set(
+        (mymenus || [])
+          .filter((entry) => entry?.sourceType === 'original' && entry?.menu)
+          .map((entry) => String(entry.menu))
+      );
     } catch (_) {
       myMenuFrequency = {};
+      preferredSetMenuIds = new Set();
     }
 
     const currentSeasonLabel = monthToSeason(baseWeekStart.getMonth() + 1);
+    let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+    try {
+      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+      weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+    } catch (e) {
+      weekMenuSettings = normalizeWeekMenuSettings({});
+    }
     const generated = buildWeekPlanPayload(menusByCategory, {
       startDate: baseWeekStart,
       myMenuFrequency,
-      currentSeason: currentSeasonLabel
+      currentSeason: currentSeasonLabel,
+      weekMenuSettings,
+      preferredSetMenuIds
     });
 
     const menuLookup = generated.menuLookup || {};
@@ -3645,17 +3998,17 @@ router.post('/users/week-menu/shuffle-slot', isLoggedIn, async (req, res) => {
       if (meal === 'breakfast') {
         const currentMenu =
           (menusByCategory.breakfastMain || []).find((m) => m.id === currentMenuId) || null;
-        const bucket = detectBreakfastBucket(currentMenu);
-        if (!bucket) return null;
-        const nextMenu = pickBreakfastByBucket({
+        const nextMenu = pickBreakfastCandidate({
           menus: menusByCategory.breakfastMain || [],
-          bucketKey: bucket,
           myMenuFrequency,
           currentSeason: currentSeasonLabel,
+          breakfastMenuFilter: weekMenuSettings?.breakfastMenus || [],
+          breakfastFilterEnabled: weekMenuSettings?.breakfastFilterEnabled !== false,
+          preferredSetMenuIds,
           excludeMenuId: currentMenuId || ''
         });
         if (!nextMenu) {
-          // バケット内に別候補が無ければ元のメニューを維持
+          // 候補が無ければ元のメニューを維持
           return currentMenu
             ? {
                 menuId: currentMenu.id,

@@ -381,6 +381,25 @@
             <input type="search" data-weekmenu-settings-breakfast-search placeholder="朝食メニューを検索" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
             <button type="button" data-weekmenu-settings-breakfast-clear class="px-3 py-2 text-xs rounded border">全解除</button>
           </div>
+          <div class="grid grid-cols-4 gap-2">
+            <label class="text-xs text-gray-600">
+              和食
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-breakfast-ratio="japanese" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+            <label class="text-xs text-gray-600">
+              洋食
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-breakfast-ratio="western" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+            <label class="text-xs text-gray-600">
+              中華
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-breakfast-ratio="chinese" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+            <label class="text-xs text-gray-600">
+              他
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-breakfast-ratio="other" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+          </div>
+          <p class="text-[11px] text-gray-500">朝食の割合は合計7になるように自動調整されます。</p>
           <div class="grid grid-cols-2 gap-2 max-h-[240px] overflow-auto border rounded-lg bg-white p-2" data-weekmenu-settings-breakfast-list></div>
         </div>
         <div class="rounded-xl border border-amber-100 bg-amber-50/40 p-4 space-y-3">
@@ -395,6 +414,25 @@
             <input type="search" data-weekmenu-settings-lunch-search placeholder="ランチメニューを検索" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
             <button type="button" data-weekmenu-settings-lunch-clear class="px-3 py-2 text-xs rounded border">全解除</button>
           </div>
+          <div class="grid grid-cols-4 gap-2">
+            <label class="text-xs text-gray-600">
+              和食
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-lunch-ratio="japanese" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+            <label class="text-xs text-gray-600">
+              洋食
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-lunch-ratio="western" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+            <label class="text-xs text-gray-600">
+              中華
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-lunch-ratio="chinese" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+            <label class="text-xs text-gray-600">
+              他
+              <input type="number" min="0" max="7" step="1" data-weekmenu-settings-lunch-ratio="other" class="mt-1 w-full rounded border border-gray-200 px-2 py-1 text-sm">
+            </label>
+          </div>
+          <p class="text-[11px] text-gray-500">ランチの割合は合計7になるように自動調整されます。</p>
           <div class="grid grid-cols-2 gap-2 max-h-[240px] overflow-auto border rounded-lg bg-white p-2" data-weekmenu-settings-lunch-list></div>
         </div>
       </div>
@@ -426,9 +464,28 @@
     const lunchSearchEl = modal.querySelector('[data-weekmenu-settings-lunch-search]');
     const breakfastClearBtn = modal.querySelector('[data-weekmenu-settings-breakfast-clear]');
     const lunchClearBtn = modal.querySelector('[data-weekmenu-settings-lunch-clear]');
+    const ratioInputs = {
+      japanese: modal.querySelector('[data-weekmenu-settings-breakfast-ratio="japanese"]'),
+      western: modal.querySelector('[data-weekmenu-settings-breakfast-ratio="western"]'),
+      chinese: modal.querySelector('[data-weekmenu-settings-breakfast-ratio="chinese"]'),
+      other: modal.querySelector('[data-weekmenu-settings-breakfast-ratio="other"]')
+    };
+    const lunchRatioInputs = {
+      japanese: modal.querySelector('[data-weekmenu-settings-lunch-ratio="japanese"]'),
+      western: modal.querySelector('[data-weekmenu-settings-lunch-ratio="western"]'),
+      chinese: modal.querySelector('[data-weekmenu-settings-lunch-ratio="chinese"]'),
+      other: modal.querySelector('[data-weekmenu-settings-lunch-ratio="other"]')
+    };
+    const ratioKeys = ['japanese', 'western', 'chinese', 'other'];
 
     const defaults = {
       breakfastMenus: ['モーニング'],
+      breakfastRatios: {
+        japanese: 3,
+        western: 4,
+        chinese: 0,
+        other: 0
+      },
       lunchMenus: [
         'カレーライス',
         '丼',
@@ -443,6 +500,12 @@
         'サンドイッチ',
         '定食'
       ],
+      lunchRatios: {
+        japanese: 2,
+        western: 3,
+        chinese: 2,
+        other: 0
+      },
       breakfastFilterEnabled: true,
       lunchFilterEnabled: true
     };
@@ -450,16 +513,105 @@
     let cachedMenus = [];
     let cachedSettings = null;
 
+    const normalizeRatios = (raw, fallback) => {
+      const base = ratioKeys.reduce((acc, key) => {
+        const value = Number(raw?.[key]);
+        acc[key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+        return acc;
+      }, {});
+      const sum = ratioKeys.reduce((acc, key) => acc + base[key], 0);
+      if (sum <= 0) return { ...(fallback || {}) };
+      if (sum === 7) return base;
+      const scaled = ratioKeys.map((key) => {
+        const rawValue = base[key];
+        const scaledValue = (rawValue / sum) * 7;
+        return { key, scaledValue };
+      });
+      const floored = {};
+      let total = 0;
+      scaled.forEach(({ key, scaledValue }) => {
+        const value = Math.floor(scaledValue);
+        floored[key] = value;
+        total += value;
+      });
+      let remainder = 7 - total;
+      if (remainder > 0) {
+        const byFraction = scaled
+          .map(({ key, scaledValue }) => ({ key, fraction: scaledValue - Math.floor(scaledValue) }))
+          .sort((a, b) => b.fraction - a.fraction);
+        for (let i = 0; i < remainder; i += 1) {
+          const target = byFraction[i % byFraction.length];
+          floored[target.key] += 1;
+        }
+      }
+      return floored;
+    };
+
     const normalizeSettings = (raw) => {
       const toArray = (v) => (Array.isArray(v) ? v : (v ? [v] : []))
         .map((x) => (typeof x === 'string' ? x.trim() : ''))
         .filter(Boolean);
       return {
         breakfastMenus: toArray(raw?.breakfastMenus).length ? toArray(raw?.breakfastMenus) : defaults.breakfastMenus.slice(),
+        breakfastRatios: normalizeRatios(raw?.breakfastRatios || {}, defaults.breakfastRatios),
         lunchMenus: toArray(raw?.lunchMenus).length ? toArray(raw?.lunchMenus) : defaults.lunchMenus.slice(),
+        lunchRatios: normalizeRatios(raw?.lunchRatios || {}, defaults.lunchRatios),
         breakfastFilterEnabled: raw?.breakfastFilterEnabled !== false,
         lunchFilterEnabled: raw?.lunchFilterEnabled !== false
       };
+    };
+
+    const setRatioInputs = (ratios, inputs) => {
+      ratioKeys.forEach((key) => {
+        if (inputs[key]) inputs[key].value = Number(ratios?.[key]) || 0;
+      });
+    };
+
+    const readRatios = (inputs, fallback) => normalizeRatios(ratioKeys.reduce((acc, key) => {
+      const raw = inputs[key] ? inputs[key].value : 0;
+      const value = Number(raw);
+      acc[key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+      return acc;
+    }, {}), fallback);
+
+    const adjustRatios = (changedKey, inputs, fallback) => {
+      const values = ratioKeys.reduce((acc, key) => {
+        const raw = inputs[key] ? inputs[key].value : 0;
+        const value = Number(raw);
+        acc[key] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+        return acc;
+      }, {});
+      let sum = ratioKeys.reduce((acc, key) => acc + values[key], 0);
+      if (sum === 7) {
+        setRatioInputs(values, inputs);
+        return;
+      }
+      const adjustKey = (changedKey === 'other') ? 'western' : 'other';
+      const adjustOrder = [adjustKey, ...ratioKeys.filter((k) => k !== changedKey && k !== adjustKey)];
+      let diff = 7 - sum;
+      adjustOrder.forEach((key) => {
+        if (diff === 0) return;
+        const next = values[key] + diff;
+        if (next < 0) {
+          diff = next;
+          values[key] = 0;
+        } else if (next > 7) {
+          diff = next - 7;
+          values[key] = 7;
+        } else {
+          values[key] = next;
+          diff = 0;
+        }
+      });
+      if (diff !== 0) {
+        const next = Math.max(0, Math.min(7, values[changedKey] + diff));
+        values[changedKey] = next;
+      }
+      if (ratioKeys.reduce((acc, key) => acc + values[key], 0) === 0) {
+        setRatioInputs(fallback || {}, inputs);
+      } else {
+        setRatioInputs(values, inputs);
+      }
     };
 
     const openModal = async () => {
@@ -517,6 +669,8 @@
       if (lunchEnabledEl) lunchEnabledEl.checked = settings.lunchFilterEnabled !== false;
       const breakfastSelected = new Set(settings.breakfastMenus || []);
       const lunchSelected = new Set(settings.lunchMenus || []);
+      setRatioInputs(settings.breakfastRatios || defaults.breakfastRatios, ratioInputs);
+      setRatioInputs(settings.lunchRatios || defaults.lunchRatios, lunchRatioInputs);
       renderList(breakfastListEl, cachedMenus, breakfastSelected, breakfastSearchEl?.value || '');
       renderList(lunchListEl, cachedMenus, lunchSelected, lunchSearchEl?.value || '');
     };
@@ -539,6 +693,12 @@
     }));
     if (breakfastSearchEl) breakfastSearchEl.addEventListener('input', renderLists);
     if (lunchSearchEl) lunchSearchEl.addEventListener('input', renderLists);
+    ratioKeys.forEach((key) => {
+      const input = ratioInputs[key];
+      if (input) input.addEventListener('input', () => adjustRatios(key, ratioInputs, defaults.breakfastRatios));
+      const lunchInput = lunchRatioInputs[key];
+      if (lunchInput) lunchInput.addEventListener('input', () => adjustRatios(key, lunchRatioInputs, defaults.lunchRatios));
+    });
     if (breakfastClearBtn) breakfastClearBtn.addEventListener('click', () => {
       if (breakfastListEl) breakfastListEl.querySelectorAll('input[type="checkbox"]').forEach((c) => { c.checked = false; });
     });
@@ -552,7 +712,9 @@
           if (errorEl) errorEl.classList.add('hidden');
           const payload = {
             breakfastMenus: collectSelected(breakfastListEl),
+            breakfastRatios: readRatios(ratioInputs, defaults.breakfastRatios),
             lunchMenus: collectSelected(lunchListEl),
+            lunchRatios: readRatios(lunchRatioInputs, defaults.lunchRatios),
             breakfastFilterEnabled: breakfastEnabledEl ? breakfastEnabledEl.checked : true,
             lunchFilterEnabled: lunchEnabledEl ? lunchEnabledEl.checked : true
           };

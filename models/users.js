@@ -111,6 +111,12 @@ const userSchema = new mongoose.Schema({
       type: [String],
       default: () => ['モーニング']
     },
+    breakfastRatios: {
+      japanese: { type: Number, default: 3 },
+      western: { type: Number, default: 4 },
+      chinese: { type: Number, default: 0 },
+      other: { type: Number, default: 0 }
+    },
     lunchMenus: {
       type: [String],
       default: () => [
@@ -127,6 +133,12 @@ const userSchema = new mongoose.Schema({
         'サンドイッチ',
         '定食'
       ]
+    },
+    lunchRatios: {
+      japanese: { type: Number, default: 2 },
+      western: { type: Number, default: 3 },
+      chinese: { type: Number, default: 2 },
+      other: { type: Number, default: 0 }
     },
     breakfastFilterEnabled: {
       type: Boolean,
