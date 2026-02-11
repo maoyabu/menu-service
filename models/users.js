@@ -140,6 +140,22 @@ const userSchema = new mongoose.Schema({
       chinese: { type: Number, default: 2 },
       other: { type: Number, default: 0 }
     },
+    dinnerMenus: {
+      type: [String],
+      default: () => []
+    },
+    dinnerRatios: {
+      japanese: { type: Number, default: 3 },
+      western: { type: Number, default: 2 },
+      chinese: { type: Number, default: 2 },
+      other: { type: Number, default: 0 }
+    },
+    dinnerArrangeCount: {
+      type: Number,
+      default: 1,
+      min: 0,
+      max: 7
+    },
     breakfastFilterEnabled: {
       type: Boolean,
       default: true

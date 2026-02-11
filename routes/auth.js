@@ -84,8 +84,17 @@ const WEEK_MENU_SETTINGS_DEFAULTS = {
     chinese: 2,
     other: 0
   },
+  dinnerMenus: [],
+  dinnerRatios: {
+    japanese: 3,
+    western: 2,
+    chinese: 2,
+    other: 0
+  },
+  dinnerArrangeCount: 1,
   breakfastFilterEnabled: true,
-  lunchFilterEnabled: true
+  lunchFilterEnabled: true,
+  dinnerFilterEnabled: true
 };
 
 const normalizeBreakfastRatios = (raw = {}) => {
@@ -173,8 +182,14 @@ const normalizeWeekMenuSettings = (raw = {}) => {
     breakfastRatios: normalizeBreakfastRatios(raw.breakfastRatios || {}),
     lunchMenus: toArray(raw.lunchMenus).length ? toArray(raw.lunchMenus) : WEEK_MENU_SETTINGS_DEFAULTS.lunchMenus.slice(),
     lunchRatios: normalizeLunchRatios(raw.lunchRatios || {}),
+    dinnerMenus: toArray(raw.dinnerMenus).length ? toArray(raw.dinnerMenus) : WEEK_MENU_SETTINGS_DEFAULTS.dinnerMenus.slice(),
+    dinnerRatios: normalizeLunchRatios(raw.dinnerRatios || {}),
+    dinnerArrangeCount: Number.isFinite(Number(raw.dinnerArrangeCount))
+      ? Math.max(0, Math.min(7, Math.floor(Number(raw.dinnerArrangeCount))))
+      : WEEK_MENU_SETTINGS_DEFAULTS.dinnerArrangeCount,
     breakfastFilterEnabled: raw.breakfastFilterEnabled !== false,
-    lunchFilterEnabled: raw.lunchFilterEnabled !== false
+    lunchFilterEnabled: raw.lunchFilterEnabled !== false,
+    dinnerFilterEnabled: raw.dinnerFilterEnabled !== false
   };
 };
 
@@ -1281,7 +1296,15 @@ const pickLunchCandidate = ({ menus, myMenuFrequency = {}, currentSeason = '', e
 };
 
 const buildDinnerPlan = (menusByCategory, options = {}) => {
-  const { myMenuFrequency = {}, currentSeason = '' } = options;
+  const {
+    myMenuFrequency = {},
+    currentSeason = '',
+    dinnerMenuFilter = [],
+    dinnerRatios = {},
+    preferredOriginalMenuIds = new Set(),
+    arrangeCount = 0,
+    weekStartDate = null
+  } = options;
   const breakfastKeywords = [
     '食パン', 'サンドイッチ', 'フレンチトースト', 'パンケーキ', 'シリアル', 'トースト', 'ホットドッグ',
     'ヨーグルト',
@@ -1292,15 +1315,22 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
     '納豆', 'しらす', 'ふりかけ',
     '卵焼き'
   ];
-  const stapleBase = filterBaseMenus(menusByCategory.dinnerStaple || [], { excludeKeywords: breakfastKeywords });
-  const mainBase = filterBaseMenus(menusByCategory.dinnerMain || [], { excludeKeywords: breakfastKeywords });
-  const sideBase = filterBaseMenus(menusByCategory.dinnerSide || [], { excludeKeywords: breakfastKeywords });
-  const soupBase = filterBaseMenus(menusByCategory.dinnerSoup || [], { excludeKeywords: breakfastKeywords });
+  const allowList = new Set(
+    (dinnerMenuFilter || [])
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean)
+  );
 
-  const menuMap = {};
-  [stapleBase, mainBase, sideBase, soupBase].forEach((list) => {
-    list.forEach((m) => { menuMap[m.id] = m; });
-  });
+  const applyDinnerFilter = (list) => {
+    if (!allowList.size) return list || [];
+    const filtered = (list || []).filter((menu) => allowList.has(String(menu?.menu || '').trim()));
+    return filtered.length ? filtered : (list || []);
+  };
+
+  const stapleBase = applyDinnerFilter(filterBaseMenus(menusByCategory.dinnerStaple || [], { excludeKeywords: breakfastKeywords }));
+  const mainBase = applyDinnerFilter(filterBaseMenus(menusByCategory.dinnerMain || [], { excludeKeywords: breakfastKeywords }));
+  const sideBase = applyDinnerFilter(filterBaseMenus(menusByCategory.dinnerSide || [], { excludeKeywords: breakfastKeywords }));
+  const soupBase = applyDinnerFilter(filterBaseMenus(menusByCategory.dinnerSoup || [], { excludeKeywords: breakfastKeywords }));
 
   const seasonalStaples = filterSeasonalMenus(stapleBase, currentSeason);
   const seasonalMains = filterSeasonalMenus(mainBase, currentSeason);
@@ -1311,123 +1341,209 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
   const allowedStapleKinds = new Set(['主食', '主食・ごはん', '主食・麺', '主食・パン']);
   const isWhiteRice = (menu) => /白米/.test(getMenuText(menu));
   const isTakikomi = (menu) => /炊き込みご飯/.test(getMenuText(menu));
-  const isPizzaBread = (menu) => (menu.kind === '主食・パン') && /ピザ/.test(getMenuText(menu));
-  const isNabe = (menu) => {
-    const cook = String(menu?.cook || '');
-    return cook.includes('鍋');
+  const isPizzaBread = (menu) => (menu?.kind === '主食・パン') && /ピザ/.test(getMenuText(menu));
+  const isNabe = (menu) => String(menu?.cook || '').includes('鍋');
+
+  const classify = (menu) => {
+    const junle = String(menu?.junle || '').trim();
+    if (junle.includes('和')) return 'japanese';
+    if (junle.includes('洋')) return 'western';
+    if (junle.includes('中')) return 'chinese';
+    return 'other';
   };
 
-  const filterStaples = (list, { requireWhite = false, allowedJunle = null } = {}) =>
+  const ratio = normalizeLunchRatios(dinnerRatios || {});
+  const keys = ['japanese', 'western', 'chinese', 'other'];
+  const counts = { ...ratio };
+
+  const dayTypes = [];
+  keys.forEach((key) => {
+    for (let i = 0; i < counts[key]; i += 1) dayTypes.push(key);
+  });
+  while (dayTypes.length < 7) dayTypes.push(availableKeys[dayTypes.length % availableKeys.length]);
+  if (dayTypes.length > 7) dayTypes.length = 7;
+  const shuffledDayTypes = shuffleArray(dayTypes);
+
+  const usedStaples = new Set();
+  const usedMains = new Set();
+  const usedSides = new Set();
+  const usedSoups = new Set();
+  let favoriteQuota = 5;
+  let takikomiQuota = 0;
+  if (weekStartDate instanceof Date && !Number.isNaN(weekStartDate.getTime())) {
+    takikomiQuota = weekStartDate.getDate() <= 7 ? 1 : 0;
+  }
+
+  const preferMain = (menu) => !!myMenuFrequency[menu?.id];
+  const pickFromList = (list, usedSet, preferFavorites = false) => {
+    const allowReuse = usedSet.size >= list.length;
+    const available = allowReuse ? list : list.filter((m) => m && !usedSet.has(m.id));
+    if (!available.length) return null;
+    const sorted = sortMenusByPreference(available, myMenuFrequency);
+    let picked = null;
+    if (preferFavorites && favoriteQuota > 0) {
+      picked = sorted.find((m) => preferMain(m)) || null;
+    }
+    if (!picked) picked = sorted[0] || null;
+    if (picked) {
+      usedSet.add(picked.id);
+      if (preferMain(picked) && favoriteQuota > 0) favoriteQuota -= 1;
+    }
+    return picked;
+  };
+
+  const filterStaples = (list, { requireWhite = false, allowTakikomi = false } = {}) =>
     (list || []).filter((m) => {
       if (!m) return false;
       if (excludedKinds.has(m.kind)) return false;
       if (!allowedStapleKinds.has(m.kind)) return false;
       if (m.kind === '主食・パン' && !isPizzaBread(m)) return false;
-      if (requireWhite && !(isWhiteRice(m) || isTakikomi(m))) return false;
-      if (allowedJunle && allowedJunle.size && m.junle && !allowedJunle.has(m.junle)) return false;
+      if (requireWhite && !(isWhiteRice(m) || (allowTakikomi && isTakikomi(m)))) return false;
       return true;
     });
 
-  const filterDish = (list) => (list || []).filter((m) => m && !excludedKinds.has(m.kind));
-
-  const filterByJunle = (list, preferred, fallbackList = []) => {
-    if (!preferred || !preferred.size) return list;
-    const primary = list.filter((m) => m?.junle && preferred.has(m.junle));
-    if (primary.length) return primary;
-    const secondary = fallbackList.filter((m) => m?.junle && preferred.has(m.junle));
-    if (secondary.length) return secondary;
-    return [];
+  const filterDish = (list, cuisineKey) => {
+    const base = (list || []).filter((m) => m && !excludedKinds.has(m.kind));
+    if (!cuisineKey || cuisineKey === 'other') return base;
+    const targetJunle = cuisineKey === 'japanese' ? '和食' : cuisineKey === 'western' ? '洋食' : '中華';
+    const matched = base.filter((m) => String(m?.junle || '').includes(targetJunle));
+    return matched.length ? matched : base;
   };
 
-  const pickFromList = (list, usedIds, favoriteQuotaRef) => {
-    const sorted = sortMenusByPreference(list, myMenuFrequency);
-    const pickPreferred = (preferFavorites) =>
-      sorted.find((m) => {
-        if (!m || usedIds.has(m.id)) return false;
-        if (!preferFavorites) return true;
-        return !!myMenuFrequency[m.id];
-      }) || null;
+  function classifyKeyToPool(key) {
+    const list = seasonalMains.length ? seasonalMains : mainBase;
+    return filterDish(list, key);
+  }
 
-    let picked = null;
-    if (favoriteQuotaRef.value > 0) {
-      picked = pickPreferred(true) || pickPreferred(false);
-    } else {
-      picked = pickPreferred(false);
-    }
+  const availableKeys = keys.filter((key) => {
+    const pool = classifyKeyToPool(key);
+    return pool.length;
+  });
+  if (!availableKeys.length) return Array.from({ length: 7 }, () => ({ staple: null, main: null, side: null, soup: null }));
 
-    if (picked) {
-      usedIds.add(picked.id);
-      if (myMenuFrequency[picked.id] && favoriteQuotaRef.value > 0) favoriteQuotaRef.value -= 1;
-    }
-    return picked;
-  };
-
-  const dayPlanOrder = shuffleArray([
-    { type: 'jp' }, { type: 'jp' }, { type: 'jp' }, { type: 'jp' }, { type: 'jp' },
-    { type: 'other' }, { type: 'other' }
-  ]);
-  const usedIds = new Set();
-  let favoriteQuota = { value: 5 };
-  let whiteRiceQuota = 4;
-
-  const pickDinnerForDay = (dayType, dayIndex) => {
-    const isJapaneseDay = dayType === 'jp';
-    const requireWhite = isJapaneseDay && whiteRiceQuota > 0;
-    const preferredJunle = isJapaneseDay ? new Set(['和食']) : new Set(['洋食']);
-    const fallbackJunle = isJapaneseDay ? new Set(['洋食']) : new Set();
-
-    const stapleListSeasonal = filterStaples(seasonalStaples, { requireWhite, allowedJunle: preferredJunle });
-    const stapleListFallback = filterStaples(stapleBase, { requireWhite, allowedJunle: preferredJunle });
-    let staples = stapleListSeasonal.length ? stapleListSeasonal : stapleListFallback;
-    if (!staples.length && isJapaneseDay) {
-      // allow洋食 fallback for jp if none
-      staples = filterStaples(seasonalStaples, { requireWhite, allowedJunle: fallbackJunle });
-      if (!staples.length) staples = filterStaples(stapleBase, { requireWhite, allowedJunle: fallbackJunle });
-    }
-    if (!staples.length) {
-      // final fallback: allow any junle
-      staples = filterStaples(stapleBase, { requireWhite, allowedJunle: null });
-    }
-    if (!staples.length && requireWhite) {
-      // give up white requirement to avoid empty day
-      staples = filterStaples(stapleBase, { requireWhite: false, allowedJunle: null });
-    }
-    const stapleMenu = pickFromList(staples, usedIds, favoriteQuota);
-    if (requireWhite && stapleMenu && (isWhiteRice(stapleMenu) || isTakikomi(stapleMenu))) {
-      whiteRiceQuota -= 1;
-    } else if (requireWhite && stapleMenu) {
-      // if we required white but didn't get it, do not consume quota so next jp day can try again
-    }
-
-    const stapleText = getMenuText(stapleMenu || {});
-    const stapleIsWhiteRice = stapleMenu && isWhiteRice(stapleMenu);
-    const stapleIsTakikomi = stapleMenu && isTakikomi(stapleMenu);
-
-    const chooseListWithFallback = (preferredList, fallbackList, allowedJunleSet) => {
-      const primary = filterByJunle(preferredList, allowedJunleSet);
-      if (primary.length) return primary;
-      const secondary = filterByJunle(fallbackList, allowedJunleSet);
-      if (secondary.length) return secondary;
-      if (allowedJunleSet && allowedJunleSet.size) {
-        const any = preferredList.length ? preferredList : fallbackList;
-        if (any.length) return any;
+  keys.forEach((key) => {
+    if (counts[key] > 0 && !classifyKeyToPool(key).length) {
+      let remaining = counts[key];
+      counts[key] = 0;
+      let idx = 0;
+      while (remaining > 0) {
+        const target = availableKeys[idx % availableKeys.length];
+        counts[target] += 1;
+        remaining -= 1;
+        idx += 1;
       }
-      return [];
-    };
+    }
+  });
 
-    const allowedJunleSet = isJapaneseDay ? new Set(['和食', '洋食']) : new Set(['洋食']);
-    const mainList = filterDish(chooseListWithFallback(seasonalMains, mainBase, allowedJunleSet));
-    const sideList = filterDish(chooseListWithFallback(seasonalSides, sideBase, allowedJunleSet));
-    const soupList = filterDish(chooseListWithFallback(seasonalSoups, soupBase, allowedJunleSet));
+  const arrangeCandidates = (seasonalMains.length ? seasonalMains : mainBase)
+    .filter((m) => m?.menuType === 'arrange');
+  const arrangePreferred = arrangeCandidates.filter((m) => preferredOriginalMenuIds?.has(m.id));
+  const arrangePool = arrangePreferred.length ? arrangePreferred : arrangeCandidates;
 
-    const shouldSuggestMain =
-      stapleMenu &&
-      stapleMenu.kind === '主食・ごはん' &&
-      (stapleIsWhiteRice || stapleIsTakikomi);
+  const arrangeAssignments = new Map();
+  const baseAssignments = new Map();
 
-    const mainMenu = shouldSuggestMain ? pickFromList(mainList, usedIds, favoriteQuota) : null;
-    const sideMenu = pickFromList(sideList, usedIds, favoriteQuota);
-    const soupMenu = pickFromList(soupList, usedIds, favoriteQuota);
+  const dayIndices = [...Array(7).keys()];
+  const lateDays = dayIndices.slice(3);
+  const arrangeCountSafe = Math.max(0, Math.min(7, Math.floor(Number(arrangeCount) || 0), lateDays.length, arrangePool.length));
+
+  const arrangeSorted = sortMenusByPreference(arrangePool, myMenuFrequency);
+  const mainPoolForBase = (seasonalMains.length ? seasonalMains : mainBase);
+  const baseMenuById = new Map(mainPoolForBase.map((m) => [String(m.id), m]));
+
+  const pickBaseDayForArrange = (arrangeDay) => {
+    const candidates = [];
+    if (arrangeDay - 1 >= 0) candidates.push(arrangeDay - 1);
+    if (arrangeDay - 2 >= 0) candidates.push(arrangeDay - 2);
+    for (const day of candidates) {
+      if (baseAssignments.has(day)) continue;
+      if (arrangeAssignments.has(day)) continue;
+      return day;
+    }
+    return null;
+  };
+
+  const shuffledLate = shuffleArray(lateDays);
+  for (const arrangeDay of shuffledLate) {
+    if (arrangeAssignments.size >= arrangeCountSafe) break;
+    const type = shuffledDayTypes[arrangeDay];
+    const candidates = filterDish(arrangeSorted, type)
+      .filter((m) => (arrangeDay >= 5 ? true : !isNabe(m)));
+    const candidateList = candidates.length ? candidates : arrangeSorted;
+    let picked = null;
+    for (const menu of candidateList) {
+      if (!menu || arrangeAssignmentsHasMenu(menu.id)) continue;
+      const baseId = menu?.arrangeBaseMenu ? String(menu.arrangeBaseMenu) : '';
+      if (!baseId) continue;
+      const baseMenu = baseMenuById.get(baseId) || null;
+      if (!baseMenu) continue;
+      const baseDay = pickBaseDayForArrange(arrangeDay);
+      if (baseDay === null || baseDay === undefined) continue;
+      const baseIsWeekend = baseDay >= 5;
+      if (!baseIsWeekend && isNabe(baseMenu)) continue;
+      picked = { menu, baseMenu, baseDay };
+      break;
+    }
+    if (!picked) continue;
+    arrangeAssignments.set(arrangeDay, picked.menu);
+    baseAssignments.set(picked.baseDay, picked.baseMenu);
+    usedMains.add(picked.menu.id);
+    usedMains.add(picked.baseMenu.id);
+  }
+
+  function arrangeAssignmentsHasMenu(id) {
+    if (!id) return false;
+    return Array.from(arrangeAssignments.values()).some((m) => m?.id === id);
+  }
+
+  const dinners = shuffledDayTypes.map((type, dayIndex) => {
+    const isWeekend = dayIndex >= 5;
+    const cuisineKey = type;
+    const forceRice = baseAssignments.has(dayIndex) || arrangeAssignments.has(dayIndex);
+
+    const stapleList = (() => {
+      const base = seasonalStaples.length ? seasonalStaples : stapleBase;
+      if (forceRice || ['japanese', 'western', 'chinese'].includes(cuisineKey)) {
+        const allowTakikomi = cuisineKey === 'japanese' && takikomiQuota > 0;
+        const white = filterStaples(base, { requireWhite: true, allowTakikomi });
+        if (allowTakikomi && white.length) {
+          const picked = white.find((m) => isTakikomi(m)) || null;
+          if (picked) {
+            takikomiQuota -= 1;
+            usedStaples.add(picked.id);
+            return [picked];
+          }
+        }
+        return white.length ? white : filterStaples(base, { requireWhite: false, allowTakikomi: false });
+      }
+      return filterStaples(base, { requireWhite: false, allowTakikomi: false });
+    })();
+
+    const stapleMenu = pickFromList(stapleList, usedStaples, false);
+    const stapleIsRice = stapleMenu && stapleMenu.kind === '主食・ごはん' && (isWhiteRice(stapleMenu) || isTakikomi(stapleMenu));
+
+    const mainMenu = (() => {
+      if (!stapleIsRice) return null;
+      if (baseAssignments.has(dayIndex)) return baseAssignments.get(dayIndex);
+      if (arrangeAssignments.has(dayIndex)) return arrangeAssignments.get(dayIndex);
+      const base = seasonalMains.length ? seasonalMains : mainBase;
+      let pool = filterDish(base, cuisineKey);
+      if (!isWeekend) {
+        pool = pool.filter((m) => !isNabe(m));
+      }
+      return pickFromList(pool, usedMains, true);
+    })();
+
+    const sideMenu = pickFromList(
+      filterDish(seasonalSides.length ? seasonalSides : sideBase, cuisineKey),
+      usedSides,
+      true
+    );
+    const soupMenu = pickFromList(
+      filterDish(seasonalSoups.length ? seasonalSoups : soupBase, cuisineKey),
+      usedSoups,
+      true
+    );
 
     const slots = {
       staple: stapleMenu ? { menuId: stapleMenu.id, categoryKey: 'dinnerStaple', favorite: false, dineOut: false } : null,
@@ -1436,19 +1552,19 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
       soup: soupMenu ? { menuId: soupMenu.id, categoryKey: 'dinnerSoup', favorite: false, dineOut: false } : null
     };
 
-    const nabeSlot = [slots.main, slots.staple, slots.side, slots.soup].find((s) => {
-      if (!s) return false;
-      const menu = menuMap[s.menuId];
-      return isNabe(menu);
-    });
-    if (nabeSlot) {
-      return { staple: null, main: { ...nabeSlot, categoryKey: 'dinnerMain' }, side: null, soup: null };
+    if (slots.main) {
+      const menu = (seasonalMains.length ? seasonalMains : mainBase).find((m) => m?.id === slots.main.menuId);
+      if (menu && isNabe(menu)) {
+        if (!isWeekend) {
+          slots.main = null;
+        } else {
+          return { staple: null, main: slots.main, side: null, soup: null };
+        }
+      }
     }
-
     return slots;
-  };
+  });
 
-  const dinners = dayPlanOrder.map((d, idx) => pickDinnerForDay(d.type, idx));
   return dinners;
 };
 
@@ -1529,7 +1645,12 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
   });
   const dinnerPlan = buildDinnerPlan(menusByCategory, {
     myMenuFrequency,
-    currentSeason: seasonLabel
+    currentSeason: seasonLabel,
+    dinnerMenuFilter: normalizedSettings.dinnerMenus || [],
+    dinnerRatios: normalizedSettings.dinnerRatios || {},
+    preferredOriginalMenuIds: preferredSetMenuIds,
+    arrangeCount: normalizedSettings.dinnerArrangeCount || 0,
+    weekStartDate: weekStartDate
   });
 
   const plan = weekDates.map((date, index) => {
@@ -1851,13 +1972,20 @@ router.post('/users/week-menu/settings', isLoggedIn, async (req, res) => {
 
     const breakfastMenus = toArray(req.body?.breakfastMenus).filter((v) => allowed.has(v));
     const lunchMenus = toArray(req.body?.lunchMenus).filter((v) => allowed.has(v));
+    const dinnerMenus = toArray(req.body?.dinnerMenus).filter((v) => allowed.has(v));
     const payload = {
       breakfastMenus,
       breakfastRatios: normalizeBreakfastRatios(req.body?.breakfastRatios || {}),
       lunchMenus,
       lunchRatios: normalizeLunchRatios(req.body?.lunchRatios || {}),
+      dinnerMenus,
+      dinnerRatios: normalizeLunchRatios(req.body?.dinnerRatios || {}),
+      dinnerArrangeCount: Number.isFinite(Number(req.body?.dinnerArrangeCount))
+        ? Math.max(0, Math.min(7, Math.floor(Number(req.body?.dinnerArrangeCount))))
+        : WEEK_MENU_SETTINGS_DEFAULTS.dinnerArrangeCount,
       breakfastFilterEnabled: req.body?.breakfastFilterEnabled !== false && String(req.body?.breakfastFilterEnabled) !== 'false',
-      lunchFilterEnabled: req.body?.lunchFilterEnabled !== false && String(req.body?.lunchFilterEnabled) !== 'false'
+      lunchFilterEnabled: req.body?.lunchFilterEnabled !== false && String(req.body?.lunchFilterEnabled) !== 'false',
+      dinnerFilterEnabled: req.body?.dinnerFilterEnabled !== false && String(req.body?.dinnerFilterEnabled) !== 'false'
     };
 
     await User.findByIdAndUpdate(req.user._id, { weekMenuSettings: payload });
