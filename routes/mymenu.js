@@ -1252,7 +1252,7 @@ router.get('/original', async (req, res, next) => {
     const setMenuCandidates = await Menu.find({ menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
       .select('name menu kind junle cook imageUrl menuType')
       .lean();
-    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, setMenuCandidates });
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, setMenuCandidates, arrangeMenuCandidates: setMenuCandidates });
   } catch (err) { next(err); }
 });
 
@@ -1306,7 +1306,7 @@ router.get('/duplicate/:id', async (req, res, next) => {
     const setMenuCandidates = await Menu.find({ menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
       .select('name menu kind junle cook imageUrl menuType')
       .lean();
-    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, setMenuCandidates, prefillOriginal: prefill });
+    res.render('users/myMenuOriginal', { kinds, junles, cooks, myOriginalCount, ingredients, seasonings, allUnits, menuNames, setMenuCandidates, arrangeMenuCandidates: setMenuCandidates, prefillOriginal: prefill });
   } catch (err) { next(err); }
 });
 
@@ -1346,7 +1346,7 @@ router.post('/original', async (req, res, next) => {
       imageUrl, time, people,
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
-      menuType = 'single', setType = [], set_menu_ids = [],
+      menuType = 'single', setType = [], set_menu_ids = [], arrange_base_menu_id = '',
       instruction = '',
       comment = '',
       favorite = 'false', frequency = '3',
@@ -1367,7 +1367,9 @@ router.post('/original', async (req, res, next) => {
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
 
-    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedMenuType = menuType === 'set'
+      ? 'set'
+      : (menuType === 'arrange' ? 'arrange' : 'single');
     const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
     const normalizedSetType = rawSetTypes
       .map((t) => String(t || '').trim())
@@ -1386,6 +1388,20 @@ router.post('/original', async (req, res, next) => {
         setMenus = validMenus.map((m) => m._id);
       }
     }
+    let arrangeBaseMenu = null;
+    if (normalizedMenuType === 'arrange') {
+      const candidateId = String(arrange_base_menu_id || '').trim();
+      if (mongoose.Types.ObjectId.isValid(candidateId)) {
+        const baseMenu = await Menu.findOne({ _id: candidateId, menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
+          .select('_id')
+          .lean();
+        if (baseMenu) arrangeBaseMenu = baseMenu._id;
+      }
+      if (!arrangeBaseMenu) {
+        req.flash('error', 'アレンジ元メニューを選択してください');
+        return res.redirect('/users/my-menu/original');
+      }
+    }
 
     // オリジナルは URL なし。作り方とコメントを別々に保存
     const newMenu = await Menu.create({
@@ -1393,6 +1409,7 @@ router.post('/original', async (req, res, next) => {
       menuType: normalizedMenuType,
       setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
+      arrangeBaseMenu: normalizedMenuType === 'arrange' ? arrangeBaseMenu : null,
       url: '',
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
@@ -1401,8 +1418,8 @@ router.post('/original', async (req, res, next) => {
       seasoning: normalizedMenuType === 'set' ? [] : seasonings,
       instructionText: String(instruction || ''),
       comment: String(comment || ''),
-      makeAhead: String(makeAhead) === 'true',
-      basicMenu: String(basicMenu) === 'true',
+      makeAhead: normalizedMenuType === 'arrange' ? false : (String(makeAhead) === 'true'),
+      basicMenu: normalizedMenuType === 'arrange' ? false : (String(basicMenu) === 'true'),
       share: String(share) === 'true'
     });
 
