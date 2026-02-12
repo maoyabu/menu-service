@@ -1682,6 +1682,7 @@ router.get('/edit/:menuId', async (req, res, next) => {
     }
     const menuDoc = await Menu.findById(menuId)
       .populate({ path: 'setMenus', select: 'name menu kind junle cook imageUrl menuType' })
+      .populate({ path: 'arrangeBaseMenu', select: 'name menu kind junle cook imageUrl menuType' })
       .lean();
     if (!menuDoc) {
       req.flash('error', 'メニューが見つかりません');
@@ -1722,7 +1723,19 @@ router.get('/edit/:menuId', async (req, res, next) => {
     const publicUrl = (owned && owned.share && owned.shareScope === 'public' && owned.publicToken)
       ? `${baseUrl}/users/my-menu/public/${owned.publicToken}`
       : '';
-    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned, instructionText, commentText, publicUrl, setMenuCandidates });
+    const initialArrangeBaseMenu = menuDoc?.arrangeBaseMenu
+      ? {
+          _id: String(menuDoc.arrangeBaseMenu?._id || ''),
+          name: menuDoc.arrangeBaseMenu?.name || '',
+          menu: menuDoc.arrangeBaseMenu?.menu || '',
+          kind: menuDoc.arrangeBaseMenu?.kind || '',
+          junle: menuDoc.arrangeBaseMenu?.junle || '',
+          cook: menuDoc.arrangeBaseMenu?.cook || '',
+          imageUrl: menuDoc.arrangeBaseMenu?.imageUrl || '',
+          menuType: menuDoc.arrangeBaseMenu?.menuType || ''
+        }
+      : null;
+    return res.render('users/myMenuEdit', { menuDoc, kinds, junles, cooks, menuNames, ingredients, seasonings, allUnits, owned, instructionText, commentText, publicUrl, setMenuCandidates, arrangeMenuCandidates: setMenuCandidates, initialArrangeBaseMenu });
   } catch (err) { next(err); }
 });
 
