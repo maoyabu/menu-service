@@ -388,7 +388,7 @@
       addBtn.textContent = '追加';
       addBtn.className = 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
       addBtn.addEventListener('click', () => {
-        addIngredientFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '');
+        addIngredientFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '', item.imageUrl || '');
         const cont = document.getElementById('ingredients-list');
         const last = cont.lastElementChild;
         if (last) {
@@ -474,7 +474,7 @@
 
   let ingredientSearchTimer;
 
-  async function addIngredientFromSearch(id, name, units, classification = '', nutrition = '') {
+  async function addIngredientFromSearch(id, name, units, classification = '', nutrition = '', imageUrl = '') {
     const container = document.getElementById('ingredients-list');
     // Remove "食材を追加してください" if present
     if (container.textContent.trim() === '食材を追加してください') container.innerHTML = '';
@@ -487,10 +487,28 @@
     hidden.name = 'ingredient_ids[]';
     hidden.value = id;
 
-    // 上部: 名前＋分類
+    // 上部: 画像＋名前＋分類
+    const thumb = document.createElement('div');
+    thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+    if (imageUrl) {
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = name || 'ingredient image';
+      img.className = 'w-full h-full object-cover';
+      thumb.textContent = '';
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = 'NO IMG';
+    }
+
     const topDiv = document.createElement('div');
     topDiv.className = 'text-base font-medium text-gray-900';
     topDiv.innerHTML = `${name} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${classification || '分類'}</span>`;
+
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'flex items-center gap-3';
+    headerDiv.appendChild(thumb);
+    headerDiv.appendChild(topDiv);
 
     // 下部: 分量・単位・栄養・削除
     const bottomDiv = document.createElement('div');
@@ -539,7 +557,7 @@
     bottomDiv.appendChild(removeBtn);
 
     wrapper.appendChild(hidden);
-    wrapper.appendChild(topDiv);
+    wrapper.appendChild(headerDiv);
     wrapper.appendChild(bottomDiv);
     container.appendChild(wrapper);
     // 記録API呼び出し
@@ -660,7 +678,7 @@
       addBtn.textContent = '追加';
       addBtn.className = 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
       addBtn.addEventListener('click', () => {
-        addSeasoningFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '');
+        addSeasoningFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '', item.imageUrl || '');
         const cont = document.getElementById('seasonings-list');
         const last = cont.lastElementChild;
         if (last) {
@@ -746,7 +764,7 @@
 
   let seasoningSearchTimer;
 
-  async function addSeasoningFromSearch(id, name, units, classification = '', nutrition = '') {
+  async function addSeasoningFromSearch(id, name, units, classification = '', nutrition = '', imageUrl = '') {
     const container = document.getElementById('seasonings-list');
     // Remove "調味料を追加してください" if present
     if (container.textContent.trim() === '調味料を追加してください') container.innerHTML = '';
@@ -759,10 +777,28 @@
     hidden.name = 'seasoning_ids[]';
     hidden.value = id;
 
-    // 上部: 名前＋分類
+    // 上部: 画像＋名前＋分類
+    const thumb = document.createElement('div');
+    thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+    if (imageUrl) {
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = name || 'seasoning image';
+      img.className = 'w-full h-full object-cover';
+      thumb.textContent = '';
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = 'NO IMG';
+    }
+
     const topDiv = document.createElement('div');
     topDiv.className = 'text-base font-medium text-gray-900';
     topDiv.innerHTML = `${name} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${classification || '分類'}</span>`;
+
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'flex items-center gap-3';
+    headerDiv.appendChild(thumb);
+    headerDiv.appendChild(topDiv);
 
     // 下部: 分量・単位・栄養・削除
     const bottomDiv = document.createElement('div');
@@ -811,7 +847,7 @@
     bottomDiv.appendChild(removeBtn);
 
     wrapper.appendChild(hidden);
-    wrapper.appendChild(topDiv);
+    wrapper.appendChild(headerDiv);
     wrapper.appendChild(bottomDiv);
     container.appendChild(wrapper);
     // 記録API呼び出し

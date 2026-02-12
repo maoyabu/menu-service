@@ -479,8 +479,8 @@ router.get('/from-url', async (req, res, next) => {
     const groupScope = groupId
       ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
       : {};
-    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
-    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit imageUrl').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit imageUrl').lean();
     const allUnits = Array.from(new Set([
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
@@ -1246,8 +1246,8 @@ router.get('/original', async (req, res, next) => {
     const groupScope = groupId
       ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
       : {};
-    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
-    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit imageUrl').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit imageUrl').lean();
     const allUnits = Array.from(new Set([
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
@@ -1274,8 +1274,8 @@ router.get('/duplicate/:id', async (req, res, next) => {
     const groupScope = groupId
       ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
       : {};
-    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
-    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit imageUrl').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit imageUrl').lean();
     const allUnits = Array.from(new Set([
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))
@@ -1699,8 +1699,8 @@ router.get('/edit/:menuId', async (req, res, next) => {
     const groupScope = groupId
       ? { $or: [ { group: { $exists: false } }, { group: null }, { group: groupId } ] }
       : {};
-    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit').lean();
-    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit').lean();
+    const ingredients = await Ingredient.find(groupScope).select('ingredient classification unit imageUrl').lean();
+    const seasonings = await Seasoning.find(groupScope).select('seasoning classification unit imageUrl').lean();
     const allUnits = Array.from(new Set([
       ...((ingredients||[]).flatMap(i=>Array.isArray(i.unit)?i.unit:i.unit? [i.unit]:[])),
       ...((seasonings||[]).flatMap(s=>Array.isArray(s.unit)?s.unit:s.unit? [s.unit]:[]))

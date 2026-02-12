@@ -253,18 +253,32 @@
   });
 
   // Build dynamic ingredient/seasoning rows
-  const ING = <%- JSON.stringify((ingredients||[]).map(i=>({id:String(i._id), name:i.ingredient, units:i.unit||[], genre:i.classification||''}))) %>;
-  const SEAS = <%- JSON.stringify((seasonings||[]).map(s=>({id:String(s._id), name:s.seasoning, units:s.unit||[], genre:s.classification||''}))) %>;
+  const ING = <%- JSON.stringify((ingredients||[]).map(i=>({id:String(i._id), name:i.ingredient, units:i.unit||[], genre:i.classification||'', imageUrl:i.imageUrl||''}))) %>;
+  const SEAS = <%- JSON.stringify((seasonings||[]).map(s=>({id:String(s._id), name:s.seasoning, units:s.unit||[], genre:s.classification||'', imageUrl:s.imageUrl||''}))) %>;
   const UNITS = <%- JSON.stringify(allUnits||[]) %>;
 
   function createRow(kind, item){
     const wrap = document.createElement('div');
-    wrap.className = 'flex gap-2 items-center';
+    wrap.className = 'flex flex-wrap items-center gap-2 border rounded px-3 py-2 bg-gray-50';
     const labelBox = document.createElement('div');
-    labelBox.className = 'flex-1 border rounded px-3 py-2 bg-gray-50 flex items-center gap-2';
+    labelBox.className = 'flex-1 min-w-[200px] flex items-center gap-2';
+    const thumb = document.createElement('div');
+    thumb.className = 'w-10 h-10 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+    if (item?.imageUrl) {
+      const img = document.createElement('img');
+      img.src = item.imageUrl;
+      img.alt = item?.name || 'image';
+      img.className = 'w-full h-full object-cover';
+      thumb.textContent = '';
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = 'NO IMG';
+    }
     const title = document.createElement('span'); title.className='text-sm font-medium'; title.textContent = item?.name || '';
     const badge = document.createElement('span'); badge.className='text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700'; badge.textContent = item?.genre || '';
-    labelBox.appendChild(title); if (item?.genre) labelBox.appendChild(badge);
+    labelBox.appendChild(thumb);
+    labelBox.appendChild(title);
+    if (item?.genre) labelBox.appendChild(badge);
     const hiddenId = document.createElement('input'); hiddenId.type='hidden'; hiddenId.value = item?.id || '';
     const amount = document.createElement('input');
     amount.type = 'number'; amount.step = '0.1'; amount.min = '0';
@@ -492,7 +506,7 @@
         const addBtn = document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
         addBtn.addEventListener('click', ()=>{
           const payload = { id: hiddenId.value, name, units };
-          const wrap = createRow(type, { id: payload.id, name, genre: it.classification||'', units });
+          const wrap = createRow(type, { id: payload.id, name, genre: it.classification||'', units, imageUrl: it.imageUrl || '' });
           // preset row already contains inputs; set values from this panel
           const inputs = wrap.querySelectorAll('input, select');
           // [hiddenId, amount, unit/select]

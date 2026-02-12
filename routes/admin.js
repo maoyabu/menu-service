@@ -713,7 +713,7 @@ router.get('/menu-new', async (req, res) => {
       .lean();
 
     // 🔽 食材と調味料の取得を short_nutrition 含めて取得
-    const ingredientsRaw = await Ingredient.find().select('ingredient classification unit energy protein lipid carbohydrate');
+    const ingredientsRaw = await Ingredient.find().select('ingredient classification unit imageUrl energy protein lipid carbohydrate');
     const ingredients = ingredientsRaw.map(item => {
       const short_nutrition = item.energy
         ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
@@ -723,7 +723,7 @@ router.get('/menu-new', async (req, res) => {
         short_nutrition
       };
     });
-    const seasoningsRaw = await Seasoning.find().select('seasoning classification unit energy protein lipid carbohydrate');
+    const seasoningsRaw = await Seasoning.find().select('seasoning classification unit imageUrl energy protein lipid carbohydrate');
     const seasonings = seasoningsRaw.map(item => {
       const short_nutrition = item.energy
         ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
@@ -1039,7 +1039,7 @@ router.get('/menu-edit/:id', async (req, res) => {
       .lean();
 
     // 追加: 食材と調味料を取得（栄養情報含む）＋ short_nutrition を動的生成
-    const ingredientsRaw = await Ingredient.find().select('ingredient classification unit energy protein lipid carbohydrate');
+    const ingredientsRaw = await Ingredient.find().select('ingredient classification unit imageUrl energy protein lipid carbohydrate');
     const ingredients = ingredientsRaw.map(item => {
       const short_nutrition = item.energy
         ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
@@ -1049,7 +1049,7 @@ router.get('/menu-edit/:id', async (req, res) => {
         short_nutrition
       };
     });
-    const seasoningsRaw = await Seasoning.find().select('seasoning classification unit energy protein lipid carbohydrate');
+    const seasoningsRaw = await Seasoning.find().select('seasoning classification unit imageUrl energy protein lipid carbohydrate');
     const seasonings = seasoningsRaw.map(item => {
       const short_nutrition = item.energy
         ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`

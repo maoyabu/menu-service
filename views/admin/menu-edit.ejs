@@ -277,6 +277,13 @@
           <% if (menu.ingredients && menu.ingredients.length) { %>
             <% menu.ingredients.forEach(ingredient => { %>
               <div class="ingredient-card flex flex-wrap items-center gap-2 border border-gray-200 rounded p-2 bg-gray-50">
+                <div class="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden">
+                  <% if (ingredient.name?.imageUrl) { %>
+                    <img src="<%= ingredient.name.imageUrl %>" alt="<%= ingredient.name?.ingredient || 'ingredient image' %>" class="w-full h-full object-cover">
+                  <% } else { %>
+                    NO IMG
+                  <% } %>
+                </div>
                 <input type="hidden" name="ingredient_ids[]" value="<%= ingredient._id %>">
                 <span class="font-medium text-gray-800"><%= ingredient.name?.ingredient || '未設定' %></span>
                 <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= ingredient.name?.classification || '' %></span>
@@ -324,6 +331,13 @@
           <% if (menu.seasoning && menu.seasoning.length) { %>
             <% menu.seasoning.forEach(seasoning => { %>
               <div class="seasoning-card flex flex-wrap items-center gap-2 border border-gray-200 rounded p-2 bg-gray-50">
+                <div class="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden">
+                  <% if (seasoning.name?.imageUrl) { %>
+                    <img src="<%= seasoning.name.imageUrl %>" alt="<%= seasoning.name?.seasoning || 'seasoning image' %>" class="w-full h-full object-cover">
+                  <% } else { %>
+                    NO IMG
+                  <% } %>
+                </div>
                 <input type="hidden" name="seasoning_ids[]" value="<%= seasoning._id %>">
                 <span class="font-medium text-gray-800"><%= seasoning.name?.seasoning || '未設定' %></span>
                 <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= seasoning.name?.classification || '' %></span>
@@ -410,7 +424,7 @@
   // 新しい食材リスト描画（お気に入り・詳細・カード全体クリックで追加）
   let ING_GENRE=''; const ING_GENRES=<%- JSON.stringify(genreList||[]) %>;
   function paintIngGenres(){ const holder=document.getElementById('ingredient-genres'); if(!holder) return; holder.innerHTML=''; holder.className='flex items-center gap-2'; const label=document.createElement('span'); label.textContent='分類：'; label.className='text-sm text-gray-700'; const sel=document.createElement('select'); sel.className='border rounded px-3 py-2'; sel.id='ingredient-genre-filter'; const all=['すべて',...ING_GENRES]; all.forEach((lb,idx)=>{ const val=idx===0?'':lb; const op=document.createElement('option'); op.value=val; op.textContent=lb; if(String(ING_GENRE||'')===String(val||'')) op.selected=true; sel.appendChild(op); }); sel.addEventListener('change',()=>{ ING_GENRE=sel.value; fetchIngredients(); }); holder.appendChild(label); holder.appendChild(sel); }
-  function renderIngredientList(items){ const list=document.getElementById('ingredient-tags'); const selected=document.getElementById('ingredient-selected'); list.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML=''; if(!items||items.length===0){ list.innerHTML='<p class="text-sm text-gray-500">該当する食材が見つかりません</p>'; return;} const checks=[]; function showSelected(item){ selected.classList.remove('hidden'); selected.innerHTML=''; const label=item.ingredient||''; const row=document.createElement('div'); row.className='flex items-center gap-3'; const info=document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification||''}</div>`; const hiddenId=document.createElement('input'); hiddenId.type='hidden'; hiddenId.value=String(item._id); const amount=document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1'; const units=Array.isArray(item.unit)?item.unit:(item.unit?[item.unit]:[]); let unitEl; if(units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.className='w-24 border rounded px-2 py-1'; } const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm'; addBtn.addEventListener('click',()=>{ addIngredientFromSearch(String(item._id),label,units,item.classification||'',item.short_nutrition||''); const cont=document.getElementById('ingredients-list'); const last=cont.lastElementChild; if(last){ const inputs=last.querySelectorAll('input, select'); if(inputs&&inputs.length>=3){ inputs[1].value=amount.value||''; const unitCtl=inputs[2]; if(unitCtl&&unitCtl.tagName==='SELECT' && unitEl.tagName==='SELECT') unitCtl.value=unitEl.value; else if(unitCtl) unitCtl.value=unitEl.value||''; }} document.getElementById('ingredient-modal').classList.add('hidden'); }); row.append(info,hiddenId,amount,unitEl,addBtn); selected.appendChild(row); } items.forEach(item=>{ const label=item.ingredient||''; const row=document.createElement('label'); row.className='flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer'; const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.className='mt-1 w-4 h-4 text-blue-600 border-gray-300'; checkbox.addEventListener('change',()=>{ if(checkbox.checked){ checks.forEach(cb=>{ if(cb!==checkbox) cb.checked=false; }); showSelected(item); } else { selected.classList.add('hidden'); selected.innerHTML=''; } }); checks.push(checkbox); row.appendChild(checkbox); if(item.imageUrl){ const img=document.createElement('img'); img.src=item.imageUrl; img.alt=item.ingredient||'ingredient image'; img.className='w-12 h-12 rounded object-cover'; row.appendChild(img); } else { const placeholder=document.createElement('div'); placeholder.className='w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500'; placeholder.textContent='NO IMG'; row.appendChild(placeholder); } const info=document.createElement('div'); info.className='flex-1'; const title=document.createElement('div'); title.className='font-medium text-gray-800'; title.textContent=label||'名称未設定'; const meta=document.createElement('div'); meta.className='text-xs text-gray-500'; meta.textContent=[item.classification,item.short_nutrition].filter(Boolean).join(' / '); info.appendChild(title); info.appendChild(meta); row.appendChild(info); list.appendChild(row); }); }
+  function renderIngredientList(items){ const list=document.getElementById('ingredient-tags'); const selected=document.getElementById('ingredient-selected'); list.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML=''; if(!items||items.length===0){ list.innerHTML='<p class="text-sm text-gray-500">該当する食材が見つかりません</p>'; return;} const checks=[]; function showSelected(item){ selected.classList.remove('hidden'); selected.innerHTML=''; const label=item.ingredient||''; const row=document.createElement('div'); row.className='flex items-center gap-3'; const info=document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification||''}</div>`; const hiddenId=document.createElement('input'); hiddenId.type='hidden'; hiddenId.value=String(item._id); const amount=document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1'; const units=Array.isArray(item.unit)?item.unit:(item.unit?[item.unit]:[]); let unitEl; if(units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.className='w-24 border rounded px-2 py-1'; } const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm'; addBtn.addEventListener('click',()=>{ addIngredientFromSearch(String(item._id),label,units,item.classification||'',item.short_nutrition||'',item.imageUrl||''); const cont=document.getElementById('ingredients-list'); const last=cont.lastElementChild; if(last){ const inputs=last.querySelectorAll('input, select'); if(inputs&&inputs.length>=3){ inputs[1].value=amount.value||''; const unitCtl=inputs[2]; if(unitCtl&&unitCtl.tagName==='SELECT' && unitEl.tagName==='SELECT') unitCtl.value=unitEl.value; else if(unitCtl) unitCtl.value=unitEl.value||''; }} document.getElementById('ingredient-modal').classList.add('hidden'); }); row.append(info,hiddenId,amount,unitEl,addBtn); selected.appendChild(row); } items.forEach(item=>{ const label=item.ingredient||''; const row=document.createElement('label'); row.className='flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer'; const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.className='mt-1 w-4 h-4 text-blue-600 border-gray-300'; checkbox.addEventListener('change',()=>{ if(checkbox.checked){ checks.forEach(cb=>{ if(cb!==checkbox) cb.checked=false; }); showSelected(item); } else { selected.classList.add('hidden'); selected.innerHTML=''; } }); checks.push(checkbox); row.appendChild(checkbox); if(item.imageUrl){ const img=document.createElement('img'); img.src=item.imageUrl; img.alt=item.ingredient||'ingredient image'; img.className='w-12 h-12 rounded object-cover'; row.appendChild(img); } else { const placeholder=document.createElement('div'); placeholder.className='w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500'; placeholder.textContent='NO IMG'; row.appendChild(placeholder); } const info=document.createElement('div'); info.className='flex-1'; const title=document.createElement('div'); title.className='font-medium text-gray-800'; title.textContent=label||'名称未設定'; const meta=document.createElement('div'); meta.className='text-xs text-gray-500'; meta.textContent=[item.classification,item.short_nutrition].filter(Boolean).join(' / '); info.appendChild(title); info.appendChild(meta); row.appendChild(info); list.appendChild(row); }); }
 
   function openIngredientModal() {
     document.getElementById('ingredient-modal').classList.remove('hidden');
@@ -434,7 +448,7 @@
 
   let ingredientSearchTimer;
 
-  function addIngredientFromSearch(id, name, units, classification = '', nutrition = '') {
+  function addIngredientFromSearch(id, name, units, classification = '', nutrition = '', imageUrl = '') {
     const container = document.getElementById('ingredients-list');
     // Remove "食材を追加してください" if present
     if (container.textContent.trim() === '食材を追加してください') container.innerHTML = '';
@@ -447,10 +461,28 @@
     hidden.name = 'ingredient_ids[]';
     hidden.value = id;
 
-    // 上部: 名前＋分類
+    // 上部: 画像＋名前＋分類
+    const thumb = document.createElement('div');
+    thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+    if (imageUrl) {
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = name || 'ingredient image';
+      img.className = 'w-full h-full object-cover';
+      thumb.textContent = '';
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = 'NO IMG';
+    }
+
     const topDiv = document.createElement('div');
     topDiv.className = 'text-base font-medium text-gray-900';
     topDiv.innerHTML = `${name} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${classification || '分類'}</span>`;
+
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'flex items-center gap-3';
+    headerDiv.appendChild(thumb);
+    headerDiv.appendChild(topDiv);
 
     // 下部: 分量・単位・栄養・削除
     const bottomDiv = document.createElement('div');
@@ -499,7 +531,7 @@
     bottomDiv.appendChild(removeBtn);
 
     wrapper.appendChild(hidden);
-    wrapper.appendChild(topDiv);
+    wrapper.appendChild(headerDiv);
     wrapper.appendChild(bottomDiv);
     container.appendChild(wrapper);
 
@@ -631,7 +663,7 @@
       addBtn.textContent = '追加';
       addBtn.className = 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
       addBtn.addEventListener('click', () => {
-        addSeasoningFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '');
+        addSeasoningFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '', item.imageUrl || '');
         const container = document.getElementById('seasonings-list');
         const last = container?.lastElementChild;
         if (last) {
@@ -717,7 +749,7 @@
 
   let seasoningSearchTimer;
 
-  function addSeasoningFromSearch(id, name, units, classification = '', nutrition = '') {
+  function addSeasoningFromSearch(id, name, units, classification = '', nutrition = '', imageUrl = '') {
     const container = document.getElementById('seasonings-list');
     // Remove "調味料を追加してください" if present
     if (container.textContent.trim() === '調味料を追加してください') container.innerHTML = '';
@@ -730,10 +762,28 @@
     hidden.name = 'seasoning_ids[]';
     hidden.value = id;
 
-    // 上部: 名前＋分類
+    // 上部: 画像＋名前＋分類
+    const thumb = document.createElement('div');
+    thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+    if (imageUrl) {
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = name || 'seasoning image';
+      img.className = 'w-full h-full object-cover';
+      thumb.textContent = '';
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = 'NO IMG';
+    }
+
     const topDiv = document.createElement('div');
     topDiv.className = 'text-base font-medium text-gray-900';
     topDiv.innerHTML = `${name} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${classification || '分類'}</span>`;
+
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'flex items-center gap-3';
+    headerDiv.appendChild(thumb);
+    headerDiv.appendChild(topDiv);
 
     // 下部: 分量・単位・栄養・削除
     const bottomDiv = document.createElement('div');
@@ -782,7 +832,7 @@
     bottomDiv.appendChild(removeBtn);
 
     wrapper.appendChild(hidden);
-    wrapper.appendChild(topDiv);
+    wrapper.appendChild(headerDiv);
     wrapper.appendChild(bottomDiv);
     container.appendChild(wrapper);
 
@@ -904,9 +954,27 @@ function toggleNutritionInfo(btn) {
         hidden.name = 'ingredient_ids[]';
         hidden.value = item.name?._id;
 
+        const thumb = document.createElement('div');
+        thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+        if (matchedIngredient?.imageUrl) {
+          const img = document.createElement('img');
+          img.src = matchedIngredient.imageUrl;
+          img.alt = matchedIngredient.ingredient || 'ingredient image';
+          img.className = 'w-full h-full object-cover';
+          thumb.textContent = '';
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = 'NO IMG';
+        }
+
         const topDiv = document.createElement('div');
         topDiv.className = 'text-base font-medium text-gray-900';
         topDiv.innerHTML = `${matchedIngredient ? matchedIngredient.ingredient : '未設定'} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${matchedIngredient?.classification || '分類'}</span>`;
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'flex items-center gap-3';
+        headerDiv.appendChild(thumb);
+        headerDiv.appendChild(topDiv);
 
         const bottomDiv = document.createElement('div');
         bottomDiv.className = 'flex flex-wrap items-center gap-2 mt-2 sm:mt-0';
@@ -953,7 +1021,7 @@ function toggleNutritionInfo(btn) {
         bottomDiv.appendChild(removeBtn);
 
         wrapper.appendChild(hidden);
-        wrapper.appendChild(topDiv);
+        wrapper.appendChild(headerDiv);
         wrapper.appendChild(bottomDiv);
         ingredientsListEl.appendChild(wrapper);
       });
@@ -976,9 +1044,27 @@ function toggleNutritionInfo(btn) {
         hidden.name = 'seasoning_ids[]';
         hidden.value = item.name?._id;
 
+        const thumb = document.createElement('div');
+        thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+        if (matchedSeasoning?.imageUrl) {
+          const img = document.createElement('img');
+          img.src = matchedSeasoning.imageUrl;
+          img.alt = matchedSeasoning.seasoning || 'seasoning image';
+          img.className = 'w-full h-full object-cover';
+          thumb.textContent = '';
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = 'NO IMG';
+        }
+
         const topDiv = document.createElement('div');
         topDiv.className = 'text-base font-medium text-gray-900';
         topDiv.innerHTML = `${matchedSeasoning ? matchedSeasoning.seasoning : '未設定'} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${matchedSeasoning?.classification || '分類'}</span>`;
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'flex items-center gap-3';
+        headerDiv.appendChild(thumb);
+        headerDiv.appendChild(topDiv);
 
         const bottomDiv = document.createElement('div');
         bottomDiv.className = 'flex flex-wrap items-center gap-2 mt-2 sm:mt-0';
@@ -1025,7 +1111,7 @@ function toggleNutritionInfo(btn) {
         bottomDiv.appendChild(removeBtn);
 
         wrapper.appendChild(hidden);
-        wrapper.appendChild(topDiv);
+        wrapper.appendChild(headerDiv);
         wrapper.appendChild(bottomDiv);
         container.appendChild(wrapper);
       });
