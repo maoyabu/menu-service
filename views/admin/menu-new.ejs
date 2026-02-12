@@ -344,31 +344,111 @@
     renderIngredientList(ingredients);
   }
 
-  // 新しい食材リスト描画（お気に入り・詳細・カード全体クリックで追加）
+  // 食材リスト描画（チェックボックス + 画像）
   function renderIngredientList(ingredients) {
-    const tags = document.getElementById('ingredient-tags'); const selected = document.getElementById('ingredient-selected');
-    tags.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML='';
-    if (!ingredients || ingredients.length===0){ tags.innerHTML='<p class="text-sm text-gray-500">該当する食材が見つかりません</p>'; return; }
-    ingredients.forEach(item=>{
+    const list = document.getElementById('ingredient-tags');
+    const selected = document.getElementById('ingredient-selected');
+    list.innerHTML = '';
+    selected.classList.add('hidden');
+    selected.innerHTML = '';
+    if (!ingredients || ingredients.length === 0) {
+      list.innerHTML = '<p class="text-sm text-gray-500">該当する食材が見つかりません</p>';
+      return;
+    }
+    const checks = [];
+    function showSelected(item) {
+      selected.classList.remove('hidden');
+      selected.innerHTML = '';
       const label = item.ingredient || '';
-      const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200';
-      b.addEventListener('click', ()=>{
-        selected.classList.remove('hidden'); selected.innerHTML='';
-        const row=document.createElement('div'); row.className='flex items-center gap-3';
-        const info=document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification||''}</div>`;
-        const hiddenId=document.createElement('input'); hiddenId.type='hidden'; hiddenId.value=String(item._id);
-        const amount=document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1';
-        const units=Array.isArray(item.unit)? item.unit: (item.unit? [item.unit]:[]);
-        let unitEl; if (units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.className='w-24 border rounded px-2 py-1'; }
-        const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
-        addBtn.addEventListener('click', ()=>{
-          addIngredientFromSearch(String(item._id), label, units, item.classification||'', item.short_nutrition||'');
-          const cont = document.getElementById('ingredients-list'); const last = cont.lastElementChild; if (last){ const inputs=last.querySelectorAll('input, select'); if (inputs && inputs.length>=3){ inputs[1].value = amount.value || ''; const unitCtl = inputs[2]; if (unitCtl && unitCtl.tagName==='SELECT' && unitEl.tagName==='SELECT') unitCtl.value = unitEl.value; else if(unitCtl) unitCtl.value = unitEl.value || ''; }}
-          document.getElementById('ingredient-modal').classList.add('hidden');
-        });
-        row.append(info, hiddenId, amount, unitEl, addBtn); selected.appendChild(row);
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-3';
+      const info = document.createElement('div');
+      info.className = 'flex-1';
+      info.innerHTML = `<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification || ''}</div>`;
+      const hiddenId = document.createElement('input');
+      hiddenId.type = 'hidden';
+      hiddenId.value = String(item._id);
+      const amount = document.createElement('input');
+      amount.type = 'number';
+      amount.min = '0';
+      amount.step = '0.1';
+      amount.className = 'w-24 border rounded px-2 py-1';
+      const units = Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : []);
+      let unitEl;
+      if (units.length) {
+        unitEl = document.createElement('select');
+        unitEl.className = 'w-28 border rounded px-2 py-1';
+        units.forEach(u => { const op = document.createElement('option'); op.value = u; op.textContent = u; unitEl.appendChild(op); });
+      } else {
+        unitEl = document.createElement('input');
+        unitEl.className = 'w-24 border rounded px-2 py-1';
+      }
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.textContent = '追加';
+      addBtn.className = 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
+      addBtn.addEventListener('click', () => {
+        addIngredientFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '');
+        const cont = document.getElementById('ingredients-list');
+        const last = cont.lastElementChild;
+        if (last) {
+          const inputs = last.querySelectorAll('input, select');
+          if (inputs && inputs.length >= 3) {
+            inputs[1].value = amount.value || '';
+            const unitCtl = inputs[2];
+            if (unitCtl && unitCtl.tagName === 'SELECT' && unitEl.tagName === 'SELECT') unitCtl.value = unitEl.value;
+            else if (unitCtl) unitCtl.value = unitEl.value || '';
+          }
+        }
+        document.getElementById('ingredient-modal').classList.add('hidden');
       });
-      tags.appendChild(b);
+      row.append(info, hiddenId, amount, unitEl, addBtn);
+      selected.appendChild(row);
+    }
+    ingredients.forEach(item => {
+      const label = item.ingredient || '';
+      const row = document.createElement('label');
+      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          checks.forEach(cb => { if (cb !== checkbox) cb.checked = false; });
+          showSelected(item);
+        } else {
+          selected.classList.add('hidden');
+          selected.innerHTML = '';
+        }
+      });
+      checks.push(checkbox);
+      row.appendChild(checkbox);
+
+      if (item.imageUrl) {
+        const img = document.createElement('img');
+        img.src = item.imageUrl;
+        img.alt = item.ingredient || 'ingredient image';
+        img.className = 'w-12 h-12 rounded object-cover';
+        row.appendChild(img);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+        placeholder.textContent = 'NO IMG';
+        row.appendChild(placeholder);
+      }
+
+      const info = document.createElement('div');
+      info.className = 'flex-1';
+      const title = document.createElement('div');
+      title.className = 'font-medium text-gray-800';
+      title.textContent = label || '名称未設定';
+      const meta = document.createElement('div');
+      meta.className = 'text-xs text-gray-500';
+      meta.textContent = [item.classification, item.short_nutrition].filter(Boolean).join(' / ');
+      info.appendChild(title);
+      info.appendChild(meta);
+      row.appendChild(info);
+      list.appendChild(row);
     });
   }
 
@@ -536,28 +616,111 @@
     renderSeasoningList(seasonings);
   }
 
-  // 調味料タグ描画 + 選択パネル
+  // 調味料リスト描画（チェックボックス + 画像）
   function renderSeasoningList(list) {
-    const tags = document.getElementById('seasoning-tags'); const selected = document.getElementById('seasoning-selected');
-    tags.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML='';
-    if (!list || list.length===0){ tags.innerHTML='<p class="text-sm text-gray-500">該当する調味料が見つかりません</p>'; return; }
-    list.forEach(item=>{
-      const label=item.seasoning||''; const b=document.createElement('button'); b.type='button'; b.textContent=label; b.className='px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200';
-      b.addEventListener('click', ()=>{
-        selected.classList.remove('hidden'); selected.innerHTML=''; const row=document.createElement('div'); row.className='flex items-center gap-3';
-        const info=document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification||''}</div>`;
-        const hiddenId=document.createElement('input'); hiddenId.type='hidden'; hiddenId.value=String(item._id);
-        const amount=document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1';
-        const units=Array.isArray(item.unit)? item.unit: (item.unit? [item.unit]:[]);
-        let unitEl; if (units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.className='w-24 border rounded px-2 py-1'; }
-        const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
-        addBtn.addEventListener('click', ()=>{
-          addSeasoningFromSearch(String(item._id), label, units, item.classification||'', item.short_nutrition||'');
-          const cont=document.getElementById('seasonings-list'); const last=cont.lastElementChild; if (last){ const inputs=last.querySelectorAll('input, select'); if (inputs && inputs.length>=3){ inputs[1].value = amount.value || ''; const unitCtl = inputs[2]; if (unitCtl && unitCtl.tagName==='SELECT' && unitEl.tagName==='SELECT') unitCtl.value = unitEl.value; else if(unitCtl) unitCtl.value = unitEl.value || ''; }}
-          document.getElementById('seasoning-modal').classList.add('hidden');
-        });
-        row.append(info, hiddenId, amount, unitEl, addBtn); selected.appendChild(row);
-      }); tags.appendChild(b);
+    const holder = document.getElementById('seasoning-tags');
+    const selected = document.getElementById('seasoning-selected');
+    holder.innerHTML = '';
+    selected.classList.add('hidden');
+    selected.innerHTML = '';
+    if (!list || list.length === 0) {
+      holder.innerHTML = '<p class="text-sm text-gray-500">該当する調味料が見つかりません</p>';
+      return;
+    }
+    const checks = [];
+    function showSelected(item) {
+      selected.classList.remove('hidden');
+      selected.innerHTML = '';
+      const label = item.seasoning || '';
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-3';
+      const info = document.createElement('div');
+      info.className = 'flex-1';
+      info.innerHTML = `<div class=\"font-semibold\">${label}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${item.classification || ''}</div>`;
+      const hiddenId = document.createElement('input');
+      hiddenId.type = 'hidden';
+      hiddenId.value = String(item._id);
+      const amount = document.createElement('input');
+      amount.type = 'number';
+      amount.min = '0';
+      amount.step = '0.1';
+      amount.className = 'w-24 border rounded px-2 py-1';
+      const units = Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : []);
+      let unitEl;
+      if (units.length) {
+        unitEl = document.createElement('select');
+        unitEl.className = 'w-28 border rounded px-2 py-1';
+        units.forEach(u => { const op = document.createElement('option'); op.value = u; op.textContent = u; unitEl.appendChild(op); });
+      } else {
+        unitEl = document.createElement('input');
+        unitEl.className = 'w-24 border rounded px-2 py-1';
+      }
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.textContent = '追加';
+      addBtn.className = 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
+      addBtn.addEventListener('click', () => {
+        addSeasoningFromSearch(String(item._id), label, units, item.classification || '', item.short_nutrition || '');
+        const cont = document.getElementById('seasonings-list');
+        const last = cont.lastElementChild;
+        if (last) {
+          const inputs = last.querySelectorAll('input, select');
+          if (inputs && inputs.length >= 3) {
+            inputs[1].value = amount.value || '';
+            const unitCtl = inputs[2];
+            if (unitCtl && unitCtl.tagName === 'SELECT' && unitEl.tagName === 'SELECT') unitCtl.value = unitEl.value;
+            else if (unitCtl) unitCtl.value = unitEl.value || '';
+          }
+        }
+        document.getElementById('seasoning-modal').classList.add('hidden');
+      });
+      row.append(info, hiddenId, amount, unitEl, addBtn);
+      selected.appendChild(row);
+    }
+    list.forEach(item => {
+      const label = item.seasoning || '';
+      const row = document.createElement('label');
+      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          checks.forEach(cb => { if (cb !== checkbox) cb.checked = false; });
+          showSelected(item);
+        } else {
+          selected.classList.add('hidden');
+          selected.innerHTML = '';
+        }
+      });
+      checks.push(checkbox);
+      row.appendChild(checkbox);
+
+      if (item.imageUrl) {
+        const img = document.createElement('img');
+        img.src = item.imageUrl;
+        img.alt = item.seasoning || 'seasoning image';
+        img.className = 'w-12 h-12 rounded object-cover';
+        row.appendChild(img);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+        placeholder.textContent = 'NO IMG';
+        row.appendChild(placeholder);
+      }
+
+      const info = document.createElement('div');
+      info.className = 'flex-1';
+      const title = document.createElement('div');
+      title.className = 'font-medium text-gray-800';
+      title.textContent = label || '名称未設定';
+      const meta = document.createElement('div');
+      meta.className = 'text-xs text-gray-500';
+      meta.textContent = [item.classification, item.short_nutrition].filter(Boolean).join(' / ');
+      info.appendChild(title);
+      info.appendChild(meta);
+      row.appendChild(info);
+      holder.appendChild(row);
     });
   }
 
@@ -1340,7 +1503,7 @@ async function toggleFavorite(button, id, type) {
     <div class="mb-3">
       <div id="ingredient-genres" class="flex flex-wrap gap-2"></div>
     </div>
-    <div id="ingredient-tags" class="max-h-60 overflow-y-auto border rounded p-3 bg-green-50 flex flex-wrap gap-2"></div>
+    <div id="ingredient-tags" class="max-h-60 overflow-y-auto border rounded p-2 bg-white space-y-2"></div>
     <div id="ingredient-selected" class="hidden border rounded p-3 bg-blue-50 mt-3"></div>
     <div class="text-right mt-4">
       <a href="#" onclick="window.open('/admin/ingredient-list', 'ingredientWindow'); return false;" class="text-sm text-blue-600 hover:underline">見つからない場合はこちらから食材を編集</a>
@@ -1365,7 +1528,7 @@ async function toggleFavorite(button, id, type) {
     </div>
 
     <div class="mb-3"><div id="seasoning-genres" class="flex flex-wrap gap-2"></div></div>
-    <div id="seasoning-tags" class="max-h-60 overflow-y-auto border rounded p-3 bg-green-50 flex flex-wrap gap-2"></div>
+    <div id="seasoning-tags" class="max-h-60 overflow-y-auto border rounded p-2 bg-white space-y-2"></div>
     <div id="seasoning-selected" class="hidden border rounded p-3 bg-blue-50 mt-3"></div>
     <div class="text-right mt-4">
       <a href="#" onclick="window.open('/admin/seasoning-list', 'seasoningWindow'); return false;" class="text-sm text-blue-600 hover:underline">見つからない場合はこちらから調味料を編集</a>
