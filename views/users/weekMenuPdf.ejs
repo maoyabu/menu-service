@@ -137,11 +137,15 @@
                         <div class="thumbs <%= mealKey === 'breakfast' ? 'breakfast' : (mealKey === 'lunch' ? 'lunch' : '') %>">
                         <% uniqImages.forEach((url) => { 
                           const rawUrl = typeof url === 'string' ? url.trim() : '';
-                          const isAbs = rawUrl && (/^https?:\/\//i.test(rawUrl) || /^\/\//.test(rawUrl));
-                          const normalized = rawUrl
-                            ? (isAbs ? rawUrl : (rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`))
+                          const dataIndex = rawUrl.indexOf('data:image/');
+                          const dataUrl = dataIndex >= 0 ? rawUrl.slice(dataIndex) : '';
+                          const isData = dataUrl.startsWith('data:image/');
+                          const effectiveUrl = isData ? dataUrl : rawUrl;
+                          const isAbs = effectiveUrl && (/^https?:\/\//i.test(effectiveUrl) || /^\/\//.test(effectiveUrl));
+                          const normalized = effectiveUrl
+                            ? (isAbs ? effectiveUrl : (effectiveUrl.startsWith('/') ? effectiveUrl : `/${effectiveUrl}`))
                             : '';
-                          const isCross = isAbs && typeof baseOrigin === 'string' && baseOrigin && !rawUrl.startsWith(baseOrigin);
+                          const isCross = !isData && isAbs && typeof baseOrigin === 'string' && baseOrigin && !effectiveUrl.startsWith(baseOrigin);
                           const proxied = isCross ? `/users/week-menu/image-proxy?url=${encodeURIComponent(normalized)}` : normalized;
                         %>
                           <img
