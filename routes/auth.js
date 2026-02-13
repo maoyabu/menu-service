@@ -1001,7 +1001,7 @@ const buildBreakfastPlan = (menus, options = {}) => {
   const pickMenuFromPool = (pool) => {
     if (!pool.length) return null;
     const allowReuse = usedIds.size >= pool.length;
-    const available = allowReuse ? pool : pool.filter((menu) => !usedIds.has(menu.id));
+    const available = allowReuse ? pool : pool.filter((menu) => menu && !usedIds.has(menu.id));
     if (!available.length) return null;
 
     const preferredSet = available.filter(isPreferredSetMenu);
@@ -1199,7 +1199,7 @@ const buildLunchPlan = (menus, options = {}) => {
     }
     if (!candidatePool.length) return null;
     const allowReuse = usedIds.size >= candidatePool.length;
-    const available = allowReuse ? candidatePool : candidatePool.filter((m) => !usedIds.has(m.id));
+    const available = allowReuse ? candidatePool : candidatePool.filter((m) => m && !usedIds.has(m.id));
     if (!available.length) return null;
 
     const preferredTeishoku = available.filter(isPreferredTeishoku);
@@ -1333,7 +1333,9 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
   const soupBase = applyDinnerFilter(filterBaseMenus(menusByCategory.dinnerSoup || [], { excludeKeywords: breakfastKeywords }));
 
   const seasonalStaples = filterSeasonalMenus(stapleBase, currentSeason);
-  const seasonalMains = filterSeasonalMenus(mainBase, currentSeason);
+  const mainArrangeCandidates = mainBase.filter((m) => m?.menuType === 'arrange');
+  const mainBaseRegular = mainBase.filter((m) => m?.menuType !== 'arrange');
+  const seasonalMains = filterSeasonalMenus(mainBaseRegular, currentSeason);
   const seasonalSides = filterSeasonalMenus(sideBase, currentSeason);
   const seasonalSoups = filterSeasonalMenus(soupBase, currentSeason);
 
@@ -1435,8 +1437,8 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
     }
   });
 
-  const arrangeCandidates = (seasonalMains.length ? seasonalMains : mainBase)
-    .filter((m) => m?.menuType === 'arrange');
+  const seasonalArrange = filterSeasonalMenus(mainArrangeCandidates, currentSeason);
+  const arrangeCandidates = seasonalArrange.length ? seasonalArrange : (mainArrangeCandidates || []);
   const arrangePreferred = arrangeCandidates.filter((m) => preferredOriginalMenuIds?.has(m.id));
   const arrangePool = arrangePreferred.length ? arrangePreferred : arrangeCandidates;
 
@@ -1444,18 +1446,23 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
   const baseAssignments = new Map();
 
   const dayIndices = [...Array(7).keys()];
-  const lateDays = dayIndices.slice(3);
-  const arrangeCountSafe = Math.max(0, Math.min(7, Math.floor(Number(arrangeCount) || 0), lateDays.length, arrangePool.length));
+  const eligibleArrangeDays = dayIndices.slice(2);
+  const arrangeCountSafe = Math.max(
+    0,
+    Math.min(7, Math.floor(Number(arrangeCount) || 0), eligibleArrangeDays.length, arrangePool.length)
+  );
 
   const arrangeSorted = sortMenusByPreference(arrangePool, myMenuFrequency);
-  const mainPoolForBase = (seasonalMains.length ? seasonalMains : mainBase);
+  const mainPoolForBase = (seasonalMains.length ? seasonalMains : mainBaseRegular);
   const baseMenuById = new Map(mainPoolForBase.map((m) => [String(m.id), m]));
 
+  const usedDays = new Set();
   const pickBaseDayForArrange = (arrangeDay) => {
     const candidates = [];
     if (arrangeDay - 1 >= 0) candidates.push(arrangeDay - 1);
     if (arrangeDay - 2 >= 0) candidates.push(arrangeDay - 2);
     for (const day of candidates) {
+      if (usedDays.has(day)) continue;
       if (baseAssignments.has(day)) continue;
       if (arrangeAssignments.has(day)) continue;
       return day;
@@ -1463,9 +1470,10 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
     return null;
   };
 
-  const shuffledLate = shuffleArray(lateDays);
-  for (const arrangeDay of shuffledLate) {
+  const shuffledEligible = shuffleArray(eligibleArrangeDays);
+  for (const arrangeDay of shuffledEligible) {
     if (arrangeAssignments.size >= arrangeCountSafe) break;
+    if (usedDays.has(arrangeDay)) continue;
     const type = shuffledDayTypes[arrangeDay];
     const candidates = filterDish(arrangeSorted, type)
       .filter((m) => (arrangeDay >= 5 ? true : !isNabe(m)));
@@ -1473,10 +1481,13 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
     let picked = null;
     for (const menu of candidateList) {
       if (!menu || arrangeAssignmentsHasMenu(menu.id)) continue;
+      if (usedMains.has(menu.id)) continue;
       const baseId = menu?.arrangeBaseMenu ? String(menu.arrangeBaseMenu) : '';
       if (!baseId) continue;
+      if (usedMains.has(baseId)) continue;
       const baseMenu = baseMenuById.get(baseId) || null;
       if (!baseMenu) continue;
+      if (baseMenu.menuType === 'arrange') continue;
       const baseDay = pickBaseDayForArrange(arrangeDay);
       if (baseDay === null || baseDay === undefined) continue;
       const baseIsWeekend = baseDay >= 5;
@@ -1487,6 +1498,8 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
     if (!picked) continue;
     arrangeAssignments.set(arrangeDay, picked.menu);
     baseAssignments.set(picked.baseDay, picked.baseMenu);
+    usedDays.add(arrangeDay);
+    usedDays.add(picked.baseDay);
     usedMains.add(picked.menu.id);
     usedMains.add(picked.baseMenu.id);
   }
@@ -1526,7 +1539,7 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
       if (!stapleIsRice) return null;
       if (baseAssignments.has(dayIndex)) return baseAssignments.get(dayIndex);
       if (arrangeAssignments.has(dayIndex)) return arrangeAssignments.get(dayIndex);
-      const base = seasonalMains.length ? seasonalMains : mainBase;
+      const base = seasonalMains.length ? seasonalMains : mainBaseRegular;
       let pool = filterDish(base, cuisineKey);
       if (!isWeekend) {
         pool = pool.filter((m) => !isNabe(m));
@@ -1628,6 +1641,15 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
   const weekStartDate = startDate ? startOfWeek(startDate) : getNextWeekStart();
   const seasonLabel = currentSeason || monthToSeason(weekStartDate.getMonth() + 1);
   const weekDates = getWeekDatesFromStart(weekStartDate);
+  const dinnerPlan = buildDinnerPlan(menusByCategory, {
+    myMenuFrequency,
+    currentSeason: seasonLabel,
+    dinnerMenuFilter: normalizedSettings.dinnerMenus || [],
+    dinnerRatios: normalizedSettings.dinnerRatios || {},
+    preferredOriginalMenuIds: preferredSetMenuIds,
+    arrangeCount: normalizedSettings.dinnerArrangeCount || 0,
+    weekStartDate: weekStartDate
+  });
   const breakfastPlan = buildBreakfastPlan(menusByCategory.breakfastMain || [], {
     myMenuFrequency,
     currentSeason: seasonLabel,
@@ -1642,15 +1664,6 @@ const buildWeekPlanPayload = (menusByCategory, options = {}) => {
     lunchMenuFilter: normalizedSettings.lunchMenus || [],
     lunchRatios: normalizedSettings.lunchRatios || {},
     preferredOriginalMenuIds: preferredSetMenuIds
-  });
-  const dinnerPlan = buildDinnerPlan(menusByCategory, {
-    myMenuFrequency,
-    currentSeason: seasonLabel,
-    dinnerMenuFilter: normalizedSettings.dinnerMenus || [],
-    dinnerRatios: normalizedSettings.dinnerRatios || {},
-    preferredOriginalMenuIds: preferredSetMenuIds,
-    arrangeCount: normalizedSettings.dinnerArrangeCount || 0,
-    weekStartDate: weekStartDate
   });
 
   const plan = weekDates.map((date, index) => {
@@ -2683,6 +2696,7 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
         const menus = await Menu.find({ _id: { $in: Array.from(ids) } })
           .populate({ path: 'ingredients.name', select: 'ingredient classification unit unitConversions' })
           .populate({ path: 'seasoning.name', select: 'seasoning classification unit unitConversions' })
+          .populate({ path: 'setMenus', select: 'name kind imageUrl menuType' })
           .lean();
         const menuDetailMap = new Map();
         const ingredientIds = new Set();
@@ -2692,7 +2706,15 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
           menuLookup[String(m._id)] = {
             name: m.name || '',
             junle: m.junle || '',
-            kind: m.kind || ''
+            kind: m.kind || '',
+            imageUrl: m.imageUrl || '',
+            menuType: m.menuType || 'single',
+            setMenus: (m.setMenus || []).map((s) => ({
+              name: s?.name || '',
+              kind: s?.kind || '',
+              imageUrl: s?.imageUrl || '',
+              menuType: s?.menuType || 'single'
+            }))
           };
           (m.ingredients || []).forEach((it) => {
             const id = it?.name?._id ? String(it.name._id) : '';
@@ -2753,7 +2775,10 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
           pushMeal(dayIndex, mealType, {
             name: menu.name,
             tag: menu.junle,
-            kind: menu.kind || ''
+            kind: menu.kind || '',
+            imageUrl: menu.imageUrl || '',
+            menuType: menu.menuType || 'single',
+            setMenus: Array.isArray(menu.setMenus) ? menu.setMenus : []
           });
         });
       });
@@ -2849,15 +2874,36 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
         const d = [...dinnerBase, ...dinnerExtras];
         b.forEach((slot) => {
           const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
-          if (menu) pushMeal(index, 'breakfast', { name: menu.name, tag: menu.junle || '', kind: menu.kind || '' });
+          if (menu) pushMeal(index, 'breakfast', {
+            name: menu.name,
+            tag: menu.junle || '',
+            kind: menu.kind || '',
+            imageUrl: menu.imageUrl || '',
+            menuType: menu.menuType || 'single',
+            setMenus: Array.isArray(menu.setMenus) ? menu.setMenus : []
+          });
         });
         l.forEach((slot) => {
           const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
-          if (menu) pushMeal(index, 'lunch', { name: menu.name, tag: menu.junle || '', kind: menu.kind || '' });
+          if (menu) pushMeal(index, 'lunch', {
+            name: menu.name,
+            tag: menu.junle || '',
+            kind: menu.kind || '',
+            imageUrl: menu.imageUrl || '',
+            menuType: menu.menuType || 'single',
+            setMenus: Array.isArray(menu.setMenus) ? menu.setMenus : []
+          });
         });
         d.forEach((slot) => {
           const menu = slot?.menuId ? menuLookup[slot.menuId] : null;
-          if (menu) pushMeal(index, 'dinner', { name: menu.name, tag: menu.junle || '', kind: menu.kind || '' });
+          if (menu) pushMeal(index, 'dinner', {
+            name: menu.name,
+            tag: menu.junle || '',
+            kind: menu.kind || '',
+            imageUrl: menu.imageUrl || '',
+            menuType: menu.menuType || 'single',
+            setMenus: Array.isArray(menu.setMenus) ? menu.setMenus : []
+          });
         });
       });
       // accumulate ingredient/seasoning totals (weekly) by slots
@@ -2964,14 +3010,50 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       .sort((a, b) => a._order - b._order)
       .map(({ _order, ...row }) => row);
 
+    const baseOrigin = `${req.protocol}://${req.get('host')}`;
     return res.render('users/weekMenuPdf', {
       titleLabel,
       days,
-      summaryRows
+      summaryRows,
+      baseOrigin
     });
   } catch (err) {
     console.error('week menu pdf error:', err);
     return next(err);
+  }
+});
+
+// Proxy external images for PDF rendering (avoids hotlink/CORS issues)
+router.get('/users/week-menu/image-proxy', isLoggedIn, async (req, res) => {
+  try {
+    const rawUrl = typeof req.query.url === 'string' ? req.query.url.trim() : '';
+    if (!rawUrl) return res.status(400).send('missing url');
+    let parsed;
+    try {
+      parsed = new URL(rawUrl);
+    } catch (_) {
+      return res.status(400).send('invalid url');
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return res.status(400).send('invalid protocol');
+    }
+    const host = parsed.hostname || '';
+    if (!host || host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+      return res.status(400).send('invalid host');
+    }
+
+    const upstream = await fetch(parsed.toString(), { method: 'GET' });
+    if (!upstream.ok) {
+      return res.status(502).send('upstream error');
+    }
+    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.send(buffer);
+  } catch (err) {
+    console.error('week menu image proxy error:', err);
+    return res.status(500).send('proxy error');
   }
 });
 

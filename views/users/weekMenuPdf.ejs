@@ -22,9 +22,33 @@
       .day-head { font-size: 14pt; font-weight: 700; }
       .summary-table th { font-size: 14pt; font-weight: 700; }
       .meal-col { width: 70px; font-weight: 700; background: #f3f4f6; text-align: center; vertical-align: middle; font-size: 14pt; }
-      .cell { min-height: 70px; }
-      .item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-      .name { font-size: 11px; font-weight: 500; }
+      .cell { min-height: 70px; overflow: hidden; }
+      .item { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px; }
+      .item.breakfast { flex-direction: column; align-items: flex-start; gap: 4px; }
+      .item.lunch { flex-direction: column; align-items: flex-start; gap: 4px; }
+      .item.dinner { align-items: flex-start; }
+      .thumbs { display: flex; flex-direction: column; gap: 4px; }
+      .thumbs.breakfast { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+      .thumbs.lunch { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+      .thumb {
+        width: 32px;
+        height: 32px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        flex: 0 0 auto;
+        display: block;
+        aspect-ratio: 1 / 1;
+        overflow: hidden;
+      }
+      .thumbs .thumb {
+        min-width: 32px;
+        min-height: 32px;
+        max-width: 32px;
+        max-height: 32px;
+      }
+      .name { font-size: 11px; font-weight: 500; line-height: 1.25; }
+      .name.dinner { text-align: left; }
       .kind { font-weight: 700; }
       .tag { font-size: 10px; padding: 2px 6px; border-radius: 9999px; border: 1px solid #d1d5db; color: #374151; display: inline-block; margin-bottom: 4px; }
       .tag:empty { display: none; }
@@ -92,11 +116,55 @@
                     <% const mealTag = firstTagItem ? firstTagItem.tag : ''; %>
                     <div class="tag"><%= mealTag %></div>
                     <% items.forEach((item) => { %>
-                      <div class="item">
-                        <% if (item.kind) { %>
-                          <span class="name"><span class="kind"><%= item.kind %></span>：<%= item.name %></span>
-                        <% } else { %>
-                          <span class="name"><%= item.name %></span>
+                      <div class="item <%= mealKey === 'breakfast' ? 'breakfast' : (mealKey === 'lunch' ? 'lunch' : 'dinner') %>">
+                        <%
+                          const imageUrls = [];
+                          if (item.imageUrl) imageUrls.push(item.imageUrl);
+                          if (Array.isArray(item.setMenus)) {
+                            item.setMenus.forEach((m) => { if (m && m.imageUrl) imageUrls.push(m.imageUrl); });
+                          }
+                          const uniqImages = Array.from(new Set(imageUrls));
+                        %>
+                        <% if (mealKey === 'breakfast' || mealKey === 'lunch') { %>
+                          <div class="name <%= mealKey === 'dinner' ? 'dinner' : '' %>">
+                            <% if (item.kind) { %>
+                              <span class="kind"><%= item.kind %></span>：<%= item.name %>
+                            <% } else { %>
+                              <%= item.name %>
+                            <% } %>
+                          </div>
+                        <% } %>
+                        <div class="thumbs <%= mealKey === 'breakfast' ? 'breakfast' : (mealKey === 'lunch' ? 'lunch' : '') %>">
+                        <% uniqImages.forEach((url) => { 
+                          const rawUrl = typeof url === 'string' ? url.trim() : '';
+                          const isAbs = rawUrl && (/^https?:\/\//i.test(rawUrl) || /^\/\//.test(rawUrl));
+                          const normalized = rawUrl
+                            ? (isAbs ? rawUrl : (rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`))
+                            : '';
+                          const isCross = isAbs && typeof baseOrigin === 'string' && baseOrigin && !rawUrl.startsWith(baseOrigin);
+                          const proxied = isCross ? `/users/week-menu/image-proxy?url=${encodeURIComponent(normalized)}` : normalized;
+                        %>
+                          <img
+                            src="<%= proxied %>"
+                            alt=""
+                            class="thumb"
+                            <%= isCross ? 'crossorigin="anonymous" referrerpolicy="no-referrer"' : '' %>
+                          />
+                        <% }) %>
+                        </div>
+                        <% if (mealKey === 'breakfast' && Array.isArray(item.setMenus) && item.setMenus.length) { %>
+                          <div class="name">
+                            <%= item.setMenus.map((m) => m && m.name).filter(Boolean).join(' / ') %>
+                          </div>
+                        <% } %>
+                        <% if (mealKey === 'dinner') { %>
+                          <div class="name dinner">
+                            <% if (item.kind) { %>
+                              <span class="kind"><%= item.kind %></span>：<%= item.name %>
+                            <% } else { %>
+                              <%= item.name %>
+                            <% } %>
+                          </div>
                         <% } %>
                       </div>
                     <% }) %>
@@ -179,7 +247,7 @@
             margin: [0, 0, 0, 0],
             filename: 'week-menu.pdf',
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 1, useCORS: true },
+            html2canvas: { scale: 1, useCORS: true, allowTaint: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
             pagebreak: { mode: ['css'] }
           };
