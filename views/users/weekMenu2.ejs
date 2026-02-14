@@ -145,6 +145,22 @@
   /* Fancy title */
   .wm2-title{ display:flex; align-items:center; gap:12px; }
   .wm2-title h2{ font-size: 1.125rem; line-height:1.5rem; font-weight:800; letter-spacing:.08em; color:#0f172a; }
+  .wm2-title[data-element="dish-name"]{ display:block; }
+  .wm2-arrange-tag{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    border-radius:9999px;
+    border:1px solid #fecaca;
+    background:#fff1f2;
+    color:#be123c;
+    font-size:11px;
+    font-weight:700;
+    line-height:1;
+    padding:3px 8px;
+    flex-shrink:0;
+  }
+  .wm2-arrange-tag{ margin-left:2px; }
   /* Removed decorative underline to match request */
   /* Supplies range label under title */
   #wm2-supplies-range{ display:none; font-size:12px; color:#475569; margin-top:4px; }
@@ -297,6 +313,11 @@
   (function(){
     const WEEKDAY = ['月','火','水','木','金','土','日'];
     const lookup = window.weekMenuData && window.weekMenuData.menuLookup || {};
+    const arrangeBaseMenuIdSet = new Set(
+      Object.values(lookup || {})
+        .map((menu) => (menu && menu.menuType === 'arrange' && menu.arrangeBaseMenu) ? String(menu.arrangeBaseMenu) : '')
+        .filter(Boolean)
+    );
     const catConfig = window.weekMenuData && window.weekMenuData.categoryConfig || {};
     const WEEK = Array.isArray(window.weekMenuData?.weekDates) ? window.weekMenuData.weekDates : <%- JSON.stringify(weekDates || []) %>;
     const DO_RECS = Array.isArray(window.weekMenuData?.doRecords) ? window.weekMenuData.doRecords : [];
@@ -1222,6 +1243,7 @@
         isDineOut,
         menuId: m.id || (slot.menuId ? String(slot.menuId) : ''),
         menuType,
+        isArrangeBase: !!((m.id && arrangeBaseMenuIdSet.has(String(m.id))) || (slot.menuId && arrangeBaseMenuIdSet.has(String(slot.menuId)))),
         setMenus,
         name: m.name,
         imageUrl: m.imageUrl || '',
@@ -1297,9 +1319,19 @@
       const imageHtml = isSetMenu
         ? (setImages.length ? buildSetMenuGrid(setImages, row.name) : '<div class="w-full h-full flex items-center justify-center text-xs text-gray-400">no image</div>')
         : (row.imageUrl ? (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\"><img src=\"${row.imageUrl}\" alt=\"${row.name}\"></a>`: `<img src=\"${row.imageUrl}\" alt=\"${row.name}\">`) : '');
+      const arrangeTagHtml = [
+        row.menuType === 'arrange'
+          ? '<span class="wm2-arrange-tag"><span class="lucide w-3 h-3" data-lucide="wand-sparkles"></span><span>アレンジ</span></span>'
+          : '',
+        row.isArrangeBase
+          ? '<span class="wm2-arrange-tag"><span class="lucide w-3 h-3" data-lucide="wand-sparkles"></span><span>アレンジ元</span></span>'
+          : ''
+      ].join('');
       const nameHtml = isSetMenu
-        ? `<button type="button" class="hover:underline text-left" data-action="open-set-menu" data-menu-id="${row.menuId}">${row.name}</button>`
-        : (row.url? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\" class=\"hover:underline\">${row.name}</a>`: row.name);
+        ? `<button type="button" class="hover:underline text-left" data-action="open-set-menu" data-menu-id="${row.menuId}">${row.name}${arrangeTagHtml}</button>`
+        : (row.url
+          ? `<a href=\"${row.url}\" target=\"menuWindow\" rel=\"noopener\" class=\"hover:underline\">${row.name}${arrangeTagHtml}</a>`
+          : `<span>${row.name}${arrangeTagHtml}</span>`);
       wrap.innerHTML = `
         <div class=\"img\" data-element=\"dish-image\">
           ${showMealBadge ? `<span class=\"absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${mealBadgeClass}\">${row.mealLabel || ''}</span>` : ''}
