@@ -4093,6 +4093,10 @@ router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
     if (Number.isNaN(baseWeekStart.getTime())) {
       return res.status(400).json({ error: '週の開始日が不正です。' });
     }
+    const todayWeekStart = startOfWeek(new Date());
+    if (baseWeekStart.getTime() <= todayWeekStart.getTime()) {
+      return res.status(400).json({ error: '現在の週および過去の週は再提案できません。' });
+    }
     const weekEnd = addDays(baseWeekStart, 6);
 
     // Build menus by category (public only)

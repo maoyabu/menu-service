@@ -1170,13 +1170,14 @@
             nameRow.appendChild(nameSpan);
             if (slot.menu) {
               const slotMenuId = slot.menu.id ? String(slot.menu.id) : (slot.menu._id ? String(slot.menu._id) : '');
-              const titleTagLabels = [];
-              if (slot.menu.menuType === 'arrange') titleTagLabels.push('アレンジ');
-              if (slotMenuId && arrangeBaseMenuIdSet.has(slotMenuId)) titleTagLabels.push('アレンジ元');
-              titleTagLabels.forEach((labelText) => {
+              const titleTags = [];
+              if (slot.menu.menuType === 'set') titleTags.push({ label: 'セットメニュー', icon: 'layers' });
+              if (slot.menu.menuType === 'arrange') titleTags.push({ label: 'アレンジ', icon: 'wand-sparkles' });
+              if (slotMenuId && arrangeBaseMenuIdSet.has(slotMenuId)) titleTags.push({ label: 'アレンジ元', icon: 'wand-sparkles' });
+              titleTags.forEach((tag) => {
                 const arrangeTag = document.createElement('span');
                 arrangeTag.className = 'arrange-tag';
-                arrangeTag.innerHTML = `<span class="lucide w-3 h-3" data-lucide="wand-sparkles"></span><span>${labelText}</span>`;
+                arrangeTag.innerHTML = `<span class="lucide w-3 h-3" data-lucide="${tag.icon}"></span><span>${tag.label}</span>`;
                 nameSpan.appendChild(arrangeTag);
               });
             }
