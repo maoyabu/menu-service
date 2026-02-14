@@ -381,8 +381,10 @@
       function clearSelectionUI(){
         state.selectedId = null;
         state.selected = null;
-        (state._checks || []).forEach(cb => { if (cb) cb.checked = false; });
-        state._checks = [];
+        (state._rows || []).forEach((rowEl) => {
+          rowEl.classList.remove('ring-2', 'ring-blue-200', 'bg-blue-50');
+        });
+        state._rows = [];
         const box = modal.querySelector('[data-role="selected"]');
         if (box) { box.classList.add('hidden'); box.innerHTML=''; }
       }
@@ -414,31 +416,31 @@
       function buildTags(items){
         const holder = modal.querySelector('[data-role="tags"]');
         holder.innerHTML = '';
-        state._checks = [];
+        state._rows = [];
         let foundSelected = false;
         items.forEach(it => {
           const label = it.ingredient || it.seasoning || '';
           const id = String(it._id || label);
-          const row = document.createElement('label');
+          const row = document.createElement('div');
           row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
-          checkbox.addEventListener('change', () => {
-            if (checkbox.checked) {
-              state.selectedId = id;
-              state.selected = it;
-              (state._checks || []).forEach(cb => { if (cb !== checkbox) cb.checked = false; });
-              showSelected(it);
-            } else {
-              state.selectedId = null;
-              state.selected = null;
-              const box = modal.querySelector('[data-role="selected"]');
-              if (box) { box.classList.add('hidden'); box.innerHTML=''; }
+          row.tabIndex = 0;
+          const selectRow = () => {
+            state.selectedId = id;
+            state.selected = it;
+            (state._rows || []).forEach((rowEl) => {
+              rowEl.classList.remove('ring-2', 'ring-blue-200', 'bg-blue-50');
+            });
+            row.classList.add('ring-2', 'ring-blue-200', 'bg-blue-50');
+            showSelected(it);
+          };
+          row.addEventListener('click', selectRow);
+          row.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              selectRow();
             }
           });
-          state._checks.push(checkbox);
-          row.appendChild(checkbox);
+          state._rows.push(row);
 
           if (it.imageUrl) {
             const img = document.createElement('img');
@@ -467,8 +469,8 @@
           holder.appendChild(row);
 
           if (state.selectedId && state.selectedId === id) {
-            checkbox.checked = true;
             foundSelected = true;
+            row.classList.add('ring-2', 'ring-blue-200', 'bg-blue-50');
             showSelected(it);
           }
         });

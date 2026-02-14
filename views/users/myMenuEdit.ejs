@@ -470,7 +470,206 @@
           }
         }catch(_){}
       }
-      function renderTags(items){ const holder=modal.querySelector('[data-role=\"tags\"]'); const selected=modal.querySelector('[data-role=\"selected\"]'); holder.innerHTML=''; selected.classList.add('hidden'); selected.innerHTML=''; const checks=[]; items.forEach(it=>{ const name=it.ingredient||it.seasoning||''; const units=Array.isArray(it.unit)? it.unit: (it.unit? [it.unit]: []); const row=document.createElement('label'); row.className='flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer'; const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.className='mt-1 w-4 h-4 text-blue-600 border-gray-300'; checkbox.addEventListener('change',()=>{ if(checkbox.checked){ checks.forEach(cb=>{ if(cb!==checkbox) cb.checked=false; }); selected.classList.remove('hidden'); selected.innerHTML=''; const info=document.createElement('div'); info.className='flex-1'; info.innerHTML=`<div class=\"font-semibold\">${name}</div><div class=\"text-xs text-gray-600\">カテゴリ: ${it.classification||''}</div>`; const hidden=document.createElement('input'); hidden.type='hidden'; hidden.value=String(it._id); const amount=document.createElement('input'); amount.type='number'; amount.min='0'; amount.step='0.1'; amount.className='w-24 border rounded px-2 py-1'; let unitEl; if(units.length){ unitEl=document.createElement('select'); unitEl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitEl.appendChild(op); }); } else { unitEl=document.createElement('input'); unitEl.setAttribute('list','unitList'); unitEl.className='w-24 border rounded px-2 py-1'; } const addBtn=document.createElement('button'); addBtn.type='button'; addBtn.textContent='追加'; addBtn.className='px-3 py-1.5 rounded bg-blue-600 text-white text-sm'; addBtn.addEventListener('click',()=>{ const containerId= type==='ingredient'? 'ingredientsList': 'seasoningsList'; const wrap=document.createElement('div'); wrap.className='flex flex-wrap items-center gap-2 border rounded px-3 py-2 bg-gray-50'; const labelBox=document.createElement('div'); labelBox.className='flex-1 min-w-[200px] flex items-center gap-2'; const thumb=document.createElement('div'); thumb.className='w-10 h-10 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden'; if(it.imageUrl){ const img=document.createElement('img'); img.src=it.imageUrl; img.alt=name||'image'; img.className='w-full h-full object-cover'; thumb.textContent=''; thumb.appendChild(img); } else { thumb.textContent='NO IMG'; } const title=document.createElement('span'); title.className='text-sm font-medium'; title.textContent=name; labelBox.appendChild(thumb); labelBox.appendChild(title); if(it.classification){ const b=document.createElement('span'); b.className='text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700'; b.textContent=it.classification; labelBox.appendChild(b);} const idInput=document.createElement('input'); idInput.type='hidden'; idInput.value=String(it._id); const amountInput=document.createElement('input'); amountInput.type='number'; amountInput.step='0.1'; amountInput.min='0'; amountInput.className='w-24 border rounded px-2 py-1'; amountInput.value=amount.value||''; let unitCtl; if(units.length){ unitCtl=document.createElement('select'); unitCtl.className='w-28 border rounded px-2 py-1'; units.forEach(u=>{ const op=document.createElement('option'); op.value=u; op.textContent=u; unitCtl.appendChild(op); }); unitCtl.value=unitEl.value||''; } else { unitCtl=document.createElement('input'); unitCtl.setAttribute('list','unitList'); unitCtl.className='w-24 border rounded px-2 py-1'; unitCtl.value=unitEl.value||''; } const del=document.createElement('button'); del.type='button'; del.textContent='削除'; del.className='px-2 py-1 text-xs border rounded'; del.addEventListener('click',()=>wrap.remove()); if(type==='ingredient'){ idInput.name='ingredient_ids[]'; amountInput.name='ingredient_amounts[]'; unitCtl.name='ingredient_units[]'; } else { idInput.name='seasoning_ids[]'; amountInput.name='seasoning_amounts[]'; unitCtl.name='seasoning_units[]'; } wrap.append(labelBox, idInput, amountInput, unitCtl, del); document.getElementById(containerId).appendChild(wrap); close(); }); const panelRow=document.createElement('div'); panelRow.className='flex items-center gap-3'; panelRow.append(info, hidden, amount, unitEl, addBtn); selected.appendChild(panelRow); } else { selected.classList.add('hidden'); selected.innerHTML=''; } }); checks.push(checkbox); row.appendChild(checkbox); if(it.imageUrl){ const img=document.createElement('img'); img.src=it.imageUrl; img.alt=name||'image'; img.className='w-12 h-12 rounded object-cover'; row.appendChild(img); } else { const placeholder=document.createElement('div'); placeholder.className='w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500'; placeholder.textContent='NO IMG'; row.appendChild(placeholder); } const info=document.createElement('div'); info.className='flex-1'; const title=document.createElement('div'); title.className='font-medium text-gray-800'; title.textContent=name||'名称未設定'; const meta=document.createElement('div'); meta.className='text-xs text-gray-500'; meta.textContent=[it.classification,it.short_nutrition].filter(Boolean).join(' / '); info.appendChild(title); info.appendChild(meta); row.appendChild(info); holder.appendChild(row); }); }
+      function renderTags(items){
+        const holder = modal.querySelector('[data-role="tags"]');
+        const selected = modal.querySelector('[data-role="selected"]');
+        holder.innerHTML = '';
+        selected.classList.add('hidden');
+        selected.innerHTML = '';
+
+        const rows = [];
+        let foundSelected = false;
+
+        function clearRowSelection(){
+          rows.forEach((rowEl) => {
+            rowEl.classList.remove('ring-2', 'ring-blue-200', 'bg-blue-50');
+          });
+        }
+
+        items.forEach((it) => {
+          const name = it.ingredient || it.seasoning || '';
+          const id = String(it._id || name);
+          const units = Array.isArray(it.unit) ? it.unit : (it.unit ? [it.unit] : []);
+          const row = document.createElement('div');
+          row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
+          row.tabIndex = 0;
+
+          const selectRow = () => {
+            state.selectedId = id;
+            state.selected = it;
+            clearRowSelection();
+            row.classList.add('ring-2', 'ring-blue-200', 'bg-blue-50');
+
+            selected.classList.remove('hidden');
+            selected.innerHTML = '';
+            const info = document.createElement('div');
+            info.className = 'flex-1';
+            info.innerHTML = `<div class="font-semibold">${name}</div><div class="text-xs text-gray-600">カテゴリ: ${it.classification||''}</div>`;
+
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.value = String(it._id);
+
+            const amount = document.createElement('input');
+            amount.type = 'number';
+            amount.min = '0';
+            amount.step = '0.1';
+            amount.className = 'w-24 border rounded px-2 py-1';
+
+            let unitEl;
+            if (units.length) {
+              unitEl = document.createElement('select');
+              unitEl.className = 'w-28 border rounded px-2 py-1';
+              units.forEach((u) => {
+                const op = document.createElement('option');
+                op.value = u;
+                op.textContent = u;
+                unitEl.appendChild(op);
+              });
+            } else {
+              unitEl = document.createElement('input');
+              unitEl.setAttribute('list', 'unitList');
+              unitEl.className = 'w-24 border rounded px-2 py-1';
+            }
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.textContent = '追加';
+            addBtn.className = 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm';
+            addBtn.addEventListener('click', () => {
+              const containerId = type === 'ingredient' ? 'ingredientsList' : 'seasoningsList';
+              const wrap = document.createElement('div');
+              wrap.className = 'flex flex-wrap items-center gap-2 border rounded px-3 py-2 bg-gray-50';
+
+              const labelBox = document.createElement('div');
+              labelBox.className = 'flex-1 min-w-[200px] flex items-center gap-2';
+              const thumb = document.createElement('div');
+              thumb.className = 'w-10 h-10 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
+              if (it.imageUrl) {
+                const img = document.createElement('img');
+                img.src = it.imageUrl;
+                img.alt = name || 'image';
+                img.className = 'w-full h-full object-cover';
+                thumb.textContent = '';
+                thumb.appendChild(img);
+              } else {
+                thumb.textContent = 'NO IMG';
+              }
+              const title = document.createElement('span');
+              title.className = 'text-sm font-medium';
+              title.textContent = name;
+              labelBox.appendChild(thumb);
+              labelBox.appendChild(title);
+              if (it.classification) {
+                const b = document.createElement('span');
+                b.className = 'text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700';
+                b.textContent = it.classification;
+                labelBox.appendChild(b);
+              }
+
+              const idInput = document.createElement('input');
+              idInput.type = 'hidden';
+              idInput.value = String(it._id);
+
+              const amountInput = document.createElement('input');
+              amountInput.type = 'number';
+              amountInput.step = '0.1';
+              amountInput.min = '0';
+              amountInput.className = 'w-24 border rounded px-2 py-1';
+              amountInput.value = amount.value || '';
+
+              let unitCtl;
+              if (units.length) {
+                unitCtl = document.createElement('select');
+                unitCtl.className = 'w-28 border rounded px-2 py-1';
+                units.forEach((u) => {
+                  const op = document.createElement('option');
+                  op.value = u;
+                  op.textContent = u;
+                  unitCtl.appendChild(op);
+                });
+                unitCtl.value = unitEl.value || '';
+              } else {
+                unitCtl = document.createElement('input');
+                unitCtl.setAttribute('list', 'unitList');
+                unitCtl.className = 'w-24 border rounded px-2 py-1';
+                unitCtl.value = unitEl.value || '';
+              }
+
+              const del = document.createElement('button');
+              del.type = 'button';
+              del.textContent = '削除';
+              del.className = 'px-2 py-1 text-xs border rounded';
+              del.addEventListener('click', () => wrap.remove());
+
+              if (type === 'ingredient') {
+                idInput.name = 'ingredient_ids[]';
+                amountInput.name = 'ingredient_amounts[]';
+                unitCtl.name = 'ingredient_units[]';
+              } else {
+                idInput.name = 'seasoning_ids[]';
+                amountInput.name = 'seasoning_amounts[]';
+                unitCtl.name = 'seasoning_units[]';
+              }
+
+              wrap.append(labelBox, idInput, amountInput, unitCtl, del);
+              document.getElementById(containerId).appendChild(wrap);
+              close();
+            });
+
+            const panelRow = document.createElement('div');
+            panelRow.className = 'flex items-center gap-3';
+            panelRow.append(info, hidden, amount, unitEl, addBtn);
+            selected.appendChild(panelRow);
+          };
+
+          row.addEventListener('click', selectRow);
+          row.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              selectRow();
+            }
+          });
+          rows.push(row);
+
+          if (it.imageUrl) {
+            const img = document.createElement('img');
+            img.src = it.imageUrl;
+            img.alt = name || 'image';
+            img.className = 'w-12 h-12 rounded object-cover';
+            row.appendChild(img);
+          } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+            placeholder.textContent = 'NO IMG';
+            row.appendChild(placeholder);
+          }
+
+          const info = document.createElement('div');
+          info.className = 'flex-1';
+          const title = document.createElement('div');
+          title.className = 'font-medium text-gray-800';
+          title.textContent = name || '名称未設定';
+          const meta = document.createElement('div');
+          meta.className = 'text-xs text-gray-500';
+          meta.textContent = [it.classification, it.short_nutrition].filter(Boolean).join(' / ');
+          info.appendChild(title);
+          info.appendChild(meta);
+          row.appendChild(info);
+          holder.appendChild(row);
+
+          if (state.selectedId && state.selectedId === id) {
+            foundSelected = true;
+            selectRow();
+          }
+        });
+
+        state._rows = rows;
+        if (state.selectedId && !foundSelected) {
+          state.selectedId = null;
+          state.selected = null;
+        }
+      }
       let __reqSeq = 0;
       async function run(){
         const mySeq = ++__reqSeq;
@@ -479,7 +678,7 @@
         if (mySeq !== __reqSeq) return;
         renderTags(data);
       }
-      const state={ genre:'' };
+      const state={ genre:'', selectedId: null, selected: null, _rows: [] };
       modal.querySelector('[data-role="kw"]').addEventListener('input', ()=>run());
       // tabs
       const presetView=modal.querySelector('[data-view="preset"]');
@@ -665,19 +864,25 @@
     }
 
     filtered.forEach((item) => {
-      const row = document.createElement('label');
+      const selected = setMenuState.selected.has(item._id);
+      const row = document.createElement('div');
       row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
+      row.tabIndex = 0;
+      if (selected) row.classList.add('ring-2', 'ring-blue-200', 'bg-blue-50');
 
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
-      checkbox.checked = setMenuState.selected.has(item._id);
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) setMenuState.selected.set(item._id, item);
-        else setMenuState.selected.delete(item._id);
+      const toggleSelect = () => {
+        if (setMenuState.selected.has(item._id)) setMenuState.selected.delete(item._id);
+        else setMenuState.selected.set(item._id, item);
         renderSetMenuList();
+        renderSetMenuResults();
+      };
+      row.addEventListener('click', toggleSelect);
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleSelect();
+        }
       });
-      row.appendChild(checkbox);
 
       if (item.imageUrl) {
         const img = document.createElement('img');
@@ -793,7 +998,20 @@
 
     filtered.forEach((item) => {
       const row = document.createElement('div');
-      row.className = 'flex items-start gap-3 border rounded p-2 bg-white';
+      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
+      row.tabIndex = 0;
+      const selectItem = () => {
+        arrangeBaseState.selected = item;
+        renderArrangeBaseSelected();
+        closeArrangeBaseModal();
+      };
+      row.addEventListener('click', selectItem);
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectItem();
+        }
+      });
 
       if (item.imageUrl) {
         const img = document.createElement('img');
@@ -819,17 +1037,6 @@
       info.appendChild(title);
       info.appendChild(meta);
       row.appendChild(info);
-
-      const selectBtn = document.createElement('button');
-      selectBtn.type = 'button';
-      selectBtn.className = 'ml-auto px-3 py-1.5 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-500';
-      selectBtn.textContent = '選択';
-      selectBtn.addEventListener('click', () => {
-        arrangeBaseState.selected = item;
-        renderArrangeBaseSelected();
-        closeArrangeBaseModal();
-      });
-      row.appendChild(selectBtn);
 
       resultsEl.appendChild(row);
     });
