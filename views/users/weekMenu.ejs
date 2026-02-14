@@ -147,82 +147,71 @@
 </style>
 
 <div class="fixed inset-0 z-50 hidden" data-menu-modal aria-hidden="true">
-  <div class="absolute inset-0 bg-gray-900/70 backdrop-blur-sm" data-menu-modal-close></div>
-  <div class="relative flex min-h-full items-center justify-center px-4 py-8">
-    <div class="w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 flex flex-col" data-menu-modal-dialog>
-      <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+  <div class="absolute inset-0 bg-black/40" data-menu-modal-close></div>
+  <div class="relative mx-auto mt-10 w-[860px] max-w-[96vw] rounded-2xl bg-white shadow-xl" data-menu-modal-dialog>
+    <div class="flex items-center justify-between border-b px-5 py-3">
+      <h3 class="font-semibold">メニューを選択</h3>
+      <button type="button" class="text-gray-500" data-menu-modal-close aria-label="閉じる">✕</button>
+    </div>
+    <div class="p-4 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.3em] text-blue-500">メニューを検索</p>
-          <h2 class="text-xl font-bold text-gray-900">候補から選択</h2>
+          <label class="text-xs text-gray-500">フリーワード</label>
+          <input
+            type="search"
+            data-menu-modal-search
+            placeholder="例: 白米 / 味噌 / カレー"
+            class="w-full border rounded px-3 py-2"
+          >
         </div>
-        <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-gray-300 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200" data-menu-modal-close aria-label="閉じる">
-          <span class="lucide w-4 h-4" data-lucide="x"></span>
-        </button>
+        <div>
+          <label class="text-xs text-gray-500">種類</label>
+          <select data-menu-modal-kind class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">ジャンル</label>
+          <select data-menu-modal-junle class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-4">
+          <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap">
+            <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+            <span>つくりおきのみ</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap" data-menu-modal-dinner-set-wrap>
+            <input type="checkbox" data-menu-modal-dinner-set class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+            <span>定番ディナーセット</span>
+          </label>
+        </div>
       </div>
-      <div class="flex-1 space-y-5 overflow-y-auto px-6 py-6">
-        <div class="grid gap-4 md:grid-cols-4">
-          <div class="md:col-span-2">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">ジャンル</label>
-            <select data-menu-modal-junle class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="">すべて</option>
-            </select>
-          </div>
-          <div class="md:col-span-2">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">種類</label>
-            <select data-menu-modal-kind class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="">すべて</option>
-            </select>
-          </div>
-          <div class="md:col-span-4">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">キーワード</label>
-            <div class="flex flex-wrap items-center gap-3">
-              <div class="relative flex-1 min-w-[220px]">
-                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-300">
-                  <span class="lucide w-4 h-4" data-lucide="search"></span>
-                </span>
-                <input type="search" data-menu-modal-search placeholder="レシピ名・よみ・メニューで検索" class="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              </div>
-              <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
-                  <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
-                  <span>つくりおきのみ</span>
-                </label>
-                <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap" data-menu-modal-dinner-set-wrap>
-                  <input type="checkbox" data-menu-modal-dinner-set class="w-4 h-4 text-blue-600 border-gray-300 rounded">
-                  <span>定番ディナーセット</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div class="rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3 text-sm text-gray-700" data-menu-modal-filter-box>
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="inline-flex items-center gap-2">
-              <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">このメニューで絞り込み中</p>
-              <button type="button" data-menu-modal-settings-open class="px-2 py-1 text-[11px] rounded-full border border-amber-300 bg-white text-amber-700 hover:bg-amber-100">絞込み設定</button>
-            </div>
-            <label class="inline-flex items-center gap-2 text-xs font-semibold text-amber-800">
-              <input type="checkbox" data-menu-modal-filter-toggle class="w-4 h-4 text-amber-600 border-gray-300 rounded">
-              <span>この絞り込みを一括解除</span>
-            </label>
+      <div class="rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3 text-sm text-gray-700" data-menu-modal-filter-box>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="inline-flex items-center gap-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">このメニューで絞り込み中</p>
+            <button type="button" data-menu-modal-settings-open class="px-2 py-1 text-[11px] rounded-full border border-amber-300 bg-white text-amber-700 hover:bg-amber-100">絞込み設定</button>
           </div>
-          <div class="mt-2 flex flex-wrap gap-2" data-menu-modal-filter-list></div>
-          <p class="mt-2 text-xs text-amber-700/80" data-menu-modal-filter-empty>絞り込み対象がありません。</p>
+          <label class="inline-flex items-center gap-2 text-xs font-semibold text-amber-800">
+            <input type="checkbox" data-menu-modal-filter-toggle class="w-4 h-4 text-amber-600 border-gray-300 rounded">
+            <span>この絞り込みを一括解除</span>
+          </label>
         </div>
+        <div class="mt-2 flex flex-wrap gap-2" data-menu-modal-filter-list></div>
+        <p class="mt-2 text-xs text-amber-700/80" data-menu-modal-filter-empty>絞り込み対象がありません。</p>
+      </div>
 
-        <div class="hidden rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800" data-menu-modal-current>
-          <p class="text-xs font-semibold uppercase tracking-wide text-blue-500">現在のメニュー</p>
-          <p class="mt-1 text-base font-semibold text-blue-900" data-menu-modal-current-name></p>
-          <p class="text-xs text-blue-700/80" data-menu-modal-current-detail></p>
-        </div>
+      <div class="hidden rounded border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800" data-menu-modal-current>
+        <p class="text-xs text-blue-500">現在のメニュー</p>
+        <p class="mt-1 font-semibold text-blue-900" data-menu-modal-current-name></p>
+        <p class="text-xs text-blue-700/80" data-menu-modal-current-detail></p>
+      </div>
 
-        <div class="min-h-[180px]">
-          <div class="flex flex-wrap gap-2" data-menu-modal-list></div>
-          <div class="hidden rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500" data-menu-modal-empty>
-            条件に合うメニューが見つかりませんでした。検索条件を変更してください。
-          </div>
-        </div>
+      <div data-menu-modal-list class="max-h-[45vh] overflow-auto border rounded p-3 bg-gray-50 space-y-2"></div>
+      <div class="hidden rounded border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500" data-menu-modal-empty>
+        条件に一致するメニューがありません。
       </div>
     </div>
   </div>
@@ -2088,26 +2077,87 @@
         button.type = 'button';
         button.dataset.menuOption = menu.id;
         button.className = [
-          'group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition',
+          'w-full flex items-start gap-3 border rounded p-2 bg-white text-left transition',
           menu.id === currentMenuId
-            ? 'border-blue-400 bg-blue-50 text-blue-700'
-            : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
+            ? 'ring-2 ring-blue-200 bg-blue-50 border-blue-200'
+            : 'hover:bg-gray-50'
         ].join(' ');
-        button.title = menu.name;
+        button.title = menu.name || '';
 
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'font-semibold';
-        nameSpan.textContent = menu.name;
+        const setImages = (Array.isArray(menu.setMenus) ? menu.setMenus : [])
+          .map((item) => item?.imageUrl || '')
+          .filter(Boolean);
 
-        const metaSpan = document.createElement('span');
-        metaSpan.className = 'text-[11px] text-gray-400 group-hover:text-blue-500';
-        const metaParts = [menu.junle, menu.cook].filter(Boolean);
-        metaSpan.textContent = metaParts.join(' / ');
-
-        button.appendChild(nameSpan);
-        if (metaSpan.textContent) {
-          button.appendChild(metaSpan);
+        if (menu.imageUrl) {
+          const img = document.createElement('img');
+          img.src = menu.imageUrl;
+          img.alt = menu.name || 'menu image';
+          img.className = 'w-12 h-12 rounded object-cover';
+          button.appendChild(img);
+        } else if (setImages.length > 1) {
+          const collage = document.createElement('div');
+          collage.className = 'w-12 h-12 rounded overflow-hidden bg-gray-100 grid grid-cols-2 grid-rows-2';
+          const maxTiles = Math.min(setImages.length, 4);
+          for (let i = 0; i < maxTiles; i += 1) {
+            const tile = document.createElement('div');
+            tile.className = 'w-full h-full overflow-hidden bg-gray-200';
+            const tileImg = document.createElement('img');
+            tileImg.src = setImages[i];
+            tileImg.alt = menu.name || 'set menu image';
+            tileImg.className = 'w-full h-full object-cover';
+            tile.appendChild(tileImg);
+            collage.appendChild(tile);
+          }
+          while (collage.childNodes.length < 4) {
+            const emptyTile = document.createElement('div');
+            emptyTile.className = 'w-full h-full bg-gray-200';
+            collage.appendChild(emptyTile);
+          }
+          button.appendChild(collage);
+        } else if (setImages.length === 1) {
+          const img = document.createElement('img');
+          img.src = setImages[0];
+          img.alt = menu.name || 'set menu image';
+          img.className = 'w-12 h-12 rounded object-cover';
+          button.appendChild(img);
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+          placeholder.textContent = 'NO IMG';
+          button.appendChild(placeholder);
         }
+
+        const info = document.createElement('div');
+        info.className = 'flex-1 min-w-0';
+
+        const title = document.createElement('div');
+        title.className = 'font-medium text-gray-800 truncate';
+        title.textContent = menu.name || '名称未設定';
+        info.appendChild(title);
+
+        const meta = document.createElement('div');
+        meta.className = 'text-xs text-gray-500';
+        meta.textContent = [menu.menu, menu.kind, menu.junle, menu.cook].filter(Boolean).join(' / ');
+        info.appendChild(meta);
+
+        const badgeRow = document.createElement('div');
+        badgeRow.className = 'mt-1 flex flex-wrap items-center gap-1';
+        if (menu.makeAhead) {
+          const prep = document.createElement('span');
+          prep.className = 'inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[11px]';
+          prep.textContent = 'つくりおき';
+          badgeRow.appendChild(prep);
+        }
+        if (menu.time) {
+          const time = document.createElement('span');
+          time.className = 'inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[11px]';
+          const normalized = String(menu.time).endsWith('分') ? String(menu.time) : `${menu.time}分`;
+          time.textContent = normalized;
+          badgeRow.appendChild(time);
+        }
+        if (badgeRow.childNodes.length) info.appendChild(badgeRow);
+
+        button.appendChild(info);
         modalElements.list.appendChild(button);
       });
 
