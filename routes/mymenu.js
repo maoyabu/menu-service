@@ -183,9 +183,21 @@ router.get('/', async (req, res, next) => {
 // 共有メニューから登録 画面 + 検索
 router.get('/shared-register', async (req, res, next) => {
   try {
-    const { keyword = '', kind = '', junle = '', cook = '', fav = 'all', seasonal = '', seasonalMonth = '' } = req.query;
+    const {
+      keyword = '',
+      kind = '',
+      junle = '',
+      cook = '',
+      fav = 'all',
+      seasonal = '',
+      seasonalMonth = '',
+      setMenu = '',
+      arrangeMenu = ''
+    } = req.query;
     const onlySeasonal = ['1', 'true', 'on', 'yes'].includes(String(seasonal).toLowerCase());
     const onlySeasonalByMonth = ['1', 'true', 'on', 'yes'].includes(String(seasonalMonth).toLowerCase());
+    const onlySetMenu = ['1', 'true', 'on', 'yes'].includes(String(setMenu).toLowerCase());
+    const onlyArrangeMenu = ['1', 'true', 'on', 'yes'].includes(String(arrangeMenu).toLowerCase());
     const { kinds, junles, cooks } = await getFacetLists();
 
     // 管理者が登録した共有メニュー（share=true を優先、なければ全件）
@@ -402,6 +414,18 @@ router.get('/shared-register', async (req, res, next) => {
         return (it.ingredientIds || []).some((id) => seasonalIds.has(id));
       });
     }
+
+    if (onlySetMenu || onlyArrangeMenu) {
+      list = list.filter((it) => {
+        const menuType = String(it.menuType || 'single');
+        const isSet = menuType === 'set' || (Array.isArray(it.setImages) && it.setImages.length > 0);
+        const isArrange = menuType === 'arrange';
+        if (onlySetMenu && isSet) return true;
+        if (onlyArrangeMenu && isArrange) return true;
+        return false;
+      });
+    }
+
     // 絞り込み：fav = all | mine | not
     const favSet = new Set(myMenuIds || []);
     if (fav === 'mine') {
@@ -415,7 +439,17 @@ router.get('/shared-register', async (req, res, next) => {
     // UI用：fav=mine の場合は種類/ジャンル/調理方法の選択状態を空にして表示
     res.render('users/myMenuShared', {
       kinds, junles, cooks,
-      selected: { kind, junle, cook, keyword, fav, seasonal: onlySeasonal, seasonalMonth: onlySeasonalByMonth },
+      selected: {
+        kind,
+        junle,
+        cook,
+        keyword,
+        fav,
+        seasonal: onlySeasonal,
+        seasonalMonth: onlySeasonalByMonth,
+        setMenu: onlySetMenu,
+        arrangeMenu: onlyArrangeMenu
+      },
       list,
       resultCount,
       myMenuIds,

@@ -18,12 +18,12 @@
     
   </header>
 
-  <form id="menuFilterForm" method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-6 gap-3">
-    <div class="flex flex-col gap-1 md:col-span-2">
+  <form id="menuFilterForm" method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-12 gap-3">
+    <div class="flex flex-col gap-1 md:col-span-4">
       <label class="text-xs font-semibold text-gray-600">キーワード</label>
       <input type="text" name="keyword" value="<%= selected.keyword || '' %>" placeholder="キーワード" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500" />
     </div>
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1 md:col-span-2">
       <label class="text-xs font-semibold text-gray-600">種類</label>
       <select name="kind" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500">
         <option value="">種類</option>
@@ -32,7 +32,7 @@
         <% }) %>
       </select>
     </div>
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1 md:col-span-2">
       <label class="text-xs font-semibold text-gray-600">ジャンル</label>
       <select name="junle" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500">
         <option value="">ジャンル</option>
@@ -41,7 +41,7 @@
         <% }) %>
       </select>
     </div>
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1 md:col-span-2">
       <label class="text-xs font-semibold text-gray-600">調理方法</label>
       <select name="cook" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500">
         <option value="">調理方法</option>
@@ -50,7 +50,7 @@
         <% }) %>
       </select>
     </div>
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1 md:col-span-2">
       <label class="text-xs font-semibold text-gray-600">季節の旬</label>
       <label class="inline-flex items-center gap-2 text-sm text-gray-700">
         <input type="checkbox" name="seasonal" value="1" <%= selected.seasonal ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
@@ -61,15 +61,25 @@
         <span>今月の旬</span>
       </label>
     </div>
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1 md:col-span-10">
       <label class="text-xs font-semibold text-gray-600">マイメニューの絞り込み</label>
-      <select name="fav" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500">
-        <option value="all" <%= (selected.fav||'all')==='all' ? 'selected' : '' %>>すべて</option>
-        <option value="mine" <%= selected.fav==='mine' ? 'selected' : '' %>>マイメニュー</option>
-        <option value="not" <%= selected.fav==='not' ? 'selected' : '' %>>マイメニュー未登録</option>
-      </select>
+      <div class="flex flex-wrap items-center gap-4">
+        <select name="fav" class="w-full md:w-64 border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <option value="all" <%= (selected.fav||'all')==='all' ? 'selected' : '' %>>すべて</option>
+          <option value="mine" <%= selected.fav==='mine' ? 'selected' : '' %>>マイメニュー</option>
+          <option value="not" <%= selected.fav==='not' ? 'selected' : '' %>>マイメニュー未登録</option>
+        </select>
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+          <input type="checkbox" name="setMenu" value="1" <%= selected.setMenu ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
+          <span>セットメニュー</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+          <input type="checkbox" name="arrangeMenu" value="1" <%= selected.arrangeMenu ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
+          <span>アレンジメニュー</span>
+        </label>
+      </div>
     </div>
-    <div class="md:col-span-6 flex justify-end">
+    <div class="md:col-span-2 flex justify-end md:items-end">
       <a href="/users/my-menu/shared-register" class="px-4 py-2 rounded-lg border border-gray-600 text-sm font-semibold text-gray-900 hover:bg-gray-100 transition">クリア</a>
     </div>
   </form>
@@ -171,13 +181,23 @@
               </a>
             </div>
             <% const st = (myOwnTypes && myOwnTypes[String(item.id)]) || ''; %>
-            <% if (st === 'url') { %>
-              <span class="inline-flex self-start px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[13px]">レシピサイト</span>
-            <% } else if (st === 'original') { %>
-              <span class="inline-flex self-start px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[13px]">オリジナル</span>
-            <% } else { %>
-              <span class="inline-flex self-start px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[13px]">共有メニュー</span>
-            <% } %>
+            <% const __typeIsSet = (item.menuType === 'set') || (Array.isArray(item.setImages) && item.setImages.length > 0); %>
+            <% const __typeIsArrange = item.menuType === 'arrange'; %>
+            <div class="flex flex-wrap items-center gap-1 self-start">
+              <% if (st === 'url') { %>
+                <span class="inline-flex px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[13px]">レシピサイト</span>
+              <% } else if (st === 'original') { %>
+                <span class="inline-flex px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[13px]">オリジナル</span>
+              <% } else { %>
+                <span class="inline-flex px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[13px]">共有メニュー</span>
+              <% } %>
+              <% if (__typeIsSet) { %>
+                <span class="inline-flex px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[13px]">セットメニュー</span>
+              <% } %>
+              <% if (__typeIsArrange) { %>
+                <span class="inline-flex px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-[13px]">アレンジメニュー</span>
+              <% } %>
+            </div>
             <% if (item.url) { %>
               <a href="<%= item.url %>" class="text-base font-semibold truncate text-blue-600 hover:underline" title="<%= item.name %>" target="_blank" rel="noopener">
                 <%= item.name %>
