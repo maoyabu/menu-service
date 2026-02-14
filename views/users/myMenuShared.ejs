@@ -2,16 +2,21 @@
   <header class="flex items-center justify-between">
     <div class="flex-1">
       <% const __isMyMenu = (selected && selected.fav === 'mine'); %>
+      <% const __isOriginalList = !!(selected && selected.originalMenu); %>
+      <% const __pageTitle = __isOriginalList ? 'オリジナルレシピリスト' : (__isMyMenu ? 'マイメニューリスト' : 'メニューリスト'); %>
+      <% const __titleTone = __isOriginalList
+        ? 'bg-purple-50 border-purple-200 text-purple-800'
+        : (__isMyMenu ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-blue-50 border-blue-200 text-blue-800'); %>
       <nav class="text-sm mb-2 text-gray-600 inline-flex items-center gap-1">
         <a href="/users/my-menu" class="inline-flex items-center gap-1 text-blue-600 font-semibold">
           <span class="lucide w-4 h-4" data-lucide="utensils"></span>
           <span>マイメニュートップ</span>
         </a>
         <span class="text-gray-400">›</span>
-        <span><%= __isMyMenu ? 'マイメニューリスト' : 'メニューリスト' %></span>
+        <span><%= __pageTitle %></span>
       </nav>
-      <div class="rounded-xl border px-4 py-2 <%= __isMyMenu ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-blue-50 border-blue-200 text-blue-800' %>">
-        <h1 class="text-xl font-extrabold"><%= __isMyMenu ? 'マイメニューリスト' : 'メニューリスト' %></h1>
+      <div class="rounded-xl border px-4 py-2 <%= __titleTone %>">
+        <h1 class="text-xl font-extrabold"><%= __pageTitle %></h1>
         <p class="text-sm opacity-80">キーワード・種類・ジャンル・調理方法で検索</p>
       </div>
     </div>
@@ -69,6 +74,10 @@
           <option value="mine" <%= selected.fav==='mine' ? 'selected' : '' %>>マイメニュー</option>
           <option value="not" <%= selected.fav==='not' ? 'selected' : '' %>>マイメニュー未登録</option>
         </select>
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+          <input type="checkbox" name="originalMenu" value="1" <%= selected.originalMenu ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
+          <span>オリジナルメニュー</span>
+        </label>
         <label class="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
           <input type="checkbox" name="setMenu" value="1" <%= selected.setMenu ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300">
           <span>セットメニュー</span>
@@ -174,19 +183,24 @@
           </button>
         </div>
           <div class="p-3 space-y-2 flex-1 flex flex-col">
-            <div class="flex justify-end">
-              <a href="/users/my-menu/duplicate/<%= item.id %>" class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200">
-                <span class="lucide w-3.5 h-3.5" data-lucide="copy"></span>
-                オリジナルを作成
-              </a>
-            </div>
             <% const st = (myOwnTypes && myOwnTypes[String(item.id)]) || ''; %>
+            <% const __sourceType = st || (item.sourceType || ''); %>
+            <% const __isOriginalSource = (st === 'original') || (item.sourceType === 'original'); %>
+            <% const __hideDuplicate = __isOriginalSource || (st === 'url'); %>
+            <% if (!__hideDuplicate) { %>
+              <div class="flex justify-end">
+                <a href="/users/my-menu/duplicate/<%= item.id %>" class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200">
+                  <span class="lucide w-3.5 h-3.5" data-lucide="copy"></span>
+                  オリジナルを作成
+                </a>
+              </div>
+            <% } %>
             <% const __typeIsSet = (item.menuType === 'set') || (Array.isArray(item.setImages) && item.setImages.length > 0); %>
             <% const __typeIsArrange = item.menuType === 'arrange'; %>
             <div class="flex flex-wrap items-center gap-1 self-start">
-              <% if (st === 'url') { %>
+              <% if (__sourceType === 'url') { %>
                 <span class="inline-flex px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[13px]">レシピサイト</span>
-              <% } else if (st === 'original') { %>
+              <% } else if (__sourceType === 'original') { %>
                 <span class="inline-flex px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[13px]">オリジナル</span>
               <% } else { %>
                 <span class="inline-flex px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[13px]">共有メニュー</span>

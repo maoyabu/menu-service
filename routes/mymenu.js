@@ -191,11 +191,13 @@ router.get('/shared-register', async (req, res, next) => {
       fav = 'all',
       seasonal = '',
       seasonalMonth = '',
+      originalMenu = '',
       setMenu = '',
       arrangeMenu = ''
     } = req.query;
     const onlySeasonal = ['1', 'true', 'on', 'yes'].includes(String(seasonal).toLowerCase());
     const onlySeasonalByMonth = ['1', 'true', 'on', 'yes'].includes(String(seasonalMonth).toLowerCase());
+    const onlyOriginalMenu = ['1', 'true', 'on', 'yes'].includes(String(originalMenu).toLowerCase());
     const onlySetMenu = ['1', 'true', 'on', 'yes'].includes(String(setMenu).toLowerCase());
     const onlyArrangeMenu = ['1', 'true', 'on', 'yes'].includes(String(arrangeMenu).toLowerCase());
     const { kinds, junles, cooks } = await getFacetLists();
@@ -299,6 +301,7 @@ router.get('/shared-register', async (req, res, next) => {
         setImages: Array.isArray(m.setMenus) ? m.setMenus.map((x) => x?.imageUrl).filter(Boolean) : [],
         url: m.url || '',
         by: null,
+        sourceType: '',
         canEdit: myEditableMenuIds.has(m._id.toString()),
         ingredientIds,
         season: normalizeSeasonList(m.season)
@@ -315,6 +318,7 @@ router.get('/shared-register', async (req, res, next) => {
         if (!existing.by && byName) existing.by = byName;
         existing.canEdit = existing.canEdit || myEditableMenuIds.has(id);
         if (!existing.menuType && m.menuType) existing.menuType = m.menuType;
+        if (!existing.sourceType && mm.sourceType) existing.sourceType = mm.sourceType;
         if ((!existing.setImages || !existing.setImages.length) && Array.isArray(m.setMenus)) {
           existing.setImages = m.setMenus.map((x) => x?.imageUrl).filter(Boolean);
         }
@@ -340,12 +344,38 @@ router.get('/shared-register', async (req, res, next) => {
           setImages: Array.isArray(m.setMenus) ? m.setMenus.map((x) => x?.imageUrl).filter(Boolean) : [],
           url: m.url || '',
           by: byName,
+          sourceType: mm.sourceType || '',
           canEdit: myEditableMenuIds.has(id),
           ingredientIds,
           season: normalizeSeasonList(m.season)
         });
       }
     });
+
+    const combinedIds = Array.from(combinedMap.keys());
+    if (combinedIds.length) {
+      const sourceTypeDocs = await Mymenu.find({
+        menu: { $in: combinedIds },
+        sourceType: { $in: ['original', 'url'] }
+      }).select('menu sourceType').lean();
+      const sourceTypeByMenu = {};
+      (sourceTypeDocs || []).forEach((doc) => {
+        const id = doc?.menu ? String(doc.menu) : '';
+        if (!id) return;
+        const current = sourceTypeByMenu[id] || '';
+        if (doc.sourceType === 'original') {
+          sourceTypeByMenu[id] = 'original';
+        } else if (!current) {
+          sourceTypeByMenu[id] = 'url';
+        }
+      });
+      combinedMap.forEach((item, id) => {
+        if (!item) return;
+        if (!item.sourceType && sourceTypeByMenu[id]) {
+          item.sourceType = sourceTypeByMenu[id];
+        }
+      });
+    }
 
     let list = Array.from(combinedMap.values());
     const now = new Date();
@@ -415,11 +445,14 @@ router.get('/shared-register', async (req, res, next) => {
       });
     }
 
-    if (onlySetMenu || onlyArrangeMenu) {
+    if (onlyOriginalMenu || onlySetMenu || onlyArrangeMenu) {
       list = list.filter((it) => {
+        const ownType = (myOwnTypes && myOwnTypes[String(it.id)]) || '';
         const menuType = String(it.menuType || 'single');
+        const isOriginal = ownType === 'original' || String(it.sourceType || '') === 'original';
         const isSet = menuType === 'set' || (Array.isArray(it.setImages) && it.setImages.length > 0);
         const isArrange = menuType === 'arrange';
+        if (onlyOriginalMenu && isOriginal) return true;
         if (onlySetMenu && isSet) return true;
         if (onlyArrangeMenu && isArrange) return true;
         return false;
@@ -447,6 +480,7 @@ router.get('/shared-register', async (req, res, next) => {
         fav,
         seasonal: onlySeasonal,
         seasonalMonth: onlySeasonalByMonth,
+        originalMenu: onlyOriginalMenu,
         setMenu: onlySetMenu,
         arrangeMenu: onlyArrangeMenu
       },
