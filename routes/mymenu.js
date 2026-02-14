@@ -1779,7 +1779,8 @@ router.post('/edit/:menuId', async (req, res, next) => {
       seasoning_units = [],
       menuType = 'single',
       setType = [],
-      set_menu_ids = []
+      set_menu_ids = [],
+      arrange_base_menu_id = ''
     } = req.body;
 
     const ingredients = (Array.isArray(ingredient_ids) ? ingredient_ids : [ingredient_ids]).filter(Boolean).map((id, i) => ({
@@ -1792,7 +1793,9 @@ router.post('/edit/:menuId', async (req, res, next) => {
       amount: Array.isArray(seasoning_amounts) ? seasoning_amounts[i] : seasoning_amounts,
       unit: Array.isArray(seasoning_units) ? seasoning_units[i] : seasoning_units
     }));
-    const normalizedMenuType = menuType === 'set' ? 'set' : 'single';
+    const normalizedMenuType = menuType === 'set'
+      ? 'set'
+      : (menuType === 'arrange' ? 'arrange' : 'single');
     const rawSetTypes = Array.isArray(setType) ? setType : (setType ? [setType] : []);
     const normalizedSetType = rawSetTypes
       .map((t) => String(t || '').trim())
@@ -1812,6 +1815,20 @@ router.post('/edit/:menuId', async (req, res, next) => {
         setMenus = validMenus.map((m) => m._id);
       }
     }
+    let arrangeBaseMenu = null;
+    if (normalizedMenuType === 'arrange') {
+      const candidateId = String(arrange_base_menu_id || '').trim();
+      if (mongoose.Types.ObjectId.isValid(candidateId)) {
+        const baseMenu = await Menu.findOne({ _id: candidateId, menuType: { $ne: 'set' }, isPrivate: { $ne: true } })
+          .select('_id')
+          .lean();
+        if (baseMenu) arrangeBaseMenu = baseMenu._id;
+      }
+      if (!arrangeBaseMenu) {
+        req.flash('error', 'アレンジ元メニューを選択してください');
+        return res.redirect(`/users/my-menu/edit/${menuId}`);
+      }
+    }
     const updatePayload = {
       name,
       kind,
@@ -1821,13 +1838,14 @@ router.post('/edit/:menuId', async (req, res, next) => {
       menuType: normalizedMenuType,
       setType: normalizedMenuType === 'set' ? normalizedSetType : [],
       setMenus,
+      arrangeBaseMenu: normalizedMenuType === 'arrange' ? arrangeBaseMenu : null,
       url: normalizedMenuType === 'set' ? '' : url,
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people: Number(people) || 1,
       comment,
-      makeAhead: String(makeAhead) === 'true',
-      basicMenu: String(basicMenu) === 'true',
+      makeAhead: normalizedMenuType === 'arrange' ? false : (String(makeAhead) === 'true'),
+      basicMenu: normalizedMenuType === 'arrange' ? false : (String(basicMenu) === 'true'),
       ingredients,
       seasoning: normalizedMenuType === 'set' ? [] : seasonings
     };
