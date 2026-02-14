@@ -344,10 +344,11 @@
     renderIngredientList(ingredients);
   }
 
-  // 食材リスト描画（チェックボックス + 画像）
+  // 食材リスト描画（カード全体クリックで選択）
   function renderIngredientList(ingredients) {
     const list = document.getElementById('ingredient-tags');
     const selected = document.getElementById('ingredient-selected');
+    if (!list || !selected) return;
     list.innerHTML = '';
     selected.classList.add('hidden');
     selected.innerHTML = '';
@@ -355,7 +356,9 @@
       list.innerHTML = '<p class="text-sm text-gray-500">該当する食材が見つかりません</p>';
       return;
     }
-    const checks = [];
+
+    let selectedIngredientId = '';
+
     function showSelected(item) {
       selected.classList.remove('hidden');
       selected.innerHTML = '';
@@ -378,7 +381,12 @@
       if (units.length) {
         unitEl = document.createElement('select');
         unitEl.className = 'w-28 border rounded px-2 py-1';
-        units.forEach(u => { const op = document.createElement('option'); op.value = u; op.textContent = u; unitEl.appendChild(op); });
+        units.forEach(u => {
+          const op = document.createElement('option');
+          op.value = u;
+          op.textContent = u;
+          unitEl.appendChild(op);
+        });
       } else {
         unitEl = document.createElement('input');
         unitEl.className = 'w-24 border rounded px-2 py-1';
@@ -405,24 +413,27 @@
       row.append(info, hiddenId, amount, unitEl, addBtn);
       selected.appendChild(row);
     }
-    ingredients.forEach(item => {
-      const label = item.ingredient || '';
-      const row = document.createElement('label');
-      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) {
-          checks.forEach(cb => { if (cb !== checkbox) cb.checked = false; });
-          showSelected(item);
-        } else {
-          selected.classList.add('hidden');
-          selected.innerHTML = '';
-        }
+
+    function paintSelectedRow() {
+      list.querySelectorAll('[data-item-id]').forEach((row) => {
+        const isSelected = row.dataset.itemId === selectedIngredientId;
+        row.classList.toggle('bg-blue-50', isSelected);
+        row.classList.toggle('border-blue-300', isSelected);
+        row.classList.toggle('ring-2', isSelected);
+        row.classList.toggle('ring-blue-200', isSelected);
       });
-      checks.push(checkbox);
-      row.appendChild(checkbox);
+    }
+
+    ingredients.forEach((item) => {
+      const label = item.ingredient || '';
+      const row = document.createElement('div');
+      row.dataset.itemId = String(item._id || '');
+      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer transition';
+      row.addEventListener('click', () => {
+        selectedIngredientId = String(item._id || '');
+        showSelected(item);
+        paintSelectedRow();
+      });
 
       if (item.imageUrl) {
         const img = document.createElement('img');
@@ -634,10 +645,11 @@
     renderSeasoningList(seasonings);
   }
 
-  // 調味料リスト描画（チェックボックス + 画像）
+  // 調味料リスト描画（カード全体クリックで選択）
   function renderSeasoningList(list) {
     const holder = document.getElementById('seasoning-tags');
     const selected = document.getElementById('seasoning-selected');
+    if (!holder || !selected) return;
     holder.innerHTML = '';
     selected.classList.add('hidden');
     selected.innerHTML = '';
@@ -645,7 +657,9 @@
       holder.innerHTML = '<p class="text-sm text-gray-500">該当する調味料が見つかりません</p>';
       return;
     }
-    const checks = [];
+
+    let selectedSeasoningId = '';
+
     function showSelected(item) {
       selected.classList.remove('hidden');
       selected.innerHTML = '';
@@ -668,7 +682,12 @@
       if (units.length) {
         unitEl = document.createElement('select');
         unitEl.className = 'w-28 border rounded px-2 py-1';
-        units.forEach(u => { const op = document.createElement('option'); op.value = u; op.textContent = u; unitEl.appendChild(op); });
+        units.forEach(u => {
+          const op = document.createElement('option');
+          op.value = u;
+          op.textContent = u;
+          unitEl.appendChild(op);
+        });
       } else {
         unitEl = document.createElement('input');
         unitEl.className = 'w-24 border rounded px-2 py-1';
@@ -695,24 +714,27 @@
       row.append(info, hiddenId, amount, unitEl, addBtn);
       selected.appendChild(row);
     }
-    list.forEach(item => {
-      const label = item.seasoning || '';
-      const row = document.createElement('label');
-      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) {
-          checks.forEach(cb => { if (cb !== checkbox) cb.checked = false; });
-          showSelected(item);
-        } else {
-          selected.classList.add('hidden');
-          selected.innerHTML = '';
-        }
+
+    function paintSelectedRow() {
+      holder.querySelectorAll('[data-item-id]').forEach((row) => {
+        const isSelected = row.dataset.itemId === selectedSeasoningId;
+        row.classList.toggle('bg-blue-50', isSelected);
+        row.classList.toggle('border-blue-300', isSelected);
+        row.classList.toggle('ring-2', isSelected);
+        row.classList.toggle('ring-blue-200', isSelected);
       });
-      checks.push(checkbox);
-      row.appendChild(checkbox);
+    }
+
+    list.forEach((item) => {
+      const label = item.seasoning || '';
+      const row = document.createElement('div');
+      row.dataset.itemId = String(item._id || '');
+      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer transition';
+      row.addEventListener('click', () => {
+        selectedSeasoningId = String(item._id || '');
+        showSelected(item);
+        paintSelectedRow();
+      });
 
       if (item.imageUrl) {
         const img = document.createElement('img');
@@ -1131,19 +1153,16 @@ async function toggleFavorite(button, id, type) {
     }
 
     filtered.forEach((item) => {
-      const row = document.createElement('label');
-      row.className = 'flex items-start gap-3 border rounded p-2 bg-white hover:bg-gray-50 cursor-pointer';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'mt-1 w-4 h-4 text-blue-600 border-gray-300';
-      checkbox.checked = setMenuState.selected.has(item._id);
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) setMenuState.selected.set(item._id, item);
-        else setMenuState.selected.delete(item._id);
+      const isSelected = setMenuState.selected.has(item._id);
+      const row = document.createElement('div');
+      row.dataset.itemId = String(item._id || '');
+      row.className = `flex items-start gap-3 border rounded p-2 cursor-pointer transition ${isSelected ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' : 'bg-white hover:bg-gray-50'}`;
+      row.addEventListener('click', () => {
+        if (setMenuState.selected.has(item._id)) setMenuState.selected.delete(item._id);
+        else setMenuState.selected.set(item._id, item);
         renderSetMenuList();
+        renderSetMenuResults();
       });
-      row.appendChild(checkbox);
 
       if (item.imageUrl) {
         const img = document.createElement('img');
@@ -1260,8 +1279,15 @@ async function toggleFavorite(button, id, type) {
     }
 
     filtered.forEach((item) => {
+      const isSelected = arrangeBaseState.selected && String(arrangeBaseState.selected._id) === String(item._id);
       const row = document.createElement('div');
-      row.className = 'flex items-start gap-3 border rounded p-2 bg-white';
+      row.dataset.itemId = String(item._id || '');
+      row.className = `flex items-start gap-3 border rounded p-2 cursor-pointer transition ${isSelected ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' : 'bg-white hover:bg-gray-50'}`;
+      row.addEventListener('click', () => {
+        arrangeBaseState.selected = item;
+        renderArrangeBaseSelected();
+        closeArrangeBaseModal();
+      });
 
       if (item.imageUrl) {
         const img = document.createElement('img');
@@ -1287,17 +1313,6 @@ async function toggleFavorite(button, id, type) {
       info.appendChild(title);
       info.appendChild(meta);
       row.appendChild(info);
-
-      const selectBtn = document.createElement('button');
-      selectBtn.type = 'button';
-      selectBtn.className = 'ml-auto px-3 py-1.5 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-500';
-      selectBtn.textContent = '選択';
-      selectBtn.addEventListener('click', () => {
-        arrangeBaseState.selected = item;
-        renderArrangeBaseSelected();
-        closeArrangeBaseModal();
-      });
-      row.appendChild(selectBtn);
 
       resultsEl.appendChild(row);
     });
