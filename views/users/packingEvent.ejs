@@ -237,6 +237,15 @@
       <label class="block text-sm">重量(g)
         <input type="number" step="1" min="0" id="item-modal-weight" value="0" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
       </label>
+      <label class="block text-sm">優先度
+        <select id="item-modal-priority" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+          <option value="最重要">最重要</option>
+          <option value="重要">重要</option>
+          <option value="普通" selected>普通</option>
+          <option value="あった方がいい">あった方がいい</option>
+          <option value="あってもいい">あってもいい</option>
+        </select>
+      </label>
     </div>
     <label class="block text-sm">カテゴリー
       <input type="text" list="item-category-datalist" id="item-modal-category" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 衣類 / 洗面・メイク / ガジェット" />
@@ -301,6 +310,9 @@
       const masterItems = <%- JSON.stringify(masterItems || []) %>;
       const memberMap = new Map((members||[]).map((m)=> [m.id, m.name]));
       const items = <%- JSON.stringify(items || []) %>;
+      const packingPriorityOptions = ['最重要', '重要', '普通', 'あった方がいい', 'あってもいい'];
+      const defaultPackingPriority = '普通';
+      const normalizePackingPriority = (value) => packingPriorityOptions.includes(value) ? value : defaultPackingPriority;
 
   const storageTags = document.getElementById('storage-tags');
   const storageUnused = document.getElementById('storage-unused');
@@ -325,6 +337,7 @@
     const itemModalOwner = document.getElementById('item-modal-owner');
     const itemModalQty = document.getElementById('item-modal-qty');
     const itemModalWeight = document.getElementById('item-modal-weight');
+    const itemModalPriority = document.getElementById('item-modal-priority');
     const itemModalCategory = document.getElementById('item-modal-category');
     const itemModalComment = document.getElementById('item-modal-comment');
     const itemModalWish = document.getElementById('item-modal-wish');
@@ -354,7 +367,23 @@
     const OWNER_KEY = `packing:event:${eventId}:owners`;
     const STORAGE_OWNER_KEY = `packing:event:${eventId}:storageOwners`;
 
+    masterItems.forEach((m)=> { m.priority = normalizePackingPriority(m.priority); });
+    items.forEach((it)=> { it.priority = normalizePackingPriority(it.priority); });
+
     function toast(msg){ try{ const el=document.createElement('div'); el.textContent=msg; el.className='fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-3 py-2 rounded shadow'; document.body.appendChild(el); setTimeout(()=> el.remove(),2000);}catch(_){alert(msg);} }
+    function priorityBadgeClass(priority){
+      switch (normalizePackingPriority(priority)) {
+        case '最重要': return 'bg-red-50 text-red-700 border-red-200';
+        case '重要': return 'bg-orange-50 text-orange-700 border-orange-200';
+        case 'あった方がいい': return 'bg-sky-50 text-sky-700 border-sky-200';
+        case 'あってもいい': return 'bg-gray-50 text-gray-600 border-gray-200';
+        default: return 'bg-blue-50 text-blue-700 border-blue-200';
+      }
+    }
+    function priorityBadgeHtml(priority){
+      const label = normalizePackingPriority(priority);
+      return `<span class="text-[10px] font-semibold px-1 rounded border ${priorityBadgeClass(label)}">${label}</span>`;
+    }
 
     function restoreActiveStorage(){
       try{
@@ -581,6 +610,7 @@
           tag.className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full border bg-gray-100 text-gray-800 text-sm border-gray-300';
           tag.innerHTML = `
             <span class="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1 rounded">買い物</span>
+            ${priorityBadgeHtml(it.priority)}
             <span class="font-semibold cursor-pointer" data-item-edit="${it.id}" title="クリックで編集">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800" data-item-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-green-700 hover:text-green-900" data-item-clone="${it.id}" aria-label="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
@@ -632,6 +662,7 @@
           const baseClass = it.hidden ? 'border-dashed border-amber-300 bg-amber-50 text-amber-800' : 'border bg-white text-gray-900';
           tag.className=`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm hover:border-blue-300 ${baseClass}`;
           tag.innerHTML = `
+            ${priorityBadgeHtml(it.priority)}
             <span class="font-semibold text-gray-900 cursor-pointer" data-item-edit="${it.id}" title="クリックで編集">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800 ml-2" data-item-edit="${it.id}" aria-label="編集" title="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-green-700 hover:text-green-900 ml-2" data-item-clone="${it.id}" aria-label="複製" title="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
@@ -682,6 +713,7 @@
           const tag = document.createElement('div');
           tag.className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full border bg-green-50 text-green-800 text-sm hover:border-green-300';
           tag.innerHTML = `
+            ${priorityBadgeHtml(it.priority)}
             <span>${it.name}</span>
             <span class="text-[11px] text-gray-600">${it.weight || 0}g</span>
             <button type="button" class="text-blue-700 hover:text-blue-900 ml-1" data-item-clone="${it.id}" title="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
@@ -753,6 +785,7 @@
         name: master.name,
         owner: master.owner || 'all',
         quantity: master.defaultQuantity || 1,
+        priority: normalizePackingPriority(master.priority),
         category: master.category || '',
         comment: master.comment || '',
         storageId: '',
@@ -888,6 +921,7 @@
       }
       itemModalQty.value = target?.quantity || 0;
       itemModalWeight.value = target?.weight || 0;
+      if (itemModalPriority) itemModalPriority.value = normalizePackingPriority(target?.priority);
       if (itemModalCategory) itemModalCategory.value = target?.category || '';
       itemModalComment.value = target?.comment || '';
       if (itemModalWish) itemModalWish.checked = !!target?.wish;
@@ -903,6 +937,7 @@
         owner: itemModalOwner?.value || 'all',
         quantity: itemModalQty?.value || 0,
         weight: itemModalWeight?.value || 0,
+        priority: itemModalPriority?.value || defaultPackingPriority,
         category: itemModalCategory?.value || '',
         comment: itemModalComment?.value || '',
         eventId,
@@ -925,7 +960,7 @@
           items.push({ ...json, id: json.id.toString() });
         }
         if (json.category && !categoryOptions.includes(json.category)) { categoryOptions.push(json.category); renderCategoryOptions(); }
-        itemModalName.value=''; itemModalComment.value=''; itemModalQty.value='1'; itemModalOwner.value='all'; if (itemModalCategory) itemModalCategory.value=''; if (itemModalWish) itemModalWish.checked = false;
+        itemModalName.value=''; itemModalComment.value=''; itemModalQty.value='1'; itemModalOwner.value='all'; if (itemModalPriority) itemModalPriority.value = defaultPackingPriority; if (itemModalCategory) itemModalCategory.value=''; if (itemModalWish) itemModalWish.checked = false;
         itemEditId='';
         closeModal(itemModal);
         renderItemPool();

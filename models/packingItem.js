@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
+const PACKING_PRIORITIES = ['最重要', '重要', '普通', 'あった方がいい', 'あってもいい'];
 
 const packingItemSchema = new Schema({
   name: { type: String, required: true, trim: true },
@@ -10,6 +11,7 @@ const packingItemSchema = new Schema({
   weight: { type: Number, default: 0 }, // grams
   owner: { type: String, default: 'all' }, // 'all' or userId
   quantity: { type: Number, default: 1 },
+  priority: { type: String, enum: PACKING_PRIORITIES, default: '普通' },
   category: { type: String, default: '', trim: true },
   comment: { type: String, default: '' },
   wish: { type: Boolean, default: false },

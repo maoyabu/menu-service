@@ -31,6 +31,43 @@ const parseBool = (val) => {
   return false;
 };
 
+const PACKING_PRIORITY_OPTIONS = ['最重要', '重要', '普通', 'あった方がいい', 'あってもいい'];
+const DEFAULT_PACKING_PRIORITY = '普通';
+const normalizePackingPriority = (val) => {
+  const str = String(val || '').trim();
+  return PACKING_PRIORITY_OPTIONS.includes(str) ? str : DEFAULT_PACKING_PRIORITY;
+};
+const packingPriorityOrder = (val) => {
+  const idx = PACKING_PRIORITY_OPTIONS.indexOf(normalizePackingPriority(val));
+  return idx >= 0 ? idx : PACKING_PRIORITY_OPTIONS.indexOf(DEFAULT_PACKING_PRIORITY);
+};
+const estimateExcelTextWidth = (value) => {
+  const text = (() => {
+    if (value == null) return '';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (typeof value === 'object') {
+      if (Array.isArray(value.richText)) return value.richText.map((r)=> r?.text || '').join('');
+      if (typeof value.text === 'string') return value.text;
+      if (value.result != null) return String(value.result);
+    }
+    return String(value);
+  })();
+  return Array.from(text).reduce((sum, ch)=> sum + (ch.charCodeAt(0) > 0xFF ? 2 : 1), 0);
+};
+const autoFitWorksheetColumns = (sheet, { fromRow = 1, padding = 2 } = {}) => {
+  if (!sheet?.columns?.length) return;
+  sheet.columns.forEach((column) => {
+    const minWidth = Number(column.width) || 10;
+    let maxWidth = minWidth;
+    column.eachCell({ includeEmpty: false }, (cell) => {
+      if ((cell?.row || 0) < fromRow) return;
+      const width = estimateExcelTextWidth(cell.value) + padding;
+      if (width > maxWidth) maxWidth = width;
+    });
+    column.width = maxWidth;
+  });
+};
+
 async function sendPackingMail(toIds, subject, { title, note, dueAt }){
   try{
     if (!Array.isArray(toIds) || !toIds.length) return;
@@ -124,19 +161,20 @@ async function hydrateItemWeights(itemsRaw, masterMap, groupId){
     if ((!it.category || !it.category.trim()) && master?.category){
       next.category = master.category;
     }
+    next.priority = normalizePackingPriority(it.priority || master?.priority);
     if (next.wish && (it.storageId || it.storageName)) {
       next.storageId = null;
       next.storageName = '';
     }
-    if (next.weight !== it.weight || next.category !== it.category || String(next.owner || '') !== String(it.owner || '') || next.wish !== it.wish || next.storageId !== it.storageId || next.storageName !== it.storageName){
-      updates.push({ id: it._id, weight: next.weight, category: next.category, owner: next.owner, wish: next.wish, storageId: next.storageId, storageName: next.storageName });
+    if (next.weight !== it.weight || next.category !== it.category || String(next.owner || '') !== String(it.owner || '') || next.wish !== it.wish || next.storageId !== it.storageId || next.storageName !== it.storageName || next.priority !== it.priority){
+      updates.push({ id: it._id, weight: next.weight, category: next.category, owner: next.owner, wish: next.wish, storageId: next.storageId, storageName: next.storageName, priority: next.priority });
     }
     return next;
   });
   if (updates.length){
     try{
       await Promise.all(updates.map((u)=> {
-        const set = { weight: u.weight, category: u.category, owner: u.owner, wish: u.wish };
+        const set = { weight: u.weight, category: u.category, owner: u.owner, wish: u.wish, priority: normalizePackingPriority(u.priority) };
         if (u.wish && (u.storageId || u.storageName)) {
           set.storageId = null;
           set.storageName = '';
@@ -183,6 +221,7 @@ router.get('/', async (req, res, next) => {
       owner: it.owner || 'all',
       defaultQuantity: it.defaultQuantity || 1,
       defaultWeight: it.defaultWeight || 0,
+      priority: normalizePackingPriority(it.priority),
       category: it.category || '',
       comment: it.comment || '',
       wish: !!it.wish
@@ -280,16 +319,18 @@ router.post('/api/master-items', async (req, res) => {
     const defaultQuantity = Math.max(0, Number(req.body?.defaultQuantity ?? 1) || 1);
     const defaultWeight = Math.max(0, Number(req.body?.defaultWeight) || 0);
     const owner = String(req.body?.owner || 'all');
+    const priority = normalizePackingPriority(req.body?.priority);
     const category = String(req.body?.category || '').trim();
     const comment = String(req.body?.comment || '').trim();
     const wish = parseBool(req.body?.wish);
-    const created = await PackingMasterItem.create({ name, defaultQuantity, defaultWeight, owner, category, comment, wish, group: groupId, createdBy: req.user._id });
+    const created = await PackingMasterItem.create({ name, defaultQuantity, defaultWeight, owner, priority, category, comment, wish, group: groupId, createdBy: req.user._id });
     res.json({
       id: created._id,
       name: created.name,
       owner: created.owner,
       defaultQuantity: created.defaultQuantity,
       defaultWeight: created.defaultWeight,
+      priority: normalizePackingPriority(created.priority),
       category: created.category || '',
       comment: created.comment,
       wish: !!created.wish
@@ -307,6 +348,7 @@ router.patch('/api/master-items/:id', async (req, res) => {
     if (typeof req.body?.category === 'string') update.category = String(req.body.category || '').trim();
     if (typeof req.body?.defaultQuantity !== 'undefined') update.defaultQuantity = Math.max(0, Number(req.body.defaultQuantity) || 0);
     if (typeof req.body?.defaultWeight !== 'undefined') update.defaultWeight = Math.max(0, Number(req.body.defaultWeight) || 0);
+    if (typeof req.body?.priority !== 'undefined') update.priority = normalizePackingPriority(req.body.priority);
     if (typeof req.body?.wish !== 'undefined') update.wish = parseBool(req.body.wish);
     const updated = await PackingMasterItem.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: update }, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'not found' });
@@ -318,12 +360,16 @@ router.patch('/api/master-items/:id', async (req, res) => {
       }
       await PackingItem.updateMany({ group: groupId, thingId: updated._id }, { $set: set });
     }
+    if (typeof update.priority === 'string') {
+      await PackingItem.updateMany({ group: groupId, thingId: updated._id }, { $set: { priority: normalizePackingPriority(update.priority) } });
+    }
     res.json({
       id: String(updated._id),
       name: updated.name,
       owner: updated.owner,
       defaultQuantity: updated.defaultQuantity,
       defaultWeight: updated.defaultWeight,
+      priority: normalizePackingPriority(updated.priority),
       category: updated.category || '',
       comment: updated.comment,
       wish: !!updated.wish
@@ -519,6 +565,7 @@ router.post('/api/events/:id/duplicate', async (req, res) => {
           owner: it.owner || 'all',
           quantity: it.quantity || 0,
           weight: it.weight || 0,
+          priority: normalizePackingPriority(it.priority),
           category: it.category || '',
           comment: it.comment || '',
           wish: !!it.wish,
@@ -560,7 +607,13 @@ router.get('/shop/:eventId', async (req, res, next) => {
       PackingMasterItem.find({ group: groupId }).lean()
     ]);
     if (!ev) return res.redirect('/users/packing');
-    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), {
+      defaultWeight: m.defaultWeight || 0,
+      category: m.category || '',
+      owner: m.owner ? String(m.owner) : 'all',
+      wish: !!m.wish,
+      priority: normalizePackingPriority(m.priority)
+    }]));
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || [])
       .filter((it)=> !!it.wish)
@@ -613,6 +666,7 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
         name: it.name || '',
         storageId: it.storageId ? String(it.storageId) : '',
         quantity: it.quantity || 0,
+        priority: normalizePackingPriority(it.priority),
         owner: it.owner ? String(it.owner) : 'all'
       }))
       .filter((it)=> {
@@ -632,13 +686,14 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
       ? '共有'
       : (memberInfo.labelMap.get(owner) || 'メンバー');
     const title = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト`;
-    sheet.mergeCells('A1:D1');
+    sheet.mergeCells('A1:E1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = title;
     titleCell.font = { name: 'Meiryo UI', size: 16, bold: true };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     sheet.getRow(1).height = 26;
     sheet.columns = [
+      { key: 'priority', width: 14 },
       { key: 'storage', width: 18 },
       { key: 'item', width: 28 },
       { key: 'qty', width: 12 },
@@ -650,9 +705,9 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
       cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
       cell.font = { name: 'Meiryo UI', size: 16, bold: isHeader };
       const col = cell.col;
-      if (col === 3) {
+      if (col === 4) {
         cell.alignment = { horizontal: 'right', vertical: 'middle' };
-      } else if (col === 4) {
+      } else if (col === 5) {
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       } else if (isHeader) {
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -661,21 +716,31 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
       }
     });
     const header = sheet.getRow(headerRowNumber);
-    header.values = ['収納先', '持ち物', '数量', 'チェック欄'];
+    header.values = ['優先順位', '収納先', '持ち物', '数量', 'チェック欄'];
     addBorder(header);
+    sheet.autoFilter = {
+      from: { row: headerRowNumber, column: 1 },
+      to: { row: headerRowNumber, column: 5 }
+    };
     const sortedRows = items
       .map((it)=> ({
+        priority: it.priority || DEFAULT_PACKING_PRIORITY,
         storage: storageNameById.get(it.storageId) || '未設定',
         item: it.name || '',
         qty: it.quantity || '',
         check: ''
       }))
-      .sort((a,b)=> a.storage.localeCompare(b.storage,'ja') || (a.item||'').localeCompare(b.item||'','ja'));
+      .sort((a,b)=>
+        packingPriorityOrder(a.priority) - packingPriorityOrder(b.priority)
+        || a.storage.localeCompare(b.storage,'ja')
+        || (a.item||'').localeCompare(b.item||'','ja')
+      );
     sortedRows.forEach((row)=> addBorder(sheet.addRow(row)));
     const minRows = 25;
     while (sheet.rowCount < minRows + 3) {
-      addBorder(sheet.addRow({ storage:'', item:'', qty:'', check:'' }));
+      addBorder(sheet.addRow({ priority:'', storage:'', item:'', qty:'', check:'' }));
     }
+    autoFitWorksheetColumns(sheet, { fromRow: headerRowNumber, padding: 2 });
     const baseName = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト.xlsx`;
     const encoded = encodeURIComponent(baseName);
     const fallback = 'packing-checklist.xlsx';
@@ -708,11 +773,18 @@ router.get('/:eventId', async (req, res, next) => {
       owner: it.owner ? String(it.owner) : 'all',
       defaultQuantity: it.defaultQuantity || 1,
       defaultWeight: it.defaultWeight || 0,
+      priority: normalizePackingPriority(it.priority),
       category: it.category || '',
       comment: it.comment || '',
       wish: !!it.wish
     }));
-    const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
+    const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), {
+      defaultWeight: m.defaultWeight || 0,
+      category: m.category || '',
+      owner: m.owner ? String(m.owner) : 'all',
+      wish: !!m.wish,
+      priority: normalizePackingPriority(m.priority)
+    }]));
     const hydratedItemsRaw = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     let items = (hydratedItemsRaw || []).map((it)=>({
       id: String(it._id),
@@ -720,6 +792,7 @@ router.get('/:eventId', async (req, res, next) => {
       owner: it.owner ? String(it.owner) : 'all',
       quantity: it.quantity || 0,
       weight: it.weight || 0,
+      priority: normalizePackingPriority(it.priority),
       category: it.category || '',
       hidden: !!it.hidden,
       comment: it.comment || '',
@@ -743,6 +816,7 @@ router.get('/:eventId', async (req, res, next) => {
         owner: m.owner || 'all',
       quantity: m.defaultQuantity || 0,
       weight: m.defaultWeight || 0,
+      priority: normalizePackingPriority(m.priority),
       category: m.category || '',
       comment: m.comment || '',
       wish: !!m.wish,
@@ -756,6 +830,7 @@ router.get('/:eventId', async (req, res, next) => {
         owner: d.owner ? String(d.owner) : 'all',
         quantity: d.quantity || 0,
       weight: d.weight || 0,
+      priority: normalizePackingPriority(d.priority),
       category: d.category || '',
       comment: d.comment || '',
       storageId: '',
@@ -814,6 +889,7 @@ router.post('/api/items', async (req, res) => {
     const ownerId = memberInfo.idSet.has(String(owner || '')) ? String(owner) : 'all';
     const qtyNum = Math.max(0, Number(quantity ?? thing?.defaultQuantity ?? 1) || 1);
     const weightNum = Math.max(0, Number(req.body?.weight || (thing?.defaultWeight ?? 0)) || 0);
+    const priority = normalizePackingPriority(req.body?.priority || thing?.priority);
     const category = String(req.body?.category || thing?.category || "").trim();
     let master = thing;
     if (!master) {
@@ -822,6 +898,7 @@ router.post('/api/items', async (req, res) => {
         owner: ownerId || 'all',
         defaultQuantity: qtyNum,
         defaultWeight: weightNum,
+        priority,
         category: String(req.body?.category || '').trim(),
         comment: String(comment || '').trim(),
         wish,
@@ -840,6 +917,7 @@ router.post('/api/items', async (req, res) => {
       owner: ownerId || 'all',
       quantity: qtyNum,
       weight: weightNum,
+      priority,
       category,
       comment: String(comment || '').trim(),
       wish,
@@ -858,6 +936,7 @@ router.post('/api/items', async (req, res) => {
       owner: created.owner,
       quantity: created.quantity,
       weight: created.weight,
+      priority: normalizePackingPriority(created.priority),
       category: created.category || '',
       comment: created.comment,
       wish: !!created.wish,
@@ -893,6 +972,7 @@ router.patch('/api/items/:id', async (req, res) => {
       owner: ownerId,
       quantity: Math.max(0, Number(req.body?.quantity) || 0),
       weight: Math.max(0, Number(req.body?.weight) || item.weight || 0),
+      priority: typeof req.body?.priority !== 'undefined' ? normalizePackingPriority(req.body.priority) : normalizePackingPriority(item.priority || thing?.priority),
       category: typeof req.body?.category === 'string' ? String(req.body.category || '').trim() : item.category || '',
       comment: String(req.body?.comment || '').trim(),
       thingId: thing?._id || item.thingId || null,
@@ -928,6 +1008,7 @@ router.patch('/api/items/:id', async (req, res) => {
       name: updated.name,
       owner: updated.owner,
       quantity: updated.quantity,
+      priority: normalizePackingPriority(updated.priority),
       comment: updated.comment,
       storageId: updated.storageId ? String(updated.storageId) : '',
       storageName: updated.storageName || '',
@@ -1018,6 +1099,7 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
         name: it.name || '',
         storageId: it.storageId ? String(it.storageId) : '',
         quantity: it.quantity || 0,
+        priority: normalizePackingPriority(it.priority),
         owner: it.owner ? String(it.owner) : 'all'
       }))
       .filter((it)=> {
@@ -1030,11 +1112,12 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const sheet = workbook.addWorksheet('チェックリスト');
     sheet.properties.defaultRowHeight = 22;
     const title = `${ev.name || 'パッキング'} チェックリスト`;
-    sheet.mergeCells('A1:D1');
+    sheet.mergeCells('A1:E1');
     sheet.getCell('A1').value = title;
     sheet.getCell('A1').font = { name: 'Meiryo UI', size: 16, bold: true };
     sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
     sheet.columns = [
+      { header: '優先順位', key: 'priority', width: 14 },
       { header: '収納先', key: 'storage', width: 18 },
       { header: '持ち物', key: 'item', width: 28 },
       { header: '数量', key: 'qty', width: 12 },
@@ -1045,9 +1128,9 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
       cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
       cell.font = { name: 'Meiryo UI', size: 16, bold: isHeader };
       const col = cell.col;
-      if (col === 3) {
+      if (col === 4) {
         cell.alignment = { horizontal: 'right', vertical: 'middle' };
-      } else if (col === 4) {
+      } else if (col === 5) {
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       } else if (isHeader) {
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -1056,21 +1139,31 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
       }
     });
     const header = sheet.getRow(3);
-    header.values = ['収納先', '持ち物', '数量', 'チェック欄'];
+    header.values = ['優先順位', '収納先', '持ち物', '数量', 'チェック欄'];
     addBorder(header);
+    sheet.autoFilter = {
+      from: { row: 3, column: 1 },
+      to: { row: 3, column: 5 }
+    };
     const sortedRows = items
       .map((it)=> ({
+        priority: it.priority || DEFAULT_PACKING_PRIORITY,
         storage: storageNameById.get(it.storageId) || '未設定',
         item: it.name || '',
         qty: it.quantity || '',
         check: ''
       }))
-      .sort((a,b)=> a.storage.localeCompare(b.storage,'ja') || (a.item||'').localeCompare(b.item||'','ja'));
+      .sort((a,b)=>
+        packingPriorityOrder(a.priority) - packingPriorityOrder(b.priority)
+        || a.storage.localeCompare(b.storage,'ja')
+        || (a.item||'').localeCompare(b.item||'','ja')
+      );
     sortedRows.forEach((row)=> addBorder(sheet.addRow(row)));
     const minRows = 25;
     while (sheet.rowCount < minRows + 3) {
-      addBorder(sheet.addRow({ storage:'', item:'', qty:'', check:'' }));
+      addBorder(sheet.addRow({ priority:'', storage:'', item:'', qty:'', check:'' }));
     }
+    autoFitWorksheetColumns(sheet, { fromRow: 3, padding: 2 });
     const today = new Date();
     const y = today.getFullYear();
     const m = String(today.getMonth()+1).padStart(2,'0');
@@ -1106,7 +1199,13 @@ router.get('/check/:eventId', async (req, res, next) => {
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
     const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
-    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), { defaultWeight: m.defaultWeight || 0, category: m.category || '', owner: m.owner ? String(m.owner) : 'all', wish: !!m.wish }]));
+    const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), {
+      defaultWeight: m.defaultWeight || 0,
+      category: m.category || '',
+      owner: m.owner ? String(m.owner) : 'all',
+      wish: !!m.wish,
+      priority: normalizePackingPriority(m.priority)
+    }]));
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || [])
       .filter((it)=> !it.hidden)
@@ -1120,6 +1219,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       checkedBy: it.checkedBy,
       quantity: it.quantity || 0,
       weight: it.weight || 0,
+      priority: normalizePackingPriority(it.priority),
       category: it.category || '',
       hidden: !!it.hidden,
       owner: it.owner ? String(it.owner) : 'all',

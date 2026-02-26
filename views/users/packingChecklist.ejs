@@ -165,6 +165,20 @@
       <label class="block text-sm">持ち物名
         <input type="text" name="name" required class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 着替え" />
       </label>
+      <div class="grid sm:grid-cols-2 gap-2">
+        <label class="block text-sm">カテゴリー
+          <input type="text" list="category-datalist" name="category" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 衣類 / 洗面・メイク / ガジェット" />
+        </label>
+        <label class="block text-sm">優先度
+          <select name="priority" id="master-priority" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <option value="最重要">最重要</option>
+            <option value="重要">重要</option>
+            <option value="普通" selected>普通</option>
+            <option value="あった方がいい">あった方がいい</option>
+            <option value="あってもいい">あってもいい</option>
+          </select>
+        </label>
+      </div>
       <div class="grid sm:grid-cols-3 gap-2">
         <label class="block text-sm">誰のもの
           <select name="owner" id="master-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
@@ -181,9 +195,6 @@
           <input type="number" step="1" min="0" name="defaultWeight" value="0" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
         </label>
       </div>
-      <label class="block text-sm">カテゴリー
-        <input type="text" list="category-datalist" name="category" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 衣類 / 洗面・メイク / ガジェット" />
-      </label>
       <label class="block text-sm">コメント
         <input type="text" name="comment" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="メモ" />
       </label>
@@ -229,6 +240,9 @@
     let masterCategories = <%- JSON.stringify(masterCategories || []) %>;
     const members = <%- JSON.stringify(members || []) %>;
     const currentUserId = <%- JSON.stringify(currentUserId || '') %>;
+    const packingPriorityOptions = ['最重要', '重要', '普通', 'あった方がいい', 'あってもいい'];
+    const defaultPackingPriority = '普通';
+    const normalizePackingPriority = (value) => packingPriorityOptions.includes(value) ? value : defaultPackingPriority;
 
   const eventList = document.getElementById('event-list');
   const eventEmpty = document.getElementById('event-empty');
@@ -530,10 +544,12 @@ function renderMasterItemList(){
         wrap.className = 'flex flex-wrap gap-2';
         grouped[cat].forEach((it)=>{
           const tag = document.createElement('div');
+          const priority = normalizePackingPriority(it.priority);
           const wishClass = it.wish ? 'bg-gray-100 border-gray-300' : 'bg-white';
           tag.className = `inline-flex items-center gap-1 px-2 py-1 rounded-full border text-sm shadow-sm ${wishClass}`;
           tag.innerHTML = `
             ${it.wish ? '<span class="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1 rounded">買い物</span>' : ''}
+            <span class="text-[10px] font-semibold px-1 rounded bg-blue-50 text-blue-700 border border-blue-100">${priority}</span>
             <span class="font-semibold text-gray-900 cursor-pointer" title="クリックで編集" data-master-edit="${it.id}">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800" data-master-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-green-700 hover:text-green-900" data-master-clone="${it.id}" aria-label="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
@@ -777,6 +793,7 @@ function renderMasterItemList(){
       }
       form.defaultQuantity.value = (target && typeof target.defaultQuantity !== 'undefined') ? target.defaultQuantity : 1;
       form.defaultWeight.value = target?.defaultWeight || 0;
+      if (form.priority) form.priority.value = normalizePackingPriority(target?.priority);
       if (form.category) form.category.value = target?.category || '';
       form.comment.value = target?.comment || '';
       if (masterWish) masterWish.checked = !!target?.wish;

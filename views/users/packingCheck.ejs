@@ -86,6 +86,41 @@
       const trimmed = (cat || '').trim();
       return trimmed || '未分類';
     };
+    const priorityRankMap = {
+      '最重要': 4,
+      '重要': 3,
+      '普通': 2,
+      'あった方がいい': 1,
+      'あってもいい': 0
+    };
+    const normalizePriority = (priority) => Object.prototype.hasOwnProperty.call(priorityRankMap, priority) ? priority : '普通';
+    const priorityRank = (priority) => priorityRankMap[normalizePriority(priority)] ?? priorityRankMap['普通'];
+    const sortItemsByPriority = (a, b) => (
+      priorityRank(b.priority) - priorityRank(a.priority)
+      || (a.name || '').localeCompare((b.name || ''), 'ja')
+    );
+    const sortCategoriesByPriority = (list, categories) => {
+      const maxRankByCategory = new Map();
+      (list || []).forEach((it)=> {
+        const cat = normalizeCategory(it.category);
+        const rank = priorityRank(it.priority);
+        const prev = maxRankByCategory.has(cat) ? maxRankByCategory.get(cat) : -1;
+        if (rank > prev) maxRankByCategory.set(cat, rank);
+      });
+      return (categories || []).slice().sort((a, b)=> (
+        (maxRankByCategory.get(b) ?? -1) - (maxRankByCategory.get(a) ?? -1)
+        || a.localeCompare(b, 'ja')
+      ));
+    };
+    const priorityBadgeClass = (priority) => {
+      switch (normalizePriority(priority)) {
+        case '最重要': return 'bg-red-50 text-red-700 border-red-200';
+        case '重要': return 'bg-orange-50 text-orange-700 border-orange-200';
+        case 'あった方がいい': return 'bg-sky-50 text-sky-700 border-sky-200';
+        case 'あってもいい': return 'bg-gray-50 text-gray-600 border-gray-200';
+        default: return 'bg-blue-50 text-blue-700 border-blue-200';
+      }
+    };
 
     function restoreActiveStorage(){
       try{
@@ -150,7 +185,10 @@
         activeCategories = new Set();
         return;
       }
-      const categories = Array.from(new Set(list.map((it)=> normalizeCategory(it.category)))).sort((a,b)=> a.localeCompare(b,'ja'));
+      const categories = sortCategoriesByPriority(
+        list,
+        Array.from(new Set(list.map((it)=> normalizeCategory(it.category))))
+      );
       if (!categories.length){
         categoryBlock.classList.add('hidden');
         activeCategories = new Set();
@@ -225,16 +263,24 @@
         if (!grouped[cat]) grouped[cat] = { pending: [], done: [] };
         (it.checked ? grouped[cat].done : grouped[cat].pending).push(it);
       });
+      Object.values(grouped).forEach((g)=> {
+        g.pending.sort(sortItemsByPriority);
+        g.done.sort(sortItemsByPriority);
+      });
       const makeLi = (it, checked)=>{
         const li = document.createElement('li');
         li.className = 'flex items-start gap-3 border rounded-lg px-3 py-2 ' + (checked ? 'bg-green-50 border-green-200' : '');
         const checkedStr = it.checkedAt ? new Date(it.checkedAt).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+        const priority = normalizePriority(it.priority);
         li.innerHTML = `
           <label class="flex items-start gap-3 w-full">
             <input type="checkbox" data-id="${it.id}" ${checked ? 'checked' : ''} class="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500" />
             <div class="flex-1 min-w-0 space-y-0.5">
               <div class="flex items-center justify-between gap-2">
-                <p class="font-semibold text-gray-900">${it.name}</p>
+                <div class="flex items-center gap-2 min-w-0">
+                  <p class="font-semibold text-gray-900">${it.name}</p>
+                  <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap ${priorityBadgeClass(priority)}">${priority}</span>
+                </div>
                 <span class="text-xs text-gray-500">数量: ${it.quantity || 0} / 重量: ${it.weight || 0}g</span>
               </div>
               ${it.comment ? `<div class="text-xs text-gray-600">${it.comment}</div>` : ''}
@@ -244,7 +290,7 @@
         `;
         return li;
       };
-      Object.keys(grouped).sort((a,b)=> a.localeCompare(b,'ja')).forEach((cat)=>{
+      sortCategoriesByPriority(filtered, Object.keys(grouped)).forEach((cat)=>{
         const { pending, done } = grouped[cat];
         const section = document.createElement('div');
         section.className = 'border rounded-xl p-3 space-y-3';
