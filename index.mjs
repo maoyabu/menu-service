@@ -24,6 +24,8 @@ import boardRoutes from './routes/board.js';
 import slideshowRoutes from './routes/slideshow.js';
 import purchaseReminderRoutes from './routes/purchaseReminder.js';
 import noticeRoutes from './routes/notices.js';
+import supportRoutes from './routes/support.js';
+import apiSettingsRoutes from './routes/apiSettings.js';
 import Notification from './models/notification.js';
 import { renderTemplate, sendMail } from './utils/mailer.js';
 import WeeklyAnnouncement from './models/weeklyAnnouncement.js';
@@ -137,6 +139,8 @@ app.use('/users/my-equipment', myequipmentRoutes);
 app.use('/users/purchase-reminder', purchaseReminderRoutes);
 app.use('/users/packing', packingRoutes);
 app.use('/users/board', boardRoutes);
+app.use(supportRoutes);
+app.use('/api/settings', apiSettingsRoutes);
 app.use('/slideshow', slideshowRoutes);
 app.use('/notices', noticeRoutes);
 

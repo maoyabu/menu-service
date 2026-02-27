@@ -542,6 +542,52 @@ router.post('/api/auth/login', async (req, res, next) => {
   }
 });
 
+// API signup (JSON) for mobile clients
+router.post('/api/auth/signup', async (req, res, next) => {
+  try {
+    const username = String(req.body?.username || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'ユーザー名・メールアドレス・パスワードを入力してください' });
+    }
+
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }]
+    });
+    if (existingUser) {
+      if (existingUser.email === email) {
+        return res.status(409).json({ error: 'このメールアドレスは既に登録されています。' });
+      }
+      if (existingUser.username === username) {
+        return res.status(409).json({ error: 'このユーザー名は既に使用されています。' });
+      }
+      return res.status(409).json({ error: '既に登録済みのアカウントが存在します。' });
+    }
+
+    const newUser = new User({
+      username,
+      email,
+      services: { allaboutme: true, finance: true, assets: true, menu: true }
+    });
+
+    const registeredUser = await User.register(newUser, password);
+    await new Promise((resolve, reject) => {
+      req.logIn(registeredUser, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    return res.json({
+      token: req.sessionID || '',
+      user: serializeApiUser(registeredUser)
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 const WEEKDAY_JA = ['月', '火', '水', '木', '金', '土', '日'];
 const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
