@@ -696,7 +696,9 @@ router.get('/api/events/:id', async (req, res) => {
       quantity: it.quantity || 0,
       weight: it.weight || 0,
       priority: normalizePackingPriority(it.priority),
-      category: it.category || '',
+      category: (it.hidden && (!it.category || !String(it.category).trim()) && it.categoryBeforeHide)
+        ? it.categoryBeforeHide
+        : (it.category || ''),
       hidden: !!it.hidden,
       comment: it.comment || '',
       storageId: it.storageId ? String(it.storageId) : '',
