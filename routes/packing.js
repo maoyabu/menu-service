@@ -311,6 +311,17 @@ router.delete('/api/storages/:id', async (req, res) => {
 });
 
 // Master items
+router.get('/api/master-items', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.json([]);
+    const list = await PackingMasterItem.find({ group: groupId }).sort({ createdAt: -1 }).lean();
+    res.json(list);
+  } catch (err) {
+    console.error('packing api master items error:', err);
+    res.status(500).json({ error: 'failed', message: err?.message || '' });
+  }
+});
+
 router.post('/api/master-items', async (req, res) => {
   try {
     const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
@@ -540,11 +551,12 @@ router.post('/api/events/:id/duplicate', async (req, res) => {
     const storageMap = new Map((storageDocs || []).map((s)=> [s._id.toString(), s.name || '']));
     const storageIds = Array.from(storageMap.keys());
 
+    const startAt = req.body?.startAt ? new Date(req.body.startAt) : (source.startAt || null);
     const created = await PackingEvent.create({
       name,
       storageContainers: [],
       participants: participantIds,
-      startAt: source.startAt || null,
+      startAt,
       storageIds,
       group: groupId,
       createdBy: req.user._id,
@@ -593,6 +605,173 @@ router.post('/api/events/:id/duplicate', async (req, res) => {
     });
   } catch (_) {
     res.status(500).json({ error: 'failed' });
+  }
+});
+
+// Events list (JSON)
+router.get('/api/events', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.json({ events: [], members: [] });
+    const memberInfo = await getMemberOptions(groupId);
+    const completedParam = String(req.query.completed || '').trim().toLowerCase();
+    const query = { group: groupId };
+    if (completedParam === 'true' || completedParam === '1') {
+      query.completed = true;
+    } else if (completedParam === 'all') {
+      // no filter
+    } else {
+      query.completed = { $ne: true };
+    }
+    const eventsRaw = await PackingEvent.find(query).lean();
+    const eventsSorted = (eventsRaw || []).slice().sort((a, b) => {
+      const ta = new Date(a.lastOpenedAt || a.updatedAt || a.createdAt || 0).getTime();
+      const tb = new Date(b.lastOpenedAt || b.updatedAt || b.createdAt || 0).getTime();
+      return tb - ta;
+    });
+    const events = eventsSorted.map((ev) => ({
+      id: String(ev._id),
+      name: ev.name,
+      startAt: ev.startAt || null,
+      participants: (ev.participants || []).map(String),
+      lastOpenedAt: ev.lastOpenedAt || null,
+      completed: !!ev.completed,
+      completedAt: ev.completedAt || null,
+      planStatus: ev.planStatus instanceof Map ? Object.fromEntries(ev.planStatus) : (ev.planStatus || {})
+    }));
+    res.json({ events, members: memberInfo.list });
+  } catch (err) {
+    console.error('packing api events error:', err);
+    res.status(500).json({ error: 'failed', message: err?.message || '' });
+  }
+});
+
+// Event detail (JSON)
+router.get('/api/events/:id', async (req, res) => {
+  try {
+    const groupId = getGroupId(res);
+    if (!groupId) return res.status(400).json({ error: 'no group' });
+    const eventId = req.params.id;
+    const [ev, memberInfo, storagesRaw, masterItemsRaw, itemsRaw] = await Promise.all([
+      PackingEvent.findOne({ _id: eventId, group: groupId }).lean(),
+      getMemberOptions(groupId),
+      PackingStorage.find({ group: groupId }).lean(),
+      PackingMasterItem.find({ group: groupId }).lean(),
+      PackingItem.find({ group: groupId, event: eventId }).lean()
+    ]);
+    if (!ev) return res.status(404).json({ error: 'not found' });
+    const storages = (storagesRaw || []).map((s) => ({
+      id: String(s._id),
+      name: s.name,
+      maxWeight: s.maxWeight || 0,
+      owner: s.owner || 'all'
+    }));
+    const eventStorageIds = (ev.storageIds || []).map((id) => id.toString());
+    const masterItems = (masterItemsRaw || []).map((it) => ({
+      id: String(it._id),
+      name: it.name,
+      owner: it.owner ? String(it.owner) : 'all',
+      defaultQuantity: it.defaultQuantity || 1,
+      defaultWeight: it.defaultWeight || 0,
+      priority: normalizePackingPriority(it.priority),
+      category: it.category || '',
+      comment: it.comment || '',
+      wish: !!it.wish
+    }));
+    const masterCategories = Array.from(
+      new Set((masterItemsRaw || []).map((m) => (m.category || '').trim()).filter(Boolean))
+    );
+    const masterMap = new Map(masterItemsRaw.map((m) => [m._id.toString(), {
+      defaultWeight: m.defaultWeight || 0,
+      category: m.category || '',
+      owner: m.owner ? String(m.owner) : 'all',
+      wish: !!m.wish,
+      priority: normalizePackingPriority(m.priority)
+    }]));
+    const hydratedItemsRaw = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
+    let items = (hydratedItemsRaw || []).map((it) => ({
+      id: String(it._id),
+      name: it.name,
+      owner: it.owner ? String(it.owner) : 'all',
+      quantity: it.quantity || 0,
+      weight: it.weight || 0,
+      priority: normalizePackingPriority(it.priority),
+      category: it.category || '',
+      hidden: !!it.hidden,
+      comment: it.comment || '',
+      storageId: it.storageId ? String(it.storageId) : '',
+      storageName: it.storageName || '',
+      wish: !!it.wish,
+      checked: !!it.checked,
+      checkedAt: it.checkedAt,
+      checkedBy: it.checkedBy,
+      thingId: it.thingId ? String(it.thingId) : null
+    }));
+    const existingThingIds = new Set(items.map((it) => it.thingId).filter(Boolean));
+    const toCreate = masterItems.filter((m) => !existingThingIds.has(m.id));
+    if (toCreate.length) {
+      const docs = await PackingItem.insertMany(toCreate.map((m) => ({
+        name: m.name,
+        thingId: m.id,
+        storageId: null,
+        storageName: '',
+        owner: m.owner || 'all',
+        quantity: m.defaultQuantity || 0,
+        weight: m.defaultWeight || 0,
+        priority: normalizePackingPriority(m.priority),
+        category: m.category || '',
+        comment: m.comment || '',
+        wish: !!m.wish,
+        group: groupId,
+        event: ev._id,
+        createdBy: req.user._id
+      })));
+      const appended = docs.map((d) => ({
+        id: String(d._id),
+        name: d.name,
+        owner: d.owner ? String(d.owner) : 'all',
+        quantity: d.quantity || 0,
+        weight: d.weight || 0,
+        priority: normalizePackingPriority(d.priority),
+        category: d.category || '',
+        comment: d.comment || '',
+        storageId: '',
+        storageName: '',
+        wish: !!d.wish,
+        hidden: !!d.hidden,
+        checked: !!d.checked,
+        checkedAt: d.checkedAt,
+        checkedBy: d.checkedBy,
+        thingId: d.thingId ? String(d.thingId) : null
+      }));
+      items = items.concat(appended);
+    }
+    const memberNameById = new Map(memberInfo.list.map((m) => [m.id, m.name]));
+    const planStatusMap = new Map(Object.entries(ev.planStatus || {}).map(([k, v]) => [k, !!v]));
+    memberInfo.list.forEach((m) => { if (!planStatusMap.has(m.id)) planStatusMap.set(m.id, false); });
+    await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
+    res.json({
+      event: {
+        id: String(ev._id),
+        name: ev.name,
+        startAt: ev.startAt || null,
+        participants: (ev.participants || []).map(String),
+        storageIds: eventStorageIds,
+        completed: !!ev.completed,
+        completedAt: ev.completedAt || null
+      },
+      members: memberInfo.list,
+      memberNameById: Object.fromEntries(memberNameById),
+      planStatus: Object.fromEntries(planStatusMap),
+      storages,
+      masterItems,
+      masterCategories,
+      items,
+      currentUserId: req.user?._id ? String(req.user._id) : ''
+    });
+  } catch (err) {
+    console.error('packing api event detail error:', err);
+    res.status(500).json({ error: 'failed', message: err?.message || '' });
   }
 });
 

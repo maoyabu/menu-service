@@ -485,6 +485,63 @@ const authenticateWithIdentifier = async (req, res, next, options = {}) => {
   }
 };
 
+const serializeApiUser = (user) => ({
+  id: user?._id?.toString?.() || '',
+  _id: user?._id?.toString?.() || '',
+  username: user?.username || '',
+  email: user?.email || '',
+  displayname: user?.displayname || '',
+  avatar: user?.avatar || '',
+  isAdmin: !!user?.isAdmin
+});
+
+// API login (JSON) for mobile clients
+router.post('/api/auth/login', async (req, res, next) => {
+  try {
+    const identifier = String(req.body?.username || req.body?.identifier || req.body?.email || '').trim();
+    const password = String(req.body?.password || '');
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'メールアドレス（またはユーザー名）とパスワードを入力してください' });
+    }
+    const user = await User.findOne({
+      $or: [{ username: identifier }, { email: identifier }]
+    });
+    if (!user) {
+      return res.status(401).json({ error: 'ユーザー名またはメールアドレスが無効です' });
+    }
+    if (user.unsubscribe_date) {
+      return res.status(403).json({ error: 'このアカウントは退会済みです。' });
+    }
+    const authenticatedUser = await new Promise((resolve, reject) => {
+      user.authenticate(password, (err, thisUser, passwordError) => {
+        if (err) return reject(err);
+        if (passwordError || !thisUser) return resolve(null);
+        resolve(thisUser);
+      });
+    });
+    if (!authenticatedUser) {
+      return res.status(401).json({ error: 'パスワードが間違っています' });
+    }
+    await new Promise((resolve, reject) => {
+      req.logIn(authenticatedUser, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+    const choiceRaw = req.body?.service || req.body?.serviceChoice || '';
+    const choice = normalizeServiceChoice(choiceRaw);
+    if (choice && authenticatedUser?.preferredService !== choice) {
+      await User.updateOne({ _id: authenticatedUser._id }, { $set: { preferredService: choice } });
+    }
+    return res.json({
+      token: req.sessionID || '',
+      user: serializeApiUser(authenticatedUser)
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 const WEEKDAY_JA = ['月', '火', '水', '木', '金', '土', '日'];
 const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -1841,6 +1898,21 @@ router.get('/users/switch-service', isLoggedIn, async (req, res) => {
     return res.redirect(getServiceRedirect(preferred));
   } catch (_) {
     return res.redirect('/users/my-top');
+  }
+});
+
+// Groups (JSON) for mobile clients
+router.get('/api/groups', isLoggedIn, async (req, res) => {
+  try {
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const list = (groups || []).map((g) => ({
+      id: g._id?.toString?.() || '',
+      name: g.group_name || g.name || ''
+    }));
+    res.json(list);
+  } catch (err) {
+    console.error('api groups error:', err);
+    res.status(500).json({ error: 'failed', message: err?.message || '' });
   }
 });
 
