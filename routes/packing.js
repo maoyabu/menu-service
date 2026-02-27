@@ -1165,7 +1165,6 @@ router.patch('/api/items/:id', async (req, res) => {
       update.hiddenAt = hide ? new Date() : null;
       if (hide){
         update.categoryBeforeHide = item.category || '';
-        update.category = '非表示';
         update.storageId = null;
         update.storageName = '';
       } else {
@@ -1209,7 +1208,7 @@ router.delete('/api/items/:id', async (req, res) => {
     const before = await PackingItem.findOne({ _id: id, group: groupId }).lean();
     const deleted = await PackingItem.findOneAndUpdate(
       { _id: id, group: groupId },
-      { $set: { hidden: true, hiddenAt: new Date(), categoryBeforeHide: before?.category || '', category: '非表示', storageId: null, storageName: '' } },
+      { $set: { hidden: true, hiddenAt: new Date(), categoryBeforeHide: before?.category || '', storageId: null, storageName: '' } },
       { new: true }
     );
     if (!deleted) return res.status(404).json({ error: 'not found' });
