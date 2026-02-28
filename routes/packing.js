@@ -192,7 +192,16 @@ async function hydrateItemWeights(itemsRaw, masterMap, groupId){
 router.get('/', async (req, res, next) => {
   try {
     const groupId = getGroupId(res);
-    if (!groupId) return res.render('users/packingChecklist', { members: [], events: [], storages: [], masterItems: [] });
+    if (!groupId) {
+      return res.render('users/packingChecklist', {
+        members: [],
+        events: [],
+        storages: [],
+        masterItems: [],
+        masterCategories: [],
+        currentUserId: (req.user?._id?.toString?.() || '')
+      });
+    }
     const [memberInfo, eventsRaw, storagesRaw, masterItemsRaw] = await Promise.all([
       getMemberOptions(groupId),
       PackingEvent.find({ group: groupId, completed: { $ne: true } }).lean(),
