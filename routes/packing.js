@@ -646,7 +646,8 @@ router.get('/api/events', async (req, res) => {
       lastOpenedAt: ev.lastOpenedAt || null,
       completed: !!ev.completed,
       completedAt: ev.completedAt || null,
-      planStatus: ev.planStatus instanceof Map ? Object.fromEntries(ev.planStatus) : (ev.planStatus || {})
+      planStatus: ev.planStatus instanceof Map ? Object.fromEntries(ev.planStatus) : (ev.planStatus || {}),
+      createdBy: ev.createdBy ? String(ev.createdBy) : ''
     }));
     res.json({ events, members: memberInfo.list });
   } catch (err) {
@@ -733,6 +734,8 @@ router.get('/api/events/:id', async (req, res) => {
         category: m.category || '',
         comment: m.comment || '',
         wish: !!m.wish,
+        hidden: true,
+        hiddenAt: new Date(),
         group: groupId,
         event: ev._id,
         createdBy: req.user._id
@@ -1004,16 +1007,18 @@ router.get('/:eventId', async (req, res, next) => {
         storageId: null,
         storageName: '',
         owner: m.owner || 'all',
-      quantity: m.defaultQuantity || 0,
-      weight: m.defaultWeight || 0,
-      priority: normalizePackingPriority(m.priority),
-      category: m.category || '',
-      comment: m.comment || '',
-      wish: !!m.wish,
-      group: groupId,
-      event: ev._id,
-      createdBy: req.user._id
-    })));
+        quantity: m.defaultQuantity || 0,
+        weight: m.defaultWeight || 0,
+        priority: normalizePackingPriority(m.priority),
+        category: m.category || '',
+        comment: m.comment || '',
+        wish: !!m.wish,
+        hidden: true,
+        hiddenAt: new Date(),
+        group: groupId,
+        event: ev._id,
+        createdBy: req.user._id
+      })));
     const appended = docs.map((d)=> ({
         id: String(d._id),
         name: d.name,
