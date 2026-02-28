@@ -1,7 +1,7 @@
 import express from 'express';
 import Qa from '../models/qa.js';
 import PublicInquiry from '../models/publicInquiry.js';
-import SupportInquiry from '../models/supportInquiry.js';
+import Inquiry from '../models/inquiry.js';
 import { sendMail } from '../utils/mailer.js';
 
 const router = express.Router();
@@ -45,13 +45,10 @@ router.get('/api/support', async (req, res) => {
 router.get('/api/support/inquiries', async (req, res) => {
   try {
     if (!requireApiUser(req, res)) return;
-    const list = await SupportInquiry.find({ user: req.user._id })
+    const list = await Inquiry.find({ user: req.user._id })
       .sort({ update_date: -1 })
       .lean();
     const result = list.map((item) => {
-      const messages = (item.messages && item.messages.length)
-        ? item.messages
-        : (item.message ? [{ content: item.message, isAdmin: false, isRead: true, entry_date: item.entry_date }] : []);
       return {
         _id: String(item._id),
         title: item.title || '',
@@ -59,8 +56,8 @@ router.get('/api/support/inquiries', async (req, res) => {
         closed: !!item.closed,
         entry_date: item.entry_date || null,
         update_date: item.update_date || null,
-        messages: messages.map((msg, index) => ({
-          _id: String(msg._id || `${item._id}-${index}`),
+        messages: (item.messages || []).map((msg) => ({
+          _id: String(msg._id),
           content: msg.content || '',
           isAdmin: !!msg.isAdmin,
           isRead: !!msg.isRead,
@@ -85,13 +82,20 @@ router.post('/api/support/inquiries', async (req, res) => {
     if (!email || !title || !message) {
       return res.status(400).json({ error: 'missing_params', message: 'email, title, message は必須です' });
     }
-    const created = await SupportInquiry.create({
-      user: req.user._id,
-      email,
+    const created = await Inquiry.create({
       title,
+      user: req.user._id,
       status: 'open',
       closed: false,
-      messages: [{ content: message, isAdmin: false, isRead: true }]
+      messages: [{
+        content: message,
+        sender: req.user._id,
+        isAdmin: false,
+        mail_delivery: true,
+        mail_sent: false,
+        isRead: true,
+        entry_date: new Date()
+      }]
     });
     const toEmail = process.env.ADMIN_NOTIFY_EMAIL || 'ma.oyabu@gmail.com';
     const html = `
@@ -105,6 +109,9 @@ router.post('/api/support/inquiries', async (req, res) => {
       to: toEmail,
       subject: `[会員お問い合わせ] ${title}`,
       html
+    });
+    await Inquiry.findByIdAndUpdate(created._id, {
+      $set: { 'messages.0.mail_sent': true }
     });
     res.json({ ok: true, id: String(created._id) });
   } catch (err) {
@@ -121,12 +128,39 @@ router.post('/api/support/inquiries/:id/reply', async (req, res) => {
     if (!message) {
       return res.status(400).json({ error: 'missing_params', message: 'message は必須です' });
     }
-    const inquiry = await SupportInquiry.findOne({ _id: req.params.id, user: req.user._id });
+    const inquiry = await Inquiry.findOne({ _id: req.params.id, user: req.user._id });
     if (!inquiry) return res.status(404).json({ error: 'not_found' });
     if (inquiry.closed) return res.status(400).json({ error: 'closed', message: 'このお問い合わせは完了しています' });
-    inquiry.messages.push({ content: message, isAdmin: false, isRead: true });
+    inquiry.messages.push({
+      content: message,
+      sender: req.user._id,
+      isAdmin: false,
+      mail_delivery: true,
+      mail_sent: false,
+      isRead: true,
+      entry_date: new Date()
+    });
     inquiry.status = 'open';
     await inquiry.save();
+    const toEmail = process.env.ADMIN_NOTIFY_EMAIL || 'ma.oyabu@gmail.com';
+    const html = `
+      <p>会員から追加の返信が届きました。</p>
+      <p><strong>ユーザー:</strong> ${req.user?.displayname || req.user?.username || ''}</p>
+      <p><strong>メールアドレス:</strong> ${req.user?.email || ''}</p>
+      <p><strong>タイトル:</strong> ${inquiry.title || ''}</p>
+      <p><strong>内容:</strong><br/>${message.replace(/\\n/g, '<br/>')}</p>
+    `;
+    await sendMail({
+      to: toEmail,
+      subject: `[再返信] ${inquiry.title || ''}`,
+      html
+    });
+    const lastIndex = inquiry.messages.length - 1;
+    if (lastIndex >= 0) {
+      await Inquiry.findByIdAndUpdate(inquiry._id, {
+        $set: { [`messages.${lastIndex}.mail_sent`]: true }
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('support inquiry reply error:', err);
@@ -138,7 +172,7 @@ router.post('/api/support/inquiries/:id/reply', async (req, res) => {
 router.delete('/api/support/inquiries/:id', async (req, res) => {
   try {
     if (!requireApiUser(req, res)) return;
-    const deleted = await SupportInquiry.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+    const deleted = await Inquiry.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!deleted) return res.status(404).json({ error: 'not_found' });
     res.json({ ok: true });
   } catch (err) {
