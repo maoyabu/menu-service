@@ -6,6 +6,8 @@ import { sendMail } from '../utils/mailer.js';
 
 const router = express.Router();
 
+const headerTitle = (title) => ({ pageTitle: title, seo: { title } });
+
 const requireApiUser = (req, res) => {
   if (!req.user) {
     res.status(401).json({ error: 'unauthorized', message: 'ログインしてください' });
@@ -13,6 +15,28 @@ const requireApiUser = (req, res) => {
   }
   return true;
 };
+
+// Public support page (HTML)
+router.get('/support', async (req, res) => {
+  try {
+    const flagRaw = String(req.query.faq_flag || '').trim().toLowerCase();
+    let faqFlag = true;
+    if (flagRaw) {
+      faqFlag = ['true', '1', 'yes'].includes(flagRaw);
+    }
+    const faqs = await Qa.find({ faq_flag: faqFlag })
+      .select('qa_category qa_question qa_answer url')
+      .sort({ update_date: -1 })
+      .lean();
+    res.render('support/index', {
+      ...headerTitle('サポート'),
+      faqs
+    });
+  } catch (err) {
+    console.error('support html error:', err);
+    res.status(500).send('support page error');
+  }
+});
 
 // Member FAQ list (JSON)
 router.get('/api/support', async (req, res) => {
