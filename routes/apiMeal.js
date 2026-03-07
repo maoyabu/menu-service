@@ -71,19 +71,83 @@ const authenticateToken = async (req, res, next) => {
   const header = req.headers.authorization || '';
   const match = header.match(/^Bearer\s+(.+)$/i);
   if (!match) {
+    console.log('[apiMeal] missing auth header');
     return res.status(401).json({ error: 'unauthorized', message: '認証が必要です' });
   }
   try {
     const payload = jwt.verify(match[1], JWT_SECRET);
     const user = await User.findById(payload.sub).select('username email isAdmin').lean();
-    if (!user) return res.status(401).json({ error: 'unauthorized' });
+    if (!user) {
+      console.log('[apiMeal] token user not found', { sub: payload.sub });
+      return res.status(401).json({ error: 'unauthorized' });
+    }
     req.apiUser = user;
     return next();
   } catch (err) {
+    console.log('[apiMeal] token invalid', { message: err?.message || '' });
     return res.status(401).json({ error: 'unauthorized', message: '認証に失敗しました' });
   }
 };
 
+
+
+router.post('/login', async (req, res) => {
+  try {
+    const { username, email, identifier, password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ error: 'missing_params', message: 'password は必須です' });
+    }
+
+    let user = null;
+    const identifierValue = String(identifier || username || email || '').trim();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+
+    if (normalizedEmail) {
+      user = await User.findOne({ email: normalizedEmail });
+    }
+    if (!user && identifierValue) {
+      if (identifierValue.includes('@')) {
+        user = await User.findOne({ email: identifierValue.toLowerCase() });
+      }
+      if (!user) {
+        user = await User.findOne({ username: identifierValue });
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'invalid_credentials', message: 'IDまたはパスワードが違います' });
+    }
+
+    if (user.unsubscribe_date) {
+      return res.status(403).json({ error: 'unsubscribed', message: '退会済みのためログインできません' });
+    }
+
+    const isValid = await new Promise((resolve) => {
+      user.authenticate(password, (_err, thisUser, passwordError) => {
+        resolve(!passwordError && !!thisUser);
+      });
+    });
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'invalid_credentials', message: 'IDまたはパスワードが違います' });
+    }
+
+    const token = jwt.sign({ sub: String(user._id) }, JWT_SECRET, { expiresIn: '14d' });
+    return res.json({
+      token,
+      user: {
+        id: String(user._id),
+        username: user.username,
+        email: user.email,
+        displayname: user.displayname || null,
+        isAdmin: Boolean(user.isAdmin)
+      }
+    });
+  } catch (err) {
+    console.error('api meal login error:', err);
+    return res.status(500).json({ error: 'failed', message: err?.message || '' });
+  }
+});
 
 router.get('/config', async (_req, res) => {
   try {

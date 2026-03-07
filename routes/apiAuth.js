@@ -23,6 +23,10 @@ router.post('/login', async (req, res) => {
     let user = null;
     const identifierValue = String(identifier || username || email || '').trim();
     const normalizedEmail = String(email || '').trim().toLowerCase();
+    console.log('[apiAuth] login attempt', {
+      identifier: identifierValue || normalizedEmail || '(empty)',
+      hasPassword: !!password
+    });
 
     if (normalizedEmail) {
       user = await User.findOne({ email: normalizedEmail });
@@ -37,6 +41,9 @@ router.post('/login', async (req, res) => {
     }
 
     if (!user) {
+      console.log('[apiAuth] login failed: user not found', {
+        identifier: identifierValue || normalizedEmail || '(empty)'
+      });
       return res.status(401).json({ error: 'invalid_credentials', message: 'IDまたはパスワードが違います' });
     }
 
@@ -51,10 +58,15 @@ router.post('/login', async (req, res) => {
     });
 
     if (!isValid) {
+      console.log('[apiAuth] login failed: invalid password', {
+        userId: String(user._id),
+        identifier: identifierValue || normalizedEmail || '(empty)'
+      });
       return res.status(401).json({ error: 'invalid_credentials', message: 'IDまたはパスワードが違います' });
     }
 
     const token = jwt.sign({ sub: String(user._id) }, JWT_SECRET, { expiresIn: '14d' });
+    console.log('[apiAuth] login success', { userId: String(user._id), isAdmin: !!user.isAdmin });
     return res.json({ token, user: toUserJSON(user) });
   } catch (err) {
     console.error('api auth login error:', err);
