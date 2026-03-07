@@ -4,6 +4,7 @@ import User from '../models/users.js';
 import Group from '../models/groups.js';
 import MenuDo from '../models/menuDo.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
+import MenuApiConfig from '../models/menu_api_config.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -82,6 +83,36 @@ const authenticateToken = async (req, res, next) => {
     return res.status(401).json({ error: 'unauthorized', message: '認証に失敗しました' });
   }
 };
+
+
+router.get('/config', async (_req, res) => {
+  try {
+    const config = await MenuApiConfig.findOne({}).sort({ updatedAt: -1 }).lean();
+    return res.json({ url: config?.url || '' });
+  } catch (err) {
+    return res.status(500).json({ error: 'failed', message: err?.message || '' });
+  }
+});
+
+router.post('/config', authenticateToken, async (req, res) => {
+  try {
+    if (!req.apiUser?.isAdmin) {
+      return res.status(403).json({ error: 'forbidden', message: '管理者のみ変更できます' });
+    }
+    const url = String(req.body?.url || '').trim();
+    if (!url) {
+      return res.status(400).json({ error: 'invalid_url', message: 'url を指定してください' });
+    }
+    const updated = await MenuApiConfig.findOneAndUpdate(
+      {},
+      { $set: { url, updatedBy: req.apiUser._id, updatedAt: new Date() } },
+      { upsert: true, new: true }
+    ).lean();
+    return res.json({ url: updated?.url || url });
+  } catch (err) {
+    return res.status(500).json({ error: 'failed', message: err?.message || '' });
+  }
+});
 
 router.get('/day', authenticateToken, async (req, res) => {
   try {
