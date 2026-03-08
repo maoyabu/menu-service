@@ -218,6 +218,7 @@ router.get('/day', authenticateToken, async (req, res) => {
     };
 
     let shouldLoadPlanned = isFuture;
+    let eatenCount = 0;
     if (!isFuture) {
       const records = await MenuDo.find({
         group: { $in: groupIds },
@@ -245,9 +246,10 @@ router.get('/day', authenticateToken, async (req, res) => {
           source: 'eaten'
         });
         container.meals[mealType].push(item);
+        eatenCount += 1;
       }
 
-      if (records.length === 0 && isToday) {
+      if (eatenCount === 0 && isToday) {
         shouldLoadPlanned = true;
       }
     }
