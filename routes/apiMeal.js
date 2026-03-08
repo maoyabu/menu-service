@@ -276,13 +276,9 @@ router.get('/day', authenticateToken, async (req, res) => {
         if (plan.group?.group_name) {
           container.group.name = plan.group.group_name;
         }
-        const eatenSet = eatenMealTypesByGroup.get(String(groupId)) || new Set();
         const dayPlans = (plan.dayPlans || []).filter((dp) => dp.date && dp.date >= range.start && dp.date < range.end);
         for (const dayPlan of dayPlans) {
           const mealType = normalizeMealType(dayPlan.mealType);
-          if (isToday && eatenSet.has(mealType)) {
-            continue;
-          }
           for (const slot of dayPlan.slots || []) {
             if (slot.dineOut) {
               const item = buildMenuItem({
