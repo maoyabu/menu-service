@@ -187,6 +187,7 @@ router.get('/day', authenticateToken, async (req, res) => {
     }
 
     const todayKey = formatDateKey(new Date());
+    const isToday = dateString === todayKey;
     const isFuture = dateString > todayKey;
 
     const groups = await Group.find({
@@ -216,6 +217,7 @@ router.get('/day', authenticateToken, async (req, res) => {
       return grouped.get(key);
     };
 
+    let shouldLoadPlanned = isFuture;
     if (!isFuture) {
       const records = await MenuDo.find({
         group: { $in: groupIds },
@@ -244,7 +246,13 @@ router.get('/day', authenticateToken, async (req, res) => {
         });
         container.meals[mealType].push(item);
       }
-    } else {
+
+      if (records.length === 0 && isToday) {
+        shouldLoadPlanned = true;
+      }
+    }
+
+    if (shouldLoadPlanned) {
       const plans = await WeeklyMenuPlan.find({
         group: { $in: groupIds },
         weekStart: { $lte: range.start },
