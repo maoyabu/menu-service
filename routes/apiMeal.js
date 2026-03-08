@@ -331,14 +331,20 @@ router.get('/day', authenticateToken, async (req, res) => {
       }
     }
 
-    const groupsPayload = Array.from(grouped.values()).map((entry) => {
-      const meals = entry.meals;
-      const sortByName = (a, b) => (a.name || '').localeCompare(b.name || '');
-      meals.breakfast.sort(sortByName);
-      meals.lunch.sort(sortByName);
-      meals.dinner.sort(sortByName);
-      return entry;
-    });
+    const groupsPayload = Array.from(grouped.values())
+      .map((entry) => {
+        const meals = entry.meals;
+        const sortByName = (a, b) => (a.name || '').localeCompare(b.name || '');
+        meals.breakfast.sort(sortByName);
+        meals.lunch.sort(sortByName);
+        meals.dinner.sort(sortByName);
+        return entry;
+      })
+      .filter((entry) => (
+        entry.meals.breakfast.length > 0 ||
+        entry.meals.lunch.length > 0 ||
+        entry.meals.dinner.length > 0
+      ));
 
     return res.json({
       date: dateString,
