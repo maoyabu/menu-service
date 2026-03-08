@@ -203,6 +203,7 @@ router.get('/day', authenticateToken, async (req, res) => {
     const groupNameMap = new Map(groups.map((g) => [String(g._id), g.group_name || 'Group']));
 
     const grouped = new Map();
+    const eatenMealTypesByGroup = new Map();
     const ensureGroup = (groupId) => {
       const key = String(groupId);
       if (!grouped.has(key)) {
@@ -213,6 +214,7 @@ router.get('/day', authenticateToken, async (req, res) => {
           },
           meals: groupMealsTemplate()
         });
+        eatenMealTypesByGroup.set(key, new Set());
       }
       return grouped.get(key);
     };
@@ -234,6 +236,10 @@ router.get('/day', authenticateToken, async (req, res) => {
         const container = ensureGroup(groupId);
         if (record.group?.group_name) {
           container.group.name = record.group.group_name;
+        }
+        const eatenSet = eatenMealTypesByGroup.get(String(groupId));
+        if (eatenSet) {
+          eatenSet.add(mealType);
         }
         const menu = record.menu;
         const item = buildMenuItem({
@@ -270,9 +276,13 @@ router.get('/day', authenticateToken, async (req, res) => {
         if (plan.group?.group_name) {
           container.group.name = plan.group.group_name;
         }
+        const eatenSet = eatenMealTypesByGroup.get(String(groupId)) || new Set();
         const dayPlans = (plan.dayPlans || []).filter((dp) => dp.date && dp.date >= range.start && dp.date < range.end);
         for (const dayPlan of dayPlans) {
           const mealType = normalizeMealType(dayPlan.mealType);
+          if (isToday && eatenSet.has(mealType)) {
+            continue;
+          }
           for (const slot of dayPlan.slots || []) {
             if (slot.dineOut) {
               const item = buildMenuItem({
