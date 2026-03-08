@@ -219,7 +219,7 @@ router.get('/day', authenticateToken, async (req, res) => {
       return grouped.get(key);
     };
 
-    let shouldLoadPlanned = isFuture;
+    let shouldLoadPlanned = isFuture || isToday;
     let eatenCount = 0;
     if (!isFuture) {
       const records = await MenuDo.find({
