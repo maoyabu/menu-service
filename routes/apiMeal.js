@@ -204,6 +204,7 @@ router.get('/day', authenticateToken, async (req, res) => {
 
     const grouped = new Map();
     const eatenMealTypesByGroup = new Map();
+    const eatenMenusByGroupMeal = new Map();
     const ensureGroup = (groupId) => {
       const key = String(groupId);
       if (!grouped.has(key)) {
@@ -215,6 +216,7 @@ router.get('/day', authenticateToken, async (req, res) => {
           meals: groupMealsTemplate()
         });
         eatenMealTypesByGroup.set(key, new Set());
+        eatenMenusByGroupMeal.set(key, new Map());
       }
       return grouped.get(key);
     };
@@ -242,6 +244,20 @@ router.get('/day', authenticateToken, async (req, res) => {
           eatenSet.add(mealType);
         }
         const menu = record.menu;
+        const menuId = menu?._id ? String(menu._id) : '';
+        const mealMap = eatenMenusByGroupMeal.get(String(groupId));
+        if (mealMap) {
+          if (!mealMap.has(mealType)) {
+            mealMap.set(mealType, new Set());
+          }
+          const menuSet = mealMap.get(mealType);
+          if (menuSet && menuId) {
+            if (menuSet.has(menuId)) {
+              continue;
+            }
+            menuSet.add(menuId);
+          }
+        }
         const item = buildMenuItem({
           id: String(record._id),
           mealType,
@@ -293,6 +309,12 @@ router.get('/day', authenticateToken, async (req, res) => {
               container.meals[mealType].push(item);
             } else if (slot.menu) {
               const menu = slot.menu;
+              const menuId = menu?._id ? String(menu._id) : '';
+              const mealMap = eatenMenusByGroupMeal.get(String(groupId));
+              const menuSet = mealMap?.get(mealType);
+              if (menuId && menuSet?.has(menuId)) {
+                continue;
+              }
               const item = buildMenuItem({
                 id: `${plan._id}-${dayPlan.dayIndex}-${mealType}-${menu._id}`,
                 mealType,
