@@ -45,6 +45,7 @@ const buildMenuItem = ({
   mealType,
   name,
   imageUrl,
+  imageUrls,
   url,
   tags,
   source
@@ -53,6 +54,7 @@ const buildMenuItem = ({
   mealType,
   name: name || '',
   imageUrl: imageUrl || '',
+  imageUrls: imageUrls || [],
   url: url || '',
   tags: tags || [],
   source
@@ -228,7 +230,11 @@ router.get('/day', authenticateToken, async (req, res) => {
         group: { $in: groupIds },
         date: { $gte: range.start, $lt: range.end }
       })
-        .populate('menu', 'name imageUrl url junle kind menu')
+        .populate({
+          path: 'menu',
+          select: 'name imageUrl url junle kind menu menuType setMenus',
+          populate: { path: 'setMenus', select: 'imageUrl' }
+        })
         .populate('group', 'group_name')
         .lean();
 
@@ -258,11 +264,15 @@ router.get('/day', authenticateToken, async (req, res) => {
             menuSet.add(menuId);
           }
         }
+        const imageUrls = (menu?.setMenus || [])
+          .map((setMenu) => setMenu?.imageUrl || '')
+          .filter((url) => url && url.length > 0);
         const item = buildMenuItem({
           id: String(record._id),
           mealType,
           name: menu?.name || '',
           imageUrl: menu?.imageUrl || '',
+          imageUrls,
           url: menu?.url || '',
           tags: parseTags(menu),
           source: 'eaten'
@@ -283,7 +293,11 @@ router.get('/day', authenticateToken, async (req, res) => {
         weekEnd: { $gte: range.start }
       })
         .populate('group', 'group_name')
-        .populate('dayPlans.slots.menu', 'name imageUrl url junle kind menu')
+        .populate({
+          path: 'dayPlans.slots.menu',
+          select: 'name imageUrl url junle kind menu menuType setMenus',
+          populate: { path: 'setMenus', select: 'imageUrl' }
+        })
         .lean();
 
       for (const plan of plans) {
@@ -315,11 +329,15 @@ router.get('/day', authenticateToken, async (req, res) => {
               if (menuId && menuSet?.has(menuId)) {
                 continue;
               }
+              const imageUrls = (menu?.setMenus || [])
+                .map((setMenu) => setMenu?.imageUrl || '')
+                .filter((url) => url && url.length > 0);
               const item = buildMenuItem({
                 id: `${plan._id}-${dayPlan.dayIndex}-${mealType}-${menu._id}`,
                 mealType,
                 name: menu.name || '',
                 imageUrl: menu.imageUrl || '',
+                imageUrls,
                 url: menu.url || '',
                 tags: parseTags(menu),
                 source: 'planned'
