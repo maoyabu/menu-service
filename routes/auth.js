@@ -2730,6 +2730,11 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 // Week menu PDF (print-friendly HTML)
 router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
   try {
+    const withPhotosRaw = typeof req.query.withPhotos === 'string'
+      ? req.query.withPhotos.trim().toLowerCase()
+      : '';
+    const showPhotos = !['0', 'false', 'off', 'no'].includes(withPhotosRaw);
+
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
@@ -3229,7 +3234,8 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       titleLabel,
       days,
       summaryRows,
-      baseOrigin
+      baseOrigin,
+      showPhotos
     });
   } catch (err) {
     console.error('week menu pdf error:', err);

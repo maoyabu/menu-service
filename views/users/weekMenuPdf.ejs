@@ -86,7 +86,7 @@
   </head>
   <body>
     <div class="toolbar">
-      <button type="button" id="download-pdf" class="download-btn">PDFをダウンロード</button>
+      <button type="button" id="download-pdf" class="download-btn">PDFをダウンロード<%= showPhotos ? '' : '（写真なし）' %></button>
     </div>
     <div class="doc" id="pdf-doc">
     <div class="page page-first">
@@ -117,14 +117,6 @@
                     <div class="tag"><%= mealTag %></div>
                     <% items.forEach((item) => { %>
                       <div class="item <%= mealKey === 'breakfast' ? 'breakfast' : (mealKey === 'lunch' ? 'lunch' : 'dinner') %>">
-                        <%
-                          const imageUrls = [];
-                          if (item.imageUrl) imageUrls.push(item.imageUrl);
-                          if (Array.isArray(item.setMenus)) {
-                            item.setMenus.forEach((m) => { if (m && m.imageUrl) imageUrls.push(m.imageUrl); });
-                          }
-                          const uniqImages = Array.from(new Set(imageUrls));
-                        %>
                         <% if (mealKey === 'breakfast' || mealKey === 'lunch') { %>
                           <div class="name <%= mealKey === 'dinner' ? 'dinner' : '' %>">
                             <% if (item.kind) { %>
@@ -134,28 +126,38 @@
                             <% } %>
                           </div>
                         <% } %>
-                        <div class="thumbs <%= mealKey === 'breakfast' ? 'breakfast' : (mealKey === 'lunch' ? 'lunch' : '') %>">
-                        <% uniqImages.forEach((url) => { 
-                          const rawUrl = typeof url === 'string' ? url.trim() : '';
-                          const dataIndex = rawUrl.indexOf('data:image/');
-                          const dataUrl = dataIndex >= 0 ? rawUrl.slice(dataIndex) : '';
-                          const isData = dataUrl.startsWith('data:image/');
-                          const effectiveUrl = isData ? dataUrl : rawUrl;
-                          const isAbs = effectiveUrl && (/^https?:\/\//i.test(effectiveUrl) || /^\/\//.test(effectiveUrl));
-                          const normalized = effectiveUrl
-                            ? (isAbs ? effectiveUrl : (effectiveUrl.startsWith('/') ? effectiveUrl : `/${effectiveUrl}`))
-                            : '';
-                          const isCross = !isData && isAbs && typeof baseOrigin === 'string' && baseOrigin && !effectiveUrl.startsWith(baseOrigin);
-                          const proxied = isCross ? `/users/week-menu/image-proxy?url=${encodeURIComponent(normalized)}` : normalized;
-                        %>
-                          <img
-                            src="<%= proxied %>"
-                            alt=""
-                            class="thumb"
-                            <%= isCross ? 'crossorigin="anonymous" referrerpolicy="no-referrer"' : '' %>
-                          />
-                        <% }) %>
-                        </div>
+                        <% if (showPhotos) { %>
+                          <%
+                            const imageUrls = [];
+                            if (item.imageUrl) imageUrls.push(item.imageUrl);
+                            if (Array.isArray(item.setMenus)) {
+                              item.setMenus.forEach((m) => { if (m && m.imageUrl) imageUrls.push(m.imageUrl); });
+                            }
+                            const uniqImages = Array.from(new Set(imageUrls));
+                          %>
+                          <div class="thumbs <%= mealKey === 'breakfast' ? 'breakfast' : (mealKey === 'lunch' ? 'lunch' : '') %>">
+                          <% uniqImages.forEach((url) => { 
+                            const rawUrl = typeof url === 'string' ? url.trim() : '';
+                            const dataIndex = rawUrl.indexOf('data:image/');
+                            const dataUrl = dataIndex >= 0 ? rawUrl.slice(dataIndex) : '';
+                            const isData = dataUrl.startsWith('data:image/');
+                            const effectiveUrl = isData ? dataUrl : rawUrl;
+                            const isAbs = effectiveUrl && (/^https?:\/\//i.test(effectiveUrl) || /^\/\//.test(effectiveUrl));
+                            const normalized = effectiveUrl
+                              ? (isAbs ? effectiveUrl : (effectiveUrl.startsWith('/') ? effectiveUrl : `/${effectiveUrl}`))
+                              : '';
+                            const isCross = !isData && isAbs && typeof baseOrigin === 'string' && baseOrigin && !effectiveUrl.startsWith(baseOrigin);
+                            const proxied = isCross ? `/users/week-menu/image-proxy?url=${encodeURIComponent(normalized)}` : normalized;
+                          %>
+                            <img
+                              src="<%= proxied %>"
+                              alt=""
+                              class="thumb"
+                              <%= isCross ? 'crossorigin="anonymous" referrerpolicy="no-referrer"' : '' %>
+                            />
+                          <% }) %>
+                          </div>
+                        <% } %>
                         <% if (mealKey === 'breakfast' && Array.isArray(item.setMenus) && item.setMenus.length) { %>
                           <div class="name">
                             <%= item.setMenus.map((m) => m && m.name).filter(Boolean).join(' / ') %>
@@ -249,7 +251,7 @@
         btn.addEventListener('click', () => {
           const opt = {
             margin: [0, 0, 0, 0],
-            filename: 'week-menu.pdf',
+            filename: '<%= showPhotos ? 'week-menu.pdf' : 'week-menu-no-photo.pdf' %>',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 1, useCORS: true, allowTaint: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
