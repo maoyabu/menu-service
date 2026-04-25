@@ -58,7 +58,7 @@ app.use((req, res, next) => {
 // Trust first proxy (needed for secure cookies on Heroku)
 app.set('trust proxy', 1);
 
-await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/finance', {
+await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.1.231:27017/finance', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -66,7 +66,7 @@ await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/fin
 app.use(session({ 
   secret: process.env.SESSION_SECRET || 'secret',
   resave: false, saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/finance', collectionName: 'sessions' }),
+  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://192.168.1.231:27017/finance', collectionName: 'sessions' }),
   cookie: { 
     httpOnly: true, 
     secure: process.env.NODE_ENV === 'production',
@@ -253,7 +253,7 @@ app.listen(PORT, () => {
       const rangeLabel = `${fmt(mondayAfterNext)}〜${fmt(end)}`;
 
       // Link base
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
 
       // For each group, send if not yet sent for this weekStart
       const groups = await Group.find({}).select('_id group_name createdBy members').lean();
@@ -306,7 +306,7 @@ app.listen(PORT, () => {
       const y = now.getFullYear();
       const m = now.getMonth();
       const monthStart = new Date(y, m, 1); monthStart.setHours(0,0,0,0);
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
       const linkUrl = `${baseUrl}/users/my-stock`;
 
       const groups = await Group.find({}).select('_id group_name createdBy members stockInventory').lean();
@@ -383,7 +383,7 @@ app.listen(PORT, () => {
       const y = now.getFullYear();
       const m = now.getMonth();
       const monthStart = new Date(y, m, 1); monthStart.setHours(0,0,0,0);
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
       const linkUrl = `${baseUrl}/users/my-stock/checklist`;
 
       const groups = await Group.find({}).select('_id group_name createdBy members stockInventory').lean();
@@ -493,7 +493,7 @@ app.listen(PORT, () => {
   const tickEquipmentInventory = async () => {
     try {
       const now = new Date();
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
       const linkUrl = `${baseUrl}/users/my-equipment/inventory`;
       const sendHour = 8;
 
@@ -564,7 +564,7 @@ app.listen(PORT, () => {
       const now = new Date();
       const today = new Date(now); today.setHours(0,0,0,0);
       const limit = new Date(today); limit.setDate(limit.getDate() + 31);
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
       const linkUrl = `${baseUrl}/users/purchase-reminder`;
 
       const groups = await Group.find({}).select('_id group_name createdBy members').lean();
