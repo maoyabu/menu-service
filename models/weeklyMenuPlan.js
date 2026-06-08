@@ -49,7 +49,8 @@ const menuSlotSchema = new Schema({
     default: 0,
     min: 0
   }
-}, { _id: false });
+});
+ 
 
 const dayPlanSchema = new Schema({
   dayIndex: {

@@ -13,6 +13,7 @@ import fs from 'fs/promises';
 import Ingredient from '../models/ingredients.js';
 import Seasoning from '../models/seasonings.js';
 import SearchLog from '../models/searchLog.js';
+import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
 
@@ -499,6 +500,148 @@ router.get('/mine', (req, res) => {
   const base = '/users/my-menu/shared-register';
   const query = new URLSearchParams({ fav: 'mine' });
   res.redirect(`${base}?${query.toString()}`);
+});
+
+// カレンダーに割当: メニューを指定日・食事区分へ追加
+router.post('/assign-to-plan', express.json(), async (req, res, next) => {
+  try {
+    const { menuId, dateISO, mealType, groupId: bodyGroup, replaceSlotId } = req.body || {};
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = bodyGroup || defaultGroupId || (groups[0]?._id?.toString() ?? '');
+    if (!groupId || !groups.some((g) => String(g._id) === String(groupId))) return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    if (!menuId) return res.status(400).json({ error: 'menuId を指定してください。' });
+    if (!dateISO) return res.status(400).json({ error: '日付を指定してください。' });
+    if (!['breakfast','lunch','dinner'].includes(String(mealType))) return res.status(400).json({ error: '不正な食事区分です。' });
+
+    const parseDate = (v) => {
+      if (!v) return null;
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return null;
+      d.setHours(0,0,0,0);
+      return d;
+    };
+    const date = parseDate(dateISO);
+    if (!date) return res.status(400).json({ error: '不正な日付です。' });
+
+    const startOfWeek = (value) => { const dt = new Date(value); dt.setHours(0,0,0,0); const day = dt.getDay(); const offset = (day + 6) % 7; dt.setDate(dt.getDate() - offset); return dt; };
+    const weekStart = startOfWeek(date);
+    // Find or create weekly plan for this group/week
+    let plan = await WeeklyMenuPlan.findOne({ group: groupId, weekStart }).exec();
+    if (!plan) {
+      plan = new WeeklyMenuPlan({ group: groupId, createdBy: req.user._id, weekStart, dayPlans: [] });
+    }
+
+    // Compute dayIndex relative to weekStart (Monday=0)
+    const diff = Math.round((date.getTime() - weekStart.getTime()) / (24*60*60*1000));
+    const dayIndex = Number.isInteger(diff) ? diff : 0;
+
+    // map mealType -> slotType
+    const slotTypeMap = { breakfast: 'breakfast-main', lunch: 'lunch-main', dinner: 'dinner-main' };
+    const slotType = slotTypeMap[mealType] || 'dinner-main';
+
+    // Find or create dayPlan
+    let dayPlan = (plan.dayPlans || []).find((d) => d.dayIndex === dayIndex);
+    if (!dayPlan) {
+      dayPlan = { dayIndex, date, mealType, slots: [] };
+      plan.dayPlans.push(dayPlan);
+    }
+
+    // Push or replace slot by stable slot id
+    dayPlan.slots = dayPlan.slots || [];
+    let replaced = false;
+    let replacedSlotId = null;
+    if (replaceSlotId) {
+      // try subdoc id lookup
+      let found = null;
+      try {
+        if (dayPlan.slots && typeof dayPlan.slots.id === 'function') {
+          found = dayPlan.slots.id(replaceSlotId);
+        }
+      } catch (_) { found = null; }
+      if (!found) {
+        for (let i = 0; i < dayPlan.slots.length; i++) {
+          const s = dayPlan.slots[i];
+          if (s && s._id && String(s._id) === String(replaceSlotId)) { found = s; break; }
+        }
+      }
+      if (found) {
+        found.slotType = slotType;
+        found.menu = menuId;
+        replaced = true;
+        replacedSlotId = String(found._id || replaceSlotId);
+      }
+    }
+    if (!replaced) {
+      const slot = { slotType, menu: menuId };
+      dayPlan.slots.push(slot);
+    }
+
+    await plan.save();
+
+    // Notify group members about plan addition (simple notification)
+    try {
+      const menuDoc = await Menu.findById(menuId).select('name').lean();
+      await scheduleMyMenuAdded({ actorId: req.user._id, groupId, menuNames: [menuDoc?.name || ''] });
+    } catch (e) { /* ignore notify errors */ }
+
+    return res.json({ success: true, planId: plan._id, weekStart: plan.weekStart, replaced, replacedSlotId });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Get existing slots for a given date & meal (for comparison UI)
+router.get('/plan-slots', async (req, res, next) => {
+  try {
+    const { dateISO, mealType, groupId: qGroup } = req.query || {};
+    const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const groupId = qGroup || defaultGroupId || (groups[0]?._id?.toString() ?? '');
+    if (!groupId || !groups.some((g) => String(g._id) === String(groupId))) return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    if (!dateISO) return res.status(400).json({ error: '日付を指定してください。' });
+    if (!['breakfast','lunch','dinner'].includes(String(mealType))) return res.status(400).json({ error: '不正な食事区分です。' });
+
+    const d = new Date(dateISO);
+    if (Number.isNaN(d.getTime())) return res.status(400).json({ error: '不正な日付です。' });
+    const startOfWeek = (value) => { const dt = new Date(value); dt.setHours(0,0,0,0); const day = dt.getDay(); const offset = (day + 6) % 7; dt.setDate(dt.getDate() - offset); return dt; };
+    const weekStart = startOfWeek(d);
+    const diff = Math.round((d.setHours(0,0,0,0) - weekStart.getTime()) / (24*60*60*1000));
+    const dayIndex = Number.isInteger(diff) ? diff : 0;
+
+    const plan = await WeeklyMenuPlan.findOne({ group: groupId, weekStart }).lean();
+    if (!plan) return res.json({ slots: [] });
+    const dayPlan = (plan.dayPlans || []).find((p) => Number(p.dayIndex) === Number(dayIndex));
+    if (!dayPlan) return res.json({ slots: [] });
+    // Filter slots for mealType roughly by slotType mapping
+    const slotTypeMap = { breakfast: ['breakfast-main'], lunch: ['lunch-main'], dinner: ['dinner-main','dinner-staple','dinner-side','dinner-soup','dinner-flex'] };
+    const allowed = slotTypeMap[mealType] || [];
+    const slots = (dayPlan.slots || []).map((s, idx) => ({ index: idx, slotId: s._id ? String(s._id) : '', slotType: s.slotType, menuId: String(s.menu) }));
+    // populate menu info
+    const menuIds = Array.from(new Set(slots.map(s => s.menuId).filter(Boolean)));
+    const menus = menuIds.length ? await Menu.find({ _id: { $in: menuIds } }).select('name imageUrl').lean() : [];
+    const menuMap = new Map((menus||[]).map(m => [String(m._id), { name: m.name || '', imageUrl: m.imageUrl || '' }]));
+    const out = slots.map(s => ({ index: s.index, slotId: s.slotId, slotType: s.slotType, menuId: s.menuId, name: menuMap.get(s.menuId)?.name || '', imageUrl: menuMap.get(s.menuId)?.imageUrl || '' }));
+    return res.json({ slots: out });
+  } catch (err) { return next(err); }
+});
+
+// メニュー情報取得（比較用）
+router.get('/menu-info', async (req, res, next) => {
+  try {
+    const { menuId } = req.query || {};
+    if (!menuId) return res.status(400).json({ error: 'menuId を指定してください' });
+    if (!mongoose.Types.ObjectId.isValid(menuId)) return res.status(400).json({ error: 'menuId が不正です' });
+    const menu = await Menu.findById(menuId)
+      .select('name time ingredients seasoning imageUrl')
+      .populate({ path: 'ingredients.name', select: 'ingredient unit' })
+      .populate({ path: 'seasoning.name', select: 'seasoning unit' })
+      .lean();
+    if (!menu) return res.status(404).json({ error: 'メニューが見つかりません' });
+    const ingredients = (menu.ingredients || []).map((it) => ({ ingredient: it.name?.ingredient || '', amount: it.amount || '', unit: it.unit || '' }));
+    const seasonings = (menu.seasoning || []).map((it) => ({ seasoning: it.name?.seasoning || '', amount: it.amount || '', unit: it.unit || '' }));
+    return res.json({ menu: { id: String(menu._id), name: menu.name || '', time: menu.time || '', imageUrl: menu.imageUrl || '', ingredients, seasonings } });
+  } catch (err) { return next(err); }
 });
 
 // 共有メニューをマイメニューへ登録

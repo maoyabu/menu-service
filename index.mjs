@@ -58,7 +58,7 @@ app.use((req, res, next) => {
 // Trust first proxy (needed for secure cookies on Heroku)
 app.set('trust proxy', 1);
 
-await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.1.231:27017/finance', {
+await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.1.229:27017/finance', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -66,7 +66,7 @@ await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.1.231:27017
 app.use(session({ 
   secret: process.env.SESSION_SECRET || 'secret',
   resave: false, saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://192.168.1.231:27017/finance', collectionName: 'sessions' }),
+  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://192.168.1.229:27017/finance', collectionName: 'sessions' }),
   cookie: { 
     httpOnly: true, 
     secure: process.env.NODE_ENV === 'production',
@@ -136,6 +136,10 @@ app.use(bodyParser.json());
 app.use(authRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/users/my-menu', mymenuRoutes);
+// Alias route for menu list
+app.get('/users/menu-list', (req, res) => {
+  return res.redirect('/users/my-menu/shared-register' + (req.url.indexOf('?') === 0 ? req.url : ''));
+});
 app.use('/users/my-stock', mystockRoutes);
 app.use('/users/my-equipment', myequipmentRoutes);
 app.use('/users/purchase-reminder', purchaseReminderRoutes);

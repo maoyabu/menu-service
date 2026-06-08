@@ -195,6 +195,12 @@
                 </a>
               </div>
             <% } %>
+            <div class="flex justify-end mt-2">
+              <button type="button" class="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-green-50 text-emerald-700 border border-emerald-200 hover:bg-green-100 assign-calendar-btn" data-menu-id="<%= item.id %>">
+                <span class="lucide w-3.5 h-3.5" data-lucide="calendar-days"></span>
+                カレンダーに追加
+              </button>
+            </div>
             <% const __typeIsSet = (item.menuType === 'set') || (Array.isArray(item.setImages) && item.setImages.length > 0); %>
             <% const __typeIsArrange = item.menuType === 'arrange'; %>
             <div class="flex flex-wrap items-center gap-1 self-start">
@@ -407,5 +413,170 @@
 
     // Initial icon render
     window.refreshLucideIcons && window.refreshLucideIcons();
+  })();
+</script>
+
+<!-- Calendar assign modal -->
+<div id="menu-assign-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+  <div class="bg-white rounded-xl p-5 w-[360px] max-w-[94vw] border">
+    <h3 class="font-semibold mb-3">カレンダーに追加</h3>
+    <form id="menuAssignForm">
+      <input type="hidden" name="menuId" id="assign-menu-id">
+      <div class="mb-2">
+        <label class="text-xs text-gray-700">日付</label>
+        <input type="date" name="dateISO" id="assign-date" class="w-full border rounded px-3 py-2" required>
+      </div>
+      <div class="mb-2">
+        <label class="text-xs text-gray-700">食事</label>
+        <select name="mealType" id="assign-meal" class="w-full border rounded px-3 py-2">
+          <option value="breakfast">朝食</option>
+          <option value="lunch" selected>ランチ</option>
+          <option value="dinner">夕食</option>
+        </select>
+      </div>
+      <div class="mb-2 border-t pt-3">
+        <label class="text-xs text-gray-700">当日の既存メニュー（比較して置換できます）</label>
+        <div id="assign-existing-list" class="mt-2 space-y-2 text-sm text-gray-700">
+          <div class="text-xs text-gray-400">取得中...</div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" id="assign-cancel" class="px-3 py-1 rounded border">キャンセル</button>
+        <button type="submit" id="assign-submit" class="px-3 py-1 rounded bg-blue-600 text-white">追加</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const modal = document.getElementById('menu-assign-modal');
+    const form = document.getElementById('menuAssignForm');
+    const menuIdInput = document.getElementById('assign-menu-id');
+    const dateInput = document.getElementById('assign-date');
+    const mealInput = document.getElementById('assign-meal');
+    document.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.assign-calendar-btn');
+      if (!btn) return;
+      ev.preventDefault();
+      const mid = btn.dataset.menuId || '';
+      if (!mid) return alert('メニューIDが取得できません');
+      menuIdInput.value = mid;
+      // default date: today
+      const today = new Date();
+      const iso = today.toISOString().slice(0,10);
+      dateInput.value = iso;
+      if (modal) modal.classList.remove('hidden');
+    });
+    const closeModal = () => { if (modal) modal.classList.add('hidden'); };
+    document.getElementById('assign-cancel').addEventListener('click', (e)=>{ e.preventDefault(); closeModal(); });
+
+    const existingListEl = document.getElementById('assign-existing-list');
+    const fetchExisting = async () => {
+      if (!menuIdInput || !dateInput || !mealInput) return;
+      const d = dateInput.value;
+      const m = mealInput.value;
+      if (!d) return;
+      existingListEl.innerHTML = '<div class="text-xs text-gray-400">取得中...</div>';
+      try {
+        const params = new URLSearchParams({ dateISO: d, mealType: m });
+        const res = await fetch('/users/my-menu/plan-slots?' + params.toString());
+        const json = await res.json();
+        if (!res.ok) throw new Error(json && json.error ? json.error : '取得に失敗しました');
+        const slots = json.slots || [];
+        if (!slots.length) {
+          existingListEl.innerHTML = '<div class="text-xs text-gray-500">当該日のメニューはありません（このまま追加されます）</div>';
+          return;
+        }
+        // render radio list: option -1 = 追加
+        const out = [];
+        out.push('<label class="inline-flex items-center gap-2"><input type="radio" name="assignMode" value="-1" checked> 追加（新しいスロットを追加）</label>');
+
+        // fetch detailed menu info for selected menu and existing slot menus
+        const selectedMenuId = menuIdInput.value;
+        const menuIds = Array.from(new Set([selectedMenuId, ...slots.map(s => s.menuId).filter(Boolean)]));
+        const menuInfoMap = new Map();
+        try {
+          await Promise.all(menuIds.map(async (id) => {
+            try {
+              const resp = await fetch('/users/my-menu/menu-info?menuId=' + encodeURIComponent(id));
+              const j = await resp.json();
+              if (resp.ok && j && j.menu) menuInfoMap.set(id, j.menu);
+            } catch (_) { /* ignore per-menu errors */ }
+          }));
+        } catch (_) { /* noop */ }
+
+        const selectedInfo = menuInfoMap.get(selectedMenuId) || null;
+        slots.forEach((s) => {
+          const info = menuInfoMap.get(s.menuId) || null;
+          const img = info && info.imageUrl ? `<img src="${info.imageUrl}" class="w-10 h-10 object-cover rounded">` : (s.imageUrl ? `<img src="${s.imageUrl}" class="w-10 h-10 object-cover rounded">` : '<div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-400">no image</div>');
+          // build diff summary
+          let diffHtml = '';
+          try {
+            const selIngs = (selectedInfo && Array.isArray(selectedInfo.ingredients)) ? selectedInfo.ingredients.map(i=>String(i.ingredient).trim()).filter(Boolean) : [];
+            const exIngs = (info && Array.isArray(info.ingredients)) ? info.ingredients.map(i=>String(i.ingredient).trim()).filter(Boolean) : [];
+            const selSet = new Set(selIngs);
+            const exSet = new Set(exIngs);
+            const common = selIngs.filter(x => exSet.has(x));
+            const onlySel = selIngs.filter(x => !exSet.has(x));
+            const onlyEx = exIngs.filter(x => !selSet.has(x));
+            const selTime = selectedInfo ? (selectedInfo.time || '') : '';
+            const exTime = info ? (info.time || '') : (s.time || '');
+            diffHtml += `<div class="text-xs text-gray-600">調理時間: <span class="font-semibold">${escapeHtml(selTime||'–')}</span> ／ 現在: <span class="font-semibold">${escapeHtml(exTime||'–')}</span></div>`;
+            if (common.length || onlySel.length || onlyEx.length) {
+              diffHtml += '<div class="mt-1 text-xs">';
+              if (common.length) diffHtml += `<div class="text-xs text-gray-700">共通: ${escapeHtml(common.slice(0,5).join(', '))}${common.length>5? ' …':''}</div>`;
+              if (onlySel.length) diffHtml += `<div class="text-xs text-emerald-700">このメニューにのみ: ${escapeHtml(onlySel.slice(0,5).join(', '))}${onlySel.length>5? ' …':''}</div>`;
+              if (onlyEx.length) diffHtml += `<div class="text-xs text-rose-700">既存にのみ: ${escapeHtml(onlyEx.slice(0,5).join(', '))}${onlyEx.length>5? ' …':''}</div>`;
+              diffHtml += '</div>';
+            }
+          } catch (_) { diffHtml = ''; }
+
+          out.push(`<label class="flex items-start gap-2 p-2 rounded border"><input type="radio" name="assignMode" value="${s.slotId}"> <div class="w-10 h-10">${img}</div> <div class="flex-1 text-sm truncate"><div class="font-semibold">${escapeHtml(s.name || '無題')}</div><div class="text-xs text-gray-500">${s.slotType||''}</div>${diffHtml}</div></label>`);
+        });
+        existingListEl.innerHTML = out.join('');
+      } catch (e) {
+        existingListEl.innerHTML = `<div class="text-xs text-rose-500">${(e&&e.message)||'取得失敗'}</div>`;
+      }
+    };
+
+    dateInput.addEventListener('change', fetchExisting);
+    mealInput.addEventListener('change', fetchExisting);
+
+    // helper escape
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const payload = {
+        menuId: menuIdInput.value,
+        dateISO: dateInput.value,
+        mealType: mealInput.value
+      };
+      // check selected assignMode
+      try {
+        const sel = form.querySelector('input[name="assignMode"]:checked');
+        if (sel && sel.value && sel.value !== '-1') payload.replaceSlotId = sel.value;
+
+        const res = await fetch('/users/my-menu/assign-to-plan', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json && json.error ? json.error : '追加に失敗しました');
+        if (json.replaced || json.replacedSlotId) {
+          alert('既存のメニューを置換しました');
+        } else if (json.replaced === false) {
+          alert('メニューを追加しました');
+        } else {
+          alert('処理が完了しました');
+        }
+        closeModal();
+        // redirect to week menu for that week
+        const d = new Date(payload.dateISO);
+        const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0');
+        const params = new URLSearchParams({ weekStart: `${y}-${m}-${day}` });
+        window.location.href = '/users/week-menu?' + params.toString();
+      } catch (e) { alert(e.message || '追加に失敗しました'); }
+    });
+    // initial fetch
+    fetchExisting();
   })();
 </script>

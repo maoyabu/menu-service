@@ -154,6 +154,12 @@
             </a>
           </li>
           <li>
+            <a href="/users/my-menu/shared-register" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-menu/shared-register') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="list" class="w-5 h-5 <%= isActive('/users/my-menu/shared-register') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>メニューリスト</span>
+            </a>
+          </li>
+          <li>
             <a href="/users/my-menu" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-menu') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
               <i data-lucide="book-open" class="w-5 h-5 <%= isActive('/users/my-menu') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
               <span>マイメニュー</span>
