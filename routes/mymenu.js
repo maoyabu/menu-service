@@ -616,7 +616,9 @@ router.get('/plan-slots', async (req, res, next) => {
     // Filter slots for mealType roughly by slotType mapping
     const slotTypeMap = { breakfast: ['breakfast-main'], lunch: ['lunch-main'], dinner: ['dinner-main','dinner-staple','dinner-side','dinner-soup','dinner-flex'] };
     const allowed = slotTypeMap[mealType] || [];
-    const slots = (dayPlan.slots || []).map((s, idx) => ({ index: idx, slotId: s._id ? String(s._id) : '', slotType: s.slotType, menuId: String(s.menu) }));
+    const slots = (dayPlan.slots || [])
+      .map((s, idx) => ({ index: idx, slotId: s._id ? String(s._id) : '', slotType: s.slotType, menuId: String(s.menu) }))
+      .filter((s) => allowed.includes(s.slotType));
     // populate menu info
     const menuIds = Array.from(new Set(slots.map(s => s.menuId).filter(Boolean)));
     const menus = menuIds.length ? await Menu.find({ _id: { $in: menuIds } }).select('name imageUrl').lean() : [];

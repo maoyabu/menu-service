@@ -486,6 +486,7 @@
         const slots = json.slots || [];
         if (!slots.length) {
           existingListEl.innerHTML = '<div class="text-xs text-gray-500">当該日のメニューはありません（このまま追加されます）</div>';
+          try { updateSubmitLabel && updateSubmitLabel(); } catch (_) {}
           return;
         }
         // render radio list: option -1 = 追加
@@ -535,8 +536,10 @@
           out.push(`<label class="flex items-start gap-2 p-2 rounded border"><input type="radio" name="assignMode" value="${s.slotId}"> <div class="w-10 h-10">${img}</div> <div class="flex-1 text-sm truncate"><div class="font-semibold">${escapeHtml(s.name || '無題')}</div><div class="text-xs text-gray-500">${s.slotType||''}</div>${diffHtml}</div></label>`);
         });
         existingListEl.innerHTML = out.join('');
+        try { updateSubmitLabel && updateSubmitLabel(); } catch (_) {}
       } catch (e) {
         existingListEl.innerHTML = `<div class="text-xs text-rose-500">${(e&&e.message)||'取得失敗'}</div>`;
+        try { updateSubmitLabel && updateSubmitLabel(); } catch (_) {}
       }
     };
 
@@ -578,5 +581,25 @@
     });
     // initial fetch
     fetchExisting();
+    // update submit button label based on selected assign mode (追加 or 置換)
+    const assignSubmitBtn = document.getElementById('assign-submit');
+    const updateSubmitLabel = () => {
+      try {
+        const sel = form.querySelector('input[name="assignMode"]:checked');
+        if (!sel) {
+          if (assignSubmitBtn) assignSubmitBtn.textContent = '追加';
+          return;
+        }
+        if (sel.value === '-1') {
+          if (assignSubmitBtn) assignSubmitBtn.textContent = '追加';
+        } else {
+          if (assignSubmitBtn) assignSubmitBtn.textContent = '置換して保存';
+        }
+      } catch (_) { if (assignSubmitBtn) assignSubmitBtn.textContent = '追加'; }
+    };
+    // Listen for change events in the existing list
+    existingListEl.addEventListener('change', (ev) => {
+      if (ev.target && ev.target.name === 'assignMode') updateSubmitLabel();
+    });
   })();
 </script>
