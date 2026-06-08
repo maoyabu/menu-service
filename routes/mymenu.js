@@ -611,16 +611,16 @@ router.get('/plan-slots', async (req, res, next) => {
 
     const plan = await WeeklyMenuPlan.findOne({ group: groupId, weekStart }).lean();
     if (!plan) return res.json({ slots: [] });
-    const dayPlan = (plan.dayPlans || []).find((p) => Number(p.dayIndex) === Number(dayIndex));
+    const dayPlan = (plan.dayPlans || []).find((p) => Number(p.dayIndex) === Number(dayIndex) && String(p.mealType) === String(mealType));
     if (!dayPlan) return res.json({ slots: [] });
-    // Filter slots for mealType roughly by slotType mapping
-    const slotTypeMap = { breakfast: ['breakfast-main'], lunch: ['lunch-main'], dinner: ['dinner-main','dinner-staple','dinner-side','dinner-soup','dinner-flex'] };
-    const allowed = slotTypeMap[mealType] || [];
-    const slots = (dayPlan.slots || [])
-      .map((s, idx) => ({ index: idx, slotId: s._id ? String(s._id) : '', slotType: s.slotType, menuId: String(s.menu) }))
-      .filter((s) => allowed.includes(s.slotType));
+    const slots = (dayPlan.slots || []).map((s, idx) => ({
+      index: idx,
+      slotId: s._id ? String(s._id) : '',
+      slotType: s.slotType,
+      menuId: String(s.menu)
+    }));
     // populate menu info
-    const menuIds = Array.from(new Set(slots.map(s => s.menuId).filter(Boolean)));
+    const menuIds = Array.from(new Set(slots.map((s) => s.menuId).filter(Boolean)));
     const menus = menuIds.length ? await Menu.find({ _id: { $in: menuIds } }).select('name imageUrl').lean() : [];
     const menuMap = new Map((menus||[]).map(m => [String(m._id), { name: m.name || '', imageUrl: m.imageUrl || '' }]));
     const out = slots.map(s => ({ index: s.index, slotId: s.slotId, slotType: s.slotType, menuId: s.menuId, name: menuMap.get(s.menuId)?.name || '', imageUrl: menuMap.get(s.menuId)?.imageUrl || '' }));
