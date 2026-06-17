@@ -1,37 +1,56 @@
-<!-- weekMenu2: Fused view using weekMenu core logic + myTop preview design -->
-
-<!-- Pre-hide original weekMenu markup (scoped) before including it -->
-<style>
-  /* Hide only inner parts of included weekMenu (keep its header visible) */
-  #wm2-include [data-requirements-summary],
-  #wm2-include [data-plan-tab-buttons],
-  #wm2-include [data-main-panel],
-  #wm2-include [data-action="save-week-plan"],
-  #wm2-include .bg-white.border.border-gray-100.rounded-3xl.shadow-sm.overflow-hidden { display: none !important; }
-</style>
-<!-- Include weekMenu early so its scripts and data are available; keep header/calendar visible -->
-<div id="wm2-include" aria-hidden="true">
-  <%- include('weekMenu') %>
-  
-</div>
+<!-- weekMenu2: Unified /users/week-menu view using shared week menu core logic + myTop preview design -->
+<%- include('weekMenuCore') %>
 
 <style>
-  /* Hide original content from included weekMenu (scoped) */
-  #wm2-include [data-requirements-summary],
-  #wm2-include [data-plan-tab-buttons],
-  #wm2-include [data-main-panel] { display: none !important; }
-  /* Hide the plan/supplies tab buttons (robust: target by attribute) */
-  #wm2-include [data-main-tab] { display: none !important; }
-  /* Hide original save; we'll place one at very bottom */
-  #wm2-include [data-action="save-week-plan"] { display: none !important; }
-  /* Remove drop shadow/lines under the included header */
-  #wm2-include > section > header { box-shadow: none !important; }
-  /* Reduce spacing between included header and its next element to ~5px */
-  #wm2-include > section > header + * { margin-top: 5px !important; }
-  /* Hide the empty white container under header (its 1px border shows as a line) */
-  #wm2-include .bg-white.border.border-gray-100.rounded-3xl.shadow-sm.overflow-hidden { display: none !important; border:0 !important; box-shadow:none !important; }
-  /* Make the plan/supplies tab buttons white to avoid color flash */
-  #wm2-include .main-tab-button { background: #fff !important; color: #fff !important; border-color: #fff !important; box-shadow: none !important; }
+  /* ===== Inline 7 DAYS PLAN calendar (compact, myTop palette) ===== */
+  .plan-calendar { display: flex; flex-direction: column; gap: 10px; }
+  .plan-calendar-header-btn {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border:1px solid #93c5fd; border-radius:9999px;
+    background:#ffffff; color:#1d4ed8; transition:all .15s ease;
+  }
+  .plan-calendar-header-btn:hover{ border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.2); }
+  #plan-calendar-month-label{ color:#1e3a8a; }
+
+  .plan-calendar-grid { display:grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap:4px; grid-auto-rows: 24px; }
+  .plan-calendar-day { position:relative; }
+  .plan-calendar-day > button {
+    width:100%; height:100%;
+    border:1px solid #bfdbfe; border-radius:12px; background:#f0f7ff;
+    line-height:1; font-size:12px; color:#1e3a8a;
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+  }
+  .plan-calendar-day > button:hover{ border-color:#60a5fa; background:#e8f2ff; }
+  .plan-calendar-day--muted > button { background:#f1f5f9; border-color:#e2e8f0; color:#94a3b8; }
+  .plan-calendar-day--today > button { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,.25) inset; }
+  .plan-calendar-legend { display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:4px 8px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#1e3a8a; }
+  .plan-calendar-legend--planned { background-color: #2563eb !important; color: #ffffff !important; }
+  .plan-calendar-legend--future  { border-color:#bfdbfe; background:#f0f7ff; color:#1d4ed8; }
+  .plan-calendar-legend--past    { border-color:#cbd5e1; background:#f8fafc; color:#475569; }
+  .plan-calendar-day.is-planned > button {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    border-radius: 6px;
+  }
+  .plan-calendar-day.is-future > button {
+    background-color: #f0f7ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
+  .plan-calendar-day.is-past > button {
+    background-color: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+    color: #475569 !important;
+  }
+  .header-calendar-wrap {
+    width: 100%;
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: 0;
+  }
+  @media (min-width: 768px) {
+    .header-calendar-wrap { max-width: 360px; }
+  }
 
   /* Weekly preview pill bar */
   #wm2-preview .day-pill { background:#e8f2ff; border:2px solid #bfdbfe; color:#1d4ed8; border-radius:14px; padding:8px 12px; }
@@ -252,6 +271,53 @@
   .wm2-title{ display:flex; align-items:center; gap:12px; }
   .wm2-title h2{ font-size: 1.125rem; line-height:1.5rem; font-weight:800; letter-spacing:.08em; color:#0f172a; }
   .wm2-title[data-element="dish-name"]{ display:block; }
+  .wm2-heading-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .wm2-title-actions{ display:flex; flex-direction:column; gap:8px; }
+  .wm2-action-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .wm2-pill-action{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-height:36px;
+    border-radius:9999px;
+    border:1px solid #bbf7d0;
+    background:#dcfce7;
+    color:#047857;
+    padding:7px 14px;
+    font-size:15px;
+    font-weight:800;
+    line-height:1;
+    white-space:nowrap;
+    box-shadow:0 1px 1px rgba(15,23,42,.04);
+    transition:background-color .15s ease, border-color .15s ease, transform .15s ease;
+  }
+  .wm2-pill-action:hover{ background:#bbf7d0; border-color:#86efac; }
+  .wm2-pill-action .lucide{ flex-shrink:0; }
+  .wm2-model-action{
+    width:max-content;
+    border-color:#e9d5ff;
+    background:#faf5ff;
+    color:#9333ea;
+    font-size:13px;
+    min-height:34px;
+  }
+  .wm2-model-action:hover{ background:#f3e8ff; border-color:#d8b4fe; }
+  .wm2-regenerate-action{
+    margin-left:auto;
+    border-color:#dbeafe;
+    background:#e0e7ff;
+    color:#1d4ed8;
+    font-size:14px;
+  }
+  .wm2-regenerate-action:hover{ background:#dbeafe; border-color:#bfdbfe; }
+  @media (max-width: 640px){
+    .wm2-heading-row{ align-items:flex-start; }
+    .wm2-action-row{ gap:8px; }
+    .wm2-pill-action{ width:100%; justify-content:center; font-size:14px; }
+    .wm2-model-action{ width:100%; }
+    .wm2-regenerate-action{ margin-left:0; }
+  }
   .wm2-arrange-tag{
     display:inline-flex;
     align-items:center;
@@ -327,13 +393,78 @@
   }
 </style>
 
+<section class="relative max-w-6xl mx-auto py-0 mb-4">
+  <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
+    <div class="p-6 md:p-8 lg:p-10">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div class="space-y-3">
+          <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] bg-white/20 px-4 py-1 rounded-full">
+            <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+            7 DAYS PLAN
+          </span>
+          <%
+            const parts = weekRangeLabel.split('〜');
+            const year = new Date().getFullYear();
+            const displayLabel = parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`;
+          %>
+          <h1 class="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight"><%= displayLabel %><br> の 7 DAYS PLAN を計画しよう！</h1>
+          <p class="text-sm md:text-base text-white/80 max-w-2xl">
+            AIが提案するメニューを自分好みにカスタマイズして、7 DAYS PLANを立てましょう
+          </p>
+        </div>
+
+        <aside class="header-calendar-wrap bg-white rounded-2xl shadow border border-gray-100 p-4 plan-calendar">
+          <header class="flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900">7 DAYS PLAN</h2>
+              <p class="text-[11px] text-gray-500 mt-1">週をクリックして切り替えできます</p>
+            </div>
+            <div class="inline-flex items-center gap-2">
+              <button type="button" class="plan-calendar-header-btn" id="plan-calendar-prev" aria-label="前の月">
+                <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
+              </button>
+              <span class="text-sm font-semibold text-gray-800" id="plan-calendar-month-label">----</span>
+              <button type="button" class="plan-calendar-header-btn" id="plan-calendar-next" aria-label="次の月">
+                <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
+              </button>
+            </div>
+          </header>
+
+          <div class="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            <span class="text-center">月</span>
+            <span class="text-center">火</span>
+            <span class="text-center">水</span>
+            <span class="text-center">木</span>
+            <span class="text-center">金</span>
+            <span class="text-center">土</span>
+            <span class="text-center">日</span>
+          </div>
+
+          <div id="plan-calendar-grid" class="plan-calendar-grid text-[12px] text-gray-600">
+            <div class="text-center text-sm text-gray-400 py-4" style="grid-column: span 7 / span 7;">読み込み中...</div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="plan-calendar-legend plan-calendar-legend--planned">プラン登録済み</span>
+            <span class="plan-calendar-legend plan-calendar-legend--future">これから設定</span>
+            <span class="plan-calendar-legend plan-calendar-legend--past">過去を記録</span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </header>
+</section>
+
 <!-- Weekly preview + fused layout -->
 <section id="wm2-section" class="relative max-w-6xl mx-auto space-y-4 border border-gray-300 rounded-3xl bg-white p-4 md:p-6 shadow-sm">
   <!-- Title above preview -->
-  <div class="wm2-title justify-between">
-    <div class="flex items-center gap-2 flex-wrap">
-      <h2><%= isModelPlanMode ? (modelPlanTitle || 'モデルPLAN') : '7 DAYS PLAN' %></h2>
+  <div class="wm2-title-actions">
+    <div class="wm2-heading-row">
+      <div class="wm2-title">
+        <h2><%= isModelPlanMode ? (modelPlanTitle || 'モデルPLAN') : '7 DAYS PLAN' %></h2>
+      </div>
       <% if (isModelPlanMode) { %>
+      <div class="wm2-action-row">
         <button type="button" id="wm2-save-current" class="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
           <span class="lucide w-4 h-4" data-lucide="save"></span>
           保存
@@ -346,47 +477,8 @@
           <span class="lucide w-4 h-4" data-lucide="list"></span>
           モデルPLAN一覧
         </a>
+      </div>
       <% } else { %>
-      <a
-        href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=1"
-        target="_blank"
-        rel="noopener"
-        class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 shadow-sm"
-      >
-        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
-        1週間のメニューをPDFで表示（写真あり）
-      </a>
-      <a
-        href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=0"
-        target="_blank"
-        rel="noopener"
-        class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 shadow-sm"
-      >
-        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
-        1週間のメニューをPDFで表示（写真なし）
-      </a>
-      <a
-        href="/users/week-menu/ingredients.xlsx?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>"
-        class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 shadow-sm"
-      >
-        <span class="lucide w-4 h-4" data-lucide="list"></span>
-        週の食材・調味料明細
-      </a>
-      <button
-        type="button"
-        id="wm2-save-model"
-        data-plan-id="<%= existingPlanId || '' %>"
-        data-group-id="<%= currentGroupId || '' %>"
-        data-week-start="<%= weekStartISO || '' %>"
-        class="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 shadow-sm"
-      >
-        <span class="lucide w-4 h-4" data-lucide="copy-plus"></span>
-        モデルPLANとして保存
-      </button>
-      <button type="button" id="wm2-toggle-supplies" class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">お買い物リストを表示</button>
-      <% } %>
-    </div>
-    <% if (!isModelPlanMode) { %>
     <% const wm2CanRegenerateWeek = (() => {
       try {
         const ws = weekStartISO ? new Date(weekStartISO) : null;
@@ -406,19 +498,68 @@
       id="wm2-regenerate"
       data-group-id="<%= currentGroupId || '' %>"
       data-week-start="<%= weekStartISO || '' %>"
-      class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 shadow-sm <%= wm2CanRegenerateWeek ? '' : 'opacity-50 cursor-not-allowed' %>"
+      class="wm2-pill-action wm2-regenerate-action <%= wm2CanRegenerateWeek ? '' : 'opacity-50 cursor-not-allowed' %>"
       <%= wm2CanRegenerateWeek ? '' : 'disabled title="現在の週・過去の週は再提案できません"' %>
     >
-      <span class="lucide w-4 h-4" data-lucide="refresh-ccw"></span>
-      １週間のメニューを再提案
+      <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
+      メニュー再提案
     </button>
     <% } %>
+    </div>
+    <% if (!isModelPlanMode) { %>
+    <div class="wm2-action-row" aria-label="詳細Viewアクション">
+      <button type="button" id="wm2-toggle-supplies" class="wm2-pill-action">
+        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
+        <span data-wm2-toggle-label>お買い物リスト</span>
+      </button>
+      <a
+        href="/users/week-menu/ingredients.xlsx?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>"
+        class="wm2-pill-action"
+      >
+        <span class="lucide w-5 h-5" data-lucide="download"></span>
+        食材・調味料
+      </a>
+      <a
+        href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=1"
+        target="_blank"
+        rel="noopener"
+        class="wm2-pill-action"
+      >
+        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
+        PDF表示
+        <span class="lucide w-5 h-5" data-lucide="camera"></span>
+      </a>
+      <a
+        href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=0"
+        target="_blank"
+        rel="noopener"
+        class="wm2-pill-action"
+      >
+        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
+        PDF表示
+        <span class="lucide w-5 h-5" data-lucide="pencil-line"></span>
+      </a>
+    </div>
+    <% } %>
   </div>
-  <div class="flex items-center justify-between gap-3">
+  <div class="flex items-center justify-between gap-3 flex-wrap">
     <div class="wm2-view-toggle" id="wm2-view-toggle">
       <button type="button" data-view-mode="week" data-active="false">1週間View</button>
       <button type="button" data-view-mode="detail" data-active="true">詳細View</button>
     </div>
+    <% if (!isModelPlanMode) { %>
+    <button
+      type="button"
+      id="wm2-save-model"
+      data-plan-id="<%= existingPlanId || '' %>"
+      data-group-id="<%= currentGroupId || '' %>"
+      data-week-start="<%= weekStartISO || '' %>"
+      class="wm2-pill-action wm2-model-action"
+    >
+      <span class="lucide w-4 h-4" data-lucide="copy-plus"></span>
+      モデルPLANとして保存
+    </button>
+    <% } %>
   </div>
   <p id="wm2-supplies-range" aria-live="polite"></p>
   <!-- Weekly supplies (collapsed by default) -->
@@ -622,7 +763,7 @@
     const saveCurrentBtn = document.getElementById('wm2-save-current');
     if (saveCurrentBtn) {
       saveCurrentBtn.addEventListener('click', () => {
-        const hiddenSave = document.querySelector('#wm2-include [data-action="save-week-plan"]');
+        const hiddenSave = document.querySelector('[data-action="save-week-plan"]');
         if (hiddenSave) hiddenSave.click();
       });
     }
@@ -3703,6 +3844,7 @@
     };
 
     const toggleBtn = document.getElementById('wm2-toggle-supplies');
+    const toggleLabel = toggleBtn ? toggleBtn.querySelector('[data-wm2-toggle-label]') : null;
     const box = document.getElementById('wm2-supplies');
     const preview = document.getElementById('wm2-preview');
     const main = document.getElementById('wm2-main');
@@ -3714,7 +3856,7 @@
       if (main) main.classList.toggle('hidden', showSupplies);
       const weekView = document.getElementById('wm2-week-view');
       if (weekView) weekView.classList.toggle('hidden', showSupplies || currentViewMode !== 'week');
-      if (toggleBtn) toggleBtn.textContent = showSupplies ? 'メニューの表示' : 'お買い物リストを表示';
+      if (toggleLabel) toggleLabel.textContent = showSupplies ? 'メニューの表示' : 'お買い物リスト';
       if (section) section.dataset.mode = showSupplies ? 'supplies' : 'menu';
       if (showSupplies) render();
       if (!showSupplies) updateViewModeUI();

@@ -145,7 +145,7 @@
             </a>
           </li>
           <li>
-            <a href="/users/week-menu2?show=supplies&weekStart=<%= encodeURIComponent(nextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeNextSupplies ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+            <a href="/users/week-menu?show=supplies&weekStart=<%= encodeURIComponent(nextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeNextSupplies ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
               <i data-lucide="shopping-cart" class="w-5 h-5 <%= activeNextSupplies ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
               <span>来週のお買い物リスト</span>
               <% if (activeNextSupplies) { %>

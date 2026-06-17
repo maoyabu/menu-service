@@ -2532,7 +2532,7 @@ router.post('/users/week-menu/apply-template', isLoggedIn, async (req, res) => {
   }
 });
 
-//weekMenu.ejsを開く
+// Unified 7 DAYS PLAN view
 router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   try {
     const configKindSet = new Set();
@@ -3060,8 +3060,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       console.warn('DO records fetch failed:', e?.message || e);
     }
 
-	const viewTemplate = 'users/weekMenu2';
-	res.render(viewTemplate, {
+	res.render('users/weekMenu2', {
     categoryConfig: CATEGORY_CONFIG,
     menusByCategory,
     modalMenus,
@@ -3961,11 +3960,11 @@ router.get('/users/week-menu/ingredients.xlsx', isLoggedIn, async (req, res, nex
   }
 });
 
-// weekMenu2 direct entry (redirects to week-menu with view=2)
+// Legacy direct entry: keep old links/bookmarks working while /users/week-menu is the single view.
 router.get('/users/week-menu2', isLoggedIn, (req, res) => {
   const url = new URL(req.protocol + '://' + req.get('host') + req.originalUrl);
   const q = new URLSearchParams(url.search);
-  q.set('view', '2');
+  q.delete('view');
   res.redirect('/users/week-menu' + (q.toString() ? ('?' + q.toString()) : ''));
 });
 

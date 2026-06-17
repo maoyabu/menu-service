@@ -1,0 +1,2919 @@
+<!-- Shared week menu data, API scripts, and modal for the unified weekMenu2 view. -->
+<%
+  const serialize = (value) =>
+    JSON.stringify(value)
+      .replace(/</g, '\\u003c')
+      .replace(/'/g, '\\u0027')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
+  const isEmbeddedLite = typeof embeddedLite !== 'undefined' && embeddedLite;
+%>
+
+<div class="fixed inset-0 z-50 hidden" data-menu-modal aria-hidden="true">
+  <div class="absolute inset-0 bg-black/40" data-menu-modal-close></div>
+  <div class="relative mx-auto mt-10 w-[860px] max-w-[96vw] rounded-2xl bg-white shadow-xl" data-menu-modal-dialog>
+    <div class="flex items-center justify-between border-b px-5 py-3">
+      <h3 class="font-semibold">メニューを選択</h3>
+      <button type="button" class="text-gray-500" data-menu-modal-close aria-label="閉じる">✕</button>
+    </div>
+    <div class="p-4 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500">フリーワード</label>
+          <input
+            type="search"
+            data-menu-modal-search
+            placeholder="例: 白米 / 味噌 / カレー"
+            class="w-full border rounded px-3 py-2"
+          >
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">種類</label>
+          <select data-menu-modal-kind class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">ジャンル</label>
+          <select data-menu-modal-junle class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">メニュー内容</label>
+          <select data-menu-modal-menu class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-4">
+          <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap">
+            <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+            <span>つくりおきのみ</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap" data-menu-modal-dinner-set-wrap>
+            <input type="checkbox" data-menu-modal-dinner-set class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+            <span>定番ディナーセット</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3 text-sm text-gray-700" data-menu-modal-filter-box>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="inline-flex items-center gap-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">このメニューで絞り込み中</p>
+            <button type="button" data-menu-modal-settings-open class="px-2 py-1 text-[11px] rounded-full border border-amber-300 bg-white text-amber-700 hover:bg-amber-100">絞込み設定</button>
+          </div>
+          <label class="inline-flex items-center gap-2 text-xs font-semibold text-amber-800">
+            <input type="checkbox" data-menu-modal-filter-toggle class="w-4 h-4 text-amber-600 border-gray-300 rounded">
+            <span>この絞り込みを一括解除</span>
+          </label>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2" data-menu-modal-filter-list></div>
+        <p class="mt-2 text-xs text-amber-700/80" data-menu-modal-filter-empty>絞り込み対象がありません。</p>
+      </div>
+
+      <div class="hidden rounded border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800" data-menu-modal-current>
+        <p class="text-xs text-blue-500">現在のメニュー</p>
+        <p class="mt-1 font-semibold text-blue-900" data-menu-modal-current-name></p>
+        <p class="text-xs text-blue-700/80" data-menu-modal-current-detail></p>
+      </div>
+
+      <div data-menu-modal-list class="max-h-[45vh] overflow-auto border rounded p-3 bg-gray-50 space-y-2"></div>
+      <div class="hidden rounded border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500" data-menu-modal-empty>
+        条件に一致するメニューがありません。
+      </div>
+    </div>
+  </div>
+</div>
+
+<button type="button" data-action="save-week-plan" class="hidden" aria-hidden="true" tabindex="-1">保存</button>
+
+<script>
+  window.weekMenuData = {
+    plan: <%- serialize(plan) %>,
+    menusByCategory: <%- serialize(menusByCategory) %>,
+    modalMenus: <%- serialize(typeof modalMenus !== "undefined" ? modalMenus : []) %>,
+    menuLookup: <%- serialize(menuLookup) %>,
+    categoryConfig: <%- serialize(categoryConfig) %>,
+    allKinds: <%- serialize(typeof allKinds !== "undefined" ? allKinds : []) %>,
+    weekDates: <%- serialize(weekDates) %>,
+    weekRangeLabel: <%- serialize(weekRangeLabel) %>,
+    currentGroupId: <%- serialize(currentGroupId || '') %>,
+    groupSize: <%- serialize(groupSize || 1) %>,
+    planId: <%- serialize(existingPlanId || '') %>,
+    weekStartISO: <%- serialize(weekStartISO || '') %>,
+    isHistoricalWeek: <%- serialize(isHistoricalWeek || false) %>,
+    todayISO: <%- serialize(todayISO || '') %>,
+    // 換算用のグループ名とメンバー名を保持
+    currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
+    currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>,
+    myMenuIds: <%- serialize(myMenuIds || []) %>,
+    // 参加者・ユーザー情報
+    currentUserId: <%- serialize(typeof currentUserId !== 'undefined' ? currentUserId : '') %>,
+    currentGroupUsers: <%- serialize(typeof currentGroupUsers !== "undefined" ? currentGroupUsers : []) %>,
+    guidelineTotals: <%- serialize(typeof guidelineTotals !== "undefined" ? guidelineTotals : {}) %>,
+    guidelineByUser: <%- serialize(typeof guidelineByUser !== "undefined" ? guidelineByUser : {}) %>,
+    currentUserIsGroupOwner: <%- serialize(typeof currentUserIsGroupOwner !== 'undefined' ? currentUserIsGroupOwner : false) %>,
+    participantsByMeal: <%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>,
+    doRecords: <%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>,
+    menuFilterSettings: <%- serialize(typeof weekMenuSettings !== "undefined" ? weekMenuSettings : {}) %>,
+    isModelPlanMode: <%- serialize(typeof isModelPlanMode !== "undefined" ? isModelPlanMode : false) %>,
+    modelPlanId: <%- serialize(typeof modelPlanId !== "undefined" ? modelPlanId : '') %>,
+    modelPlanTitle: <%- serialize(typeof modelPlanTitle !== "undefined" ? modelPlanTitle : '') %>,
+    modelPlanDescription: <%- serialize(typeof modelPlanDescription !== "undefined" ? modelPlanDescription : '') %>,
+    saveEndpoint: <%- serialize((typeof isModelPlanMode !== "undefined" && isModelPlanMode && typeof modelPlanId !== "undefined" && modelPlanId) ? `/users/my-menu/model-plans/${modelPlanId}` : '/users/week-menu') %>,
+    shouldPromptPlanSource: <%- serialize(typeof shouldPromptPlanSource !== "undefined" ? shouldPromptPlanSource : false) %>,
+    modelPlanChoices: <%- serialize(typeof modelPlanChoices !== "undefined" ? modelPlanChoices : []) %>
+  };
+</script>
+
+<script>
+  // 「これ食べた」記録ボタンの処理
+  (function(){
+    function startOfDayLocal(d){ const nd = new Date(d); nd.setHours(0,0,0,0); return nd; }
+    document.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('[data-action="mark-ate"]');
+      if (!btn) return;
+      ev.preventDefault();
+      try {
+        const container = btn.closest('[data-day][data-meal]');
+        if (!container) throw new Error('日付が特定できません');
+        const meal = container.getAttribute('data-meal');
+        const dayIndex = Number(container.getAttribute('data-day'));
+        const menuId = btn.getAttribute('data-menu-id');
+        const data = window.weekMenuData || {};
+        const weekDates = Array.isArray(data.weekDates) ? data.weekDates : [];
+        const dateISO = (weekDates[dayIndex] && weekDates[dayIndex].dateISO) || '';
+        const todayISO = data.todayISO || new Date().toISOString();
+
+        if (!menuId) throw new Error('メニューが特定できません');
+        if (!dateISO) throw new Error('日付が特定できません');
+        // 未来日は不可（念のためクライアントでもガード）
+        if (startOfDayLocal(new Date(dateISO)).getTime() > startOfDayLocal(new Date(todayISO)).getTime()) {
+          throw new Error('未来日は記録できません');
+        }
+
+        // planId が無ければ自動保存を試行
+        let planId = data.planId || '';
+        if (!planId && window.weekMenuAPI && window.weekMenuAPI.saveWeekPlanSilently) {
+          try {
+            await window.weekMenuAPI.saveWeekPlanSilently();
+            planId = (window.weekMenuData && window.weekMenuData.planId) || '';
+          } catch (_) { /* ignore */ }
+        }
+
+        const payload = {
+          planId: planId || '',
+          groupId: data.currentGroupId || '',
+          dayIndex,
+          dateISO,
+          mealType: meal,
+          menuId
+        };
+
+        const resp = await fetch('/users/week-menu/do', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error(t || '記録に失敗しました');
+        }
+        const json = await resp.json();
+        if (!json || !json.success) throw new Error('記録に失敗しました');
+
+        // UI: 記録済みに変更
+        btn.setAttribute('disabled', 'true');
+        btn.title = '記録済み';
+        const icon = btn.querySelector('[data-lucide]');
+        if (icon) icon.setAttribute('data-lucide', 'check');
+        if (window.refreshLucideIcons) window.refreshLucideIcons();
+      } catch (err) {
+        alert(err.message || '記録に失敗しました');
+      }
+    });
+  })();
+</script>
+
+<!-- Favorite registration modal -->
+<div id="fav-modal" class="hidden fixed inset-0 z-50 bg-transparent">
+  <div id="fav-pop" class="w-80 rounded-xl bg-white p-5 shadow-lg border">
+    <h3 class="text-base font-semibold mb-3">マイメニューに登録</h3>
+    <div class="space-y-3 text-[15px]">
+      <label class="flex items-center justify-between gap-3">
+        <span class="flex flex-col leading-tight">
+          <span class="font-medium">食べたい頻度</span>
+        </span>
+        <select id="fav-frequency" class="border rounded px-2 py-1">
+          <option value="5">5 … 週に2回</option>
+          <option value="4">4 … 週に1回</option>
+          <option value="3" selected>3 … 隔週に1回</option>
+          <option value="2">2 … 月に1回</option>
+          <option value="1">1 … 3ヶ月に1回</option>
+        </select>
+      </label>
+      
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" data-fav-action="cancel" class="px-3 py-1.5 rounded border">キャンセル</button>
+      <button type="button" data-fav-action="submit" class="px-3 py-1.5 rounded bg-blue-600 text-white">登録</button>
+    </div>
+  </div>
+</div>
+
+<% if (!isEmbeddedLite) { %>
+<script>
+  // ===== Robust Inline 7 DAYS PLAN Calendar bootstrap (runs independently) =====
+  (function () {
+    if (window.__inlinePlanCalendarInitDone) return;
+
+    function safeInit() {
+      if (window.__inlinePlanCalendarInitDone) return;
+      try {
+        const grid = document.getElementById('plan-calendar-grid');
+        const monthLabel = document.getElementById('plan-calendar-month-label');
+        const prevBtn = document.getElementById('plan-calendar-prev');
+        const nextBtn = document.getElementById('plan-calendar-next');
+        if (!grid || !monthLabel) {
+          // Retry shortly in case header HTML renders later
+          setTimeout(safeInit, 50);
+          return;
+        }
+
+        // Utilities
+        const tzFix = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const startOfWeekMon = (d) => { const nd = tzFix(d); const day = (nd.getDay() + 6) % 7; nd.setDate(nd.getDate() - day); return nd; };
+        const addDays = (d, n) => { const nd = new Date(d); nd.setDate(nd.getDate() + n); return nd; };
+        const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+        const endOfMonth   = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        const formatMonthLabel = (d) => `${d.getFullYear()}年 ${d.getMonth() + 1}月`;
+
+        // Prefer weekStart from URL if present (overrides plan/session)
+        const urlWeekStart = new URL(window.location.href).searchParams.get('weekStart');
+
+        // Week status helpers (used to color cells)
+        const startOfWeekMonISO = (d) => {
+          const ws = startOfWeekMon(d);
+          const local00 = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate());
+          return new Date(local00.getTime() - (local00.getTimezoneOffset() * 60000)).toISOString();
+        };
+        const todayWeekISO = startOfWeekMonISO(new Date());
+        const currentPlanWeekISO = urlWeekStart
+          ? startOfWeekMonISO(new Date(urlWeekStart))
+          : (window.weekMenuData?.weekStartISO
+              ? startOfWeekMonISO(new Date(window.weekMenuData.weekStartISO))
+              : todayWeekISO);
+
+        const baseISO = urlWeekStart || window.weekMenuData?.weekStartISO || window.weekMenuData?.todayISO || new Date().toISOString();
+        const initialWeek = startOfWeekMon(new Date(baseISO));
+        const stateCal = { currentMonth: startOfMonth(initialWeek) };
+
+        const buildWeekStartISO = (d) => {
+          const ws = startOfWeekMon(d);
+          const local = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate());
+          return new Date(local.getTime() - (local.getTimezoneOffset() * 60000)).toISOString();
+        };
+        const navigateToWeek = (weekStart) => {
+          const url = new URL(window.location.href);
+          // clear plan pinning so server recalculates by weekStart
+          url.searchParams.delete('plan');
+          url.searchParams.delete('planId');
+          url.searchParams.set('weekStart', weekStart);
+          window.location.assign(url.toString());
+        };
+
+        function renderCalendar() {
+          const first = startOfMonth(stateCal.currentMonth);
+          const last  = endOfMonth(stateCal.currentMonth);
+          const gridStart = startOfWeekMon(first);
+          const gridEnd   = addDays(startOfWeekMon(addDays(last, 7)), 6); // 6 rows
+
+          monthLabel.textContent = formatMonthLabel(first);
+          grid.innerHTML = '';
+
+          for (let d = new Date(gridStart); d <= gridEnd; d = addDays(d, 1)) {
+            const inMonth = d.getMonth() === first.getMonth();
+            const isToday = tzFix(new Date()).toDateString() === tzFix(d).toDateString();
+
+            const cell = document.createElement('div');
+            cell.className = 'plan-calendar-day' + (inMonth ? '' : ' plan-calendar-day--muted') + (isToday ? ' plan-calendar-day--today' : '');
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = String(d.getDate());
+            btn.addEventListener('click', () => navigateToWeek(buildWeekStartISO(d)));
+            cell.appendChild(btn);
+
+
+            // ←← ここ追加
+            const weekISO = startOfWeekMonISO(d);
+            let statusClass = '';
+            if (weekISO === currentPlanWeekISO) {
+              statusClass = 'is-planned';
+            } else if (weekISO > todayWeekISO) {
+              statusClass = 'is-future';
+            } else {
+              statusClass = 'is-past';
+            }
+            if (statusClass) cell.classList.add(statusClass);
+            // →→ 追加ここまで
+
+            grid.appendChild(cell);
+          }
+
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+        }
+
+        if (prevBtn) prevBtn.addEventListener('click', () => { stateCal.currentMonth = startOfMonth(addDays(stateCal.currentMonth, -1)); renderCalendar(); });
+        if (nextBtn) nextBtn.addEventListener('click', () => { stateCal.currentMonth = startOfMonth(addDays(stateCal.currentMonth, 32)); renderCalendar(); });
+
+        renderCalendar();
+        window.__inlinePlanCalendarInitDone = true;
+        if (window && window.console) console.debug('[weekMenu] inline calendar bootstrapped');
+      } catch (e) {
+        console.error('[weekMenu] inline calendar init error', e);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', safeInit, { once: true });
+    } else {
+      // DOM already ready
+      setTimeout(safeInit, 0);
+    }
+  })();
+</script>
+<% } %>
+
+<script>
+  (function () {
+    const data = window.weekMenuData;
+    if (!data) return;
+
+    const clonePlan = (value) => {
+      if (typeof structuredClone === 'function') {
+        try {
+          return structuredClone(value);
+        } catch (err) {
+          // fallback below
+        }
+      }
+      return JSON.parse(JSON.stringify(value));
+    };
+
+    const rawPlan = clonePlan(data.plan);
+    const state = {
+      planId: data.planId || '',
+      tab: 'lunch',
+      mainTab: 'plan',
+      supplyTab: 'ingredients',
+      plan: Array.isArray(rawPlan)
+        ? rawPlan.map((day) => ({
+            ...day,
+            breakfastSlots: Array.isArray(day?.breakfastSlots) ? day.breakfastSlots : [],
+            lunchSlots: Array.isArray(day?.lunchSlots) ? day.lunchSlots : [],
+            dayComment: (day && typeof day.dayComment === 'string') ? day.dayComment : ''
+          }))
+        : []
+    };
+
+    const menuLookup = data.menuLookup || {};
+    const menusByCategory = data.menusByCategory || {};
+    const categoryConfig = data.categoryConfig || {};
+    const weekDates = Array.isArray(data.weekDates) ? data.weekDates : [];
+    const currentGroupId = data.currentGroupId || '';
+    const weekRangeLabel = data.weekRangeLabel || '';
+    const groupSize = Number(data.groupSize) > 0 ? Number(data.groupSize) : 1;
+    const currentUserId = data.currentUserId || '';
+    const groupUsers = Array.isArray(data.currentGroupUsers) ? data.currentGroupUsers : [];
+    const participantsByMeal = data.participantsByMeal || {};
+    const keyFor = (dayIndex, meal) => `${dayIndex}:${meal}`;
+    const defaultIds = () => groupUsers.map((u) => String(u.id));
+    const getParticipantIds = (dayIndex, meal) => {
+      const ids = participantsByMeal[keyFor(dayIndex, meal)];
+      if (Array.isArray(ids)) return ids.map(String); // 空配列は0人
+      return defaultIds();
+    };
+    const mainTabButtons = Array.from(document.querySelectorAll('[data-main-tab]'));
+    const mainPanels = Array.from(document.querySelectorAll('[data-main-panel]'));
+    const planTabButtonsContainer = document.querySelector('[data-plan-tab-buttons]');
+    // lunch/dinner sections
+    const lunchPanel = document.querySelector('[data-panel="lunch"]');
+    const dinnerPanel = document.querySelector('[data-panel="dinner"]');
+
+    // Helper: apply button appearance based on current state.tab
+    const applyPlanTabStyles = () => {
+      if (!planTabButtonsContainer) return;
+      const buttons = Array.from(planTabButtonsContainer.querySelectorAll('.tab-button'));
+      buttons.forEach((btn) => {
+        const isLunchBtn = btn.dataset.tab === 'lunch';
+        const isDinnerBtn = btn.dataset.tab === 'dinner';
+        const isActive = (state.tab === 'lunch' && isLunchBtn) || (state.tab === 'dinner' && isDinnerBtn);
+
+        // reset base
+        btn.classList.remove('bg-blue-600', 'bg-blue-700', 'text-white', 'bg-white', 'text-blue-600');
+
+        // apply
+        if (isActive) {
+          if (isLunchBtn) {
+            btn.classList.add('bg-blue-600', 'text-white');
+          } else if (isDinnerBtn) {
+            btn.classList.add('bg-blue-700', 'text-white');
+          }
+        } else {
+          btn.classList.add('bg-white', 'text-blue-600');
+        }
+      });
+    };
+
+    // Helper: show the correct panel
+    const applyPlanPanels = () => {
+      if (lunchPanel) {
+        const hideLunch = state.tab !== 'lunch';
+        lunchPanel.classList.toggle('hidden', hideLunch);
+        lunchPanel.toggleAttribute('hidden', hideLunch);
+      }
+      if (dinnerPanel) {
+        const hideDinner = state.tab !== 'dinner';
+        dinnerPanel.classList.toggle('hidden', hideDinner);
+        dinnerPanel.toggleAttribute('hidden', hideDinner);
+      }
+    };
+
+    // Switch tab API
+    const switchPlanTabRect = (next) => {
+      state.tab = next === 'dinner' ? 'dinner' : 'lunch';
+      applyPlanTabStyles();
+      applyPlanPanels();
+    };
+
+    // Bind click (event delegation on the container)
+    if (planTabButtonsContainer) {
+      planTabButtonsContainer.addEventListener('click', (e) => {
+        const target = e.target.closest('.tab-button');
+        if (!target) return;
+        const next = target.dataset.tab;
+        if (!next) return;
+        switchPlanTabRect(next);
+      });
+    }
+
+    // Initial paint
+    applyPlanTabStyles();
+    applyPlanPanels();
+    // --- 食材／調味料 タブ切り替え処理 ---
+    document.addEventListener('DOMContentLoaded', () => {
+      const supplyTabButtonsContainer = document.querySelector('[data-supply-tab-buttons]');
+      const supplyTabs = supplyTabButtonsContainer ? supplyTabButtonsContainer.querySelectorAll('.supply-tab-button') : [];
+      const ingredientsPanel = document.querySelector('[data-supply-panel="ingredients"]');
+      const seasoningsPanel = document.querySelector('[data-supply-panel="seasonings"]');
+
+      const applySupplyTabStyles = (activeTab) => {
+        supplyTabs.forEach(btn => {
+          const isIngredients = btn.dataset.tab === 'ingredients';
+          const isSeasonings = btn.dataset.tab === 'seasonings';
+          btn.classList.remove('bg-emerald-600', 'bg-emerald-700', 'text-white', 'bg-white', 'text-emerald-600');
+          if ((isIngredients && activeTab === 'ingredients') || (isSeasonings && activeTab === 'seasonings')) {
+            btn.classList.add(activeTab === 'ingredients' ? 'bg-emerald-600' : 'bg-emerald-700', 'text-white');
+          } else {
+            btn.classList.add('bg-white', 'text-emerald-600');
+          }
+        });
+      };
+
+      const applySupplyPanels = (activeTab) => {
+        if (ingredientsPanel) {
+          ingredientsPanel.classList.toggle('hidden', activeTab !== 'ingredients');
+          ingredientsPanel.toggleAttribute('hidden', activeTab !== 'ingredients');
+        }
+        if (seasoningsPanel) {
+          seasoningsPanel.classList.toggle('hidden', activeTab !== 'seasonings');
+          seasoningsPanel.toggleAttribute('hidden', activeTab !== 'seasonings');
+        }
+      };
+
+      if (supplyTabButtonsContainer) {
+        supplyTabButtonsContainer.addEventListener('click', (e) => {
+          const target = e.target.closest('.supply-tab-button');
+          if (!target) return;
+          const next = target.dataset.tab;
+          if (!next) return;
+          state.supplyTab = next; // 'ingredients' or 'seasonings'
+          applySupplyTabStyles(next);
+          applySupplyPanels(next);
+          renderRequirements();
+        });
+      }
+
+      // 初期状態を食材タブに設定して描画
+      state.supplyTab = 'ingredients';
+      applySupplyTabStyles('ingredients');
+      applySupplyPanels('ingredients');
+      renderRequirements();
+    });
+    const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+    const panels = Array.from(document.querySelectorAll('[data-panel]'));
+    const saveButton = document.querySelector('[data-action="save-week-plan"]');
+    // Bind save button click
+    if (saveButton) {
+      saveButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSave();
+      });
+    }
+    const requirementsListEl = document.querySelector('[data-requirements-list]');
+    const requirementsEmptyEl = document.querySelector('[data-requirements-empty]');
+    const requirementsSummaryEl = document.querySelector('[data-requirements-summary]');
+    const ensureBreakfastSlots = (day) => {
+      if (!day.breakfastSlots) day.breakfastSlots = [];
+      return day.breakfastSlots;
+    };
+    const ensureLunchSlots = (day) => {
+      if (!day.lunchSlots) day.lunchSlots = [];
+      return day.lunchSlots;
+    };
+    const ensureDayComment = (day) => {
+      if (!day) return '';
+      if (typeof day.dayComment !== 'string') day.dayComment = '';
+      return day.dayComment;
+    };
+
+    const slotIsBreakfast = (slot) => slot?.categoryKey === 'breakfastMain';
+    const mealLabelForSlot = (slot) => (slotIsBreakfast(slot) ? '朝食' : 'ランチ');
+    const mealTagClassesForSlot = (slot) => slotIsBreakfast(slot)
+      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+      : 'bg-blue-50 text-blue-700 border border-blue-200';
+    const insertLunchSlot = (slots, slot) => {
+      if (!slots || !slot) return;
+      slots.push(slot);
+    };
+    const buildPlanSnapshot = () => state.plan.map((day) => {
+      if (!day) return day;
+      const breakfast = ensureBreakfastSlots(day).map((slot, index) => ({ ...slot, combinedIndex: index }));
+      const lunch = ensureLunchSlots(day).map((slot, index) => ({ ...slot, combinedIndex: index }));
+      return {
+        ...day,
+        breakfastSlots: breakfast,
+        lunchSlots: lunch
+      };
+    });
+
+    const ensureDinnerSlots = (day) => {
+      if (!day) return [];
+      if (!Array.isArray(day.dinnerSlots)) {
+        const slots = [];
+        if (day.dinner && typeof day.dinner === 'object') {
+          ['staple', 'main', 'side', 'soup'].forEach((key) => {
+            const slot = day.dinner[key];
+            if (slot) {
+              slots.push({ ...slot, baseKey: key });
+            }
+          });
+        }
+        if (Array.isArray(day.dinnerExtras)) {
+          day.dinnerExtras.forEach((slot) => {
+            if (slot) slots.push({ ...slot, baseKey: null });
+          });
+          day.dinnerExtras = [];
+        }
+        slots.forEach((slot) => {
+          if (!slot) return;
+          if (!slot.categoryKey) {
+            slot.categoryKey = slot.baseKey === 'staple'
+              ? 'dinnerStaple'
+              : slot.baseKey === 'main'
+                ? 'dinnerMain'
+                : slot.baseKey === 'side'
+                  ? 'dinnerSide'
+                  : slot.baseKey === 'soup'
+                    ? 'dinnerSoup'
+                    : 'dinnerFlexible';
+          }
+        });
+        day.dinner = {};
+        day.dinnerSlots = slots;
+      }
+      return day.dinnerSlots;
+    };
+
+    const removeDinnerSlotReference = (target) => {
+      if (!target) return false;
+      let removed = false;
+      state.plan.forEach((day) => {
+        const slots = ensureDinnerSlots(day);
+        const index = slots.indexOf(target);
+        if (index !== -1) {
+          slots.splice(index, 1);
+          removed = true;
+        }
+      });
+      return removed;
+    };
+
+    const createEmptySlot = (categoryKey = 'lunchMain') => ({
+      menuId: null,
+      categoryKey,
+      favorite: false,
+      dineOut: false,
+      dineOutName: '',
+      dineOutUrl: '',
+      locked: false
+    });
+
+    const removeSlotReference = (target) => {
+      if (!target) return false;
+      let removed = false;
+      state.plan.forEach((day) => {
+        const bSlots = ensureBreakfastSlots(day);
+        const lSlots = ensureLunchSlots(day);
+        const idxB = bSlots.indexOf(target);
+        if (idxB !== -1) {
+          bSlots.splice(idxB, 1);
+          removed = true;
+        }
+        const idxL = lSlots.indexOf(target);
+        if (idxL !== -1) {
+          lSlots.splice(idxL, 1);
+          removed = true;
+        }
+      });
+      return removed;
+    };
+
+    if (requirementsSummaryEl) {
+      // 現在の換算人数に加えて、グループ名と所属メンバー名をタグ形式で表示する
+      let summaryHtml = `<span class="font-semibold">${groupSize}人分</span>の必要量に換算しています。`;
+      if (data.currentGroupName) {
+        summaryHtml += ` グループ名<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-1 text-emerald-800">${data.currentGroupName}</span>`;
+      }
+      if (Array.isArray(data.currentGroupMembers)) {
+        data.currentGroupMembers.forEach((memberName) => {
+          summaryHtml += ` <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-1 text-emerald-800">${memberName}</span>`;
+        });
+      }
+      requirementsSummaryEl.innerHTML = summaryHtml;
+    }
+
+    const specialPrefixUnits = new Set(['大さじ', '小さじ']);
+
+    const formatQuantity = (value) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) return '';
+      const rounded = Math.round(value * 100) / 100;
+      return Number.isFinite(rounded)
+        ? rounded.toFixed(2).replace(/\.?0+$/, '')
+        : '';
+    };
+
+    const formatRequirementUnit = (entry) => {
+      if (!entry) return '';
+      const { amount, unit } = entry;
+      if (amount === null || typeof amount === 'undefined') {
+        return unit || '数量未設定';
+      }
+      const quantityText = formatQuantity(amount);
+      if (!unit) return quantityText;
+      if (specialPrefixUnits.has(unit)) {
+        return `${unit}${quantityText}`;
+      }
+      const hasNonAscii = /[^\x00-\x7F]/.test(unit);
+      return hasNonAscii ? `${quantityText}${unit}` : `${quantityText} ${unit}`;
+    };
+
+    const computeRequirements = () => {
+      if (!Array.isArray(state.plan) || !state.plan.length) {
+        return { ingredients: [], seasonings: [] };
+      }
+
+      const itemsMap = new Map();
+
+      const mergeEntry = (item, multiplier, type) => {
+        if (!item || !item.name) return;
+        const unit = item.unit || '';
+        const name = item.name;
+        const entry = itemsMap.get(name) || { unitMap: new Map(), types: new Set() };
+        const unitMap = entry.unitMap;
+        const current = unitMap.get(unit) || { amount: 0, missingAmount: false };
+        if (typeof item.amount === 'number' && !Number.isNaN(item.amount)) {
+          current.amount += item.amount * multiplier;
+        } else {
+          current.missingAmount = true;
+        }
+        unitMap.set(unit, current);
+        if (type) entry.types.add(type);
+        itemsMap.set(name, entry);
+      };
+
+      state.plan.forEach((day, dayIndex) => {
+        if (!day) return;
+        const breakfastSlots = ensureBreakfastSlots(day).filter(Boolean);
+        const lunchSlots = ensureLunchSlots(day).filter(Boolean);
+        const dinnerSlots = ensureDinnerSlots(day).filter(Boolean);
+        const applySlots = (slots, participantMeal) => {
+          slots.forEach((slot) => {
+            if (!slot || slot.dineOut || (!slot.menuId && !slot.menu)) return;
+            const menu = slot.menuId ? (menuLookup[slot.menuId] || slot.menu || null) : slot.menu || null;
+            if (!menu) return;
+            const basePeople = Number(menu.people);
+            const count = getParticipantIds(dayIndex, participantMeal).length;
+            const extra = Math.max(0, Number(slot.prepExtra) || 0);
+            const rawMultiplier = basePeople && basePeople > 0 ? (count + extra) / basePeople : 1;
+            const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
+            const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
+            const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
+            ingredients.forEach((item) => mergeEntry(item, multiplier, 'ingredient'));
+            seasonings.forEach((item) => mergeEntry(item, multiplier, 'seasoning'));
+          });
+        };
+        applySlots(breakfastSlots, 'breakfast');
+        applySlots(lunchSlots, 'lunch');
+        applySlots(dinnerSlots, 'dinner');
+      });
+
+      const allItems = Array.from(itemsMap.entries())
+        .map(([name, entry]) => ({
+          name,
+          types: Array.from(entry.types),
+          units: Array.from(entry.unitMap.entries())
+            .map(([unit, unitEntry]) => ({
+              unit,
+              amount: unitEntry.missingAmount
+                ? null
+                : Math.round(unitEntry.amount * 100) / 100,
+              missingAmount: unitEntry.missingAmount
+            }))
+            .sort((a, b) => {
+              if (a.unit === b.unit) return 0;
+              if (!a.unit) return 1;
+              if (!b.unit) return -1;
+              return a.unit.localeCompare(b.unit, 'ja');
+            })
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
+      const ingredients = allItems.filter((item) => {
+        if (!item.types.length) return true;
+        return item.types.includes('ingredient');
+      });
+      const seasonings = allItems.filter((item) => {
+        if (!item.types.length) return true;
+        return item.types.includes('seasoning');
+      });
+
+      return { ingredients, seasonings };
+    };
+
+    const renderRequirements = () => {
+      if (!requirementsListEl) return;
+      const { ingredients, seasonings } = computeRequirements();
+      const activeKey = state.supplyTab === 'seasonings' ? 'seasonings' : 'ingredients';
+      const activeItems = activeKey === 'seasonings' ? seasonings : ingredients;
+
+      requirementsListEl.innerHTML = '';
+      if (requirementsEmptyEl) {
+        requirementsEmptyEl.textContent = activeKey === 'seasonings'
+          ? '必要な調味料はまだありません。'
+          : '必要な食材はまだありません。';
+      }
+
+      if (!activeItems.length) {
+        if (requirementsEmptyEl) requirementsEmptyEl.classList.remove('hidden');
+        return;
+      }
+
+      if (requirementsEmptyEl) requirementsEmptyEl.classList.add('hidden');
+      activeItems.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-col gap-2 px-6 py-4 md:flex-row md:items-center md:justify-between';
+        const nameEl = document.createElement('p');
+        nameEl.className = 'text-sm font-semibold text-gray-900';
+        nameEl.textContent = item.name;
+        row.appendChild(nameEl);
+
+        const pillWrap = document.createElement('div');
+        pillWrap.className = 'flex flex-wrap gap-2 text-xs text-gray-700';
+        const units = Array.isArray(item.units) ? item.units : [];
+        const formattedUnits = units
+          .map((unitEntry) => formatRequirementUnit(unitEntry))
+          .filter(Boolean);
+        const pill = document.createElement('span');
+        pill.className = 'inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1';
+        pill.textContent = formattedUnits.length ? formattedUnits.join(' + ') : '数量未設定';
+        pillWrap.appendChild(pill);
+
+        row.appendChild(pillWrap);
+        requirementsListEl.appendChild(row);
+      });
+    };
+
+    const renderLunchDay = (day, dayIndex) => {
+      const dayContainer = document.querySelector(`[data-day="${dayIndex}"][data-meal="lunch"]`);
+      if (!dayContainer) return;
+      const groupEl = dayContainer.querySelector('[data-lunch-group]');
+      if (!groupEl) return;
+
+      const slots = ensureLunchSlots(day);
+      groupEl.innerHTML = '';
+
+      slots.forEach((slot, index) => {
+        if (!slot || !slot.menuId) return;
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full';
+        card.dataset.slotIndex = String(index);
+        card.dataset.category = slot?.categoryKey || 'lunchMain';
+
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative overflow-hidden';
+        imageWrap.setAttribute('data-element', 'dish-image');
+        const imageFrame = document.createElement('div');
+        imageFrame.className = 'absolute inset-0 w-full h-full flex items-center justify-center';
+        imageFrame.dataset.element = 'image-frame';
+        imageWrap.appendChild(imageFrame);
+        const mealTag = document.createElement('span');
+        mealTag.className = `absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${mealTagClassesForSlot(slot)}`;
+        mealTag.dataset.element = 'meal-tag';
+        mealTag.textContent = mealLabelForSlot(slot);
+        imageWrap.appendChild(mealTag);
+        const genreTag = document.createElement('span');
+        genreTag.className = 'absolute right-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
+        genreTag.dataset.element = 'dish-genre';
+        genreTag.textContent = '';
+        genreTag.hidden = true;
+        imageWrap.appendChild(genreTag);
+        card.appendChild(imageWrap);
+
+        const body = document.createElement('div');
+        body.className = 'space-y-2 p-4 flex-1';
+        // Remove ランチ label
+        // const label = document.createElement('p');
+        // label.className = 'text-[11px] font-semibold uppercase tracking-wide text-gray-400';
+        // label.textContent = 'ランチ';
+        // body.appendChild(label);
+
+        const nameEl = document.createElement('p');
+        nameEl.className = 'text-sm font-semibold text-gray-900';
+        nameEl.setAttribute('data-element', 'dish-name');
+        nameEl.textContent = slot?.menu?.name || 'メニューを読み込み中...';
+        body.appendChild(nameEl);
+
+        const chips = document.createElement('div');
+        chips.className = 'flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700';
+        chips.setAttribute('data-element', 'dish-chips');
+        body.appendChild(chips);
+
+        const detail = document.createElement('p');
+        detail.className = 'text-xs text-gray-500 hidden';
+        detail.setAttribute('data-element', 'dish-detail');
+        body.appendChild(detail);
+
+        card.appendChild(body);
+
+        const actions = document.createElement('div');
+        actions.className = 'flex items-center gap-2 justify-end flex-wrap mt-auto pb-3 px-4';
+
+        const makeButton = (action, icon, extraClass = '') => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.action = action;
+          btn.className = `icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-40 ${extraClass}`.trim();
+          const sr = document.createElement('span');
+          sr.className = 'sr-only';
+          sr.textContent = action;
+          btn.appendChild(sr);
+          const iconEl = document.createElement('span');
+          iconEl.className = 'lucide w-4 h-4';
+          iconEl.setAttribute('data-lucide', icon);
+          btn.appendChild(iconEl);
+          return btn;
+        };
+
+        const favoriteBtn = makeButton('toggle-favorite', 'heart');
+        const dineBtn = makeButton('toggle-dine', 'home');
+        const dineHomeIcon = dineBtn.querySelector('.lucide');
+        if (dineHomeIcon) dineHomeIcon.dataset.role = 'dine-home';
+        const dineOutIcon = document.createElement('span');
+        dineOutIcon.className = 'lucide w-4 h-4 hidden';
+        dineOutIcon.dataset.role = 'dine-out';
+        dineOutIcon.setAttribute('data-lucide', 'utensils');
+        dineBtn.appendChild(dineOutIcon);
+        dineBtn.firstElementChild.textContent = 'toggle-dine';
+        const shuffleBtn = makeButton('shuffle', 'refresh-ccw');
+        const clearBtn = makeButton('clear-slot', 'x-circle');
+        const changeBtn = makeButton('change', 'search');
+
+        favoriteBtn.querySelector('.sr-only').textContent = 'お気に入りに追加';
+        dineBtn.querySelector('.sr-only').textContent = '家と外食を切り替え';
+        shuffleBtn.querySelector('.sr-only').textContent = '再提案';
+        clearBtn.querySelector('.sr-only').textContent = 'メニューを未選択にする';
+        changeBtn.querySelector('.sr-only').textContent = '探す';
+
+        actions.append(favoriteBtn, dineBtn, shuffleBtn, clearBtn, changeBtn);
+        card.appendChild(actions);
+
+        groupEl.appendChild(card);
+      });
+
+      const addButton = document.createElement('button');
+      addButton.type = 'button';
+      addButton.dataset.action = 'add-lunch-slot';
+      addButton.className = 'rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition';
+      const addIcon = document.createElement('span');
+      addIcon.className = 'lucide w-6 h-6';
+      addIcon.setAttribute('data-lucide', 'plus');
+      const addLabel = document.createElement('span');
+      addLabel.className = 'text-xs font-semibold';
+      addLabel.textContent = 'メニューを追加';
+      addButton.append(addIcon, addLabel);
+      groupEl.appendChild(addButton);
+    };
+
+    const renderDinnerDay = (day, dayIndex) => {
+      const dayContainer = document.querySelector(`[data-day="${dayIndex}"][data-meal="dinner"]`);
+      if (!dayContainer) return;
+      const groupEl = dayContainer.querySelector('[data-dinner-group]');
+      if (!groupEl) return;
+
+      groupEl.innerHTML = '';
+
+      const makeAddButton = (label, categoryKey = 'dinnerFlexible') => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.action = 'add-dinner-slot';
+        button.dataset.category = categoryKey || 'dinnerFlexible';
+        button.className = 'rounded-xl border border-dashed border-blue-200 bg-gray-50 text-blue-500 flex flex-col items-center justify-center gap-2 py-6 hover:border-blue-400 hover:text-blue-600 transition';
+        const icon = document.createElement('span');
+        icon.className = 'lucide w-6 h-6';
+        icon.setAttribute('data-lucide', 'plus');
+        const labelEl = document.createElement('span');
+        labelEl.className = 'text-xs font-semibold';
+        labelEl.textContent = label;
+        button.append(icon, labelEl);
+        return button;
+      };
+
+      const makeCard = (label, categoryKey) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-blue-100 bg-blue-50/80 overflow-hidden flex flex-col h-full';
+        card.dataset.meal = 'dinner';
+        card.dataset.category = categoryKey;
+
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'w-full h-28 bg-blue-100/60 flex items-center justify-center text-[10px] text-blue-300 relative';
+        imageWrap.setAttribute('data-element', 'dish-image');
+        // Badge for category
+        if (label) {
+          const badge = document.createElement('span');
+          badge.className = 'absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
+          badge.textContent = label;
+          imageWrap.appendChild(badge);
+        }
+        card.appendChild(imageWrap);
+
+        const body = document.createElement('div');
+        body.className = 'space-y-2 p-4 flex-1';
+        // Remove category label below image (do not render)
+
+        const nameEl = document.createElement('p');
+        nameEl.className = 'text-sm font-semibold text-gray-900';
+        nameEl.setAttribute('data-element', 'dish-name');
+        nameEl.textContent = 'メニューを読み込み中...';
+        body.appendChild(nameEl);
+
+        const chips = document.createElement('div');
+        chips.className = 'flex flex-wrap gap-2 text-[11px] font-semibold text-amber-700';
+        chips.setAttribute('data-element', 'dish-chips');
+        body.appendChild(chips);
+
+        const detail = document.createElement('p');
+        detail.className = 'text-xs text-gray-500 hidden';
+        detail.setAttribute('data-element', 'dish-detail');
+        body.appendChild(detail);
+
+        card.appendChild(body);
+
+        const actions = document.createElement('div');
+        actions.className = 'flex items-center gap-2 justify-end flex-wrap mt-auto pb-3 px-4';
+
+        const makeButton = (action, icon) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.action = action;
+          btn.className = 'icon-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-40';
+          const sr = document.createElement('span');
+          sr.className = 'sr-only';
+          sr.textContent = action;
+          btn.appendChild(sr);
+          const iconEl = document.createElement('span');
+          iconEl.className = 'lucide w-4 h-4';
+          iconEl.setAttribute('data-lucide', icon);
+          btn.appendChild(iconEl);
+          return btn;
+        };
+
+        const favoriteBtn = makeButton('toggle-favorite', 'heart');
+        favoriteBtn.querySelector('.sr-only').textContent = 'お気に入りに追加';
+        favoriteBtn.classList.add('hover:border-amber-300', 'hover:text-amber-600', 'focus:ring-amber-100');
+
+        const dineBtn = makeButton('toggle-dine', 'home');
+        dineBtn.querySelector('.sr-only').textContent = '家と外食を切り替え';
+        dineBtn.classList.add('hover:border-blue-300', 'hover:text-blue-600', 'focus:ring-blue-100');
+        const dineHomeIcon = dineBtn.querySelector('.lucide');
+        if (dineHomeIcon) dineHomeIcon.dataset.role = 'dine-home';
+        const dineOutIcon = document.createElement('span');
+        dineOutIcon.className = 'lucide w-4 h-4 hidden';
+        dineOutIcon.dataset.role = 'dine-out';
+        dineOutIcon.setAttribute('data-lucide', 'utensils');
+        dineBtn.appendChild(dineOutIcon);
+
+        const shuffleBtn = makeButton('shuffle', 'refresh-ccw');
+        shuffleBtn.querySelector('.sr-only').textContent = '再提案';
+        shuffleBtn.classList.add('hover:border-blue-300', 'hover:text-blue-600', 'focus:ring-blue-100');
+
+        const clearBtn = makeButton('clear-slot', 'x-circle');
+        clearBtn.querySelector('.sr-only').textContent = 'メニューを未選択にする';
+        clearBtn.classList.add('hover:border-red-300', 'hover:text-red-600', 'focus:ring-red-100');
+
+        const changeBtn = makeButton('change', 'search');
+        changeBtn.querySelector('.sr-only').textContent = '探す';
+        changeBtn.classList.add('hover:border-blue-300', 'hover:text-blue-600', 'focus:ring-blue-100');
+
+        actions.append(favoriteBtn, dineBtn, shuffleBtn, clearBtn, changeBtn);
+        card.appendChild(actions);
+
+        const picker = document.createElement('div');
+        picker.className = 'menu-picker hidden';
+        picker.setAttribute('data-picker', '');
+        card.appendChild(picker);
+
+        return card;
+      };
+
+      const slots = ensureDinnerSlots(day);
+
+      slots.forEach((slot, index) => {
+        if (!slot || !slot.menuId) return;
+        const categoryKey = slot.categoryKey
+          || (slot.baseKey === 'staple'
+            ? 'dinnerStaple'
+            : slot.baseKey === 'main'
+              ? 'dinnerMain'
+              : slot.baseKey === 'side'
+                ? 'dinnerSide'
+                : slot.baseKey === 'soup'
+                  ? 'dinnerSoup'
+                  : 'dinnerFlexible');
+        slot.categoryKey = categoryKey;
+        const label = categoryConfig[categoryKey]?.label || 'ディナー';
+        const card = makeCard(label, categoryKey);
+        card.dataset.dinnerIndex = String(index);
+        groupEl.appendChild(card);
+      });
+
+      const addDinnerButton = makeAddButton('メニューを追加', 'dinnerFlexible');
+      groupEl.appendChild(addDinnerButton);
+    };
+
+    const supplyTabButtons = Array.from(document.querySelectorAll('.supply-tab-button'));
+    const switchSupplyTab = (nextSupply) => {
+      state.supplyTab = nextSupply === 'seasonings' ? 'seasonings' : 'ingredients';
+      supplyTabButtons.forEach((button) => {
+        const isActive = (button.dataset.tab === state.supplyTab);
+        button.classList.toggle('bg-emerald-600', isActive);
+        button.classList.toggle('bg-emerald-700', false);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('bg-white', !isActive);
+        button.classList.toggle('text-emerald-600', !isActive);
+        button.classList.toggle('shadow-sm', isActive);
+      });
+      renderRequirements();
+    };
+
+    const getSlotReference = (dayIndex, mealKey, slotKey) => {
+      const day = state.plan[dayIndex];
+      if (!day) return null;
+      if (mealKey === 'breakfast') {
+        const slots = ensureBreakfastSlots(day);
+        const index = Number(slotKey);
+        if (Number.isNaN(index) || index < 0) return null;
+        return slots[index] || null;
+      }
+      if (mealKey === 'lunch') {
+        const slots = ensureLunchSlots(day);
+        const index = Number(slotKey);
+        if (Number.isNaN(index) || index < 0) return null;
+        return slots[index] || null;
+      }
+      if (mealKey === 'dinner') {
+        const slots = ensureDinnerSlots(day);
+        const index = Number(slotKey);
+        if (Number.isNaN(index) || index < 0) return null;
+        return slots[index] || null;
+      }
+      return null;
+    };
+
+    const updateImage = (container, url, name, linkUrl) => {
+      if (!container) return;
+      const frame = container.querySelector('[data-element="image-frame"]') || container;
+      frame.innerHTML = '';
+      if (url) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = name || 'メニュー画像';
+        img.className = 'object-cover w-full h-full';
+        if (linkUrl) {
+          const link = document.createElement('a');
+          link.href = linkUrl;
+          link.target = 'menuWindow';
+          link.rel = 'noopener';
+          link.className = 'block w-full h-full';
+          link.appendChild(img);
+          frame.appendChild(link);
+        } else {
+          frame.appendChild(img);
+        }
+      } else {
+        const span = document.createElement('span');
+        span.className = 'text-[10px] text-gray-400';
+        span.textContent = 'no image';
+        frame.appendChild(span);
+      }
+    };
+
+    // Expose minimal API for fused views (weekMenu2) to update dine-out info
+    try {
+      window.weekMenuAPI = window.weekMenuAPI || {};
+      window.weekMenuAPI.setDineInfo = (dayIndex, mealKey, index, info = {}) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return false;
+          if (Object.prototype.hasOwnProperty.call(info, 'dineOut')) slot.dineOut = !!info.dineOut;
+          if (Object.prototype.hasOwnProperty.call(info, 'dineOutName')) slot.dineOutName = info.dineOutName || '';
+          if (Object.prototype.hasOwnProperty.call(info, 'dineOutUrl')) slot.dineOutUrl = info.dineOutUrl || '';
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          return true;
+        } catch(_) { return false; }
+      };
+      window.weekMenuAPI.getDineInfo = (dayIndex, mealKey, index) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return { dineOut: false, dineOutName: '', dineOutUrl: '' };
+          return {
+            dineOut: !!slot.dineOut,
+            dineOutName: slot.dineOutName || '',
+            dineOutUrl: slot.dineOutUrl || ''
+          };
+        } catch(_) { return { dineOut: false, dineOutName: '', dineOutUrl: '' }; }
+      };
+      // set/get 作り置き人数
+      window.weekMenuAPI.setPrepExtra = (dayIndex, mealKey, index, n) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return false;
+          const v = Math.max(0, Math.floor(Number(n) || 0));
+          slot.prepExtra = v;
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          return true;
+        } catch(_) { return false; }
+      };
+      window.weekMenuAPI.getPrepExtra = (dayIndex, mealKey, index) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return 0;
+          return Math.max(0, Number(slot.prepExtra) || 0);
+        } catch(_) { return 0; }
+      };
+      // set/get day comment (per day)
+      window.weekMenuAPI.setDayComment = (dayIndex, text) => {
+        try {
+          const day = state.plan?.[dayIndex];
+          if (!day) return false;
+          day.dayComment = typeof text === 'string' ? text : '';
+          try {
+            if (window && window.weekMenuData) {
+              window.weekMenuData.planSnapshot = JSON.parse(JSON.stringify(buildPlanSnapshot()));
+            }
+          } catch (_) { /* noop */ }
+          return true;
+        } catch(_) { return false; }
+      };
+      window.weekMenuAPI.getDayComment = (dayIndex) => {
+        try {
+          const day = state.plan?.[dayIndex];
+          if (!day) return '';
+          return typeof day.dayComment === 'string' ? day.dayComment : '';
+        } catch(_) { return ''; }
+      };
+      window.weekMenuAPI.addMenuToMeal = (dayIndex, mealKey, menuId, categoryKey = '') => {
+        try {
+          const day = state.plan?.[dayIndex];
+          if (!day || !menuId) return false;
+          const menu = menuLookup[menuId];
+          if (!menu) return false;
+          if (mealKey === 'breakfast') {
+            const slots = ensureBreakfastSlots(day);
+            const slot = createEmptySlot('breakfastMain');
+            slot.menuId = menuId;
+            slots.push(slot);
+          } else if (mealKey === 'lunch') {
+            const slots = ensureLunchSlots(day);
+            const slot = createEmptySlot('lunchMain');
+            slot.menuId = menuId;
+            slots.push(slot);
+          } else {
+            const slots = ensureDinnerSlots(day);
+            const slot = createEmptySlot(categoryKey || 'dinnerFlexible');
+            slot.menuId = menuId;
+            slot.categoryKey = categoryKey || inferDinnerCategoryKey(menu) || 'dinnerFlexible';
+            slots.push(slot);
+          }
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave();
+          return true;
+        } catch(_) { return false; }
+      };
+      window.weekMenuAPI.moveSlot = ({ fromDay, fromMeal, fromIndex, toDay, toMeal, toIndex }) => {
+        try {
+          const sourceDay = state.plan?.[Number(fromDay)];
+          const targetDay = state.plan?.[Number(toDay)];
+          const meal = fromMeal === 'breakfast' || fromMeal === 'lunch' || fromMeal === 'dinner' ? fromMeal : '';
+          if (!sourceDay || !targetDay || !meal || meal !== toMeal) return false;
+          const sourceIndex = Number(fromIndex);
+          const targetIndexRaw = Number(toIndex);
+          if (!Number.isInteger(sourceIndex) || sourceIndex < 0) return false;
+          const slotsFor = (day, key) => {
+            if (key === 'breakfast') return ensureBreakfastSlots(day);
+            if (key === 'lunch') return ensureLunchSlots(day);
+            return ensureDinnerSlots(day);
+          };
+          const sourceSlots = slotsFor(sourceDay, meal);
+          const targetSlots = slotsFor(targetDay, meal);
+          if (!sourceSlots[sourceIndex]) return false;
+          const [slot] = sourceSlots.splice(sourceIndex, 1);
+          let targetIndex = Number.isInteger(targetIndexRaw) ? targetIndexRaw : targetSlots.length;
+          if (sourceSlots === targetSlots && sourceIndex < targetIndex) targetIndex -= 1;
+          targetIndex = Math.max(0, Math.min(targetIndex, targetSlots.length));
+          targetSlots.splice(targetIndex, 0, slot);
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave();
+          return true;
+        } catch(_) { return false; }
+      };
+    } catch(_) { /* noop */ }
+
+    // Favorite modal helpers
+    let favoriteModalSlot = null;
+    const openFavoriteModal = (slot, anchorEl) => {
+      if (!slot || !slot.menuId) return;
+      favoriteModalSlot = slot;
+      const overlay = document.getElementById('fav-modal');
+      const pop = document.getElementById('fav-pop');
+      if (!overlay || !pop) return;
+      overlay.classList.remove('hidden');
+      // Default values
+      const freq = document.getElementById('fav-frequency');
+      if (freq) freq.value = '3';
+
+      // Position next to the clicked heart
+      const rect = anchorEl && anchorEl.getBoundingClientRect ? anchorEl.getBoundingClientRect() : null;
+      const viewportW = window.innerWidth || document.documentElement.clientWidth;
+      const viewportH = window.innerHeight || document.documentElement.clientHeight;
+      const panelW = 320; // approximate
+      const panelH = 160; // approximate
+      let left = rect ? (rect.right + 8) : (viewportW - panelW) / 2;
+      let top = rect ? (rect.top) : (viewportH - panelH) / 2;
+      if (left + panelW + 8 > viewportW) left = Math.max(8, (rect ? rect.left - panelW - 8 : left));
+      if (top + panelH + 8 > viewportH) top = Math.max(8, viewportH - panelH - 8);
+      pop.style.position = 'fixed';
+      pop.style.left = `${Math.max(8, left)}px`;
+      pop.style.top = `${Math.max(8, top)}px`;
+    };
+    const closeFavoriteModal = () => {
+      const modal = document.getElementById('fav-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      favoriteModalSlot = null;
+    };
+    const upsertMyMenu = async (menuId, frequency, skill) => {
+      const res = await fetch('/users/my-menu/api/upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menuId, favorite: true, frequency, skill })
+      });
+      if (!res.ok) throw new Error('登録に失敗しました');
+      return res.json();
+    };
+    const toggleFavorite = (slot) => {
+      if (!slot) return;
+      openFavoriteModal(slot);
+    };
+
+    const toggleDineOut = (slot) => {
+      if (!slot) return;
+      const next = !slot.dineOut;
+      slot.dineOut = next;
+      if (next) {
+        try {
+          const name = (window.prompt('お店の名前を入力してください', slot.dineOutName || '') || '').trim();
+          const url = (window.prompt('グルメサイトのURLを入力してください（任意）', slot.dineOutUrl || '') || '').trim();
+          slot.dineOutName = name;
+          slot.dineOutUrl = url;
+        } catch (_) { /* noop */ }
+      }
+    };
+
+    const requestShuffle = async (mealKey, categoryKey, currentMenuId, dayIndex) => {
+      const groupId = (window.weekMenuData && window.weekMenuData.currentGroupId) || '';
+      const weekStartISO = (window.weekMenuData && window.weekMenuData.weekStartISO) || (Array.isArray(WEEK) && WEEK[0]?.dateISO) || '';
+      if (!groupId || !weekStartISO) return null;
+      const res = await fetch('/users/week-menu/shuffle-slot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          weekStart: weekStartISO,
+          dayIndex: Number.isInteger(dayIndex) ? dayIndex : 0,
+          mealType: mealKey,
+          categoryKey,
+          currentMenuId
+        })
+      });
+      if (!res.ok) return null;
+      const json = await res.json().catch(() => null);
+      if (!json || !json.slot || !json.slot.menuId) return null;
+      if (json.slot.menu) {
+        menuLookup[json.slot.menuId] = json.slot.menu;
+      }
+      return json.slot;
+    };
+
+    const inferDinnerCategoryKey = (menu) => {
+      if (!menu) return '';
+      const kind = menu.kind || '';
+      if (!kind) return '';
+      const mapping = [
+        ['dinnerStaple', Array.isArray(categoryConfig.dinnerStaple?.kinds) ? categoryConfig.dinnerStaple.kinds : []],
+        ['dinnerMain', Array.isArray(categoryConfig.dinnerMain?.kinds) ? categoryConfig.dinnerMain.kinds : []],
+        ['dinnerSide', Array.isArray(categoryConfig.dinnerSide?.kinds) ? categoryConfig.dinnerSide.kinds : []],
+        ['dinnerSoup', Array.isArray(categoryConfig.dinnerSoup?.kinds) ? categoryConfig.dinnerSoup.kinds : []],
+        ['dinnerFlexible', Array.isArray(categoryConfig.dinnerFlexible?.kinds) ? categoryConfig.dinnerFlexible.kinds : []]
+      ];
+      for (const [key, kinds] of mapping) {
+        if (kinds.includes(kind)) {
+          return key;
+        }
+      }
+      return '';
+    };
+
+    const modalElements = {
+      overlay: document.querySelector('[data-menu-modal]'),
+      dialog: document.querySelector('[data-menu-modal-dialog]'),
+      closeButtons: Array.from(document.querySelectorAll('[data-menu-modal-close]')),
+      searchInput: document.querySelector('[data-menu-modal-search]'),
+      kindSelect: document.querySelector('[data-menu-modal-kind]'),
+      junleSelect: document.querySelector('[data-menu-modal-junle]'),
+      menuSelect: document.querySelector('[data-menu-modal-menu]'),
+      prepOnly: document.querySelector('[data-menu-modal-prep]'),
+      dinnerSetOnly: document.querySelector('[data-menu-modal-dinner-set]'),
+      dinnerSetWrap: document.querySelector('[data-menu-modal-dinner-set-wrap]'),
+      filterBox: document.querySelector('[data-menu-modal-filter-box]'),
+      filterList: document.querySelector('[data-menu-modal-filter-list]'),
+      filterEmpty: document.querySelector('[data-menu-modal-filter-empty]'),
+      filterToggle: document.querySelector('[data-menu-modal-filter-toggle]'),
+      list: document.querySelector('[data-menu-modal-list]'),
+      empty: document.querySelector('[data-menu-modal-empty]'),
+      currentSection: document.querySelector('[data-menu-modal-current]'),
+      currentName: document.querySelector('[data-menu-modal-current-name]'),
+      currentDetail: document.querySelector('[data-menu-modal-current-detail]')
+    };
+
+    const modalState = {
+      isOpen: false,
+      slot: null,
+      categoryKey: '',
+      options: [],
+      currentMenu: null,
+      filters: {
+        search: '',
+        kind: '',
+        junle: '',
+        menuContent: '',
+        prepOnly: false,
+        dinnerSetOnly: false,
+        ignoreFilter: false
+      },
+      menuFilter: {
+        mealType: '',
+        enabled: false,
+        allowedMenus: [],
+        activeMenus: []
+      }
+    };
+
+    const getMenuFilterSettings = () => {
+      const settings = (window.weekMenuData && window.weekMenuData.menuFilterSettings) || {};
+      const normalize = (value) => (Array.isArray(value) ? value : (value ? [value] : []))
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .filter(Boolean);
+      return {
+        breakfastMenus: normalize(settings.breakfastMenus),
+        lunchMenus: normalize(settings.lunchMenus),
+        breakfastFilterEnabled: settings.breakfastFilterEnabled !== false,
+        lunchFilterEnabled: settings.lunchFilterEnabled !== false
+      };
+    };
+
+    const getMealTypeFromCategory = (categoryKey) => {
+      if (!categoryKey) return '';
+      if (String(categoryKey).startsWith('breakfast')) return 'breakfast';
+      if (String(categoryKey).startsWith('lunch')) return 'lunch';
+      if (String(categoryKey).startsWith('dinner')) return 'dinner';
+      return '';
+    };
+
+    const getBaseModalOptions = () => {
+      let options = modalState.options.slice();
+      const filter = modalState.menuFilter;
+      if (filter && filter.enabled) {
+        const allowed = new Set((filter.activeMenus || []).filter(Boolean));
+        if (allowed.size > 0) {
+          const currentId = modalState.currentMenu?.id || '';
+          options = options.filter((menu) => {
+            if (!menu) return false;
+            if (currentId && menu.id === currentId) return true;
+            const key = menu.menu ? String(menu.menu).trim() : '';
+            if (!key) return false;
+            return allowed.has(key);
+          });
+        }
+      }
+      return options;
+    };
+
+    // 全カテゴリの kinds を横断的に集約（明示的に「デザート」も含める）
+    const getGlobalKinds = () => {
+      try {
+        const dynamic = Array.isArray(window.weekMenuData?.allKinds)
+          ? window.weekMenuData.allKinds.filter(Boolean)
+          : [];
+        if (dynamic.length) return dynamic;
+        const set = new Set();
+        if (categoryConfig && typeof categoryConfig === 'object') {
+          Object.keys(categoryConfig).forEach((key) => {
+            const kinds = Array.isArray(categoryConfig[key]?.kinds) ? categoryConfig[key].kinds : [];
+            kinds.forEach((k) => { if (k) set.add(k); });
+          });
+        }
+        // 念のためデフォルトで『デザート』を候補に含める
+        set.add('デザート');
+        return Array.from(set);
+      } catch (_) {
+        // フォールバック（最低限デザートは出せるように）
+        return ['デザート'];
+      }
+    };
+
+    const populateSelectOptions = (select, values, initialValue = '') => {
+      if (!select) return;
+      const unique = new Set(values.filter(Boolean));
+      if (initialValue) unique.add(initialValue);
+      const sorted = Array.from(unique).sort((a, b) => a.localeCompare(b, 'ja'));
+      select.innerHTML = '';
+      const emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = 'すべて';
+      select.appendChild(emptyOption);
+      sorted.forEach((value) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+      if (initialValue && select.querySelector(`option[value="${initialValue}"]`)) {
+        select.value = initialValue;
+      } else {
+        select.value = '';
+      }
+    };
+
+    const refreshModalSelectOptions = () => {
+      const baseOptions = getBaseModalOptions();
+      const kindsFromOptions = baseOptions.map((menu) => menu.kind);
+      const allKinds = [...kindsFromOptions, ...getGlobalKinds()];
+      populateSelectOptions(modalElements.kindSelect, allKinds, modalState.filters.kind || '');
+      populateSelectOptions(modalElements.junleSelect, baseOptions.map((menu) => menu.junle), modalState.filters.junle || '');
+      populateSelectOptions(modalElements.menuSelect, baseOptions.map((menu) => menu.menu), modalState.filters.menuContent || '');
+      if (modalElements.kindSelect) modalState.filters.kind = modalElements.kindSelect.value || '';
+      if (modalElements.junleSelect) modalState.filters.junle = modalElements.junleSelect.value || '';
+      if (modalElements.menuSelect) modalState.filters.menuContent = modalElements.menuSelect.value || '';
+    };
+
+    const renderMenuFilterBox = () => {
+      if (!modalElements.filterBox || !modalElements.filterList || !modalElements.filterToggle || !modalElements.filterEmpty) return;
+      const filter = modalState.menuFilter || { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
+      const mealType = filter.mealType || '';
+      const allowedMenus = (filter.allowedMenus || []).filter(Boolean);
+      const allowSet = new Set(allowedMenus);
+      const activeSet = new Set((filter.activeMenus || []).filter(Boolean));
+      if (modalElements.dinnerSetWrap) {
+        modalElements.dinnerSetWrap.classList.toggle('hidden', mealType !== 'dinner');
+      }
+      const showBox = mealType === 'breakfast' || mealType === 'lunch';
+      if (!showBox) {
+        modalElements.filterBox.classList.add('hidden');
+        return;
+      }
+      modalElements.filterBox.classList.remove('hidden');
+      modalElements.filterToggle.checked = !filter.enabled;
+      modalElements.filterList.innerHTML = '';
+
+      if (!allowSet.size) {
+        modalElements.filterEmpty.classList.remove('hidden');
+      } else {
+        modalElements.filterEmpty.classList.add('hidden');
+        allowedMenus.slice().sort((a, b) => a.localeCompare(b, 'ja')).forEach((label) => {
+          const wrap = document.createElement('label');
+          wrap.className = 'inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-semibold text-amber-800';
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.checked = activeSet.has(label);
+          input.value = label;
+          input.className = 'w-4 h-4 text-amber-600 border-gray-300 rounded';
+          input.addEventListener('change', () => {
+            const next = new Set((modalState.menuFilter.activeMenus || []).filter(Boolean));
+            if (!input.checked) next.delete(label);
+            else next.add(label);
+            modalState.menuFilter.activeMenus = Array.from(next);
+            refreshModalSelectOptions();
+            renderMenuFilterBox();
+            renderModalList();
+          });
+          if (!filter.enabled) input.disabled = true;
+          const span = document.createElement('span');
+          span.textContent = label;
+          wrap.appendChild(input);
+          wrap.appendChild(span);
+          modalElements.filterList.appendChild(wrap);
+        });
+      }
+      modalElements.filterList.querySelectorAll('input').forEach((el) => {
+        el.disabled = !filter.enabled;
+      });
+    };
+
+    const applyModalFilters = () => {
+      const { search, kind, junle, menuContent, prepOnly, dinnerSetOnly } = modalState.filters;
+      const query = search.trim().toLowerCase();
+      const activeFilters = {
+        kind: kind || '',
+        junle: junle || '',
+        menuContent: menuContent || ''
+      };
+
+      const baseOptions = getBaseModalOptions();
+      return baseOptions.filter((menu) => {
+        if (!menu) return false;
+        if (activeFilters.kind && menu.kind !== activeFilters.kind) return false;
+        if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
+        if (activeFilters.menuContent && menu.menu !== activeFilters.menuContent) return false;
+        if (prepOnly && !menu.makeAhead) return false;
+        if (dinnerSetOnly && menu.menu !== '定番ディナーセット') return false;
+        if (!query) return true;
+        // フリーワード検索は広めにしつつ、メニュー内容はプルダウンでも絞り込めるようにする
+        const candidates = [
+          menu.name,
+          menu.yomi,
+          menu.menu
+        ].filter(Boolean).map((text) => String(text).toLowerCase());
+        return candidates.some((text) => text.includes(query));
+      });
+    };
+
+    const renderModalCurrentMenu = () => {
+      const { currentMenu } = modalState;
+      if (!modalElements.currentSection || !modalElements.currentName || !modalElements.currentDetail) return;
+      if (!currentMenu) {
+        modalElements.currentSection.classList.add('hidden');
+        modalElements.currentName.textContent = '';
+        modalElements.currentDetail.textContent = '';
+        return;
+      }
+
+      modalElements.currentSection.classList.remove('hidden');
+      modalElements.currentName.textContent = currentMenu.name || '';
+      const detailParts = [currentMenu.junle, currentMenu.cook].filter(Boolean);
+      modalElements.currentDetail.textContent = detailParts.length ? detailParts.join(' / ') : '';
+    };
+
+    const renderModalList = () => {
+      if (!modalElements.list || !modalElements.empty) return;
+      modalElements.list.innerHTML = '';
+      const filtered = applyModalFilters();
+
+      if (!filtered.length) {
+        modalElements.empty.classList.remove('hidden');
+        if (typeof window.refreshLucideIcons === 'function') {
+          window.refreshLucideIcons();
+        }
+        return;
+      }
+
+      modalElements.empty.classList.add('hidden');
+      const currentMenuId = modalState.currentMenu?.id || '';
+
+      filtered.forEach((menu) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.menuOption = menu.id;
+        button.className = [
+          'w-full flex items-start gap-3 border rounded p-2 bg-white text-left transition',
+          menu.id === currentMenuId
+            ? 'ring-2 ring-blue-200 bg-blue-50 border-blue-200'
+            : 'hover:bg-gray-50'
+        ].join(' ');
+        button.title = menu.name || '';
+
+        const setImages = (Array.isArray(menu.setMenus) ? menu.setMenus : [])
+          .map((item) => item?.imageUrl || '')
+          .filter(Boolean);
+
+        if (menu.imageUrl) {
+          const img = document.createElement('img');
+          img.src = menu.imageUrl;
+          img.alt = menu.name || 'menu image';
+          img.className = 'w-12 h-12 rounded object-cover';
+          button.appendChild(img);
+        } else if (setImages.length > 1) {
+          const collage = document.createElement('div');
+          collage.className = 'w-12 h-12 rounded overflow-hidden bg-gray-100 grid grid-cols-2 grid-rows-2';
+          const maxTiles = Math.min(setImages.length, 4);
+          for (let i = 0; i < maxTiles; i += 1) {
+            const tile = document.createElement('div');
+            tile.className = 'w-full h-full overflow-hidden bg-gray-200';
+            const tileImg = document.createElement('img');
+            tileImg.src = setImages[i];
+            tileImg.alt = menu.name || 'set menu image';
+            tileImg.className = 'w-full h-full object-cover';
+            tile.appendChild(tileImg);
+            collage.appendChild(tile);
+          }
+          while (collage.childNodes.length < 4) {
+            const emptyTile = document.createElement('div');
+            emptyTile.className = 'w-full h-full bg-gray-200';
+            collage.appendChild(emptyTile);
+          }
+          button.appendChild(collage);
+        } else if (setImages.length === 1) {
+          const img = document.createElement('img');
+          img.src = setImages[0];
+          img.alt = menu.name || 'set menu image';
+          img.className = 'w-12 h-12 rounded object-cover';
+          button.appendChild(img);
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-xs text-gray-500';
+          placeholder.textContent = 'NO IMG';
+          button.appendChild(placeholder);
+        }
+
+        const info = document.createElement('div');
+        info.className = 'flex-1 min-w-0';
+
+        const title = document.createElement('div');
+        title.className = 'font-medium text-gray-800 truncate';
+        title.textContent = menu.name || '名称未設定';
+        info.appendChild(title);
+
+        const meta = document.createElement('div');
+        meta.className = 'text-xs text-gray-500';
+        meta.textContent = [menu.menu, menu.kind, menu.junle, menu.cook].filter(Boolean).join(' / ');
+        info.appendChild(meta);
+
+        const badgeRow = document.createElement('div');
+        badgeRow.className = 'mt-1 flex flex-wrap items-center gap-1';
+        if (menu.makeAhead) {
+          const prep = document.createElement('span');
+          prep.className = 'inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[11px]';
+          prep.textContent = 'つくりおき';
+          badgeRow.appendChild(prep);
+        }
+        if (menu.time) {
+          const time = document.createElement('span');
+          time.className = 'inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[11px]';
+          const normalized = String(menu.time).endsWith('分') ? String(menu.time) : `${menu.time}分`;
+          time.textContent = normalized;
+          badgeRow.appendChild(time);
+        }
+        if (badgeRow.childNodes.length) info.appendChild(badgeRow);
+
+        button.appendChild(info);
+        modalElements.list.appendChild(button);
+      });
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    const closeMenuModal = () => {
+      if (!modalState.isOpen) return;
+      const pendingSlot = modalState.slot;
+      const pendingCategory = modalState.categoryKey;
+      modalState.isOpen = false;
+      modalState.slot = null;
+      modalState.categoryKey = '';
+      modalState.options = [];
+      modalState.currentMenu = null;
+      modalState.filters = { search: '', kind: '', junle: '', menuContent: '', prepOnly: false, dinnerSetOnly: false, ignoreFilter: false };
+      modalState.menuFilter = { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
+      if (modalElements.overlay) {
+        modalElements.overlay.classList.add('hidden');
+        modalElements.overlay.setAttribute('aria-hidden', 'true');
+      }
+      document.body.classList.remove('overflow-hidden');
+      if (pendingSlot && !pendingSlot.menuId && pendingCategory) {
+        let removed = false;
+        if (pendingCategory.startsWith('lunch')) {
+          removed = removeSlotReference(pendingSlot);
+        } else if (pendingCategory.startsWith('dinner')) {
+          removed = removeDinnerSlotReference(pendingSlot);
+        }
+        if (removed) {
+          render();
+        }
+      }
+    };
+
+    const selectMenuFromModal = (menuId) => {
+      if (!modalState.isOpen || !modalState.slot) return;
+      const nextMenu = menuLookup[menuId]
+        || modalState.options.find((menu) => menu && menu.id === menuId);
+      if (!nextMenu) return;
+      if (!menuLookup[menuId]) {
+        menuLookup[menuId] = nextMenu;
+      }
+      modalState.slot.menuId = nextMenu.id;
+      modalState.slot.dineOut = false;
+      const inferred = inferDinnerCategoryKey(nextMenu);
+      if (modalState.categoryKey && modalState.categoryKey.startsWith('dinner')) {
+        modalState.slot.categoryKey = inferred || modalState.categoryKey;
+      } else {
+        modalState.slot.categoryKey = modalState.categoryKey;
+      }
+      if (modalState.slot.categoryKey) {
+        modalState.categoryKey = modalState.slot.categoryKey;
+      }
+      closeMenuModal();
+      render();
+      try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch (_) {}
+    };
+
+    const openMenuModal = (categoryKey, slot) => {
+      if (!modalElements.overlay || !slot) return;
+
+      const modalMenus = Array.isArray(window.weekMenuData?.modalMenus)
+        ? window.weekMenuData.modalMenus
+        : null;
+      const options = modalMenus
+        ? modalMenus.slice()
+        : (Array.isArray(menusByCategory?.[categoryKey]) ? menusByCategory[categoryKey].slice() : []);
+      const currentMenu = slot.menuId ? menuLookup[slot.menuId] || null : null;
+
+      if (currentMenu && !options.some((menu) => menu.id === currentMenu.id)) {
+        options.unshift(currentMenu);
+      }
+
+      const deduped = Array.from(
+        options.reduce((map, menu) => {
+          if (menu && menu.id && !map.has(menu.id)) {
+            map.set(menu.id, menu);
+          }
+          return map;
+        }, new Map())
+      ).map(([, value]) => value);
+
+      const settings = getMenuFilterSettings();
+      const mealType = getMealTypeFromCategory(categoryKey);
+      const filterEnabled = mealType === 'breakfast'
+        ? settings.breakfastFilterEnabled !== false
+        : (mealType === 'lunch' ? settings.lunchFilterEnabled !== false : false);
+      const allowedMenus = mealType === 'breakfast'
+        ? (settings.breakfastMenus || [])
+        : (mealType === 'lunch' ? (settings.lunchMenus || []) : []);
+
+      modalState.isOpen = true;
+      modalState.slot = slot;
+      modalState.categoryKey = categoryKey;
+      modalState.currentMenu = currentMenu;
+      modalState.options = deduped.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      const allowedList = Array.isArray(allowedMenus) ? allowedMenus : [];
+      modalState.menuFilter = {
+        mealType,
+        enabled: !!filterEnabled,
+        allowedMenus: allowedList,
+        activeMenus: allowedList.slice()
+      };
+      modalState.filters = {
+        search: '',
+        kind: '',
+        junle: currentMenu?.junle || '',
+        menuContent: '',
+        prepOnly: false,
+        dinnerSetOnly: false,
+        ignoreFilter: false
+      };
+
+      refreshModalSelectOptions();
+      renderMenuFilterBox();
+
+      if (
+        modalState.filters.junle &&
+        (!modalElements.junleSelect || modalElements.junleSelect.value !== modalState.filters.junle)
+      ) {
+        modalState.filters.junle = '';
+      }
+
+      renderModalCurrentMenu();
+
+      const initialResults = applyModalFilters();
+      if (!initialResults.length && modalState.filters.junle) {
+        modalState.filters.junle = '';
+        if (modalElements.junleSelect) modalElements.junleSelect.value = '';
+      }
+
+      renderModalList();
+
+      if (modalElements.searchInput) {
+        modalElements.searchInput.value = '';
+      }
+      if (modalElements.prepOnly) {
+        modalElements.prepOnly.checked = false;
+      }
+      if (modalElements.dinnerSetOnly) {
+        modalElements.dinnerSetOnly.checked = false;
+      }
+      if (modalElements.menuSelect) {
+        modalElements.menuSelect.value = modalState.filters.menuContent || '';
+      }
+
+      renderMenuFilterBox();
+
+      modalElements.overlay.classList.remove('hidden');
+      modalElements.overlay.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('overflow-hidden');
+      if (modalElements.searchInput) {
+        setTimeout(() => modalElements.searchInput?.focus(), 50);
+      }
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    };
+
+    if (modalElements.overlay) {
+      modalElements.overlay.addEventListener('click', (event) => {
+        if (event.target === modalElements.overlay) {
+          closeMenuModal();
+        }
+      });
+    }
+
+    if (modalElements.list) {
+      modalElements.list.addEventListener('click', (event) => {
+        const optionButton = event.target.closest('[data-menu-option]');
+        if (!optionButton) return;
+        selectMenuFromModal(optionButton.dataset.menuOption);
+      });
+    }
+
+    if (modalElements.searchInput) {
+      modalElements.searchInput.addEventListener('input', (event) => {
+        modalState.filters.search = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.kindSelect) {
+      modalElements.kindSelect.addEventListener('change', (event) => {
+        modalState.filters.kind = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.junleSelect) {
+      modalElements.junleSelect.addEventListener('change', (event) => {
+        modalState.filters.junle = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.menuSelect) {
+      modalElements.menuSelect.addEventListener('change', (event) => {
+        modalState.filters.menuContent = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.prepOnly) {
+      modalElements.prepOnly.addEventListener('change', (event) => {
+        modalState.filters.prepOnly = !!event.target.checked;
+        renderModalList();
+      });
+    }
+
+    if (modalElements.dinnerSetOnly) {
+      modalElements.dinnerSetOnly.addEventListener('change', (event) => {
+        modalState.filters.dinnerSetOnly = !!event.target.checked;
+        renderModalList();
+      });
+    }
+
+    if (modalElements.filterToggle) {
+      modalElements.filterToggle.addEventListener('change', (event) => {
+        const disabled = !!event.target.checked;
+        modalState.menuFilter.enabled = !disabled;
+        refreshModalSelectOptions();
+        renderMenuFilterBox();
+        renderModalList();
+      });
+    }
+
+    document.querySelectorAll('[data-menu-modal-settings-open]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('weekmenu-settings:open'));
+      });
+    });
+
+    if (modalElements.closeButtons.length) {
+      modalElements.closeButtons.forEach((button) => {
+        button.addEventListener('click', () => closeMenuModal());
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeMenuModal();
+      }
+    });
+
+    const updateChips = (container, menu, mealType) => {
+      container.innerHTML = '';
+      if (!menu) return;
+
+      const formattedTime = menu.time
+        ? (String(menu.time).trim().endsWith('分') ? String(menu.time).trim() : `${String(menu.time).trim()}分`)
+        : '';
+
+      if (mealType === 'lunch') {
+        // Time first (green)
+        if (formattedTime) {
+          const timeSpan = document.createElement('span');
+          timeSpan.className = 'inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-800';
+          const l1 = document.createElement('span'); l1.textContent = '調理時間';
+          const v1 = document.createElement('span'); v1.className = 'font-medium'; v1.textContent = formattedTime;
+          timeSpan.append(l1, v1);
+          container.appendChild(timeSpan);
+        }
+        // Then cooking method (amber), keep existing color style
+        if (menu.cook) {
+          const cookSpan = document.createElement('span');
+          cookSpan.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1';
+          const l2 = document.createElement('span'); l2.textContent = '調理方法';
+          const v2 = document.createElement('span'); v2.className = 'font-medium text-amber-800'; v2.textContent = menu.cook;
+          cookSpan.append(l2, v2);
+          container.appendChild(cookSpan);
+        }
+        return; // Do not render genre chip for lunch
+      }
+
+      if (mealType === 'dinner') {
+        // Dinner: 調理時間 (green) first, then 調理方法 (amber), no genre
+        if (formattedTime) {
+          const timeSpan = document.createElement('span');
+          timeSpan.className = 'inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-800';
+          const l1 = document.createElement('span'); l1.textContent = '調理時間';
+          const v1 = document.createElement('span'); v1.className = 'font-medium'; v1.textContent = formattedTime;
+          timeSpan.append(l1, v1);
+          container.appendChild(timeSpan);
+        }
+        if (menu.cook) {
+          const cookSpan = document.createElement('span');
+          cookSpan.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1';
+          const l2 = document.createElement('span'); l2.textContent = '調理方法';
+          const v2 = document.createElement('span'); v2.className = 'font-medium text-amber-800'; v2.textContent = menu.cook;
+          cookSpan.append(l2, v2);
+          container.appendChild(cookSpan);
+        }
+        return; // do not render genre for dinner
+      }
+
+      // (Keep existing behavior for other meal types)
+      const chipsData = [];
+      if (menu.junle) chipsData.push({ label: 'ジャンル', value: menu.junle, kind: 'amber' });
+      if (formattedTime) chipsData.push({ label: '調理時間', value: formattedTime, kind: 'amber' });
+
+      chipsData.forEach((chip) => {
+        const span = document.createElement('span');
+        span.className = 'inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1';
+        const labelSpan = document.createElement('span'); labelSpan.textContent = chip.label;
+        const valueSpan = document.createElement('span'); valueSpan.className = 'font-medium text-amber-800'; valueSpan.textContent = chip.value;
+        span.append(labelSpan, valueSpan);
+        container.appendChild(span);
+      });
+    };
+
+    const setSlotEmptyState = (wrapper, isEmpty) => {
+      if (!wrapper) return;
+      if (isEmpty) {
+        wrapper.classList.add('slot-empty');
+      } else {
+        wrapper.classList.remove('slot-empty');
+      }
+    };
+
+    const updateDineButtonIcons = (button, isDineOut) => {
+      if (!button) return;
+      const homeIcon = button.querySelector('[data-role="dine-home"]');
+      const outIcon = button.querySelector('[data-role="dine-out"]');
+      if (homeIcon) {
+        homeIcon.classList.toggle('hidden', isDineOut);
+      }
+      if (outIcon) {
+        outIcon.classList.toggle('hidden', !isDineOut);
+      }
+    };
+
+    const buildPayload = () => {
+      const dayPlans = [];
+
+      state.plan.forEach((day) => {
+        if (!day) return;
+        const dateISO = weekDates[day.index]?.dateISO || day.dateISO || null;
+
+        const breakfastSlotsForPayload = ensureBreakfastSlots(day)
+          .filter((slot) => slot && slot.menuId);
+        const regularLunchSlots = ensureLunchSlots(day)
+          .filter((slot) => slot && slot.menuId);
+
+        const mapSlot = (slot, fallbackKey) => ({
+          categoryKey: slot.categoryKey || fallbackKey,
+          menuId: slot.menuId,
+          dineOut: !!slot.dineOut,
+          dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+          dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
+          favorite: !!slot.favorite,
+          locked: !!slot.locked,
+          prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
+        });
+
+        if (breakfastSlotsForPayload.length) {
+          dayPlans.push({
+            dayIndex: day.index,
+            dateISO,
+            mealType: 'breakfast',
+            slots: breakfastSlotsForPayload.map((slot) => mapSlot(slot, 'breakfastMain'))
+          });
+        }
+
+        if (regularLunchSlots.length) {
+          dayPlans.push({
+            dayIndex: day.index,
+            dateISO,
+            mealType: 'lunch',
+            slots: regularLunchSlots.map((slot) => mapSlot(slot, 'lunchMain'))
+          });
+        }
+
+        const dinnerSlots = ensureDinnerSlots(day)
+          .filter((slot) => slot && slot.menuId)
+          .map((slot) => {
+            const categoryKey = slot.categoryKey
+              || (slot.baseKey === 'staple'
+                ? 'dinnerStaple'
+                : slot.baseKey === 'main'
+                  ? 'dinnerMain'
+                  : slot.baseKey === 'side'
+                    ? 'dinnerSide'
+                    : slot.baseKey === 'soup'
+                      ? 'dinnerSoup'
+                      : 'dinnerFlexible');
+            return {
+              categoryKey,
+              menuId: slot.menuId,
+              dineOut: !!slot.dineOut,
+              dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+              dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
+              favorite: !!slot.favorite,
+              locked: !!slot.locked,
+              prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
+            };
+          });
+
+        if (dinnerSlots.length) {
+          dayPlans.push({
+            dayIndex: day.index,
+            dateISO,
+            mealType: 'dinner',
+            slots: dinnerSlots
+          });
+        }
+      });
+
+      const weekStartISO = weekDates[0]?.dateISO || (state.plan[0]?.dateISO ?? null) || (dayPlans[0]?.dateISO ?? null);
+      const weekEndISO = weekDates[weekDates.length - 1]?.dateISO || (state.plan[state.plan.length - 1]?.dateISO ?? weekStartISO);
+
+      const dayComments = (state.plan || []).map((day, index) => ({
+        dayIndex: typeof day?.index === 'number' ? day.index : index,
+        dateISO: weekDates[day?.index ?? index]?.dateISO || day?.dateISO || null,
+        comment: ensureDayComment(day) || ''
+      }));
+
+      return {
+        groupId: currentGroupId,
+        weekStart: weekStartISO,
+        weekEnd: weekEndISO,
+        dayPlans,
+        dayComments,
+        title: data.isModelPlanMode
+          ? ((window.weekMenuData && window.weekMenuData.modelPlanTitle) || 'モデルPLAN')
+          : (weekRangeLabel ? `${weekRangeLabel}の献立` : ''),
+        description: data.isModelPlanMode
+          ? ((window.weekMenuData && window.weekMenuData.modelPlanDescription) || '')
+          : '',
+        planId: state.planId || undefined
+      };
+    };
+
+    let __saving = false;
+    const handleSave = async () => {
+      if (__saving) return; // prevent multiple concurrent saves/alerts
+      __saving = true;
+      if (!currentGroupId) {
+        alert('保存先グループが設定されていません。');
+        __saving = false;
+        return;
+      }
+
+      const payload = buildPayload();
+
+      if (!payload.weekStart || !payload.dayPlans.length) {
+        alert('保存するメニューがありません。');
+        return;
+      }
+
+      if (!saveButton) return;
+      const originalLabel = saveButton.textContent;
+      saveButton.disabled = true;
+      saveButton.textContent = '保存中...';
+
+      try {
+        const response = await fetch((window.weekMenuData && window.weekMenuData.saveEndpoint) || '/users/week-menu', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(result.error || '保存に失敗しました。');
+        }
+
+        if (result.planId) {
+          state.planId = result.planId;
+          window.weekMenuData.planId = result.planId;
+        }
+        if (result.templateId && window.weekMenuData) {
+          window.weekMenuData.modelPlanId = result.templateId;
+        }
+
+        alert(data.isModelPlanMode ? 'モデルPLANを保存しました。' : '1週間のメニューを保存しました。');
+      } catch (error) {
+        console.error(error);
+        alert(error.message || '保存に失敗しました。');
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = originalLabel;
+        __saving = false;
+      }
+    };
+
+    // Silent auto-save API for fused views (weekMenu2)
+    let __autoSaveToastTimer = null;
+    const ensureAutoSaveToast = () => {
+      let host = document.getElementById('auto-save-toast');
+      if (host) return host;
+      host = document.createElement('div');
+      host.id = 'auto-save-toast';
+      host.className = 'fixed inset-0 z-[80] pointer-events-none flex items-center justify-center';
+      const box = document.createElement('div');
+      box.id = 'auto-save-toast-box';
+      box.className = 'rounded-2xl bg-red-100 text-red-800 px-8 py-4 shadow-lg transition-opacity transition-transform duration-200 opacity-0 scale-95';
+      box.textContent = '保存しました';
+      host.appendChild(box);
+      document.body.appendChild(host);
+      return host;
+    };
+    const showAutoSaveToast = () => {
+      ensureAutoSaveToast();
+      const box = document.getElementById('auto-save-toast-box');
+      if (!box) return;
+      // show
+      box.classList.remove('opacity-0', 'scale-95');
+      box.classList.add('opacity-100', 'scale-100');
+      if (__autoSaveToastTimer) { try { clearTimeout(__autoSaveToastTimer); } catch(_) {} }
+      __autoSaveToastTimer = setTimeout(() => {
+        box.classList.add('opacity-0', 'scale-95');
+        box.classList.remove('opacity-100', 'scale-100');
+      }, 1000);
+    };
+    let __autoSaving = false;
+    let __autoSaveTimer = null;
+    const saveWeekPlanSilently = async () => {
+      if (__autoSaving) return;
+      if (!currentGroupId) return;
+      const payload = buildPayload();
+      if (!payload.weekStart || !payload.dayPlans.length) return;
+      __autoSaving = true;
+      try {
+        const response = await fetch((window.weekMenuData && window.weekMenuData.saveEndpoint) || '/users/week-menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok && result && (result.planId || result.templateId)) {
+          state.planId = result.planId;
+          if (window.weekMenuData && result.planId) window.weekMenuData.planId = result.planId;
+          // show gentle centered toast for auto-save
+          showAutoSaveToast();
+        }
+      } catch (e) {
+        console.warn('auto-save failed', e);
+      } finally {
+        __autoSaving = false;
+      }
+    };
+
+    try {
+      window.weekMenuAPI = window.weekMenuAPI || {};
+      window.weekMenuAPI.saveWeekPlanSilently = saveWeekPlanSilently;
+      window.weekMenuAPI.requestAutoSave = function(){
+        if (__autoSaveTimer) { try { clearTimeout(__autoSaveTimer); } catch(_) {} }
+        __autoSaveTimer = setTimeout(saveWeekPlanSilently, 400);
+      };
+      window.weekMenuAPI.showSavedToast = showAutoSaveToast;
+    } catch(_) { /* noop */ }
+
+    const renderSlot = (wrapper, slot) => {
+      if (!wrapper) return;
+
+      const nameEl = wrapper.querySelector('[data-element="dish-name"]');
+      const detailEl = wrapper.querySelector('[data-element="dish-detail"]');
+      const favoriteBtn = wrapper.querySelector('[data-action="toggle-favorite"]');
+      const dineBtn = wrapper.querySelector('[data-action="toggle-dine"]');
+      const shuffleBtn = wrapper.querySelector('[data-action="shuffle"]');
+      const changeBtn = wrapper.querySelector('[data-action="change"]');
+      const clearBtn = wrapper.querySelector('[data-action="clear-slot"]');
+      const chipsEl = wrapper.querySelector('[data-element="dish-chips"]');
+      const imageEl = wrapper.querySelector('[data-element="dish-image"]');
+      const mealTagEl = imageEl ? imageEl.querySelector('[data-element="meal-tag"]') : null;
+      const genreTagEl = imageEl ? imageEl.querySelector('[data-element="dish-genre"]') : null;
+      const mealType = wrapper.dataset.meal || wrapper.closest('[data-meal]')?.dataset.meal || '';
+
+      const domCategoryKey = wrapper.dataset.category || wrapper.closest('[data-slot]')?.dataset.category || '';
+      let effectiveCategoryKey = (slot && slot.categoryKey) || domCategoryKey || '';
+      if (!effectiveCategoryKey && mealType !== 'dinner') {
+        effectiveCategoryKey = 'lunchMain';
+      }
+
+      if (slot?.categoryKey) {
+        wrapper.dataset.category = slot.categoryKey;
+      } else if (effectiveCategoryKey && !wrapper.dataset.category) {
+        wrapper.dataset.category = effectiveCategoryKey;
+      }
+
+      const categoryOptions = effectiveCategoryKey ? (menusByCategory[effectiveCategoryKey] || []) : [];
+      const hasCategoryOptions = categoryOptions.length > 0;
+
+      if (mealTagEl) {
+        const slotForLabel = slot || { categoryKey: effectiveCategoryKey || 'lunchMain' };
+        mealTagEl.textContent = mealLabelForSlot(slotForLabel);
+        mealTagEl.className = `absolute left-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${mealTagClassesForSlot(slotForLabel)}`;
+      }
+
+      if (!slot) {
+        if (nameEl) {
+          nameEl.innerHTML = '';
+          nameEl.textContent = 'メニュー候補がありません';
+        }
+        if (detailEl) {
+          detailEl.textContent = '管理者にご確認ください';
+          detailEl.classList.remove('hidden');
+        }
+        if (chipsEl) chipsEl.innerHTML = '';
+        updateImage(imageEl, '', '', '');
+        if (genreTagEl) {
+          genreTagEl.textContent = '';
+          genreTagEl.hidden = true;
+        }
+        [favoriteBtn, dineBtn, shuffleBtn, changeBtn, clearBtn].forEach((btn) => {
+          if (!btn) return;
+          if (btn === shuffleBtn || btn === changeBtn) {
+            btn.disabled = !hasCategoryOptions;
+          } else {
+            btn.disabled = true;
+          }
+        });
+        setSlotEmptyState(wrapper, true);
+        wrapper.classList.add('opacity-60');
+        updateDineButtonIcons(dineBtn, false);
+        return;
+      }
+
+      if (!slot.categoryKey && effectiveCategoryKey) {
+        slot.categoryKey = effectiveCategoryKey;
+      }
+
+      const menu = slot.menuId
+        ? (menuLookup[slot.menuId] || slot.menu || null)
+        : slot.menu || null;
+      const hasMenuId = !!slot.menuId;
+
+      if (menu && mealType === 'dinner') {
+        const inferredCategory = inferDinnerCategoryKey(menu);
+        if (inferredCategory) {
+          slot.categoryKey = inferredCategory;
+          wrapper.dataset.category = inferredCategory;
+          effectiveCategoryKey = inferredCategory;
+        }
+      }
+
+      if (!menu) {
+        if (nameEl) {
+          nameEl.innerHTML = '';
+          nameEl.textContent = hasMenuId ? 'メニュー情報が見つかりません' : 'メニューは未選択です';
+        }
+        if (detailEl) {
+          detailEl.textContent = hasMenuId ? '管理者にご確認ください' : 'メニューを選択してください';
+          detailEl.classList.remove('hidden');
+        }
+        if (chipsEl) chipsEl.innerHTML = '';
+        updateImage(imageEl, '', '', '');
+        if (genreTagEl) {
+          genreTagEl.textContent = '';
+          genreTagEl.hidden = true;
+        }
+
+        if (favoriteBtn) {
+          favoriteBtn.disabled = true;
+          favoriteBtn.setAttribute('aria-pressed', 'false');
+          favoriteBtn.classList.remove('is-active', 'text-rose-500', 'border-rose-300', 'bg-rose-50');
+        }
+        if (dineBtn) {
+          dineBtn.disabled = true;
+          dineBtn.setAttribute('aria-pressed', 'false');
+          updateDineButtonIcons(dineBtn, false);
+        }
+        if (shuffleBtn) shuffleBtn.disabled = !hasCategoryOptions;
+        if (changeBtn) changeBtn.disabled = !hasCategoryOptions;
+        if (clearBtn) clearBtn.disabled = !hasMenuId;
+        setSlotEmptyState(wrapper, true);
+        wrapper.classList.remove('opacity-60');
+        return;
+      }
+
+      setSlotEmptyState(wrapper, false);
+      wrapper.classList.toggle('opacity-60', !!slot.dineOut);
+
+      if (nameEl) {
+        nameEl.innerHTML = '';
+        if (slot.dineOut && slot.dineOutName) {
+          if (slot.dineOutUrl) {
+            const link = document.createElement('a');
+            link.href = slot.dineOutUrl;
+            link.target = 'menuWindow';
+            link.rel = 'noopener';
+            link.className = 'hover:underline';
+            link.textContent = slot.dineOutName;
+            nameEl.appendChild(link);
+          } else {
+            nameEl.textContent = slot.dineOutName;
+          }
+        } else if (menu.url) {
+          const link = document.createElement('a');
+          link.href = menu.url;
+          link.target = 'menuWindow';
+          link.rel = 'noopener';
+          link.className = 'hover:underline';
+          link.textContent = menu.name;
+          nameEl.appendChild(link);
+        } else {
+          nameEl.textContent = menu.name;
+        }
+      }
+
+      if (detailEl) {
+        let detailText = menu.cook || menu.junle || menu.kind || menu.menu || '詳細情報は未登録です';
+        const hideDetail = detailText && (detailText === menu.cook || detailText === menu.junle);
+        if (hideDetail) {
+          detailEl.textContent = '';
+          detailEl.classList.add('hidden');
+        } else {
+          detailEl.textContent = detailText;
+          detailEl.classList.remove('hidden');
+        }
+      }
+
+      if (chipsEl) {
+        chipsEl.innerHTML = '';
+        if (slot.dineOut) {
+          const dineChip = document.createElement('span');
+          dineChip.className = 'inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-indigo-800';
+          const icon = document.createElement('span');
+          icon.className = 'lucide w-4 h-4';
+          icon.setAttribute('data-lucide', 'utensils');
+          const label = document.createElement('span');
+          label.textContent = '外食';
+          dineChip.append(icon, label);
+          chipsEl.appendChild(dineChip);
+        } else {
+          updateChips(chipsEl, menu, mealType);
+        }
+      }
+      updateImage(imageEl, menu.imageUrl, menu.name, menu.url || '');
+      if (genreTagEl && mealType === 'lunch') {
+        genreTagEl.textContent = menu.junle || '';
+        genreTagEl.hidden = !menu.junle;
+      }
+      // Add/Update badge on image
+      if (imageEl) {
+        const oldBadge = imageEl.querySelector('.genre-badge');
+        if (oldBadge) oldBadge.remove();
+
+        if (mealType === 'dinner') {
+          const categoryKey = wrapper.dataset.category || '';
+          const catLabel = (categoryConfig[categoryKey] && categoryConfig[categoryKey].label) ? categoryConfig[categoryKey].label : 'ディナー';
+          if (catLabel) {
+            imageEl.classList.add('relative');
+            const badge = document.createElement('span');
+            badge.className = 'genre-badge absolute left-2 top-2 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 text-blue-600 px-2 py-0.5 text-[10px] font-semibold';
+            badge.textContent = catLabel;
+
+            imageEl.appendChild(badge);
+          }
+        }
+      }
+      
+      if (favoriteBtn) {
+        const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
+        const inMyMenu = !!(slot.menuId && mySet.has(String(slot.menuId)));
+        const isActive = !!(slot.favorite || inMyMenu);
+        favoriteBtn.disabled = false;
+        favoriteBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        favoriteBtn.classList.toggle('is-active', isActive);
+        favoriteBtn.classList.toggle('text-rose-500', isActive);
+        favoriteBtn.classList.toggle('border-rose-300', isActive);
+        favoriteBtn.classList.toggle('bg-rose-50', isActive);
+      }
+
+      if (dineBtn) {
+        dineBtn.disabled = false;
+        dineBtn.setAttribute('aria-pressed', slot.dineOut ? 'true' : 'false');
+        updateDineButtonIcons(dineBtn, !!slot.dineOut);
+      }
+
+      if (shuffleBtn) shuffleBtn.disabled = !hasCategoryOptions;
+      if (changeBtn) changeBtn.disabled = !hasCategoryOptions;
+      if (clearBtn) clearBtn.disabled = false;
+    };
+
+    const render = () => {
+      state.plan.forEach((day, dayIndex) => {
+        renderLunchDay(day, dayIndex);
+        renderDinnerDay(day, dayIndex);
+      });
+
+      state.plan.forEach((day, dayIndex) => {
+        const lunchCards = document.querySelectorAll(
+          `[data-day="${dayIndex}"][data-meal="lunch"] [data-slot-index]`
+        );
+        lunchCards.forEach((card) => {
+          const slotIndex = Number(card.dataset.slotIndex);
+          const slots = ensureLunchSlots(day);
+          const slot = Number.isNaN(slotIndex) ? null : slots[slotIndex];
+          if (!slot) {
+            card.remove();
+            return;
+          }
+          renderSlot(card, slot);
+        });
+
+        const dinnerCards = document.querySelectorAll(
+          `[data-day="${dayIndex}"][data-meal="dinner"] [data-dinner-index]`
+        );
+        dinnerCards.forEach((card) => {
+          const slotIndex = Number(card.dataset.dinnerIndex);
+          const slots = ensureDinnerSlots(day);
+          const slot = Number.isNaN(slotIndex) ? null : slots[slotIndex];
+          if (!slot) {
+            card.remove();
+            return;
+          }
+          renderSlot(card, slot);
+        });
+      });
+
+      renderRequirements();
+
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+
+      // Notify external views (e.g., weekMenu2) that render completed
+      try {
+        if (window && window.weekMenuData) {
+          window.weekMenuData.planSnapshot = JSON.parse(JSON.stringify(buildPlanSnapshot()));
+        }
+        const ev = new CustomEvent('weekplan:rendered', {
+          detail: { plan: (window.weekMenuData && window.weekMenuData.planSnapshot) || [] }
+        });
+        document.dispatchEvent(ev);
+      } catch (_) { /* noop */ }
+    };
+
+    const switchTab = (nextTab) => {
+      state.tab = nextTab;
+      tabButtons.forEach((button) => {
+        const isActive = button.dataset.tab === nextTab;
+        button.classList.toggle('bg-blue-600', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('bg-blue-50', !isActive);
+        button.classList.toggle('text-blue-600', !isActive);
+      });
+      panels.forEach((panel) => {
+        const shouldHide = panel.dataset.panel !== nextTab;
+        panel.hidden = shouldHide;
+        panel.classList.toggle('hidden', shouldHide);
+      });
+    };
+
+    const switchMainTab = (nextMain) => {
+      state.mainTab = nextMain;
+      mainTabButtons.forEach((button) => {
+        const isActive = button.dataset.mainTab === nextMain;
+        button.classList.toggle('bg-gray-900', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('bg-gray-100', !isActive);
+        button.classList.toggle('text-gray-600', !isActive);
+      });
+      mainPanels.forEach((panel) => {
+        const shouldHide = panel.dataset.mainPanel !== nextMain;
+        panel.hidden = shouldHide;
+        panel.classList.toggle('hidden', shouldHide);
+      });
+      // Toggle requirements summary visibility (only show on supplies tab)
+      if (requirementsSummaryEl) {
+        const showSummary = nextMain === 'supplies';
+        requirementsSummaryEl.classList.toggle('hidden', !showSummary);
+      }
+      if (planTabButtonsContainer) {
+        planTabButtonsContainer.classList.toggle('hidden', nextMain !== 'plan');
+        planTabButtonsContainer.hidden = nextMain !== 'plan';
+      }
+      if (nextMain === 'plan') {
+        switchTab(state.tab);
+        renderRequirements();
+      } else {
+        switchSupplyTab(state.supplyTab);
+      }
+    };
+
+    document.addEventListener('click', (event) => {
+      const actionNode = event.target.closest('[data-action]');
+      if (!actionNode) return;
+
+      const dayContainer = actionNode.closest('[data-day]');
+      if (!dayContainer) return;
+
+      const dayIndex = Number(dayContainer.dataset.day);
+      if (Number.isNaN(dayIndex)) return;
+
+      const mealKey = dayContainer.dataset.meal || dayContainer.closest('[data-meal]')?.dataset.meal || 'dinner';
+      const day = state.plan[dayIndex];
+      if (!day) return;
+
+      const action = actionNode.dataset.action;
+
+      if (action === 'add-lunch-slot') {
+        const mealChoice = actionNode.dataset.mealType === 'breakfast' ? 'breakfastMain' : 'lunchMain';
+        const newSlot = createEmptySlot(mealChoice);
+        if (mealChoice === 'breakfastMain') {
+          const slots = ensureBreakfastSlots(day);
+          slots.push(newSlot);
+        } else {
+          const slots = ensureLunchSlots(day);
+          insertLunchSlot(slots, newSlot);
+        }
+        render();
+        openMenuModal(newSlot.categoryKey || 'lunchMain', newSlot);
+        return;
+      }
+
+      if (action === 'add-dinner-slot') {
+        const targetCategory = actionNode.dataset.category || 'dinnerFlexible';
+        const newSlot = createEmptySlot(targetCategory);
+        newSlot.categoryKey = targetCategory;
+        newSlot.baseKey = null;
+        const dinnerSlots = ensureDinnerSlots(day);
+        dinnerSlots.push(newSlot);
+        render();
+        openMenuModal(targetCategory, newSlot);
+        return;
+      }
+
+      let identifier = null;
+      let slotWrapper = null;
+
+      if (mealKey === 'lunch' || mealKey === 'breakfast') {
+        slotWrapper = actionNode.closest('[data-slot-index]');
+        if (!slotWrapper) return;
+        identifier = Number(slotWrapper.dataset.slotIndex);
+        if (Number.isNaN(identifier)) return;
+      } else {
+        slotWrapper = actionNode.closest('[data-dinner-index]');
+        if (!slotWrapper) return;
+        identifier = Number(slotWrapper.dataset.dinnerIndex);
+        if (Number.isNaN(identifier)) return;
+      }
+
+      const categoryKey = slotWrapper.dataset.category || (mealKey === 'dinner'
+        ? (ensureDinnerSlots(day)[identifier]?.categoryKey || 'dinnerFlexible')
+        : (mealKey === 'breakfast' ? (ensureBreakfastSlots(day)[identifier]?.categoryKey || 'breakfastMain') : ''));
+      if (!categoryKey) return;
+
+      const slot = (() => {
+        const existing = getSlotReference(dayIndex, mealKey, identifier);
+        if (existing) return existing;
+
+        const baseSlot = createEmptySlot(categoryKey);
+
+        if (mealKey === 'breakfast') {
+          const slots = ensureBreakfastSlots(day);
+          slots[identifier] = baseSlot;
+        } else if (mealKey === 'lunch') {
+          const slots = ensureLunchSlots(day);
+          slots[identifier] = baseSlot;
+        } else if (mealKey === 'dinner') {
+          const slots = ensureDinnerSlots(day);
+          if (identifier >= 0 && identifier < slots.length) {
+            slots[identifier] = baseSlot;
+          } else {
+            slots.push(baseSlot);
+            identifier = slots.length - 1;
+          }
+        }
+
+        return baseSlot;
+      })();
+
+      if (!slot) return;
+      if (!slot.categoryKey) {
+        slot.categoryKey = categoryKey;
+      }
+
+      if (action === 'toggle-favorite') {
+        const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
+        const id = slot.menuId ? String(slot.menuId) : '';
+        if (id && mySet.has(id)) {
+          (async () => {
+            try {
+              const res = await fetch(`/users/my-menu/api/${encodeURIComponent(id)}`, { method: 'DELETE' });
+              if (!res.ok) throw new Error('削除に失敗しました');
+              window.weekMenuData.myMenuIds = (window.weekMenuData.myMenuIds || []).filter((x) => x !== id);
+              slot.favorite = false;
+              render();
+              if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+            } catch (e) {
+              alert(e.message || '削除に失敗しました');
+            }
+          })();
+        } else {
+          openFavoriteModal(slot, actionNode);
+        }
+      } else if (action === 'toggle-dine') {
+        toggleDineOut(slot);
+      } else if (action === 'shuffle') {
+        (async () => {
+          const next = await requestShuffle(mealKey, categoryKey, slot.menuId || '', dayIndex);
+          if (next && next.menuId) {
+            slot.menuId = next.menuId;
+            slot.categoryKey = next.categoryKey || categoryKey;
+            slot.dineOut = false;
+            if (next.menu) {
+              slot.menu = next.menu;
+            }
+            render();
+            if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+            try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch (_) {}
+          }
+        })();
+        return;
+      } else if (action === 'change') {
+        openMenuModal(categoryKey, slot);
+      } else if (action === 'set-prep') {
+        let current = Math.max(0, Number(slot.prepExtra) || 0);
+        const input = prompt('作り置きの人数（0=なし）', String(current));
+        if (input !== null) {
+          const n = Math.max(0, Math.floor(Number(input) || 0));
+          slot.prepExtra = n;
+          // 自動保存をトリガー
+          try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch(_) {}
+        }
+      } else if (action === 'clear-slot') {
+        slot.menuId = null;
+        slot.favorite = false;
+        slot.dineOut = false;
+        slot.locked = false;
+        if (mealKey === 'breakfast') {
+          const slots = ensureBreakfastSlots(day);
+          const slotIndex = Number(identifier);
+          if (!Number.isNaN(slotIndex) && slotIndex >= 0 && slotIndex < slots.length) {
+            slots.splice(slotIndex, 1);
+          } else {
+            const idx = slots.indexOf(slot);
+            if (idx !== -1) slots.splice(idx, 1);
+          }
+        } else if (mealKey === 'lunch') {
+          const slots = ensureLunchSlots(day);
+          const slotIndex = Number(identifier);
+          if (!Number.isNaN(slotIndex) && slotIndex >= 0 && slotIndex < slots.length) {
+            slots.splice(slotIndex, 1);
+          } else {
+            removeSlotReference(slot);
+          }
+        } else if (mealKey === 'dinner') {
+          removeDinnerSlotReference(slot);
+        }
+        if (modalState.isOpen && modalState.slot === slot) {
+          closeMenuModal();
+        }
+      }
+
+      render();
+      if (['toggle-dine', 'set-prep', 'clear-slot'].includes(action)) {
+        try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch (_) {}
+      }
+      if (typeof window.refreshLucideIcons === 'function') {
+        window.refreshLucideIcons();
+      }
+    });
+
+    // Modal actions
+    document.addEventListener('click', async (ev) => {
+      const t = ev.target;
+      const modal = document.getElementById('fav-modal');
+      if (!modal) return;
+      if (!modal.classList.contains('hidden') && t.id === 'fav-modal') {
+        closeFavoriteModal();
+      }
+      if (t.closest('[data-fav-action="cancel"]')) {
+        ev.preventDefault();
+        closeFavoriteModal();
+      }
+      if (t.closest('[data-fav-action="submit"]')) {
+        ev.preventDefault();
+        try {
+          if (!favoriteModalSlot || !favoriteModalSlot.menuId) return closeFavoriteModal();
+          const freq = Number(document.getElementById('fav-frequency').value) || 3;
+          await upsertMyMenu(favoriteModalSlot.menuId, freq, false);
+          favoriteModalSlot.favorite = true;
+          // Add to myMenuIds set for coloring immediately
+          (function(){
+            const ids = window.weekMenuData.myMenuIds || [];
+            const id = String(favoriteModalSlot.menuId);
+            if (!ids.includes(id)) ids.push(id);
+            window.weekMenuData.myMenuIds = ids;
+          })();
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          closeFavoriteModal();
+        } catch (e) {
+          alert(e.message || '登録に失敗しました');
+        }
+      }
+    });
+
+    mainTabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const targetMain = button.dataset.mainTab || 'plan';
+        switchMainTab(targetMain);
+      });
+    });
+
+    supplyTabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const targetSupply = button.dataset.supplyTab || 'ingredients';
+        switchSupplyTab(targetSupply);
+      });
+    });
+
+    tabButtons.forEach((button) => {
+      button.addEventListener('click', () => switchTab(button.dataset.tab));
+    });
+
+    const regenerateButton = document.querySelector('[data-action="regenerate-week"]');
+    if (regenerateButton) {
+      regenerateButton.addEventListener('click', () => {
+        if (!regenerateButton.dataset.armed) {
+          regenerateButton.dataset.armed = '1';
+          setTimeout(() => { delete regenerateButton.dataset.armed; }, 2000);
+          return;
+        }
+        delete regenerateButton.dataset.armed;
+        const ok = window.confirm('1週間のメニューを再提案します。よろしいですか？');
+        if (!ok) return;
+        const nextPlan = state.plan.map((day) => {
+          const cloneDay = {
+            ...day,
+            lunchSlots: [],
+            dinnerSlots: []
+          };
+
+          const rebuildSlot = (categoryKey, allowEmptyObject = false, baseKey = null) => {
+            const nextMenu = pickRandomMenu(categoryKey);
+            if (!nextMenu) {
+              if (!allowEmptyObject) return null;
+              const slot = createEmptySlot(categoryKey);
+              slot.baseKey = baseKey;
+              return slot;
+            }
+            return {
+              menuId: nextMenu.id,
+              categoryKey,
+              favorite: false,
+              dineOut: false,
+              locked: false,
+              baseKey
+            };
+          };
+
+          const currentLunchSlots = ensureLunchSlots(day);
+          const baseLunchSlots = currentLunchSlots.length
+            ? currentLunchSlots
+            : [createEmptySlot('lunchMain')];
+
+          cloneDay.lunchSlots = baseLunchSlots.map((slot) => {
+            const categoryKey = slot?.categoryKey || 'lunchMain';
+            return rebuildSlot(categoryKey, true);
+          });
+
+          const dinnerSeeds = [
+            ['dinnerStaple', 'staple'],
+            ['dinnerMain', 'main'],
+            ['dinnerSide', 'side'],
+            ['dinnerSoup', 'soup']
+          ];
+
+          cloneDay.dinnerSlots = dinnerSeeds
+            .map(([categoryKey, baseKey]) => rebuildSlot(categoryKey, false, baseKey))
+            .filter(Boolean);
+          cloneDay.dinner = {};
+          cloneDay.dinnerExtras = [];
+
+          return cloneDay;
+        });
+
+        state.plan = nextPlan;
+        render();
+        if (typeof window.refreshLucideIcons === 'function') {
+          window.refreshLucideIcons();
+        }
+      });
+    }
+
+    if (saveButton) {
+      saveButton.addEventListener('click', handleSave);
+    }
+
+    switchSupplyTab(state.supplyTab);
+    switchMainTab('plan');
+    switchTab('lunch');
+    render();
+    if (typeof window.refreshLucideIcons === 'function') {
+      window.refreshLucideIcons();
+    }
+  })();
+
+</script>

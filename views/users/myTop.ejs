@@ -31,7 +31,7 @@
   if (hasAfterNextWeekPlan) {
     queryParts.push(`plan=${afterNextPlanId}`);
   }
-  const weekMenuLink = '/users/week-menu2' + (queryParts.length ? `?${queryParts.join('&')}` : '');
+  const weekMenuLink = '/users/week-menu' + (queryParts.length ? `?${queryParts.join('&')}` : '');
 %>
 
 <style>
@@ -585,8 +585,7 @@
           <h2 class="text-lg font-semibold">今週の7 DAYS PLAN</h2>
           <p class="text-xs text-gray-500 mt-1 uppercase tracking-wide">7 days preview</p>
         </div>
-        <a href="<%= (typeof currentWeekLink === 'string' ? currentWeekLink : '/users/week-menu')
-              .replace('/users/week-menu', '/users/week-menu2') %>"
+        <a href="<%= (typeof currentWeekLink === 'string' ? currentWeekLink : '/users/week-menu') %>"
            class="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
           全て表示
           <span class="lucide w-4 h-4" data-lucide="calendar-range"></span>
@@ -905,7 +904,7 @@
     initialMonth: <%- serialize(initialCalendarMonthISO || '') %>,
     todayISO: <%- serialize(todayISO || '') %>,
     apiBase: '/users/api/week-plans',
-    weekMenuBaseUrl: '/users/week-menu2',
+    weekMenuBaseUrl: '/users/week-menu',
     currentWeekLink: <%- serialize(currentWeekLink || '') %>
   };
 </script>
@@ -1070,8 +1069,7 @@
     });
 
     const buildSetMenuLink = (menuId) => {
-      const base = (window.myTopData && window.myTopData.currentWeekLink) || (window.myTopData && window.myTopData.weekMenuBaseUrl) || '/users/week-menu2';
-      const safeBase = String(base).replace('/users/week-menu', '/users/week-menu2');
+      const safeBase = (window.myTopData && window.myTopData.currentWeekLink) || (window.myTopData && window.myTopData.weekMenuBaseUrl) || '/users/week-menu';
       try {
         const u = new URL(safeBase, window.location.origin);
         if (menuId) u.searchParams.set('setMenuId', menuId);
