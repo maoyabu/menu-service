@@ -17,16 +17,16 @@
       </nav>
       <div class="rounded-xl border px-4 py-2 <%= __titleTone %>">
         <h1 class="text-xl font-extrabold"><%= __pageTitle %></h1>
-        <p class="text-sm opacity-80">キーワード・種類・ジャンル・調理方法で検索</p>
+        <p class="text-sm opacity-80">キーワード・種類・ジャンル・調理方法・メニュー内容で検索</p>
       </div>
     </div>
     
   </header>
 
   <form id="menuFilterForm" method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-12 gap-3">
-    <div class="flex flex-col gap-1 md:col-span-4">
+    <div class="flex flex-col gap-1 md:col-span-3">
       <label class="text-xs font-semibold text-gray-600">キーワード</label>
-      <input type="text" name="keyword" value="<%= selected.keyword || '' %>" placeholder="メニュー名・種類・メニュー内容" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+      <input type="text" name="keyword" value="<%= selected.keyword || '' %>" placeholder="メニュー名・種類・メニュー内容など" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500" />
     </div>
     <div class="flex flex-col gap-1 md:col-span-2">
       <label class="text-xs font-semibold text-gray-600">種類</label>
@@ -52,6 +52,15 @@
         <option value="">調理方法</option>
         <% cooks.forEach(function(c){ %>
           <option value="<%= c %>" <%= selected.cook===c ? 'selected' : '' %>><%= c %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1 md:col-span-3">
+      <label class="text-xs font-semibold text-gray-600">メニュー内容</label>
+      <select name="menuContent" class="border rounded-lg px-3 py-2 h-11 focus:outline-none focus:ring-1 focus:ring-blue-500">
+        <option value="">メニュー内容</option>
+        <% (menuContents || []).forEach(function(content){ %>
+          <option value="<%= content %>" <%= selected.menuContent===content ? 'selected' : '' %>><%= content %></option>
         <% }) %>
       </select>
     </div>

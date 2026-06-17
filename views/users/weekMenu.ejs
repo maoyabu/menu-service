@@ -176,6 +176,12 @@
             <option value="">すべて</option>
           </select>
         </div>
+        <div>
+          <label class="text-xs text-gray-500">メニュー内容</label>
+          <select data-menu-modal-menu class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+          </select>
+        </div>
         <div class="flex items-end gap-4">
           <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap">
             <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
@@ -1829,6 +1835,7 @@
       searchInput: document.querySelector('[data-menu-modal-search]'),
       kindSelect: document.querySelector('[data-menu-modal-kind]'),
       junleSelect: document.querySelector('[data-menu-modal-junle]'),
+      menuSelect: document.querySelector('[data-menu-modal-menu]'),
       prepOnly: document.querySelector('[data-menu-modal-prep]'),
       dinnerSetOnly: document.querySelector('[data-menu-modal-dinner-set]'),
       dinnerSetWrap: document.querySelector('[data-menu-modal-dinner-set-wrap]'),
@@ -1853,6 +1860,7 @@
         search: '',
         kind: '',
         junle: '',
+        menuContent: '',
         prepOnly: false,
         dinnerSetOnly: false,
         ignoreFilter: false
@@ -1957,8 +1965,10 @@
       const allKinds = [...kindsFromOptions, ...getGlobalKinds()];
       populateSelectOptions(modalElements.kindSelect, allKinds, modalState.filters.kind || '');
       populateSelectOptions(modalElements.junleSelect, baseOptions.map((menu) => menu.junle), modalState.filters.junle || '');
+      populateSelectOptions(modalElements.menuSelect, baseOptions.map((menu) => menu.menu), modalState.filters.menuContent || '');
       if (modalElements.kindSelect) modalState.filters.kind = modalElements.kindSelect.value || '';
       if (modalElements.junleSelect) modalState.filters.junle = modalElements.junleSelect.value || '';
+      if (modalElements.menuSelect) modalState.filters.menuContent = modalElements.menuSelect.value || '';
     };
 
     const renderMenuFilterBox = () => {
@@ -2015,11 +2025,12 @@
     };
 
     const applyModalFilters = () => {
-      const { search, kind, junle, prepOnly, dinnerSetOnly } = modalState.filters;
+      const { search, kind, junle, menuContent, prepOnly, dinnerSetOnly } = modalState.filters;
       const query = search.trim().toLowerCase();
       const activeFilters = {
         kind: kind || '',
-        junle: junle || ''
+        junle: junle || '',
+        menuContent: menuContent || ''
       };
 
       const baseOptions = getBaseModalOptions();
@@ -2027,10 +2038,11 @@
         if (!menu) return false;
         if (activeFilters.kind && menu.kind !== activeFilters.kind) return false;
         if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
+        if (activeFilters.menuContent && menu.menu !== activeFilters.menuContent) return false;
         if (prepOnly && !menu.makeAhead) return false;
         if (dinnerSetOnly && menu.menu !== '定番ディナーセット') return false;
         if (!query) return true;
-        // 検索対象を「レシピ名・よみ・メニュー」に限定
+        // フリーワード検索は広めにしつつ、メニュー内容はプルダウンでも絞り込めるようにする
         const candidates = [
           menu.name,
           menu.yomi,
@@ -2175,7 +2187,7 @@
       modalState.categoryKey = '';
       modalState.options = [];
       modalState.currentMenu = null;
-      modalState.filters = { search: '', kind: '', junle: '', prepOnly: false, dinnerSetOnly: false, ignoreFilter: false };
+      modalState.filters = { search: '', kind: '', junle: '', menuContent: '', prepOnly: false, dinnerSetOnly: false, ignoreFilter: false };
       modalState.menuFilter = { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
       if (modalElements.overlay) {
         modalElements.overlay.classList.add('hidden');
@@ -2267,6 +2279,7 @@
         search: '',
         kind: '',
         junle: currentMenu?.junle || '',
+        menuContent: '',
         prepOnly: false,
         dinnerSetOnly: false,
         ignoreFilter: false
@@ -2300,6 +2313,9 @@
       }
       if (modalElements.dinnerSetOnly) {
         modalElements.dinnerSetOnly.checked = false;
+      }
+      if (modalElements.menuSelect) {
+        modalElements.menuSelect.value = modalState.filters.menuContent || '';
       }
 
       renderMenuFilterBox();
@@ -2349,6 +2365,13 @@
     if (modalElements.junleSelect) {
       modalElements.junleSelect.addEventListener('change', (event) => {
         modalState.filters.junle = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.menuSelect) {
+      modalElements.menuSelect.addEventListener('change', (event) => {
+        modalState.filters.menuContent = event.target.value || '';
         renderModalList();
       });
     }

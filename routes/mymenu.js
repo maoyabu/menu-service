@@ -74,11 +74,12 @@ const pickIngredientIds = (menuDoc) => {
 
 // ユーティリティ: 周辺のユニークリストを作成
 async function getFacetLists() {
-  const allMenus = await Menu.find().select('kind junle cook').lean();
+  const allMenus = await Menu.find().select('kind junle cook menu').lean();
   return {
     kinds: unique(allMenus.map((m) => m.kind)),
     junles: unique(allMenus.map((m) => m.junle)),
-    cooks: unique(allMenus.map((m) => m.cook))
+    cooks: unique(allMenus.map((m) => m.cook)),
+    menuContents: unique(allMenus.map((m) => m.menu))
   };
 }
 
@@ -87,7 +88,7 @@ router.get('/', async (req, res, next) => {
   try {
     const userId = req.user._id;
     // Filters for group members section (prefix g_ to avoid collisions)
-    const { g_keyword = '', g_kind = '', g_junle = '', g_cook = '', g_member = '' } = req.query;
+    const { g_kind = '', g_junle = '', g_cook = '', g_menuContent = '', g_member = '' } = req.query;
 
     const [sharedCount, urlCount, originalCount] = await Promise.all([
       Mymenu.countDocuments({ user: userId, sourceType: 'shared' }),
@@ -126,8 +127,8 @@ router.get('/', async (req, res, next) => {
     const currentGroup = groups.find((g) => g._id.toString() === defaultGroupId) || groups[0] || null;
 
     let groupMemberItems = [];
-    let groupFacets = { kinds: [], junles: [], cooks: [], members: [] };
-    let groupSelected = { keyword: g_keyword, kind: g_kind, junle: g_junle, cook: g_cook, member: g_member };
+    let groupFacets = { kinds: [], junles: [], cooks: [], menuContents: [], members: [] };
+    let groupSelected = { kind: g_kind, junle: g_junle, cook: g_cook, menuContent: g_menuContent, member: g_member };
     if (currentGroup) {
       const rawGroup = await Mymenu.find({
         group: currentGroup._id,
@@ -146,6 +147,7 @@ router.get('/', async (req, res, next) => {
       const kinds = unique(rawGroup.map((mm) => mm?.menu?.kind).filter(Boolean));
       const junles = unique(rawGroup.map((mm) => mm?.menu?.junle).filter(Boolean));
       const cooks = unique(rawGroup.map((mm) => mm?.menu?.cook).filter(Boolean));
+      const menuContents = unique(rawGroup.map((mm) => mm?.menu?.menu).filter(Boolean));
       const memberMap = new Map();
       (rawGroup || []).forEach((mm) => {
         if (!mm?.user) return;
@@ -156,7 +158,7 @@ router.get('/', async (req, res, next) => {
           memberMap.set(id, { id, name });
         }
       });
-      groupFacets = { kinds, junles, cooks, members: Array.from(memberMap.values()) };
+      groupFacets = { kinds, junles, cooks, menuContents, members: Array.from(memberMap.values()) };
 
       // Apply filters
       groupMemberItems = (rawGroup || []).filter((mm) => {
@@ -164,12 +166,8 @@ router.get('/', async (req, res, next) => {
         if (g_kind && m.kind !== g_kind) return false;
         if (g_junle && m.junle !== g_junle) return false;
         if (g_cook && m.cook !== g_cook) return false;
+        if (g_menuContent && m.menu !== g_menuContent) return false;
         if (g_member && (mm.user?._id?.toString?.() !== g_member)) return false;
-        if (g_keyword) {
-          const rx = new RegExp(escapeRegex(g_keyword), 'i');
-          const fields = [m.name, m.yomi, m.kind, m.junle, m.cook, m.menu].filter(Boolean).join(' ');
-          if (!rx.test(fields)) return false;
-        }
         return true;
       });
     }
@@ -195,6 +193,7 @@ router.get('/shared-register', async (req, res, next) => {
       kind = '',
       junle = '',
       cook = '',
+      menuContent = '',
       fav = 'all',
       seasonal = '',
       seasonalMonth = '',
@@ -207,13 +206,14 @@ router.get('/shared-register', async (req, res, next) => {
     const onlyOriginalMenu = ['1', 'true', 'on', 'yes'].includes(String(originalMenu).toLowerCase());
     const onlySetMenu = ['1', 'true', 'on', 'yes'].includes(String(setMenu).toLowerCase());
     const onlyArrangeMenu = ['1', 'true', 'on', 'yes'].includes(String(arrangeMenu).toLowerCase());
-    const { kinds, junles, cooks } = await getFacetLists();
+    const { kinds, junles, cooks, menuContents } = await getFacetLists();
 
     // 管理者が登録した共有メニュー（share=true を優先、なければ全件）
     const menuFilter = [];
     if (kind) menuFilter.push({ kind });
     if (junle) menuFilter.push({ junle });
     if (cook) menuFilter.push({ cook });
+    if (menuContent) menuFilter.push({ menu: menuContent });
     if (keyword) {
       const rx = new RegExp(escapeRegex(keyword), 'i');
       menuFilter.push({
@@ -263,6 +263,7 @@ router.get('/shared-register', async (req, res, next) => {
       if (kind && x.kind !== kind) return false;
       if (junle && x.junle !== junle) return false;
       if (cook && x.cook !== cook) return false;
+      if (menuContent && x.menu !== menuContent) return false;
       if (keyword) {
         const rx = new RegExp(escapeRegex(keyword), 'i');
         const fields = [x.name, x.yomi, x.kind, x.junle, x.cook, x.menu].filter(Boolean).join(' ');
@@ -480,11 +481,12 @@ router.get('/shared-register', async (req, res, next) => {
 
     // UI用：fav=mine の場合は種類/ジャンル/調理方法の選択状態を空にして表示
     res.render('users/myMenuShared', {
-      kinds, junles, cooks,
+      kinds, junles, cooks, menuContents,
       selected: {
         kind,
         junle,
         cook,
+        menuContent,
         keyword,
         fav,
         seasonal: onlySeasonal,
@@ -1540,6 +1542,7 @@ router.get('/original-list', async (req, res, next) => {
   try {
     const showHidden = String(req.query.show_hidden || '') === 'true';
     const keyword = String(req.query.keyword || '').trim();
+    const menuContent = String(req.query.menuContent || '').trim();
     const criteria = { user: req.user._id, sourceType: 'original' };
     if (!showHidden) {
       criteria.$or = [ { hidden: { $exists: false } }, { hidden: false } ];
@@ -1552,6 +1555,10 @@ router.get('/original-list', async (req, res, next) => {
       })
       .sort({ update_date: -1, entry_date: -1 })
       .lean();
+    const menuContents = unique(list.map((mm) => mm?.menu?.menu).filter(Boolean));
+    if (menuContent) {
+      list = list.filter((mm) => (mm.menu?.menu || '') === menuContent);
+    }
     if (keyword) {
       const rx = new RegExp(escapeRegex(keyword), 'i');
       list = list.filter((mm) => {
@@ -1560,7 +1567,7 @@ router.get('/original-list', async (req, res, next) => {
         return rx.test(fields);
       });
     }
-    res.render('users/myMenuOriginalList', { list, showHidden, keyword });
+    res.render('users/myMenuOriginalList', { list, showHidden, keyword, menuContent, menuContents });
   } catch (err) { next(err); }
 });
 
@@ -1698,7 +1705,7 @@ router.get('/group-members', async (req, res, next) => {
       return res.redirect('/users/my-menu');
     }
 
-    const { keyword = '', kind = '', junle = '', cook = '' } = req.query;
+    const { keyword = '', kind = '', junle = '', cook = '', menuContent = '' } = req.query;
     const members = unique([
       currentGroup.createdBy?.toString?.() || '',
       ...((currentGroup.members || []).map((m) => m.toString ? m.toString() : String(m)))
@@ -1715,6 +1722,7 @@ router.get('/group-members', async (req, res, next) => {
       if (kind && x.kind !== kind) return false;
       if (junle && x.junle !== junle) return false;
       if (cook && x.cook !== cook) return false;
+      if (menuContent && x.menu !== menuContent) return false;
       if (keyword) {
         const rx = new RegExp(escapeRegex(keyword), 'i');
         const fields = [x.name, x.yomi, x.kind, x.junle, x.cook, x.menu].filter(Boolean).join(' ');
@@ -1723,11 +1731,11 @@ router.get('/group-members', async (req, res, next) => {
       return true;
     });
 
-    const { kinds, junles, cooks } = await getFacetLists();
+    const { kinds, junles, cooks, menuContents } = await getFacetLists();
     res.render('users/myMenuGroupMembers', {
       currentGroup,
-      kinds, junles, cooks,
-      selected: { keyword, kind, junle, cook },
+      kinds, junles, cooks, menuContents,
+      selected: { keyword, kind, junle, cook, menuContent },
       items: filtered
     });
   } catch (err) { next(err); }

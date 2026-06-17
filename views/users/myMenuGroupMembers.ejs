@@ -6,12 +6,12 @@
         <span>マイメニュートップ</span>
       </a>
       <h1 class="text-2xl font-bold mt-2"><%= currentGroup ? currentGroup.group_name : 'グループ' %> のメンバーのマイメニュー</h1>
-      <p class="text-sm text-gray-500">種類やジャンル、調理方法で絞り込み</p>
+      <p class="text-sm text-gray-500">種類やジャンル、調理方法、メニュー内容で絞り込み</p>
     </div>
   </header>
 
-  <form method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-5 gap-3">
-    <input type="text" name="keyword" value="<%= selected.keyword || '' %>" placeholder="キーワード" class="border rounded-lg px-3 py-2 md:col-span-2" />
+  <form method="get" class="bg-white p-4 rounded-xl border grid grid-cols-1 md:grid-cols-6 gap-3">
+    <input type="text" name="keyword" value="<%= selected.keyword || '' %>" placeholder="メニュー名・種類・メニュー内容など" class="border rounded-lg px-3 py-2" />
     <select name="kind" class="border rounded-lg px-3 py-2">
       <option value="">種類</option>
       <% kinds.forEach(function(k){ %>
@@ -30,7 +30,13 @@
         <option value="<%= c %>" <%= selected.cook===c ? 'selected' : '' %>><%= c %></option>
       <% }) %>
     </select>
-    <div class="md:col-span-5 flex gap-3">
+    <select name="menuContent" class="border rounded-lg px-3 py-2">
+      <option value="">メニュー内容</option>
+      <% (menuContents || []).forEach(function(content){ %>
+        <option value="<%= content %>" <%= selected.menuContent===content ? 'selected' : '' %>><%= content %></option>
+      <% }) %>
+    </select>
+    <div class="md:col-span-6 flex gap-3">
       <button class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">絞り込み</button>
       <a href="/users/my-menu/group-members" class="px-4 py-2 rounded-lg border text-sm font-semibold">クリア</a>
     </div>

@@ -611,13 +611,14 @@ router.post('/equipment-delete/:id', async (req, res) => {
 // レシピ一覧画面（DBから取得）
 router.get('/menu-list', async (req, res) => {
   try {
-    const { kind, junle, cook, keyword, image: imageFilter, makeAhead, basicMenu, arrangeMenu } = req.query;
+    const { kind, junle, cook, menuContent, keyword, image: imageFilter, makeAhead, basicMenu, arrangeMenu } = req.query;
 
     const filterConditions = [];
 
     if (kind) filterConditions.push({ kind });
     if (junle) filterConditions.push({ junle });
     if (cook) filterConditions.push({ cook });
+    if (menuContent) filterConditions.push({ menu: menuContent });
     if (keyword) {
       const keywordRegex = new RegExp(escapeRegex(keyword), 'i');
       filterConditions.push({
@@ -669,6 +670,7 @@ router.get('/menu-list', async (req, res) => {
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
     const junleList = [...new Set(allMenus.map(menu => menu.junle).filter(Boolean))];
     const cookList = [...new Set(allMenus.map(menu => menu.cook).filter(Boolean))];
+    const menuContentList = [...new Set(allMenus.map(menu => menu.menu).filter(Boolean))];
     const ingredientList = await Ingredient.find();
     const seasoningList = await Seasoning.find();
 
@@ -676,6 +678,7 @@ router.get('/menu-list', async (req, res) => {
     if (kind) appliedParams.append('kind', kind);
     if (junle) appliedParams.append('junle', junle);
     if (cook) appliedParams.append('cook', cook);
+    if (menuContent) appliedParams.append('menuContent', menuContent);
     if (keyword) appliedParams.append('keyword', keyword);
     if (imageFilter) appliedParams.append('image', imageFilter);
     if (toBool(makeAhead)) appliedParams.append('makeAhead', 'true');
@@ -689,9 +692,11 @@ router.get('/menu-list', async (req, res) => {
       kindList,
       junleList,
       cookList,
+      menuContentList,
       selectedType: kind || '',
       selectedJunle: junle || '',
       selectedCook: cook || '',
+      selectedMenuContent: menuContent || '',
       keyword: keyword || '',
       selectedImageFilter: imageFilter || '',
       selectedMakeAhead: toBool(makeAhead) ? 'true' : '',
@@ -711,12 +716,13 @@ router.get('/menu-list', async (req, res) => {
 
 // レシピ一覧絞り込み処理（POST → GET へリダイレクト）
 router.post('/menu-list', (req, res) => {
-  const { kind, junle, cook, keyword, image, makeAhead, basicMenu, arrangeMenu } = req.body;
+  const { kind, junle, cook, menuContent, keyword, image, makeAhead, basicMenu, arrangeMenu } = req.body;
 
   const query = new URLSearchParams();
   if (kind) query.append('kind', kind);
   if (junle) query.append('junle', junle);
   if (cook) query.append('cook', cook);
+  if (menuContent) query.append('menuContent', menuContent);
   if (keyword) query.append('keyword', keyword);
   if (image) query.append('image', image);
   if (makeAhead) query.append('makeAhead', makeAhead);
