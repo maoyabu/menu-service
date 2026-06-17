@@ -15,7 +15,14 @@
     <a href="/users/my-menu/original" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-purple-700 text-white text-sm font-semibold hover:bg-purple-800">新規作成</a>
   </header>
 
-  <form method="get" class="bg-white border rounded-xl p-3 flex items-center gap-3 text-sm">
+  <form method="get" class="bg-white border rounded-xl p-3 flex flex-wrap items-center gap-3 text-sm">
+    <input
+      type="text"
+      name="keyword"
+      value="<%= typeof keyword !== 'undefined' ? keyword : '' %>"
+      placeholder="メニュー名・種類・メニュー内容で検索"
+      class="border rounded-lg px-3 py-2 min-w-[240px]"
+    />
     <label class="inline-flex items-center gap-2">
       <input type="checkbox" name="show_hidden" value="true" <%= showHidden ? 'checked' : '' %> />
       <span>非表示のレシピも表示</span>

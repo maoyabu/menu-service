@@ -212,7 +212,14 @@
       <h2 class="font-semibold">グループメンバーのマイメニュー</h2>
     </div>
     <p class="text-xs text-amber-800">グループメンバーの好きなメニューを知ろう！</p>
-    <form id="groupFilter" method="get" class="bg-white border rounded-xl p-3 grid grid-cols-1 md:grid-cols-5 gap-2 text-sm">
+    <form id="groupFilter" method="get" class="bg-white border rounded-xl p-3 grid grid-cols-1 md:grid-cols-6 gap-2 text-sm">
+      <input
+        type="text"
+        name="g_keyword"
+        value="<%= (groupSelected && groupSelected.keyword) || '' %>"
+        placeholder="メニュー内容でも検索"
+        class="border rounded-lg px-3 py-2"
+      />
       <select name="g_kind" id="gf_kind" class="border rounded-lg px-3 py-2">
         <option value="">種類（すべて）</option>
         <% (groupFacets && Array.isArray(groupFacets.kinds) ? groupFacets.kinds : []).forEach(function(k){ %>
@@ -300,8 +307,10 @@
     const j = document.getElementById('gf_junle');
     const c = document.getElementById('gf_cook');
     const m = document.getElementById('gf_member');
+    const q = form.querySelector('input[name="g_keyword"]');
     const apply = ()=>{
       const sp = new URLSearchParams();
+      if (q && q.value.trim()) sp.set('g_keyword', q.value.trim());
       if (k.value) sp.set('g_kind', k.value);
       if (j.value) sp.set('g_junle', j.value);
       if (c.value) sp.set('g_cook', c.value);
@@ -310,7 +319,14 @@
       const qs = sp.toString();
       window.location.href = url + (qs ? ('?' + qs) : '');
     };
+    let timer = null;
+    if (q) {
+      q.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(apply, 350);
+      });
+    }
     [k,j,c,m].forEach(el=> el.addEventListener('change', apply));
-    document.getElementById('groupFilterClear').addEventListener('click', ()=>{ k.value=''; j.value=''; c.value=''; m.value=''; apply(); });
+    document.getElementById('groupFilterClear').addEventListener('click', ()=>{ if(q) q.value=''; k.value=''; j.value=''; c.value=''; m.value=''; apply(); });
   })();
 </script>

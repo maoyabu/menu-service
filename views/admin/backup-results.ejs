@@ -1,19 +1,25 @@
 <%
   const successCount = results && results.success ? results.success.length : 0;
   const failCount = results && results.failed ? results.failed.length : 0;
+  const summary = results && results.summary ? results.summary : {};
+  const details = results && results.details ? results.details : [];
 %>
 
 <section class="max-w-4xl mx-auto py-10 space-y-8">
   <header class="flex flex-col gap-2">
     <h1 class="text-3xl font-bold text-gray-900">
-      <% if (isRestore) { %>
+      <% if (isMenuContentUpdate) { %>
+        メニュー内容一括更新完了
+      <% } else if (isRestore) { %>
         リストア完了
       <% } else { %>
         バックアップ完了
       <% } %>
     </h1>
     <p class="text-sm text-gray-600">
-      <% if (isRestore) { %>
+      <% if (isMenuContentUpdate) { %>
+        Excelファイルをもとにメニュー内容の更新を実行しました。
+      <% } else if (isRestore) { %>
         データベースの復元が完了しました。
       <% } else { %>
         バックアップファイルが作成されました。
@@ -21,6 +27,68 @@
     </p>
   </header>
 
+  <% if (isMenuContentUpdate) { %>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+        <p class="text-sm text-blue-700">対象行</p>
+        <p class="text-2xl font-bold text-blue-900"><%= summary.targetRows || 0 %></p>
+      </div>
+      <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+        <p class="text-sm text-green-700">一致レコード</p>
+        <p class="text-2xl font-bold text-green-900"><%= summary.matchedCount || 0 %></p>
+      </div>
+      <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+        <p class="text-sm text-indigo-700">更新レコード</p>
+        <p class="text-2xl font-bold text-indigo-900"><%= summary.modifiedCount || 0 %></p>
+      </div>
+      <div class="<%= (summary.failedCount || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200' %> border-2 rounded-xl p-6">
+        <p class="<%= (summary.failedCount || 0) > 0 ? 'text-red-700' : 'text-gray-700' %> text-sm">失敗行</p>
+        <p class="<%= (summary.failedCount || 0) > 0 ? 'text-red-900' : 'text-gray-900' %> text-2xl font-bold"><%= summary.failedCount || 0 %></p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow border border-gray-100 p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <span class="lucide w-5 h-5 text-indigo-600" data-lucide="list-checks"></span>
+        実行結果
+      </h2>
+      <p class="text-sm text-gray-600 mb-4">
+        ファイル：<%= summary.fileName || '' %> / 読み込み行：<%= summary.totalRows || 0 %> / スキップ行：<%= summary.skippedCount || 0 %>
+      </p>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="text-left py-2 px-3 text-sm font-semibold text-gray-700">行</th>
+              <th class="text-left py-2 px-3 text-sm font-semibold text-gray-700">メニュー名</th>
+              <th class="text-left py-2 px-3 text-sm font-semibold text-gray-700">種類</th>
+              <th class="text-left py-2 px-3 text-sm font-semibold text-gray-700">結果</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% details.forEach((item) => { %>
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-3 px-3 text-sm text-gray-700"><%= item.row %></td>
+                <td class="py-3 px-3 text-sm text-gray-900"><%= item.name %></td>
+                <td class="py-3 px-3 text-sm text-gray-700"><%= item.kind %></td>
+                <td class="py-3 px-3 text-sm">
+                  <% if (item.status === 'success') { %>
+                    <span class="text-green-700 font-medium"><%= item.message %></span>
+                  <% } else if (item.status === 'notFound') { %>
+                    <span class="text-orange-700 font-medium"><%= item.message %></span>
+                  <% } else if (item.status === 'failed') { %>
+                    <span class="text-red-700 font-medium"><%= item.message %></span>
+                  <% } else { %>
+                    <span class="text-gray-600"><%= item.message %></span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% } else { %>
   <!-- 成功/失敗サマリー -->
   <div class="grid grid-cols-2 gap-4">
     <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6">
@@ -127,6 +195,7 @@
         </div>
       </div>
     </div>
+  <% } %>
   <% } %>
 
   <!-- 戻るボタン -->

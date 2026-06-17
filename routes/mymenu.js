@@ -63,6 +63,7 @@ router.use(isLoggedIn);
 
 // ユーティリティ: 重複無し配列
 const unique = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // ユーティリティ: メニューに紐づく食材IDを取得
 const pickIngredientIds = (menuDoc) => {
   if (!menuDoc || !Array.isArray(menuDoc.ingredients)) return [];
@@ -86,7 +87,7 @@ router.get('/', async (req, res, next) => {
   try {
     const userId = req.user._id;
     // Filters for group members section (prefix g_ to avoid collisions)
-    const { g_kind = '', g_junle = '', g_cook = '', g_member = '' } = req.query;
+    const { g_keyword = '', g_kind = '', g_junle = '', g_cook = '', g_member = '' } = req.query;
 
     const [sharedCount, urlCount, originalCount] = await Promise.all([
       Mymenu.countDocuments({ user: userId, sourceType: 'shared' }),
@@ -97,7 +98,7 @@ router.get('/', async (req, res, next) => {
     const mySharedSamples = await Mymenu.find({ user: userId, sourceType: 'shared' })
       .populate({
         path: 'menu',
-        select: 'name imageUrl kind menuType setMenus',
+        select: 'name imageUrl kind menu menuType setMenus',
         populate: { path: 'setMenus', select: 'imageUrl' }
       })
       .sort({ update_date: -1, entry_date: -1 })
@@ -107,7 +108,7 @@ router.get('/', async (req, res, next) => {
     const myOriginalSamples = await Mymenu.find({ user: userId, sourceType: 'original' })
       .populate({
         path: 'menu',
-        select: 'name imageUrl kind menuType setMenus',
+        select: 'name imageUrl kind menu menuType setMenus',
         populate: { path: 'setMenus', select: 'imageUrl' }
       })
       .sort({ update_date: -1, entry_date: -1 })
@@ -115,7 +116,7 @@ router.get('/', async (req, res, next) => {
       .lean();
 
     const myUrlSamples = await Mymenu.find({ user: userId, sourceType: 'url' })
-      .populate('menu', 'name imageUrl kind')
+      .populate('menu', 'name imageUrl kind menu')
       .sort({ update_date: -1, entry_date: -1 })
       .limit(4)
       .lean();
@@ -126,7 +127,7 @@ router.get('/', async (req, res, next) => {
 
     let groupMemberItems = [];
     let groupFacets = { kinds: [], junles: [], cooks: [], members: [] };
-    let groupSelected = { kind: g_kind, junle: g_junle, cook: g_cook, member: g_member };
+    let groupSelected = { keyword: g_keyword, kind: g_kind, junle: g_junle, cook: g_cook, member: g_member };
     if (currentGroup) {
       const rawGroup = await Mymenu.find({
         group: currentGroup._id,
@@ -134,7 +135,7 @@ router.get('/', async (req, res, next) => {
       })
         .populate({
           path: 'menu',
-          select: 'name imageUrl kind junle cook menuType setMenus',
+          select: 'name imageUrl kind junle cook menu yomi menuType setMenus',
           populate: { path: 'setMenus', select: 'imageUrl' }
         })
         .populate('user', 'displayname username')
@@ -164,6 +165,11 @@ router.get('/', async (req, res, next) => {
         if (g_junle && m.junle !== g_junle) return false;
         if (g_cook && m.cook !== g_cook) return false;
         if (g_member && (mm.user?._id?.toString?.() !== g_member)) return false;
+        if (g_keyword) {
+          const rx = new RegExp(escapeRegex(g_keyword), 'i');
+          const fields = [m.name, m.yomi, m.kind, m.junle, m.cook, m.menu].filter(Boolean).join(' ');
+          if (!rx.test(fields)) return false;
+        }
         return true;
       });
     }
@@ -209,7 +215,7 @@ router.get('/shared-register', async (req, res, next) => {
     if (junle) menuFilter.push({ junle });
     if (cook) menuFilter.push({ cook });
     if (keyword) {
-      const rx = new RegExp(keyword, 'i');
+      const rx = new RegExp(escapeRegex(keyword), 'i');
       menuFilter.push({
         $or: [ { name: rx }, { yomi: rx }, { kind: rx }, { junle: rx }, { cook: rx }, { menu: rx } ]
       });
@@ -227,7 +233,7 @@ router.get('/shared-register', async (req, res, next) => {
     }
 
     const adminShared = await Menu.find(menuFilter.length ? { $and: [...menuFilter, { isPrivate: { $ne: true } }] } : { isPrivate: { $ne: true } })
-      .select('name kind junle cook time imageUrl url season menuType setMenus')
+      .select('name kind junle cook menu yomi time imageUrl url season menuType setMenus')
       .populate({ path: 'setMenus', select: 'imageUrl' })
       .lean();
 
@@ -239,7 +245,7 @@ router.get('/shared-register', async (req, res, next) => {
     const sharedUserMenus = await Mymenu.find({ share: true })
       .populate({
         path: 'menu',
-        select: 'name kind junle cook time imageUrl url season menuType setMenus',
+        select: 'name kind junle cook menu yomi time imageUrl url season menuType setMenus',
         populate: { path: 'setMenus', select: 'imageUrl' }
       })
       .populate('user', 'displayname username email')
@@ -258,7 +264,7 @@ router.get('/shared-register', async (req, res, next) => {
       if (junle && x.junle !== junle) return false;
       if (cook && x.cook !== cook) return false;
       if (keyword) {
-        const rx = new RegExp(keyword, 'i');
+        const rx = new RegExp(escapeRegex(keyword), 'i');
         const fields = [x.name, x.yomi, x.kind, x.junle, x.cook, x.menu].filter(Boolean).join(' ');
         return rx.test(fields);
       }
@@ -293,6 +299,7 @@ router.get('/shared-register', async (req, res, next) => {
       combinedMap.set(m._id.toString(), {
         id: m._id.toString(),
         name: m.name || '',
+        menu: m.menu || '',
         kind: m.kind || '',
         junle: m.junle || '',
         cook: m.cook || '',
@@ -336,6 +343,7 @@ router.get('/shared-register', async (req, res, next) => {
         combinedMap.set(id, {
           id,
           name: m.name || '',
+          menu: m.menu || '',
           kind: m.kind || '',
           junle: m.junle || '',
           cook: m.cook || '',
@@ -1531,19 +1539,28 @@ router.get('/duplicate/:id', async (req, res, next) => {
 router.get('/original-list', async (req, res, next) => {
   try {
     const showHidden = String(req.query.show_hidden || '') === 'true';
+    const keyword = String(req.query.keyword || '').trim();
     const criteria = { user: req.user._id, sourceType: 'original' };
     if (!showHidden) {
       criteria.$or = [ { hidden: { $exists: false } }, { hidden: false } ];
     }
-    const list = await Mymenu.find(criteria)
+    let list = await Mymenu.find(criteria)
       .populate({
         path: 'menu',
-        select: 'name imageUrl kind junle cook update_date entry_date menuType setMenus',
+        select: 'name imageUrl kind junle cook menu yomi update_date entry_date menuType setMenus',
         populate: { path: 'setMenus', select: 'imageUrl menuType' }
       })
       .sort({ update_date: -1, entry_date: -1 })
       .lean();
-    res.render('users/myMenuOriginalList', { list, showHidden });
+    if (keyword) {
+      const rx = new RegExp(escapeRegex(keyword), 'i');
+      list = list.filter((mm) => {
+        const m = mm.menu || {};
+        const fields = [m.name, m.yomi, m.kind, m.junle, m.cook, m.menu].filter(Boolean).join(' ');
+        return rx.test(fields);
+      });
+    }
+    res.render('users/myMenuOriginalList', { list, showHidden, keyword });
   } catch (err) { next(err); }
 });
 
@@ -1699,7 +1716,7 @@ router.get('/group-members', async (req, res, next) => {
       if (junle && x.junle !== junle) return false;
       if (cook && x.cook !== cook) return false;
       if (keyword) {
-        const rx = new RegExp(keyword, 'i');
+        const rx = new RegExp(escapeRegex(keyword), 'i');
         const fields = [x.name, x.yomi, x.kind, x.junle, x.cook, x.menu].filter(Boolean).join(' ');
         return rx.test(fields);
       }

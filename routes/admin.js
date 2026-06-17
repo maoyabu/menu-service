@@ -160,6 +160,8 @@ const toBool = (val) => {
   return s === 'true' || s === 'on' || s === '1';
 };
 
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const fetchWikiImage = async (wikiUrl) => {
   const parsed = new URL(wikiUrl);
   const isWikipedia = /(^|\.)wikipedia\.org$/.test(parsed.hostname);
@@ -181,6 +183,30 @@ const fetchWikiImage = async (wikiUrl) => {
     imageUrl,
     extract: data?.extract || ''
   };
+};
+
+const excelCellToString = (cell) => {
+  const value = cell?.value;
+  if (value === null || typeof value === 'undefined') return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim();
+  if (value instanceof Date) return value.toISOString().trim();
+  if (value.text) return String(value.text).trim();
+  if (Array.isArray(value.richText)) {
+    return value.richText.map((part) => part.text || '').join('').trim();
+  }
+  if (value.result !== null && typeof value.result !== 'undefined') {
+    return String(value.result).trim();
+  }
+  return String(value).trim();
+};
+
+const isMenuContentUpdateHeaderRow = (row) => {
+  const values = [1, 2, 3, 4].map((col) => excelCellToString(row.getCell(col)));
+  return values[0] === 'メニュー名'
+    && values[1] === '種類'
+    && values[2].includes('メニュー内容')
+    && values[3].includes('メニュー内容');
 };
 
 router.get('/api/wiki-image', async (req, res) => {
@@ -593,14 +619,16 @@ router.get('/menu-list', async (req, res) => {
     if (junle) filterConditions.push({ junle });
     if (cook) filterConditions.push({ cook });
     if (keyword) {
+      const keywordRegex = new RegExp(escapeRegex(keyword), 'i');
       filterConditions.push({
         $or: [
-          { name: new RegExp(keyword, 'i') },
-          { yomi: new RegExp(keyword, 'i') },
-          { kind: new RegExp(keyword, 'i') },
-          { cook: new RegExp(keyword, 'i') },
-          { content: new RegExp(keyword, 'i') },
-          { ingredient: new RegExp(keyword, 'i') }
+          { name: keywordRegex },
+          { yomi: keywordRegex },
+          { kind: keywordRegex },
+          { junle: keywordRegex },
+          { cook: keywordRegex },
+          { menu: keywordRegex },
+          { ingredient: keywordRegex }
         ]
       });
     }
@@ -2391,6 +2419,156 @@ const restoreUpload = multer({
     } else {
       cb(new Error('ZIPファイルのみアップロード可能です'));
     }
+  }
+});
+
+const menuContentUpdateUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    const originalName = file.originalname || '';
+    const isExcel = file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || file.mimetype === 'application/vnd.ms-excel'
+      || originalName.endsWith('.xlsx')
+      || originalName.endsWith('.xlsm');
+    if (isExcel) {
+      cb(null, true);
+    } else {
+      cb(new Error('Excelファイル（.xlsx/.xlsm）のみアップロード可能です'));
+    }
+  }
+});
+
+router.post('/backup/menu-content-update', menuContentUpdateUpload.single('menuContentFile'), async (req, res) => {
+  try {
+    let fileBuffer = req.file?.buffer || null;
+    let fileName = req.file?.originalname || '';
+    if (!fileBuffer) {
+      const defaultExcelPath = path.join(process.cwd(), 'uploads', 'menus.xlsx');
+      if (!fs.existsSync(defaultExcelPath)) {
+        req.flash('error', 'Excelファイルを選択するか、uploads/menus.xlsx を配置してください');
+        return res.redirect('/admin/backup/index');
+      }
+      fileBuffer = fs.readFileSync(defaultExcelPath);
+      fileName = 'uploads/menus.xlsx';
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(fileBuffer);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      req.flash('error', 'Excelファイルにシートが見つかりません');
+      return res.redirect('/admin/backup/index');
+    }
+
+    const details = [];
+    let totalRows = 0;
+    let targetRows = 0;
+    let matchedCount = 0;
+    let modifiedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+
+    for (let rowNumber = 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+      const row = worksheet.getRow(rowNumber);
+      const name = excelCellToString(row.getCell(1));
+      const kind = excelCellToString(row.getCell(2));
+      const currentMenu = excelCellToString(row.getCell(3));
+      const nextMenu = excelCellToString(row.getCell(4));
+
+      const isEmptyRow = !name && !kind && !currentMenu && !nextMenu;
+      if (isEmptyRow) continue;
+      totalRows += 1;
+
+      if (rowNumber === 1 && isMenuContentUpdateHeaderRow(row)) {
+        skippedCount += 1;
+        details.push({
+          row: rowNumber,
+          name,
+          kind,
+          currentMenu,
+          nextMenu,
+          status: 'skipped',
+          message: 'ヘッダー行のためスキップ'
+        });
+        continue;
+      }
+
+      if (!name || !kind || !currentMenu) {
+        skippedCount += 1;
+        details.push({
+          row: rowNumber,
+          name,
+          kind,
+          currentMenu,
+          nextMenu,
+          status: 'skipped',
+          message: 'A列、B列、C列のいずれかが空のためスキップ'
+        });
+        continue;
+      }
+
+      targetRows += 1;
+      try {
+        const result = await Menu.updateMany(
+          { name, kind, menu: currentMenu },
+          { $set: { menu: nextMenu } }
+        );
+        const rowMatched = result.matchedCount || 0;
+        const rowModified = result.modifiedCount || 0;
+        matchedCount += rowMatched;
+        modifiedCount += rowModified;
+        details.push({
+          row: rowNumber,
+          name,
+          kind,
+          currentMenu,
+          nextMenu,
+          status: rowMatched > 0 ? 'success' : 'notFound',
+          matchedCount: rowMatched,
+          modifiedCount: rowModified,
+          message: rowMatched > 0
+            ? `${rowMatched}件一致、${rowModified}件更新`
+            : '一致するメニューが見つかりません'
+        });
+      } catch (rowErr) {
+        failedCount += 1;
+        details.push({
+          row: rowNumber,
+          name,
+          kind,
+          currentMenu,
+          nextMenu,
+          status: 'failed',
+          message: rowErr.message || '更新に失敗しました'
+        });
+      }
+    }
+
+    await logAdminAction('menu:content-batch-update', {
+      actorId: req.user?._id || null,
+      detail: `file=${fileName}, rows=${totalRows}, targets=${targetRows}, matched=${matchedCount}, modified=${modifiedCount}, skipped=${skippedCount}, failed=${failedCount}`
+    });
+
+    res.render('admin/backup-results', {
+      isMenuContentUpdate: true,
+      isRestore: false,
+      results: {
+        summary: {
+          fileName,
+          totalRows,
+          targetRows,
+          matchedCount,
+          modifiedCount,
+          skippedCount,
+          failedCount
+        },
+        details
+      }
+    });
+  } catch (err) {
+    console.error('Menu content update error:', err);
+    req.flash('error', 'メニュー内容の一括更新に失敗しました: ' + err.message);
+    res.redirect('/admin/backup/index');
   }
 });
 
