@@ -51,6 +51,76 @@
   @media (min-width: 768px) {
     .header-calendar-wrap { max-width: 360px; }
   }
+  .wm2-compact-header{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border:1px solid #dbeafe;
+    border-radius:18px;
+    background:#ffffff;
+    box-shadow:0 1px 2px rgba(15,23,42,.05);
+    padding:10px 12px;
+  }
+  .wm2-compact-heading{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .wm2-compact-title{
+    font-size:15px;
+    line-height:1.2;
+    font-weight:800;
+    color:#0f172a;
+    white-space:nowrap;
+  }
+  .wm2-week-label{
+    display:inline-flex;
+    align-items:center;
+    min-height:30px;
+    border-radius:9999px;
+    border:1px solid #bfdbfe;
+    background:#eff6ff;
+    color:#1d4ed8;
+    padding:5px 12px;
+    font-size:13px;
+    font-weight:800;
+    white-space:nowrap;
+  }
+  .wm2-week-nav{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .wm2-nav-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    min-height:32px;
+    border-radius:9999px;
+    border:1px solid #dbeafe;
+    background:#fff;
+    color:#1d4ed8;
+    padding:6px 10px;
+    font-size:12px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .wm2-nav-btn:hover{ background:#eff6ff; border-color:#bfdbfe; }
+  .wm2-calendar-popover{
+    position:absolute;
+    right:12px;
+    top:calc(100% + 8px);
+    z-index:60;
+    width:min(360px, calc(100vw - 32px));
+    border:1px solid #dbeafe;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 20px 40px rgba(15,23,42,.18);
+    padding:14px;
+  }
+  .wm2-calendar-popover[hidden]{ display:none !important; }
+  @media (max-width: 640px){
+    .wm2-compact-header{ align-items:flex-start; flex-direction:column; }
+    .wm2-compact-heading{ width:100%; flex-wrap:wrap; }
+    .wm2-week-nav{ width:100%; justify-content:flex-start; gap:6px; }
+    .wm2-nav-btn{ flex:1 1 auto; }
+    .wm2-calendar-popover{ left:12px; right:auto; width:calc(100vw - 32px); }
+  }
 
   /* Weekly preview pill bar */
   #wm2-preview .day-pill { background:#e8f2ff; border:2px solid #bfdbfe; color:#1d4ed8; border-radius:14px; padding:8px 12px; }
@@ -393,67 +463,132 @@
   }
 </style>
 
-<section class="relative max-w-6xl mx-auto py-0 mb-4">
-  <header class="bg-gradient-to-r from-blue-500 via-blue-400 to-indigo-500 text-white rounded-3xl shadow-lg overflow-hidden">
-    <div class="p-6 md:p-8 lg:p-10">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <div class="space-y-3">
-          <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] bg-white/20 px-4 py-1 rounded-full">
-            <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
-            7 DAYS PLAN
-          </span>
-          <%
-            const parts = weekRangeLabel.split('〜');
-            const year = new Date().getFullYear();
-            const displayLabel = parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`;
-          %>
-          <h1 class="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight"><%= displayLabel %><br> の 7 DAYS PLAN を計画しよう！</h1>
-          <p class="text-sm md:text-base text-white/80 max-w-2xl">
-            AIが提案するメニューを自分好みにカスタマイズして、7 DAYS PLANを立てましょう
-          </p>
-        </div>
-
-        <aside class="header-calendar-wrap bg-white rounded-2xl shadow border border-gray-100 p-4 plan-calendar">
-          <header class="flex items-center justify-between">
-            <div>
-              <h2 class="text-sm font-semibold text-gray-900">7 DAYS PLAN</h2>
-              <p class="text-[11px] text-gray-500 mt-1">週をクリックして切り替えできます</p>
-            </div>
-            <div class="inline-flex items-center gap-2">
-              <button type="button" class="plan-calendar-header-btn" id="plan-calendar-prev" aria-label="前の月">
-                <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
-              </button>
-              <span class="text-sm font-semibold text-gray-800" id="plan-calendar-month-label">----</span>
-              <button type="button" class="plan-calendar-header-btn" id="plan-calendar-next" aria-label="次の月">
-                <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
-              </button>
-            </div>
-          </header>
-
-          <div class="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-            <span class="text-center">月</span>
-            <span class="text-center">火</span>
-            <span class="text-center">水</span>
-            <span class="text-center">木</span>
-            <span class="text-center">金</span>
-            <span class="text-center">土</span>
-            <span class="text-center">日</span>
-          </div>
-
-          <div id="plan-calendar-grid" class="plan-calendar-grid text-[12px] text-gray-600">
-            <div class="text-center text-sm text-gray-400 py-4" style="grid-column: span 7 / span 7;">読み込み中...</div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="plan-calendar-legend plan-calendar-legend--planned">プラン登録済み</span>
-            <span class="plan-calendar-legend plan-calendar-legend--future">これから設定</span>
-            <span class="plan-calendar-legend plan-calendar-legend--past">過去を記録</span>
-          </div>
-        </aside>
-      </div>
+<section class="relative max-w-6xl mx-auto py-0 mb-3">
+  <%
+    const parts = weekRangeLabel.split('〜');
+    const year = new Date().getFullYear();
+    const displayLabel = parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`;
+    const compactTitle = (typeof weekMenuMode !== 'undefined' && weekMenuMode === 'supplies') ? 'お買い物リスト' : '7 DAYS PLAN';
+  %>
+  <header class="wm2-compact-header">
+    <div class="wm2-compact-heading">
+      <span class="wm2-compact-title"><%= compactTitle %></span>
+      <span class="wm2-week-label"><%= displayLabel %></span>
     </div>
+    <div class="wm2-week-nav">
+      <button type="button" class="wm2-nav-btn" data-week-shift="-1" aria-label="前の週">
+        <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
+        前週
+      </button>
+      <button type="button" class="wm2-nav-btn" data-week-today>
+        今週
+      </button>
+      <button type="button" class="wm2-nav-btn" data-week-shift="1" aria-label="次の週">
+        次週
+        <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
+      </button>
+      <button type="button" class="wm2-nav-btn" data-calendar-toggle aria-expanded="false" aria-controls="wm2-calendar-popover">
+        <span class="lucide w-4 h-4" data-lucide="calendar-days"></span>
+        カレンダー
+      </button>
+    </div>
+
+    <aside id="wm2-calendar-popover" class="wm2-calendar-popover plan-calendar" hidden>
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-900">週を選択</h2>
+          <p class="text-[11px] text-gray-500 mt-1">日付をクリックして週を切り替え</p>
+        </div>
+        <div class="inline-flex items-center gap-2">
+          <button type="button" class="plan-calendar-header-btn" id="plan-calendar-prev" aria-label="前の月">
+            <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
+          </button>
+          <span class="text-sm font-semibold text-gray-800" id="plan-calendar-month-label">----</span>
+          <button type="button" class="plan-calendar-header-btn" id="plan-calendar-next" aria-label="次の月">
+            <span class="lucide w-4 h-4" data-lucide="chevron-right"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        <span class="text-center">月</span>
+        <span class="text-center">火</span>
+        <span class="text-center">水</span>
+        <span class="text-center">木</span>
+        <span class="text-center">金</span>
+        <span class="text-center">土</span>
+        <span class="text-center">日</span>
+      </div>
+
+      <div id="plan-calendar-grid" class="plan-calendar-grid text-[12px] text-gray-600">
+        <div class="text-center text-sm text-gray-400 py-4" style="grid-column: span 7 / span 7;">読み込み中...</div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="plan-calendar-legend plan-calendar-legend--planned">表示中</span>
+        <span class="plan-calendar-legend plan-calendar-legend--future">これから設定</span>
+        <span class="plan-calendar-legend plan-calendar-legend--past">過去を記録</span>
+      </div>
+    </aside>
   </header>
 </section>
+
+<script>
+  (function(){
+    const startOfWeekMon = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      const offset = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - offset);
+      return d;
+    };
+    const toLocalISO = (date) => {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
+    };
+    const navigateToWeek = (targetDate) => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('plan');
+      url.searchParams.delete('planId');
+      url.searchParams.set('weekStart', toLocalISO(startOfWeekMon(targetDate)));
+      window.location.assign(url.toString());
+    };
+
+    document.querySelectorAll('[data-week-shift]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const data = window.weekMenuData || {};
+        const base = data.weekStartISO || new Date().toISOString();
+        const week = startOfWeekMon(new Date(base));
+        week.setDate(week.getDate() + (Number(button.dataset.weekShift) || 0) * 7);
+        navigateToWeek(week);
+      });
+    });
+
+    const todayButton = document.querySelector('[data-week-today]');
+    if (todayButton) {
+      todayButton.addEventListener('click', () => navigateToWeek(new Date()));
+    }
+
+    const toggle = document.querySelector('[data-calendar-toggle]');
+    const popover = document.getElementById('wm2-calendar-popover');
+    const setCalendarOpen = (open) => {
+      if (!toggle || !popover) return;
+      popover.hidden = !open;
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    if (toggle && popover) {
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setCalendarOpen(popover.hidden);
+      });
+      popover.addEventListener('click', (event) => event.stopPropagation());
+      document.addEventListener('click', () => setCalendarOpen(false));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setCalendarOpen(false);
+      });
+    }
+  })();
+</script>
 
 <!-- Weekly preview + fused layout -->
 <section id="wm2-section" class="relative max-w-6xl mx-auto space-y-4 border border-gray-300 rounded-3xl bg-white p-4 md:p-6 shadow-sm">
