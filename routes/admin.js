@@ -20,6 +20,7 @@ import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { normalizeSeasonList } from '../utils/season.js';
 import { createBackupFile, parseBackupFile, restoreFromBackup, cleanupTempFiles } from '../utils/backup.js';
 import multer from 'multer';
+import axios from 'axios';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
 import ExcelJS from 'exceljs';
@@ -2491,6 +2492,42 @@ router.post('/backup/restore', async (req, res, next) => {
     console.error('Restore error:', err);
     req.flash('error', 'リストアに失敗しました: ' + err.message);
     res.redirect('/admin/backup/index');
+  }
+});
+
+// 画像プロキシエンドポイント
+router.get('/image-proxy', async (req, res) => {
+  try {
+    const imageUrl = req.query.url;
+    
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'URL parameter is required' });
+    }
+
+    // URLの検証（http/https のみ許可）
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
+
+    // axios を使用して画像を取得
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 10000
+    });
+
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    const buffer = response.data;
+
+    // キャッシュを有効にする（1時間）
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.set('Content-Type', contentType);
+    res.send(buffer);
+  } catch (err) {
+    console.error('Image proxy error:', err.message || err);
+    res.status(500).json({ error: 'Failed to proxy image' });
   }
 });
 

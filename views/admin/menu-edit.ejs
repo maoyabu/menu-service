@@ -213,7 +213,11 @@
           </div>
           <div class="w-full md:w-48">
             <div class="relative w-full h-32 border border-dashed border-gray-300 rounded bg-gray-50 flex items-center justify-center overflow-hidden">
-              <img id="image-url-preview" src="<%= menu.imageUrl || '' %>" alt="画像プレビュー" class="object-cover w-full h-full <%= menu.imageUrl ? '' : 'hidden' %>">
+              <% if (menu.imageUrl) { %>
+                <img id="image-url-preview" src="/admin/image-proxy?url=<%= encodeURIComponent(menu.imageUrl) %>" alt="画像プレビュー" class="object-cover w-full h-full">
+              <% } else { %>
+                <img id="image-url-preview" src="" alt="画像プレビュー" class="object-cover w-full h-full hidden">
+              <% } %>
               <span id="image-url-placeholder" class="text-xs text-gray-400 <%= menu.imageUrl ? 'hidden' : '' %>">プレビューなし</span>
             </div>
           </div>
@@ -279,7 +283,7 @@
               <div class="ingredient-card flex flex-wrap items-center gap-2 border border-gray-200 rounded p-2 bg-gray-50">
                 <div class="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden">
                   <% if (ingredient.name?.imageUrl) { %>
-                    <img src="<%= ingredient.name.imageUrl %>" alt="<%= ingredient.name?.ingredient || 'ingredient image' %>" class="w-full h-full object-cover">
+                    <img src="/admin/image-proxy?url=<%= encodeURIComponent(ingredient.name.imageUrl) %>" alt="<%= ingredient.name?.ingredient || 'ingredient image' %>" class="w-full h-full object-cover">
                   <% } else { %>
                     NO IMG
                   <% } %>
@@ -580,7 +584,7 @@
     thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
     if (imageUrl) {
       const img = document.createElement('img');
-      img.src = imageUrl;
+      img.src = `/admin/image-proxy?url=${encodeURIComponent(imageUrl)}`;
       img.alt = name || 'ingredient image';
       img.className = 'w-full h-full object-cover';
       thumb.textContent = '';
@@ -1014,7 +1018,7 @@ function toggleNutritionInfo(btn) {
       const url = (input?.value || '').trim();
       if (url) {
         if (img) {
-          img.src = url;
+          img.src = `/admin/image-proxy?url=${encodeURIComponent(url)}`;
           img.classList.remove('hidden');
         }
         if (placeholder) {
@@ -1077,7 +1081,7 @@ function toggleNutritionInfo(btn) {
         thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
         if (matchedIngredient?.imageUrl) {
           const img = document.createElement('img');
-          img.src = matchedIngredient.imageUrl;
+          img.src = `/admin/image-proxy?url=${encodeURIComponent(matchedIngredient.imageUrl)}`;
           img.alt = matchedIngredient.ingredient || 'ingredient image';
           img.className = 'w-full h-full object-cover';
           thumb.textContent = '';

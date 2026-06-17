@@ -1,16 +1,17 @@
 {
   "type": "module",
-"scripts": {
-  "start": "node index.mjs",
-  "dev": "nodemon index.mjs",
-  "seed:guideline": "node seeds/importGuideline.js"
-},
+  "scripts": {
+    "start": "node index.mjs",
+    "dev": "nodemon index.mjs",
+    "seed:guideline": "node seeds/importGuideline.js"
+  },
   "dependencies": {
     "@adminjs/express": "^4.0.1",
     "@adminjs/mongoose": "^3.0.0",
-    "adminjs": "^6.8.1",
     "adm-zip": "^0.5.10",
+    "adminjs": "^6.8.1",
     "archiver": "^6.0.0",
+    "axios": "^1.18.0",
     "cloudinary": "^2.8.0",
     "connect-flash": "^0.1.1",
     "connect-mongo": "^5.1.0",
