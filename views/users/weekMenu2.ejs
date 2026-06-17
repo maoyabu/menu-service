@@ -192,6 +192,8 @@
     color:#64748b;
   }
   .wm2-week-slot-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .wm2-week-slot-thumb .wm2-set-grid{ width:100%; height:100%; gap:1px; }
+  .wm2-week-slot-thumb .wm2-set-grid .tile{ background:#cbd5e1; }
   .wm2-week-slot-name{
     font-size:12px;
     font-weight:700;
@@ -2616,6 +2618,24 @@
       if (!host) return;
       const plan = getPlanData();
       host.innerHTML = '';
+      const renderWeekThumb = (thumb, row) => {
+        if (!thumb || !row) return;
+        const setImages = row.menuType === 'set'
+          ? (row.setMenus || []).map((m) => m && m.imageUrl).filter(Boolean)
+          : [];
+        if (setImages.length) {
+          thumb.insertAdjacentHTML('beforeend', buildSetMenuGrid(setImages, row.name));
+          return;
+        }
+        if (row.imageUrl) {
+          const img = document.createElement('img');
+          img.src = row.imageUrl;
+          img.alt = row.name || '';
+          thumb.appendChild(img);
+          return;
+        }
+        thumb.textContent = 'no image';
+      };
       const makeWeekCard = (row, dayIndex, mealKey, slotIndex) => {
         const item = document.createElement('button');
         item.type = 'button';
@@ -2626,14 +2646,7 @@
         item.dataset.dragIndex = String(slotIndex);
         const thumb = document.createElement('div');
         thumb.className = 'wm2-week-slot-thumb';
-        if (row.imageUrl) {
-          const img = document.createElement('img');
-          img.src = row.imageUrl;
-          img.alt = row.name || '';
-          thumb.appendChild(img);
-        } else {
-          thumb.textContent = 'no image';
-        }
+        renderWeekThumb(thumb, row);
         const name = document.createElement('div');
         name.className = 'wm2-week-slot-name';
         name.textContent = row.name || 'メニュー';
