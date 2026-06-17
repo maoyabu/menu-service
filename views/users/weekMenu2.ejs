@@ -9,7 +9,7 @@
   #wm2-include [data-action="save-week-plan"],
   #wm2-include .bg-white.border.border-gray-100.rounded-3xl.shadow-sm.overflow-hidden { display: none !important; }
 </style>
-<!-- Include weekMenu early so its scripts and data are available; pre-hidden wrapper prevents flash -->
+<!-- Include weekMenu early so its scripts and data are available; keep header/calendar visible -->
 <div id="wm2-include" aria-hidden="true">
   <%- include('weekMenu') %>
   
@@ -44,7 +44,7 @@
     #wm2-preview .day-date{ font-size:11px; }
   }
 
-  /* Two-column layout */
+  /* Detail view layout */
   #wm2-main { display:grid; grid-template-columns: 1.6fr 1fr; gap:16px; }
   @media (max-width: 768px){
     #wm2-main { grid-template-columns: 1fr; }
@@ -85,6 +85,9 @@
   .wm2-actions{ display:flex; gap:8px; justify-content:flex-end; padding:8px 12px 12px; }
   .wm2-day-comment{ border:1px dashed #cbd5e1; border-radius:12px; background:#f8fafc; padding:10px; }
   .wm2-day-comment .edit-btn{ font-size:11px; color:#2563eb; text-decoration:underline; }
+  .wm2-view-toggle{ display:inline-flex; border:1px solid #bfdbfe; border-radius:9999px; overflow:hidden; background:#fff; }
+  .wm2-view-toggle button{ padding:8px 14px; font-size:12px; font-weight:700; color:#1d4ed8; background:#fff; }
+  .wm2-view-toggle button[data-active="true"]{ background:#2563eb; color:#fff; }
   /* Card list: up to 3 columns */
   .wm2-list{ display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:14px; }
   @media (min-width: 768px){ .wm2-list{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -102,7 +105,108 @@
   #wm2-section[data-mode="supplies"] #wm2-right-title { display:none !important; }
   /* And fully hide the preview and main recipe grid */
   #wm2-section[data-mode="supplies"] #wm2-preview,
-  #wm2-section[data-mode="supplies"] #wm2-main { display:none !important; }
+  #wm2-section[data-mode="supplies"] #wm2-main,
+  #wm2-section[data-mode="supplies"] #wm2-week-view { display:none !important; }
+
+  #wm2-week-view{ display:none; }
+  #wm2-week-view[data-active="true"]{ display:block; }
+  #wm2-main[data-active="false"]{ display:none; }
+  .wm2-week-scroll{
+    overflow-x:auto;
+    padding-bottom:8px;
+  }
+  .wm2-week-grid{
+    display:grid;
+    grid-template-columns:repeat(7, minmax(180px, 1fr));
+    gap:12px;
+    min-width:1260px;
+  }
+  .wm2-week-day{
+    border:1px solid #dbeafe;
+    border-radius:16px;
+    background:#f8fbff;
+    padding:10px;
+  }
+  .wm2-week-day.is-selected{
+    border-color:#2563eb;
+    box-shadow:0 0 0 2px rgba(37,99,235,.15);
+  }
+  .wm2-week-day-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .wm2-week-day-title{
+    font-size:13px;
+    font-weight:800;
+    color:#0f172a;
+  }
+  .wm2-week-day-meta{
+    font-size:11px;
+    color:#64748b;
+  }
+  .wm2-week-meal{
+    border-top:1px solid #dbeafe;
+    padding-top:8px;
+    margin-top:8px;
+  }
+  .wm2-week-meal:first-child{
+    border-top:none;
+    padding-top:0;
+    margin-top:0;
+  }
+  .wm2-week-meal-label{
+    font-size:11px;
+    font-weight:700;
+    color:#2563eb;
+    margin-bottom:6px;
+  }
+  .wm2-week-slot-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-height:40px;
+  }
+  .wm2-week-slot{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    border:1px solid #dbeafe;
+    border-radius:12px;
+    background:#fff;
+    padding:6px;
+  }
+  .wm2-week-slot-thumb{
+    width:44px;
+    height:44px;
+    border-radius:10px;
+    overflow:hidden;
+    background:#e2e8f0;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:10px;
+    color:#64748b;
+  }
+  .wm2-week-slot-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .wm2-week-slot-name{
+    font-size:12px;
+    font-weight:700;
+    color:#0f172a;
+    line-height:1.35;
+  }
+  .wm2-week-empty{
+    border:1px dashed #cbd5e1;
+    border-radius:10px;
+    color:#94a3b8;
+    font-size:11px;
+    padding:10px 8px;
+    text-align:center;
+    background:#fff;
+  }
 
   /* Weekly supplies panel (shopping list style) */
   #wm2-supplies{ border:1px solid #e5e7eb; background:#fff; border-radius:16px; padding:12px; }
@@ -308,6 +412,12 @@
     </button>
     <% } %>
   </div>
+  <div class="flex items-center justify-between gap-3">
+    <div class="wm2-view-toggle" id="wm2-view-toggle">
+      <button type="button" data-view-mode="week" data-active="false">1週間View</button>
+      <button type="button" data-view-mode="detail" data-active="true">詳細View</button>
+    </div>
+  </div>
   <p id="wm2-supplies-range" aria-live="polite"></p>
   <!-- Weekly supplies (collapsed by default) -->
   <div id="wm2-supplies" class="hidden"></div>
@@ -320,8 +430,14 @@
     <div class="grid grid-cols-7 gap-2 mt-2" id="wm2-days"></div>
   </div>
 
+  <div id="wm2-week-view" data-active="false">
+    <div class="wm2-week-scroll">
+      <div id="wm2-week-grid" class="wm2-week-grid"></div>
+    </div>
+  </div>
+
   <!-- Two columns: Left recipes for selected day, Right requirements for selected day -->
-  <div id="wm2-main">
+  <div id="wm2-main" data-active="true">
     <div>
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-sm font-semibold" id="wm2-left-title"></h3>
@@ -475,6 +591,8 @@
     const currentUserId = (window.weekMenuData && window.weekMenuData.currentUserId) || '';
     const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
     const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
+    const enableRequirementsPanel = true;
+    let currentViewMode = 'detail';
     const guidelineTotals = (window.weekMenuData && window.weekMenuData.guidelineTotals) || {};
     const guidelineByUser = (window.weekMenuData && window.weekMenuData.guidelineByUser) || {};
     const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
@@ -1532,6 +1650,10 @@
     };
     const showDndDayTargets = (payload, anchorEl = null) => {
       if (!dndDayTargets || !payload) return;
+      if (currentViewMode === 'week') {
+        hideDndDayTargets();
+        return;
+      }
       renderDndDayTargets(payload);
       dndDayTargets.hidden = false;
       dndDayTargets.setAttribute('aria-hidden', 'false');
@@ -1589,13 +1711,17 @@
     document.addEventListener('dragover', (event) => {
       const payload = currentDragPayload || readDragPayload(event);
       if (!payload || !payload.fromMeal) return;
-      const dayTarget = closestEl(event.target, '#wm2-dnd-day-targets [data-drop-day]');
-      const pill = closestEl(event.target, '#wm2-days .day-pill');
+      const allowPillDrop = currentViewMode !== 'week';
+      const dayTarget = allowPillDrop ? closestEl(event.target, '#wm2-dnd-day-targets [data-drop-day]') : null;
+      const pill = allowPillDrop ? closestEl(event.target, '#wm2-days .day-pill') : null;
+      const weekDropBucket = closestEl(event.target, '[data-week-drop-day][data-week-drop-meal]');
+      const weekDropItem = closestEl(event.target, '.wm2-week-slot');
       const meal = getDropMealFromWrap(event.target);
-      if (dayTarget || pill || meal === payload.fromMeal) {
+      const weekMeal = weekDropBucket?.dataset.weekDropMeal || weekDropItem?.dataset.dragMeal || '';
+      if (dayTarget || pill || meal === payload.fromMeal || weekMeal === payload.fromMeal) {
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
-        const target = dayTarget || pill || closestEl(event.target, '.wm2-draggable') || closestEl(event.target, '#wm2-day-breakfast, #wm2-day-lunch, #wm2-day-dinner');
+        const target = dayTarget || pill || weekDropItem || weekDropBucket || closestEl(event.target, '.wm2-draggable') || closestEl(event.target, '#wm2-day-breakfast, #wm2-day-lunch, #wm2-day-dinner');
         if (target) target.classList.add('wm2-drop-target');
       }
     });
@@ -1606,8 +1732,11 @@
     document.addEventListener('drop', (event) => {
       const payload = currentDragPayload || readDragPayload(event);
       if (!payload || !payload.fromMeal) return;
-      const dayTarget = closestEl(event.target, '#wm2-dnd-day-targets [data-drop-day]');
-      const pill = closestEl(event.target, '#wm2-days .day-pill');
+      const allowPillDrop = currentViewMode !== 'week';
+      const dayTarget = allowPillDrop ? closestEl(event.target, '#wm2-dnd-day-targets [data-drop-day]') : null;
+      const pill = allowPillDrop ? closestEl(event.target, '#wm2-days .day-pill') : null;
+      const weekDropBucket = closestEl(event.target, '[data-week-drop-day][data-week-drop-meal]');
+      const weekDropItem = closestEl(event.target, '.wm2-week-slot');
       const meal = getDropMealFromWrap(event.target);
       let toDay = sel;
       let toMeal = meal;
@@ -1615,6 +1744,12 @@
       if (dayTarget || pill) {
         toDay = Number((dayTarget || pill).dataset.dropDay || (dayTarget || pill).dataset.index);
         toMeal = payload.fromMeal;
+      } else if (weekDropBucket || weekDropItem) {
+        const target = weekDropBucket || weekDropItem;
+        toDay = Number(target.dataset.weekDropDay || target.dataset.dragDay);
+        toMeal = target.dataset.weekDropMeal || target.dataset.dragMeal || '';
+        if (toMeal !== payload.fromMeal) return;
+        if (weekDropItem) toIndex = Number(weekDropItem.dataset.dragIndex);
       } else {
         if (meal !== payload.fromMeal) return;
         const targetItem = closestEl(event.target, '.wm2-draggable');
@@ -2020,6 +2155,10 @@
 
     function renderRequirementsForDay(day, mode = 'day', selectedIndex = sel){
       const reqEl = document.getElementById('wm2-req'); if (!reqEl) return;
+      if (!enableRequirementsPanel) {
+        reqEl.innerHTML = '';
+        return;
+      }
       requirementsRenderToken += 1;
       const renderToken = requirementsRenderToken;
       reqEl.innerHTML='';
@@ -2472,8 +2611,139 @@
       if (window.refreshLucideIcons) window.refreshLucideIcons();
     }
 
-    function rebuild(){ buildPills(); renderDay(); }
+    function renderWeekView(){
+      const host = document.getElementById('wm2-week-grid');
+      if (!host) return;
+      const plan = getPlanData();
+      host.innerHTML = '';
+      const makeWeekCard = (row, dayIndex, mealKey, slotIndex) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'wm2-week-slot wm2-draggable';
+        item.draggable = true;
+        item.dataset.dragDay = String(dayIndex);
+        item.dataset.dragMeal = mealKey;
+        item.dataset.dragIndex = String(slotIndex);
+        const thumb = document.createElement('div');
+        thumb.className = 'wm2-week-slot-thumb';
+        if (row.imageUrl) {
+          const img = document.createElement('img');
+          img.src = row.imageUrl;
+          img.alt = row.name || '';
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = 'no image';
+        }
+        const name = document.createElement('div');
+        name.className = 'wm2-week-slot-name';
+        name.textContent = row.name || 'メニュー';
+        item.append(thumb, name);
+        item.addEventListener('click', () => {
+          sel = dayIndex;
+          currentViewMode = 'detail';
+          updateViewModeUI();
+          rebuild();
+        });
+        return item;
+      };
+      const renderMealBucket = (container, slots, mealKey, dayIndex) => {
+        const list = document.createElement('div');
+        list.className = 'wm2-week-slot-list';
+        list.dataset.weekDropDay = String(dayIndex);
+        list.dataset.weekDropMeal = mealKey;
+        if (!(slots || []).length) {
+          const empty = document.createElement('div');
+          empty.className = 'wm2-week-empty';
+          empty.textContent = '未設定';
+          list.appendChild(empty);
+          container.appendChild(list);
+          return;
+        }
+        slots.forEach((slot, index) => {
+          const row = rowFromSlot(slot);
+          if (!row.hasMenu) return;
+          const card = makeWeekCard(row, dayIndex, mealKey, index);
+          list.appendChild(card);
+        });
+        container.appendChild(list);
+      };
+
+      (WEEK || []).forEach((entry, dayIndex) => {
+        const day = plan[dayIndex] || {};
+        const dayCard = document.createElement('div');
+        dayCard.className = `wm2-week-day${dayIndex === sel ? ' is-selected' : ''}`;
+
+        const head = document.createElement('div');
+        head.className = 'wm2-week-day-head';
+        const titleWrap = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'wm2-week-day-title';
+        title.textContent = `${WEEKDAY[dayIndex] || ''} ${getDateLabel(dayIndex)}`;
+        const meta = document.createElement('div');
+        meta.className = 'wm2-week-day-meta';
+        meta.textContent = 'タップで詳細';
+        titleWrap.append(title, meta);
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'text-xs font-semibold text-blue-700';
+        openBtn.textContent = '詳細';
+        openBtn.addEventListener('click', () => {
+          sel = dayIndex;
+          currentViewMode = 'detail';
+          updateViewModeUI();
+          rebuild();
+        });
+        head.append(titleWrap, openBtn);
+        dayCard.appendChild(head);
+
+        const breakfast = Array.isArray(day.breakfastSlots) ? day.breakfastSlots.filter((slot) => rowFromSlot(slot).hasMenu) : [];
+        const lunch = Array.isArray(day.lunchSlots) ? day.lunchSlots.filter((slot) => rowFromSlot(slot).hasMenu) : [];
+        let dinnerSlots = Array.isArray(day.dinnerSlots) ? day.dinnerSlots.filter(Boolean) : [];
+        if (!Array.isArray(day.dinnerSlots)) {
+          const base = day.dinner && typeof day.dinner === 'object' ? ['staple','main','side','soup'].map((k)=> day.dinner[k]).filter(Boolean) : [];
+          const extras = Array.isArray(day.dinnerExtras) ? day.dinnerExtras.filter(Boolean) : [];
+          dinnerSlots = [...base, ...extras];
+        }
+
+        [
+          { key: 'breakfast', label: '朝食', slots: breakfast },
+          { key: 'lunch', label: 'ランチ', slots: lunch },
+          { key: 'dinner', label: 'ディナー', slots: dinnerSlots }
+        ].forEach(({ key, label, slots }) => {
+          const mealBlock = document.createElement('div');
+          mealBlock.className = 'wm2-week-meal';
+          const mealLabel = document.createElement('div');
+          mealLabel.className = 'wm2-week-meal-label';
+          mealLabel.textContent = label;
+          mealBlock.appendChild(mealLabel);
+          renderMealBucket(mealBlock, slots, key, dayIndex);
+          dayCard.appendChild(mealBlock);
+        });
+
+        host.appendChild(dayCard);
+      });
+    }
+
+    function updateViewModeUI(){
+      const main = document.getElementById('wm2-main');
+      const weekView = document.getElementById('wm2-week-view');
+      const preview = document.getElementById('wm2-preview');
+      document.querySelectorAll('#wm2-view-toggle [data-view-mode]').forEach((btn) => {
+        btn.dataset.active = String(btn.dataset.viewMode === currentViewMode);
+      });
+      if (main) main.dataset.active = String(currentViewMode === 'detail');
+      if (weekView) weekView.dataset.active = String(currentViewMode === 'week');
+      if (preview) preview.classList.toggle('hidden', currentViewMode !== 'detail');
+    }
+
+    function rebuild(){ buildPills(); renderDay(); renderWeekView(); updateViewModeUI(); }
     document.addEventListener('weekplan:rendered', rebuild);
+    document.querySelectorAll('#wm2-view-toggle [data-view-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentViewMode = btn.dataset.viewMode === 'detail' ? 'detail' : 'week';
+        updateViewModeUI();
+      });
+    });
     // Refresh after primary interactions from weekMenu (without disturbing anchor navigation)
     document.addEventListener('click', (e) => {
       const closeBtn = e.target.closest('#wm2-set-modal [data-close]');
@@ -3429,9 +3699,12 @@
       if (box) box.classList.toggle('hidden', !showSupplies);
       if (preview) preview.classList.toggle('hidden', showSupplies);
       if (main) main.classList.toggle('hidden', showSupplies);
+      const weekView = document.getElementById('wm2-week-view');
+      if (weekView) weekView.classList.toggle('hidden', showSupplies || currentViewMode !== 'week');
       if (toggleBtn) toggleBtn.textContent = showSupplies ? 'メニューの表示' : 'お買い物リストを表示';
       if (section) section.dataset.mode = showSupplies ? 'supplies' : 'menu';
       if (showSupplies) render();
+      if (!showSupplies) updateViewModeUI();
     };
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {

@@ -703,6 +703,32 @@ const formatSetMenuDocument = (doc) => {
   };
 };
 
+const formatSetMenuDocumentLite = (doc) => {
+  if (!doc || !doc._id) return null;
+  return {
+    id: doc._id.toString(),
+    name: doc.name || '',
+    yomi: doc.yomi || '',
+    kind: doc.kind || '',
+    cook: doc.cook || '',
+    people: doc.people,
+    material: !!doc.material,
+    url: doc.url || (`/users/menu/${doc._id.toString()}`),
+    imageUrl: doc.imageUrl || '',
+    menu: doc.menu || '',
+    junle: doc.junle || '',
+    time: doc.time,
+    makeAhead: !!doc.makeAhead,
+    basicMenu: !!doc.basicMenu,
+    season: normalizeSeasonList(doc.season || []),
+    menuType: doc.menuType || 'single',
+    arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
+    setType: doc.setType || '',
+    ingredients: [],
+    seasoning: []
+  };
+};
+
 const formatMenuDocument = (doc) => {
   const id = doc._id.toString();
   const isSet = doc.menuType === 'set';
@@ -728,6 +754,34 @@ const formatMenuDocument = (doc) => {
     setMenus: (doc.setMenus || []).map(formatSetMenuDocument).filter(Boolean),
     ingredients: formatIngredientItems(doc.ingredients || []),
     seasoning: formatSeasoningItems(doc.seasoning || [])
+  };
+};
+
+const formatMenuDocumentLite = (doc) => {
+  const id = doc._id.toString();
+  const isSet = doc.menuType === 'set';
+  return {
+    id,
+    name: doc.name,
+    yomi: doc.yomi || '',
+    kind: doc.kind,
+    cook: doc.cook,
+    people: doc.people,
+    material: !!doc.material,
+    url: isSet ? '' : (doc.url || (`/users/menu/${id}`)),
+    imageUrl: doc.imageUrl || '',
+    menu: doc.menu,
+    junle: doc.junle,
+    time: doc.time,
+    makeAhead: !!doc.makeAhead,
+    basicMenu: !!doc.basicMenu,
+    season: normalizeSeasonList(doc.season || []),
+    menuType: doc.menuType || 'single',
+    arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
+    setType: doc.setType || '',
+    setMenus: (doc.setMenus || []).map(formatSetMenuDocumentLite).filter(Boolean),
+    ingredients: [],
+    seasoning: []
   };
 };
 
