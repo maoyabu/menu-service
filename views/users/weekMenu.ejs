@@ -610,7 +610,14 @@
     currentUserIsGroupOwner: <%- serialize(typeof currentUserIsGroupOwner !== 'undefined' ? currentUserIsGroupOwner : false) %>,
     participantsByMeal: <%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>,
     doRecords: <%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>,
-    menuFilterSettings: <%- serialize(typeof weekMenuSettings !== "undefined" ? weekMenuSettings : {}) %>
+    menuFilterSettings: <%- serialize(typeof weekMenuSettings !== "undefined" ? weekMenuSettings : {}) %>,
+    isModelPlanMode: <%- serialize(typeof isModelPlanMode !== "undefined" ? isModelPlanMode : false) %>,
+    modelPlanId: <%- serialize(typeof modelPlanId !== "undefined" ? modelPlanId : '') %>,
+    modelPlanTitle: <%- serialize(typeof modelPlanTitle !== "undefined" ? modelPlanTitle : '') %>,
+    modelPlanDescription: <%- serialize(typeof modelPlanDescription !== "undefined" ? modelPlanDescription : '') %>,
+    saveEndpoint: <%- serialize((typeof isModelPlanMode !== "undefined" && isModelPlanMode && typeof modelPlanId !== "undefined" && modelPlanId) ? `/users/my-menu/model-plans/${modelPlanId}` : '/users/week-menu') %>,
+    shouldPromptPlanSource: <%- serialize(typeof shouldPromptPlanSource !== "undefined" ? shouldPromptPlanSource : false) %>,
+    modelPlanChoices: <%- serialize(typeof modelPlanChoices !== "undefined" ? modelPlanChoices : []) %>
   };
 </script>
 
@@ -1721,6 +1728,34 @@
           return true;
         } catch(_) { return false; }
       };
+      window.weekMenuAPI.moveSlot = ({ fromDay, fromMeal, fromIndex, toDay, toMeal, toIndex }) => {
+        try {
+          const sourceDay = state.plan?.[Number(fromDay)];
+          const targetDay = state.plan?.[Number(toDay)];
+          const meal = fromMeal === 'breakfast' || fromMeal === 'lunch' || fromMeal === 'dinner' ? fromMeal : '';
+          if (!sourceDay || !targetDay || !meal || meal !== toMeal) return false;
+          const sourceIndex = Number(fromIndex);
+          const targetIndexRaw = Number(toIndex);
+          if (!Number.isInteger(sourceIndex) || sourceIndex < 0) return false;
+          const slotsFor = (day, key) => {
+            if (key === 'breakfast') return ensureBreakfastSlots(day);
+            if (key === 'lunch') return ensureLunchSlots(day);
+            return ensureDinnerSlots(day);
+          };
+          const sourceSlots = slotsFor(sourceDay, meal);
+          const targetSlots = slotsFor(targetDay, meal);
+          if (!sourceSlots[sourceIndex]) return false;
+          const [slot] = sourceSlots.splice(sourceIndex, 1);
+          let targetIndex = Number.isInteger(targetIndexRaw) ? targetIndexRaw : targetSlots.length;
+          if (sourceSlots === targetSlots && sourceIndex < targetIndex) targetIndex -= 1;
+          targetIndex = Math.max(0, Math.min(targetIndex, targetSlots.length));
+          targetSlots.splice(targetIndex, 0, slot);
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave();
+          return true;
+        } catch(_) { return false; }
+      };
     } catch(_) { /* noop */ }
 
     // Favorite modal helpers
@@ -2228,6 +2263,7 @@
       }
       closeMenuModal();
       render();
+      try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch (_) {}
     };
 
     const openMenuModal = (categoryKey, slot) => {
@@ -2597,7 +2633,12 @@
         weekEnd: weekEndISO,
         dayPlans,
         dayComments,
-        title: weekRangeLabel ? `${weekRangeLabel}の献立` : '',
+        title: data.isModelPlanMode
+          ? ((window.weekMenuData && window.weekMenuData.modelPlanTitle) || 'モデルPLAN')
+          : (weekRangeLabel ? `${weekRangeLabel}の献立` : ''),
+        description: data.isModelPlanMode
+          ? ((window.weekMenuData && window.weekMenuData.modelPlanDescription) || '')
+          : '',
         planId: state.planId || undefined
       };
     };
@@ -2625,7 +2666,7 @@
       saveButton.textContent = '保存中...';
 
       try {
-        const response = await fetch('/users/week-menu', {
+        const response = await fetch((window.weekMenuData && window.weekMenuData.saveEndpoint) || '/users/week-menu', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -2643,8 +2684,11 @@
           state.planId = result.planId;
           window.weekMenuData.planId = result.planId;
         }
+        if (result.templateId && window.weekMenuData) {
+          window.weekMenuData.modelPlanId = result.templateId;
+        }
 
-        alert('1週間のメニューを保存しました。');
+        alert(data.isModelPlanMode ? 'モデルPLANを保存しました。' : '1週間のメニューを保存しました。');
       } catch (error) {
         console.error(error);
         alert(error.message || '保存に失敗しました。');
@@ -2693,15 +2737,15 @@
       if (!payload.weekStart || !payload.dayPlans.length) return;
       __autoSaving = true;
       try {
-        const response = await fetch('/users/week-menu', {
+        const response = await fetch((window.weekMenuData && window.weekMenuData.saveEndpoint) || '/users/week-menu', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const result = await response.json().catch(() => ({}));
-        if (response.ok && result && result.planId) {
+        if (response.ok && result && (result.planId || result.templateId)) {
           state.planId = result.planId;
-          if (window.weekMenuData) window.weekMenuData.planId = result.planId;
+          if (window.weekMenuData && result.planId) window.weekMenuData.planId = result.planId;
           // show gentle centered toast for auto-save
           showAutoSaveToast();
         }
@@ -3220,6 +3264,9 @@
       }
 
       render();
+      if (['toggle-dine', 'set-prep', 'clear-slot'].includes(action)) {
+        try { if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave(); } catch (_) {}
+      }
       if (typeof window.refreshLucideIcons === 'function') {
         window.refreshLucideIcons();
       }

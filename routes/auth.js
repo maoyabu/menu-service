@@ -4,6 +4,7 @@ import User from '../models/users.js';
 import Menu from '../models/menu.js';
 import Mymenu from '../models/mymenu.js';
 import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
+import WeeklyMenuTemplate from '../models/weeklyMenuTemplate.js';
 import Group from '../models/groups.js';
 import Notification from '../models/notification.js';
 import SearchLog from '../models/searchLog.js';
@@ -2198,6 +2199,285 @@ router.post('/users/week-menu/settings', isLoggedIn, async (req, res) => {
   }
 });
 
+const userCanAccessGroup = (userGroups, groupId) =>
+  Array.isArray(userGroups) && userGroups.some((group) => group._id.toString() === String(groupId));
+
+const parsePlanDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+const parseEditableDayPlans = (dayPlans, fallbackWeekStart = null) => {
+  const baseWeekStart = fallbackWeekStart ? startOfWeek(fallbackWeekStart) : null;
+  return (Array.isArray(dayPlans) ? dayPlans : [])
+    .map((plan) => {
+      if (
+        typeof plan?.dayIndex !== 'number' ||
+        plan.dayIndex < 0 ||
+        plan.dayIndex > 6 ||
+        !plan?.mealType
+      ) {
+        return null;
+      }
+
+      let date = parsePlanDate(plan.dateISO || plan.date);
+      if (!date && baseWeekStart) {
+        date = addDays(baseWeekStart, plan.dayIndex);
+        date.setHours(0, 0, 0, 0);
+      }
+
+      const mealType = plan.mealType === 'dinner'
+        ? 'dinner'
+        : plan.mealType === 'breakfast'
+          ? 'breakfast'
+          : plan.mealType === 'lunch'
+            ? 'lunch'
+            : '';
+      if (!mealType) return null;
+
+      const slots = (plan.slots || [])
+        .map((slot) => {
+          const slotType = CATEGORY_TO_SLOT_TYPE[slot?.categoryKey] || slot?.slotType;
+          if (!slotType || !mongoose.Types.ObjectId.isValid(slot?.menuId)) return null;
+          return {
+            slotType,
+            menu: slot.menuId,
+            dineOut: !!slot.dineOut,
+            dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+            dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
+            favorite: !!slot.favorite,
+            locked: !!slot.locked,
+            prepExtra: Number.isFinite(Number(slot.prepExtra)) && Number(slot.prepExtra) > 0
+              ? Math.floor(Number(slot.prepExtra))
+              : 0
+          };
+        })
+        .filter(Boolean);
+
+      if (!slots.length) return null;
+
+      return {
+        dayIndex: plan.dayIndex,
+        date: date || undefined,
+        mealType,
+        slots
+      };
+    })
+    .filter(Boolean);
+};
+
+const parseEditableDayComments = (dayComments) => Array.isArray(dayComments)
+  ? dayComments
+      .map((entry) => {
+        if (!entry || typeof entry.dayIndex !== 'number' || entry.dayIndex < 0 || entry.dayIndex > 6) return null;
+        const date = parsePlanDate(entry.dateISO || entry.date);
+        return {
+          dayIndex: entry.dayIndex,
+          ...(date ? { date } : {}),
+          comment: typeof entry.comment === 'string' ? entry.comment.trim() : ''
+        };
+      })
+      .filter(Boolean)
+  : [];
+
+const remapTemplateDayPlansToWeek = (template, weekStart) => {
+  const baseWeekStart = startOfWeek(weekStart);
+  return (template?.dayPlans || []).map((dayPlan) => {
+    const date = addDays(baseWeekStart, dayPlan.dayIndex);
+    date.setHours(0, 0, 0, 0);
+    return {
+      dayIndex: dayPlan.dayIndex,
+      date,
+      mealType: dayPlan.mealType,
+      slots: (dayPlan.slots || []).map((slot) => ({
+        slotType: slot.slotType,
+        menu: slot.menu,
+        dineOut: !!slot.dineOut,
+        dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+        dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
+        favorite: !!slot.favorite,
+        locked: !!slot.locked,
+        prepExtra: Number.isFinite(Number(slot.prepExtra)) && Number(slot.prepExtra) > 0
+          ? Math.floor(Number(slot.prepExtra))
+          : 0
+      }))
+    };
+  });
+};
+
+router.get('/users/my-menu/model-plans', isLoggedIn, async (req, res, next) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const groupIds = userGroups.map((group) => group._id);
+    const templates = groupIds.length
+      ? await WeeklyMenuTemplate.find({ group: { $in: groupIds } })
+          .populate('group', 'group_name')
+          .sort({ updatedAt: -1 })
+          .lean()
+      : [];
+    res.render('users/modelPlans', { templates });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/users/my-menu/model-plans/from-week', isLoggedIn, async (req, res) => {
+  try {
+    const { planId, groupId, weekStart, title, description } = req.body || {};
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    let plan = null;
+
+    if (planId && mongoose.Types.ObjectId.isValid(planId)) {
+      plan = await WeeklyMenuPlan.findById(planId).lean();
+    }
+    if (!plan && groupId && weekStart && mongoose.Types.ObjectId.isValid(groupId)) {
+      const parsedWeekStart = startOfWeek(new Date(weekStart));
+      if (!Number.isNaN(parsedWeekStart.getTime())) {
+        plan = await WeeklyMenuPlan.findOne({ group: groupId, weekStart: parsedWeekStart }).lean();
+      }
+    }
+
+    if (!plan) return res.status(404).json({ error: '保存元の週PLANが見つかりません。' });
+    if (!userCanAccessGroup(userGroups, plan.group)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+
+    const template = await WeeklyMenuTemplate.create({
+      group: plan.group,
+      createdBy: req.user._id,
+      title: (typeof title === 'string' && title.trim()) || plan.title || 'モデルPLAN',
+      description: typeof description === 'string' ? description.trim() : '',
+      sourceWeekStart: plan.weekStart,
+      dayPlans: plan.dayPlans || [],
+      dayComments: (plan.dayComments || []).map((entry) => ({
+        dayIndex: entry.dayIndex,
+        comment: entry.comment || ''
+      }))
+    });
+
+    return res.status(201).json({ success: true, templateId: template._id });
+  } catch (err) {
+    console.error('モデルPLAN作成エラー:', err);
+    return res.status(500).json({ error: 'モデルPLANを作成できませんでした。' });
+  }
+});
+
+router.get('/users/my-menu/model-plans/:id/edit', isLoggedIn, (req, res) => {
+  const id = String(req.params.id || '');
+  const q = new URLSearchParams({ modelPlan: id });
+  res.redirect(`/users/week-menu?${q.toString()}`);
+});
+
+router.post('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'モデルPLAN IDが不正です。' });
+    }
+
+    const template = await WeeklyMenuTemplate.findById(id);
+    if (!template) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    if (!userCanAccessGroup(userGroups, template.group)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+
+    const parsedDayPlans = parseEditableDayPlans(req.body?.dayPlans, template.sourceWeekStart || new Date());
+    if (!parsedDayPlans.length) return res.status(400).json({ error: '保存するメニューがありません。' });
+
+    template.title = (typeof req.body?.title === 'string' && req.body.title.trim()) || template.title || 'モデルPLAN';
+    template.description = typeof req.body?.description === 'string' ? req.body.description.trim() : template.description || '';
+    template.dayPlans = parsedDayPlans;
+    template.dayComments = parseEditableDayComments(req.body?.dayComments).map((entry) => ({
+      dayIndex: entry.dayIndex,
+      comment: entry.comment || ''
+    }));
+    await template.save();
+
+    return res.json({ success: true, templateId: template._id });
+  } catch (err) {
+    console.error('モデルPLAN保存エラー:', err);
+    return res.status(500).json({ error: 'モデルPLANを保存できませんでした。' });
+  }
+});
+
+router.delete('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'モデルPLAN IDが不正です。' });
+    const template = await WeeklyMenuTemplate.findById(id).lean();
+    if (!template) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    if (!userCanAccessGroup(userGroups, template.group)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+    await WeeklyMenuTemplate.deleteOne({ _id: id });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('モデルPLAN削除エラー:', err);
+    return res.status(500).json({ error: 'モデルPLANを削除できませんでした。' });
+  }
+});
+
+router.post('/users/week-menu/apply-template', isLoggedIn, async (req, res) => {
+  try {
+    const { templateId, groupId, weekStart } = req.body || {};
+    if (!templateId || !mongoose.Types.ObjectId.isValid(templateId)) {
+      return res.status(400).json({ error: 'モデルPLAN IDが不正です。' });
+    }
+    if (!groupId || !mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ error: 'グループIDが不正です。' });
+    }
+    const parsedWeekStart = startOfWeek(new Date(weekStart));
+    if (!weekStart || Number.isNaN(parsedWeekStart.getTime())) {
+      return res.status(400).json({ error: '週の開始日が不正です。' });
+    }
+
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    if (!userCanAccessGroup(userGroups, groupId)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+
+    const template = await WeeklyMenuTemplate.findById(templateId).lean();
+    if (!template) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
+    if (String(template.group) !== String(groupId) || !userCanAccessGroup(userGroups, template.group)) {
+      return res.status(403).json({ error: 'このモデルPLANを利用できません。' });
+    }
+
+    const weekEnd = addDays(parsedWeekStart, 6);
+    const dayPlans = remapTemplateDayPlansToWeek(template, parsedWeekStart);
+    const dayComments = (template.dayComments || []).map((entry) => ({
+      dayIndex: entry.dayIndex,
+      date: addDays(parsedWeekStart, entry.dayIndex),
+      comment: entry.comment || ''
+    }));
+
+    const plan = await WeeklyMenuPlan.findOneAndUpdate(
+      { group: groupId, weekStart: parsedWeekStart },
+      {
+        $set: {
+          weekStart: parsedWeekStart,
+          weekEnd,
+          title: template.title || '',
+          description: template.description || '',
+          dayPlans,
+          dayComments
+        },
+        $setOnInsert: { group: groupId, createdBy: req.user._id }
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({ success: true, planId: plan._id });
+  } catch (err) {
+    console.error('モデルPLAN反映エラー:', err);
+    return res.status(500).json({ error: 'モデルPLANを週PLANに反映できませんでした。' });
+  }
+});
+
 //weekMenu.ejsを開く
 router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   try {
@@ -2267,6 +2547,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     const planIdParam = req.query.plan && mongoose.Types.ObjectId.isValid(req.query.plan)
       ? req.query.plan
       : '';
+    const modelPlanParam = req.query.modelPlan && mongoose.Types.ObjectId.isValid(req.query.modelPlan)
+      ? req.query.modelPlan
+      : '';
 
     const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
     let requestedWeekStart = null;
@@ -2286,6 +2569,10 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     let existingPlan = null;
     let existingPlanId = '';
+    let isModelPlanMode = false;
+    let modelPlanId = '';
+    let modelPlanTitle = '';
+    let modelPlanDescription = '';
 
     if (planIdParam) {
       const plan = await WeeklyMenuPlan.findById(planIdParam).lean();
@@ -2305,6 +2592,31 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       }
     }
 
+    if (!existingPlan && modelPlanParam) {
+      const template = await WeeklyMenuTemplate.findById(modelPlanParam).lean();
+      if (template) {
+        const templateGroupId = template.group.toString();
+        const canAccess = userGroups.some((group) => group._id.toString() === templateGroupId);
+        if (canAccess && (!currentGroupId || templateGroupId === currentGroupId)) {
+          isModelPlanMode = true;
+          modelPlanId = template._id.toString();
+          modelPlanTitle = template.title || 'モデルPLAN';
+          modelPlanDescription = template.description || '';
+          existingPlan = {
+            ...template,
+            weekStart: template.sourceWeekStart || targetWeekStart,
+            weekEnd: addDays(startOfWeek(template.sourceWeekStart || targetWeekStart), 6),
+            participants: []
+          };
+          existingPlanId = '';
+          targetWeekStart = startOfWeek(existingPlan.weekStart || targetWeekStart);
+          baseWeekDates = getWeekDatesFromStart(targetWeekStart);
+          weekRangeLabel = modelPlanTitle;
+          if (!currentGroupId) currentGroupId = templateGroupId;
+        }
+      }
+    }
+
     if (!existingPlan && currentGroupId) {
       existingPlan = await WeeklyMenuPlan.findOne({
         group: currentGroupId,
@@ -2317,6 +2629,14 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(baseWeekDates[6])}`;
       }
     }
+
+    const shouldPromptPlanSource = !isModelPlanMode && !existingPlan && !!currentGroupId && targetWeekStart.getTime() >= todayWeekStart.getTime();
+    const modelPlanChoices = currentGroupId
+      ? await WeeklyMenuTemplate.find({ group: currentGroupId })
+          .select('title description updatedAt dayPlans')
+          .sort({ updatedAt: -1 })
+          .lean()
+      : [];
 
     let myMenuDocsForGroup = [];
     if (currentGroupId) {
@@ -2718,7 +3038,13 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     weekMenuView,
     doRecords,
     weekMenuMode,
-    weekMenuSettings
+    weekMenuSettings,
+    isModelPlanMode,
+    modelPlanId,
+    modelPlanTitle,
+    modelPlanDescription,
+    shouldPromptPlanSource,
+    modelPlanChoices
 	});
   
   } catch (err) {
@@ -4107,7 +4433,8 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
           weekEnd: parsedWeekEnd,
           title: title || '',
           description: description || '',
-          dayPlans: parsedDayPlans
+          dayPlans: parsedDayPlans,
+          dayComments: parsedDayComments
         });
         statusCode = 201;
       }

@@ -172,6 +172,53 @@
   .attendee-tag button { border:none; background:transparent; color:#075985; cursor:pointer; padding:0; line-height:1; }
   .attendee-addme { display:inline-flex; align-items:center; gap:6px; background:#fef3c7; color:#92400e; border:1px dashed #fcd34d; border-radius:9999px; padding:2px 8px; font-size:11px; font-weight:700; }
   .attendee-reset { display:inline-flex; align-items:center; gap:6px; background:#ecfccb; color:#3f6212; border:1px solid #bef264; border-radius:9999px; padding:2px 8px; font-size:11px; font-weight:700; }
+  .wm2-draggable{ cursor:grab; }
+  .wm2-draggable:active{ cursor:grabbing; }
+  .wm2-drop-target{ outline:2px dashed #60a5fa; outline-offset:4px; border-radius:16px; }
+  #wm2-dnd-day-targets{
+    position:fixed;
+    left:16px;
+    top:16px;
+    z-index:95;
+    width:132px;
+    border:1px solid #bfdbfe;
+    border-radius:16px;
+    background:rgba(255,255,255,.98);
+    box-shadow:0 16px 40px rgba(15,23,42,.18);
+    padding:10px;
+  }
+  #wm2-dnd-day-targets[hidden]{ display:none !important; }
+  #wm2-dnd-day-targets .dnd-title{ font-size:11px; font-weight:700; color:#1d4ed8; margin-bottom:8px; }
+  #wm2-dnd-day-targets .dnd-days{ display:grid; grid-template-columns:1fr; gap:6px; }
+  #wm2-dnd-day-targets .dnd-day{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+    width:100%;
+    min-height:36px;
+    border:1px solid #dbeafe;
+    border-radius:10px;
+    background:#eff6ff;
+    color:#1e40af;
+    padding:6px 8px;
+    text-align:left;
+    font-size:12px;
+    font-weight:700;
+  }
+  #wm2-dnd-day-targets .dnd-day[data-active="true"]{ background:#2563eb; border-color:#1d4ed8; color:#fff; }
+  #wm2-dnd-day-targets .dnd-day.wm2-drop-target{ outline-offset:2px; }
+  @media (max-width: 768px){
+    #wm2-dnd-day-targets{
+      left:8px;
+      right:8px;
+      top:auto;
+      bottom:10px;
+      width:auto;
+    }
+    #wm2-dnd-day-targets .dnd-days{ grid-template-columns:repeat(7, minmax(0, 1fr)); }
+    #wm2-dnd-day-targets .dnd-day{ flex-direction:column; justify-content:center; min-height:48px; padding:5px 2px; text-align:center; }
+  }
 </style>
 
 <!-- Weekly preview + fused layout -->
@@ -179,7 +226,21 @@
   <!-- Title above preview -->
   <div class="wm2-title justify-between">
     <div class="flex items-center gap-2 flex-wrap">
-      <h2>7 DAYS PLAN</h2>
+      <h2><%= isModelPlanMode ? (modelPlanTitle || 'モデルPLAN') : '7 DAYS PLAN' %></h2>
+      <% if (isModelPlanMode) { %>
+        <button type="button" id="wm2-save-current" class="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+          <span class="lucide w-4 h-4" data-lucide="save"></span>
+          保存
+        </button>
+        <button type="button" id="wm2-edit-model-title" class="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+          <span class="lucide w-4 h-4" data-lucide="edit-3"></span>
+          名前を編集
+        </button>
+        <a href="/users/my-menu/model-plans" class="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+          <span class="lucide w-4 h-4" data-lucide="list"></span>
+          モデルPLAN一覧
+        </a>
+      <% } else { %>
       <a
         href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=1"
         target="_blank"
@@ -205,8 +266,21 @@
         <span class="lucide w-4 h-4" data-lucide="list"></span>
         週の食材・調味料明細
       </a>
+      <button
+        type="button"
+        id="wm2-save-model"
+        data-plan-id="<%= existingPlanId || '' %>"
+        data-group-id="<%= currentGroupId || '' %>"
+        data-week-start="<%= weekStartISO || '' %>"
+        class="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 shadow-sm"
+      >
+        <span class="lucide w-4 h-4" data-lucide="copy-plus"></span>
+        モデルPLANとして保存
+      </button>
       <button type="button" id="wm2-toggle-supplies" class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">お買い物リストを表示</button>
+      <% } %>
     </div>
+    <% if (!isModelPlanMode) { %>
     <% const wm2CanRegenerateWeek = (() => {
       try {
         const ws = weekStartISO ? new Date(weekStartISO) : null;
@@ -232,6 +306,7 @@
       <span class="lucide w-4 h-4" data-lucide="refresh-ccw"></span>
       １週間のメニューを再提案
     </button>
+    <% } %>
   </div>
   <p id="wm2-supplies-range" aria-live="polite"></p>
   <!-- Weekly supplies (collapsed by default) -->
@@ -303,6 +378,11 @@
   </div>
 </section>
 
+<div id="wm2-dnd-day-targets" hidden aria-hidden="true">
+  <div class="dnd-title" id="wm2-dnd-day-title">移動先の曜日</div>
+  <div class="dnd-days" id="wm2-dnd-day-list"></div>
+</div>
+
 <!-- Set menu detail modal -->
 <div id="wm2-set-modal" aria-hidden="true">
   <div class="overlay" data-close></div>
@@ -332,6 +412,42 @@
     </div>
   </div>
 </div>
+
+<% if (shouldPromptPlanSource) { %>
+<div id="wm2-plan-source-modal" class="fixed inset-0 z-[90]">
+  <div class="absolute inset-0 bg-black/40"></div>
+  <div class="relative mx-auto mt-10 w-[760px] max-w-[96vw] rounded-2xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b px-5 py-3">
+      <h3 class="font-semibold">この週のPLANを作成</h3>
+      <button type="button" class="text-gray-500" data-source-close>✕</button>
+    </div>
+    <div class="space-y-4 p-5">
+      <p class="text-sm text-gray-600">モデルPLANから反映するか、自動提案の内容で始めるかを選べます。</p>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <button type="button" class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-left hover:bg-blue-100" data-source-auto>
+          <span class="inline-flex items-center gap-2 text-sm font-bold text-blue-800"><span class="lucide w-4 h-4" data-lucide="sparkles"></span>自動設定で始める</span>
+          <span class="mt-2 block text-xs text-blue-700">画面に表示されている自動提案を編集します。</span>
+        </button>
+        <div class="rounded-xl border border-purple-200 bg-purple-50 p-4">
+          <p class="inline-flex items-center gap-2 text-sm font-bold text-purple-800"><span class="lucide w-4 h-4" data-lucide="calendar-days"></span>モデルPLANから選ぶ</p>
+          <div class="mt-3 max-h-64 space-y-2 overflow-auto">
+            <% if ((modelPlanChoices || []).length) { %>
+              <% modelPlanChoices.forEach((template) => { %>
+                <button type="button" class="w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-left hover:bg-purple-100" data-apply-template="<%= template._id %>">
+                  <span class="block text-sm font-semibold text-gray-900"><%= template.title || 'モデルPLAN' %></span>
+                  <% if (template.description) { %><span class="block text-xs text-gray-500"><%= template.description %></span><% } %>
+                </button>
+              <% }) %>
+            <% } else { %>
+              <p class="rounded-lg border border-dashed border-purple-200 bg-white px-3 py-6 text-center text-sm text-gray-500">利用できるモデルPLANがありません。</p>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
 
 <script>
   (function(){
@@ -380,7 +496,123 @@
     };
     const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
     const DEFAULT_ING_CLASS = 'その他';
+    const isModelPlanMode = !!(window.weekMenuData && window.weekMenuData.isModelPlanMode);
     const SEASONING_CAPTURE_CLASSES = new Set(['穀物','乳類','チーズ']);
+    const modelTitleBtn = document.getElementById('wm2-edit-model-title');
+    const saveCurrentBtn = document.getElementById('wm2-save-current');
+    if (saveCurrentBtn) {
+      saveCurrentBtn.addEventListener('click', () => {
+        const hiddenSave = document.querySelector('#wm2-include [data-action="save-week-plan"]');
+        if (hiddenSave) hiddenSave.click();
+      });
+    }
+    if (modelTitleBtn) {
+      modelTitleBtn.addEventListener('click', () => {
+        const current = (window.weekMenuData && window.weekMenuData.modelPlanTitle) || 'モデルPLAN';
+        const next = window.prompt('モデルPLAN名', current);
+        if (next === null) return;
+        const trimmed = String(next || '').trim();
+        if (!trimmed) return;
+        window.weekMenuData.modelPlanTitle = trimmed;
+        const heading = document.querySelector('#wm2-section .wm2-title h2');
+        if (heading) heading.textContent = trimmed;
+        if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave();
+      });
+    }
+    const saveModelBtn = document.getElementById('wm2-save-model');
+    if (saveModelBtn) {
+      saveModelBtn.addEventListener('click', async () => {
+        if (window.weekMenuAPI && window.weekMenuAPI.saveWeekPlanSilently) {
+          await window.weekMenuAPI.saveWeekPlanSilently();
+        }
+        const planIdForModel = (window.weekMenuData && window.weekMenuData.planId) || saveModelBtn.dataset.planId || '';
+        if (!planIdForModel) {
+          alert('先に週PLANを保存してください。');
+          return;
+        }
+        const defaultTitle = `${(window.weekMenuData && window.weekMenuData.weekRangeLabel) || '一週間'}のモデルPLAN`;
+        const title = window.prompt('モデルPLAN名', defaultTitle);
+        if (title === null) return;
+        const trimmed = String(title || '').trim();
+        if (!trimmed) {
+          alert('モデルPLAN名を入力してください。');
+          return;
+        }
+        saveModelBtn.disabled = true;
+        try {
+          const res = await fetch('/users/my-menu/model-plans/from-week', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              planId: planIdForModel,
+              groupId: saveModelBtn.dataset.groupId || (window.weekMenuData && window.weekMenuData.currentGroupId) || '',
+              weekStart: saveModelBtn.dataset.weekStart || (window.weekMenuData && window.weekMenuData.weekStartISO) || '',
+              title: trimmed
+            })
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json.success) throw new Error(json.error || 'モデルPLANを保存できませんでした。');
+          alert('モデルPLANとして保存しました。');
+        } catch (err) {
+          alert(err.message || 'モデルPLANを保存できませんでした。');
+        } finally {
+          saveModelBtn.disabled = false;
+        }
+      });
+    }
+    const sourceModal = document.getElementById('wm2-plan-source-modal');
+    if (sourceModal) {
+      const closeSource = () => sourceModal.remove();
+      sourceModal.addEventListener('click', async (event) => {
+        if (event.target.closest('[data-source-close]')) {
+          closeSource();
+          return;
+        }
+        const autoBtn = event.target.closest('[data-source-auto]');
+        if (autoBtn) {
+          autoBtn.disabled = true;
+          try {
+            if (window.weekMenuAPI && window.weekMenuAPI.saveWeekPlanSilently) {
+              await window.weekMenuAPI.saveWeekPlanSilently();
+            }
+            const planId = (window.weekMenuData && window.weekMenuData.planId) || '';
+            if (planId) {
+              const url = new URL(window.location.href);
+              url.searchParams.set('plan', planId);
+              window.history.replaceState({}, '', url.toString());
+            }
+            closeSource();
+          } catch (_) {
+            closeSource();
+          }
+          return;
+        }
+        const templateBtn = event.target.closest('[data-apply-template]');
+        if (!templateBtn) return;
+        const templateId = templateBtn.getAttribute('data-apply-template');
+        if (!templateId) return;
+        templateBtn.disabled = true;
+        try {
+          const res = await fetch('/users/week-menu/apply-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              templateId,
+              groupId: (window.weekMenuData && window.weekMenuData.currentGroupId) || '',
+              weekStart: (window.weekMenuData && window.weekMenuData.weekStartISO) || ''
+            })
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json.success) throw new Error(json.error || 'モデルPLANを反映できませんでした。');
+          const url = new URL(window.location.href);
+          if (json.planId) url.searchParams.set('plan', json.planId);
+          window.location.assign(url.toString());
+        } catch (err) {
+          alert(err.message || 'モデルPLANを反映できませんでした。');
+          templateBtn.disabled = false;
+        }
+      });
+    }
     const createMushroomIcon = () => {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', '0 0 24 24');
@@ -957,6 +1189,7 @@
         const wrap = document.getElementById(wrapId);
         if (!wrap) return;
         wrap.innerHTML = '';
+        if (isModelPlanMode) return;
         const ids = getIds(dayIndex, meal);
         const idSet = new Set(ids.map(String));
         groupUsers.forEach((u) => {
@@ -1241,6 +1474,165 @@
       };
     }
 
+    const dragPayloadType = 'application/x-week-menu-slot';
+    let currentDragPayload = null;
+    const dndDayTargets = document.getElementById('wm2-dnd-day-targets');
+    const dndDayTitle = document.getElementById('wm2-dnd-day-title');
+    const dndDayList = document.getElementById('wm2-dnd-day-list');
+    const mealLabelForDrag = (meal) => {
+      if (meal === 'breakfast') return '朝食';
+      if (meal === 'lunch') return 'ランチ';
+      if (meal === 'dinner') return 'ディナー';
+      return 'メニュー';
+    };
+    const closestEl = (target, selector) => {
+      if (!target || !target.closest) return null;
+      return target.closest(selector);
+    };
+    const renderDndDayTargets = (payload) => {
+      if (!dndDayTargets || !dndDayList || !payload) return;
+      dndDayList.innerHTML = '';
+      if (dndDayTitle) dndDayTitle.textContent = `${mealLabelForDrag(payload.fromMeal)}の移動先`;
+      (WEEK || []).forEach((entry, idx) => {
+        const info = toLabel(entry);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dnd-day';
+        btn.dataset.dropDay = String(idx);
+        btn.dataset.active = String(idx === Number(payload.fromDay));
+        btn.innerHTML = `<span>${info.dow || WEEKDAY[idx] || ''}</span><span>${info.disp || ''}</span>`;
+        dndDayList.appendChild(btn);
+      });
+    };
+    const positionDndDayTargets = (anchorEl) => {
+      if (!dndDayTargets || !anchorEl || window.innerWidth <= 768) return;
+      const rect = anchorEl.getBoundingClientRect();
+      const gap = 12;
+      const viewportPadding = 8;
+      const panelWidth = dndDayTargets.offsetWidth || 132;
+      const panelHeight = dndDayTargets.offsetHeight || 340;
+      let left = rect.right + gap;
+      if (left + panelWidth > window.innerWidth - viewportPadding) {
+        left = rect.left - panelWidth - gap;
+      }
+      left = Math.max(viewportPadding, Math.min(left, window.innerWidth - panelWidth - viewportPadding));
+      let top = rect.top + Math.max(0, (rect.height - panelHeight) / 2);
+      top = Math.max(viewportPadding, Math.min(top, window.innerHeight - panelHeight - viewportPadding));
+      dndDayTargets.style.left = `${left}px`;
+      dndDayTargets.style.top = `${top}px`;
+      dndDayTargets.style.right = 'auto';
+      dndDayTargets.style.bottom = 'auto';
+    };
+    const resetDndDayTargetsPosition = () => {
+      if (!dndDayTargets) return;
+      dndDayTargets.style.left = '';
+      dndDayTargets.style.top = '';
+      dndDayTargets.style.right = '';
+      dndDayTargets.style.bottom = '';
+    };
+    const showDndDayTargets = (payload, anchorEl = null) => {
+      if (!dndDayTargets || !payload) return;
+      renderDndDayTargets(payload);
+      dndDayTargets.hidden = false;
+      dndDayTargets.setAttribute('aria-hidden', 'false');
+      if (window.innerWidth <= 768) {
+        resetDndDayTargetsPosition();
+      } else {
+        positionDndDayTargets(anchorEl);
+      }
+    };
+    const hideDndDayTargets = () => {
+      if (!dndDayTargets) return;
+      dndDayTargets.hidden = true;
+      dndDayTargets.setAttribute('aria-hidden', 'true');
+      if (dndDayList) dndDayList.innerHTML = '';
+      resetDndDayTargetsPosition();
+    };
+    const getDropMealFromWrap = (target) => {
+      const wrap = closestEl(target, '#wm2-day-breakfast, #wm2-day-lunch, #wm2-day-dinner');
+      if (!wrap) return '';
+      if (wrap.id === 'wm2-day-breakfast') return 'breakfast';
+      if (wrap.id === 'wm2-day-lunch') return 'lunch';
+      if (wrap.id === 'wm2-day-dinner') return 'dinner';
+      return '';
+    };
+    const readDragPayload = (event) => {
+      try {
+        const raw = event.dataTransfer?.getData(dragPayloadType) || event.dataTransfer?.getData('text/plain') || '';
+        return raw ? JSON.parse(raw) : null;
+      } catch (_) {
+        return null;
+      }
+    };
+    document.addEventListener('dragstart', (event) => {
+      const item = event.target.closest('.wm2-draggable');
+      if (!item) return;
+      const payload = {
+        fromDay: Number(item.dataset.dragDay),
+        fromMeal: item.dataset.dragMeal || '',
+        fromIndex: Number(item.dataset.dragIndex)
+      };
+      currentDragPayload = payload;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData(dragPayloadType, JSON.stringify(payload));
+      event.dataTransfer.setData('text/plain', JSON.stringify(payload));
+      item.classList.add('opacity-60');
+      showDndDayTargets(payload, item);
+    });
+    document.addEventListener('dragend', (event) => {
+      const item = event.target.closest('.wm2-draggable');
+      if (item) item.classList.remove('opacity-60');
+      document.querySelectorAll('.wm2-drop-target').forEach((el) => el.classList.remove('wm2-drop-target'));
+      currentDragPayload = null;
+      setTimeout(hideDndDayTargets, 0);
+    });
+    document.addEventListener('dragover', (event) => {
+      const payload = currentDragPayload || readDragPayload(event);
+      if (!payload || !payload.fromMeal) return;
+      const dayTarget = closestEl(event.target, '#wm2-dnd-day-targets [data-drop-day]');
+      const pill = closestEl(event.target, '#wm2-days .day-pill');
+      const meal = getDropMealFromWrap(event.target);
+      if (dayTarget || pill || meal === payload.fromMeal) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        const target = dayTarget || pill || closestEl(event.target, '.wm2-draggable') || closestEl(event.target, '#wm2-day-breakfast, #wm2-day-lunch, #wm2-day-dinner');
+        if (target) target.classList.add('wm2-drop-target');
+      }
+    });
+    document.addEventListener('dragleave', (event) => {
+      const target = closestEl(event.target, '.wm2-drop-target');
+      if (target) target.classList.remove('wm2-drop-target');
+    });
+    document.addEventListener('drop', (event) => {
+      const payload = currentDragPayload || readDragPayload(event);
+      if (!payload || !payload.fromMeal) return;
+      const dayTarget = closestEl(event.target, '#wm2-dnd-day-targets [data-drop-day]');
+      const pill = closestEl(event.target, '#wm2-days .day-pill');
+      const meal = getDropMealFromWrap(event.target);
+      let toDay = sel;
+      let toMeal = meal;
+      let toIndex = null;
+      if (dayTarget || pill) {
+        toDay = Number((dayTarget || pill).dataset.dropDay || (dayTarget || pill).dataset.index);
+        toMeal = payload.fromMeal;
+      } else {
+        if (meal !== payload.fromMeal) return;
+        const targetItem = closestEl(event.target, '.wm2-draggable');
+        if (targetItem) toIndex = Number(targetItem.dataset.dragIndex);
+      }
+      event.preventDefault();
+      document.querySelectorAll('.wm2-drop-target').forEach((el) => el.classList.remove('wm2-drop-target'));
+      hideDndDayTargets();
+      const ok = window.weekMenuAPI && window.weekMenuAPI.moveSlot
+        ? window.weekMenuAPI.moveSlot({ ...payload, toDay, toMeal, toIndex })
+        : false;
+      if (ok && Number.isInteger(toDay)) {
+        sel = toDay;
+        rebuild();
+      }
+      currentDragPayload = null;
+    });
+
     function rowFromSlot(slot){
       if (!slot) return { hasMenu:false };
       let m = null;
@@ -1411,10 +1803,15 @@
         (slots || []).forEach((slot, idx) => {
           const row = rowFromSlot(slot); if (!row.hasMenu) return;
           const item = document.createElement('div');
+          item.className = 'wm2-draggable';
+          item.draggable = true;
           item.setAttribute('data-slot-index', String(idx));
           item.setAttribute('data-category', slot?.categoryKey || defaultCategory);
           item.dataset.meal = mealType;
           item.dataset.mealType = mealType;
+          item.dataset.dragDay = String(sel);
+          item.dataset.dragMeal = mealType;
+          item.dataset.dragIndex = String(idx);
           const actions = document.createElement('div'); actions.className='wm2-actions';
           const mySet = new Set((window.weekMenuData && window.weekMenuData.myMenuIds) || []);
           const favActive = !!(slot?.menuId && mySet.has(String(slot.menuId))) || !!slot?.favorite;
@@ -1475,7 +1872,7 @@
       }
       dinnerSlots.forEach((slot, i)=>{
         const row = rowFromSlot(slot); if (!row.hasMenu || !dinnerWrap) return;
-        const item = document.createElement('div'); item.setAttribute('data-dinner-index', String(i)); const key = slot?.categoryKey||'dinnerFlexible'; item.setAttribute('data-category', key); item.dataset.meal = 'dinner';
+        const item = document.createElement('div'); item.className = 'wm2-draggable'; item.draggable = true; item.setAttribute('data-dinner-index', String(i)); const key = slot?.categoryKey||'dinnerFlexible'; item.setAttribute('data-category', key); item.dataset.meal = 'dinner'; item.dataset.dragDay = String(sel); item.dataset.dragMeal = 'dinner'; item.dataset.dragIndex = String(i);
         const label = catConfig[key]?.label || '';
         if (label){ const t=document.createElement('div'); t.className='wm2-section-title'; t.textContent = label; item.appendChild(t); }
         const actions = document.createElement('div'); actions.className='wm2-actions';
