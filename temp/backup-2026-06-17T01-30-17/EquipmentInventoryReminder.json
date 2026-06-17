@@ -1,0 +1,428 @@
+[
+  {
+    "_id": "6955ab3056834657cbeaac50",
+    "group": "67fee15caec9e540985a7c57",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:04.786Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49",
+      "67fee1aaaec9e540985a7c6f",
+      "69029fa8ff150ad5e9249f4a",
+      "691275c62c9cd21b56586846"
+    ],
+    "createdAt": "2025-12-31T23:01:04.805Z",
+    "updatedAt": "2025-12-31T23:01:04.805Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab3556834657cbeaac55",
+    "group": "67fee471aec9e540985a7cf4",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:09.952Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2025-12-31T23:01:09.954Z",
+    "updatedAt": "2025-12-31T23:01:09.954Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab3556834657cbeaac5a",
+    "group": "6822b1c07318714e7f137a3a",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:09.960Z",
+    "recipients": [],
+    "createdAt": "2025-12-31T23:01:09.962Z",
+    "updatedAt": "2025-12-31T23:01:09.962Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab3556834657cbeaac5f",
+    "group": "6824977074da5a84a7ab8bcc",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:09.973Z",
+    "recipients": [],
+    "createdAt": "2025-12-31T23:01:09.974Z",
+    "updatedAt": "2025-12-31T23:01:09.974Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab3556834657cbeaac64",
+    "group": "683673e52757cfe0e9fd8344",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:09.977Z",
+    "recipients": [],
+    "createdAt": "2025-12-31T23:01:09.977Z",
+    "updatedAt": "2025-12-31T23:01:09.977Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab3a56834657cbeaac69",
+    "group": "686079abc4faea8ed8a1b14a",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:14.708Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2025-12-31T23:01:14.710Z",
+    "updatedAt": "2025-12-31T23:01:14.710Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab4256834657cbeaac6e",
+    "group": "68fb0b4449a927b9417be2f2",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:22.045Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2025-12-31T23:01:22.047Z",
+    "updatedAt": "2025-12-31T23:01:22.047Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab4656834657cbeaac73",
+    "group": "6902a74c65bf3a1521fab59c",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:26.285Z",
+    "recipients": [
+      "69029fa8ff150ad5e9249f4a"
+    ],
+    "createdAt": "2025-12-31T23:01:26.289Z",
+    "updatedAt": "2025-12-31T23:01:26.289Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab4c56834657cbeaac78",
+    "group": "691276a52c9cd21b5658688e",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:32.133Z",
+    "recipients": [
+      "691275c62c9cd21b56586846"
+    ],
+    "createdAt": "2025-12-31T23:01:32.136Z",
+    "updatedAt": "2025-12-31T23:01:32.136Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab5156834657cbeaac7d",
+    "group": "691a92e570bef1550957c8b2",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:37.433Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2025-12-31T23:01:37.436Z",
+    "updatedAt": "2025-12-31T23:01:37.436Z",
+    "__v": 0
+  },
+  {
+    "_id": "6955ab5556834657cbeaac82",
+    "group": "692fbc40811e48e0176da58b",
+    "cycleStart": "2025-12-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2025-12-31T23:01:41.550Z",
+    "recipients": [
+      "692fbb26811e48e0176da1c7"
+    ],
+    "createdAt": "2025-12-31T23:01:41.553Z",
+    "updatedAt": "2025-12-31T23:01:41.553Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e898a0ee65fd30ee35524",
+    "group": "67fee15caec9e540985a7c57",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:26.736Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49",
+      "67fee1aaaec9e540985a7c6f",
+      "69029fa8ff150ad5e9249f4a",
+      "691275c62c9cd21b56586846"
+    ],
+    "createdAt": "2026-01-31T23:00:26.755Z",
+    "updatedAt": "2026-01-31T23:00:26.755Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e898d0ee65fd30ee35529",
+    "group": "67fee471aec9e540985a7cf4",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:29.770Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-01-31T23:00:29.773Z",
+    "updatedAt": "2026-01-31T23:00:29.773Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e898d0ee65fd30ee3552e",
+    "group": "6822b1c07318714e7f137a3a",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:29.790Z",
+    "recipients": [],
+    "createdAt": "2026-01-31T23:00:29.793Z",
+    "updatedAt": "2026-01-31T23:00:29.793Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e898d0ee65fd30ee35533",
+    "group": "6824977074da5a84a7ab8bcc",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:29.802Z",
+    "recipients": [],
+    "createdAt": "2026-01-31T23:00:29.804Z",
+    "updatedAt": "2026-01-31T23:00:29.804Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e898d0ee65fd30ee35538",
+    "group": "683673e52757cfe0e9fd8344",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:29.808Z",
+    "recipients": [],
+    "createdAt": "2026-01-31T23:00:29.809Z",
+    "updatedAt": "2026-01-31T23:00:29.809Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e89910ee65fd30ee3553d",
+    "group": "686079abc4faea8ed8a1b14a",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:33.044Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-01-31T23:00:33.046Z",
+    "updatedAt": "2026-01-31T23:00:33.046Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e89930ee65fd30ee35542",
+    "group": "68fb0b4449a927b9417be2f2",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:35.907Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-01-31T23:00:35.952Z",
+    "updatedAt": "2026-01-31T23:00:35.952Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e89960ee65fd30ee35547",
+    "group": "6902a74c65bf3a1521fab59c",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:38.936Z",
+    "recipients": [
+      "69029fa8ff150ad5e9249f4a"
+    ],
+    "createdAt": "2026-01-31T23:00:38.940Z",
+    "updatedAt": "2026-01-31T23:00:38.940Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e89990ee65fd30ee3554c",
+    "group": "691276a52c9cd21b5658688e",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:41.954Z",
+    "recipients": [
+      "691275c62c9cd21b56586846"
+    ],
+    "createdAt": "2026-01-31T23:00:41.957Z",
+    "updatedAt": "2026-01-31T23:00:41.957Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e899d0ee65fd30ee35551",
+    "group": "691a92e570bef1550957c8b2",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:45.198Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-01-31T23:00:45.200Z",
+    "updatedAt": "2026-01-31T23:00:45.200Z",
+    "__v": 0
+  },
+  {
+    "_id": "697e89a00ee65fd30ee35556",
+    "group": "692fbc40811e48e0176da58b",
+    "cycleStart": "2026-01-31T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-01-31T23:00:48.319Z",
+    "recipients": [
+      "692fbb26811e48e0176da1c7"
+    ],
+    "createdAt": "2026-01-31T23:00:48.321Z",
+    "updatedAt": "2026-01-31T23:00:48.321Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aa9c5de1d5111aa54c54",
+    "group": "67fee15caec9e540985a7c57",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:24.689Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-03-01T02:55:24.705Z",
+    "updatedAt": "2026-03-01T02:55:24.705Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aa9f5de1d5111aa54c59",
+    "group": "67fee471aec9e540985a7cf4",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:27.426Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-03-01T02:55:27.430Z",
+    "updatedAt": "2026-03-01T02:55:27.430Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aa9f5de1d5111aa54c5e",
+    "group": "6822b1c07318714e7f137a3a",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:27.462Z",
+    "recipients": [],
+    "createdAt": "2026-03-01T02:55:27.464Z",
+    "updatedAt": "2026-03-01T02:55:27.464Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aa9f5de1d5111aa54c63",
+    "group": "6824977074da5a84a7ab8bcc",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:27.505Z",
+    "recipients": [],
+    "createdAt": "2026-03-01T02:55:27.506Z",
+    "updatedAt": "2026-03-01T02:55:27.506Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aa9f5de1d5111aa54c68",
+    "group": "683673e52757cfe0e9fd8344",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:27.543Z",
+    "recipients": [],
+    "createdAt": "2026-03-01T02:55:27.544Z",
+    "updatedAt": "2026-03-01T02:55:27.544Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aaa25de1d5111aa54c6d",
+    "group": "686079abc4faea8ed8a1b14a",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:30.079Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-03-01T02:55:30.081Z",
+    "updatedAt": "2026-03-01T02:55:30.081Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aaa45de1d5111aa54c72",
+    "group": "68fb0b4449a927b9417be2f2",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:32.233Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-03-01T02:55:32.236Z",
+    "updatedAt": "2026-03-01T02:55:32.236Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aaa45de1d5111aa54c77",
+    "group": "6902a74c65bf3a1521fab59c",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:32.255Z",
+    "recipients": [],
+    "createdAt": "2026-03-01T02:55:32.257Z",
+    "updatedAt": "2026-03-01T02:55:32.257Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aaa45de1d5111aa54c7c",
+    "group": "691276a52c9cd21b5658688e",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:32.278Z",
+    "recipients": [],
+    "createdAt": "2026-03-01T02:55:32.282Z",
+    "updatedAt": "2026-03-01T02:55:32.282Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aaa75de1d5111aa54c81",
+    "group": "691a92e570bef1550957c8b2",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:35.008Z",
+    "recipients": [
+      "67fee14baec9e540985a7c49"
+    ],
+    "createdAt": "2026-03-01T02:55:35.010Z",
+    "updatedAt": "2026-03-01T02:55:35.010Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aaa95de1d5111aa54c86",
+    "group": "692fbc40811e48e0176da58b",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:37.242Z",
+    "recipients": [
+      "692fbb26811e48e0176da1c7"
+    ],
+    "createdAt": "2026-03-01T02:55:37.244Z",
+    "updatedAt": "2026-03-01T02:55:37.244Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a3aaac5de1d5111aa54c8b",
+    "group": "6997be3231069265f8825eff",
+    "cycleStart": "2026-02-28T15:00:00.000Z",
+    "cadence": "monthly",
+    "sentAt": "2026-03-01T02:55:40.110Z",
+    "recipients": [
+      "6997baf29a08ba8837badc4f"
+    ],
+    "createdAt": "2026-03-01T02:55:40.112Z",
+    "updatedAt": "2026-03-01T02:55:40.112Z",
+    "__v": 0
+  }
+]

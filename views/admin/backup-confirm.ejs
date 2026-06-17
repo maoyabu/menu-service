@@ -1,0 +1,103 @@
+<%
+  const totalRecords = Object.values(summary || {}).reduce((sum, count) => sum + count, 0);
+%>
+
+<section class="max-w-4xl mx-auto py-10 space-y-8">
+  <header class="flex flex-col gap-2">
+    <h1 class="text-3xl font-bold text-gray-900">リストア確認</h1>
+    <p class="text-sm text-gray-600">バックアップファイルの内容を確認します。問題がなければ確認ボタンを押してください。</p>
+  </header>
+
+  <!-- 警告メッセージ -->
+  <div class="p-6 bg-red-50 border-2 border-red-200 rounded-xl">
+    <div class="flex gap-4">
+      <span class="lucide w-6 h-6 text-red-600 flex-shrink-0" data-lucide="alert-triangle"></span>
+      <div>
+        <h3 class="font-semibold text-red-900 mb-2">⚠️ 重要な警告</h3>
+        <p class="text-sm text-red-800 mb-3">
+          リストアを実行すると、現在のすべてのデータが削除されます。以下の内容をご確認ください：
+        </p>
+        <ul class="text-sm text-red-800 space-y-1 list-disc list-inside">
+          <li>この操作は取り消せません</li>
+          <li>現在のデータは完全に削除されます</li>
+          <li>バックアップファイルの内容に置き換わります</li>
+          <li>この作業前に必ずバックアップを取ってください</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ファイル情報 -->
+  <div class="bg-white rounded-xl shadow border border-gray-100 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">バックアップファイル情報</h2>
+    <div class="space-y-3">
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600">ファイル名：</span>
+        <span class="font-mono text-sm text-gray-900"><%= fileName %></span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600">合計レコード数：</span>
+        <span class="text-lg font-semibold text-blue-600"><%= totalRecords %> 件</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- リストア内容サマリー -->
+  <div class="bg-white rounded-xl shadow border border-gray-100 p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">リストア内容</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="border-b border-gray-200">
+            <th class="text-left py-2 px-4 text-sm font-semibold text-gray-700">データ種別</th>
+            <th class="text-right py-2 px-4 text-sm font-semibold text-gray-700">レコード数</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% Object.entries(summary).sort().forEach(([modelName, count]) => { %>
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-3 px-4 text-sm text-gray-900">
+                <span class="inline-flex items-center gap-2">
+                  <span class="w-2 h-2 bg-blue-400 rounded-full"></span>
+                  <%= modelName %>
+                </span>
+              </td>
+              <td class="py-3 px-4 text-sm text-right text-gray-600 font-medium">
+                <%= count %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 操作ボタン -->
+  <div class="flex gap-4">
+    <a
+      href="/admin/backup/index"
+      class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-lg transition-colors duration-200 text-center"
+    >
+      キャンセル
+    </a>
+    <form action="/admin/backup/restore" method="POST" class="flex-1">
+      <button
+        type="submit"
+        class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+        onclick="return confirm('本当にリストアを実行してもよろしいですか？\n\n現在のすべてのデータが削除されます。\nこの操作は取り消せません。')"
+      >
+        <span class="inline-flex items-center gap-2 justify-center">
+          <span class="lucide w-4 h-4" data-lucide="check"></span>
+          リストアを実行
+        </span>
+      </button>
+    </form>
+  </div>
+</section>
+
+<script>
+  // Lucide icon rendering
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+</script>

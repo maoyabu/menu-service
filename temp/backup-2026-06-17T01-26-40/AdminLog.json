@@ -1,0 +1,242 @@
+[
+  {
+    "_id": "692cc7f1efdc7fc27f1f4b2e",
+    "action": "menu:create",
+    "menu": "692cc7f1efdc7fc27f1f4b2c",
+    "menuName": "テスト",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-11-30T22:40:49.138Z",
+    "__v": 0
+  },
+  {
+    "_id": "692cc9df58b26af8c659a8ac",
+    "action": "menu:create",
+    "menu": "692cc9df58b26af8c659a8aa",
+    "menuName": "テスト",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-11-30T22:49:03.814Z",
+    "__v": 0
+  },
+  {
+    "_id": "692cc9e858b26af8c659c3ee",
+    "action": "menu:delete",
+    "menu": "692cc9df58b26af8c659a8aa",
+    "menuName": "テスト",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "deleted by admin (masayuki)",
+    "createdAt": "2025-11-30T22:49:12.086Z",
+    "__v": 0
+  },
+  {
+    "_id": "692cca0758b26af8c65a0ff8",
+    "action": "menu:delete",
+    "menu": "692cc7f1efdc7fc27f1f4b2c",
+    "menuName": "テスト",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "deleted by admin (masayuki)",
+    "createdAt": "2025-11-30T22:49:43.429Z",
+    "__v": 0
+  },
+  {
+    "_id": "692ccba88e48437ba37c1994",
+    "action": "menu:create",
+    "menu": "692ccba78e48437ba37c1992",
+    "menuName": "テスト",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-11-30T22:56:40.002Z",
+    "__v": 0
+  },
+  {
+    "_id": "692ccbb18e48437ba37c34d6",
+    "action": "menu:delete",
+    "menu": "692ccba78e48437ba37c1992",
+    "menuName": "テスト",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "deleted by admin (masayuki)",
+    "createdAt": "2025-11-30T22:56:49.615Z",
+    "__v": 0
+  },
+  {
+    "_id": "693b72cd3d8ad3a796dea563",
+    "action": "menu:delete",
+    "menu": "691a82b94cf42a401d67f040",
+    "menuName": "かぼちゃのポタージュ",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "deleted by admin (masayuki)",
+    "createdAt": "2025-12-12T01:41:33.824Z",
+    "__v": 0
+  },
+  {
+    "_id": "69413f9c06786c6a5c717c16",
+    "action": "create_notice",
+    "menu": null,
+    "menuName": "",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "69413f9806786c6a5c717c13",
+    "createdAt": "2025-12-16T11:16:44.125Z",
+    "__v": 0
+  },
+  {
+    "_id": "694353a68ddb6a6335c03a59",
+    "action": "menu:create",
+    "menu": "694353a68ddb6a6335c03a56",
+    "menuName": "超簡単！ピザトーストモーニングプレート",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:06:46.215Z",
+    "__v": 0
+  },
+  {
+    "_id": "694353f68ddb6a6335c09da0",
+    "action": "menu:create",
+    "menu": "694353f68ddb6a6335c09d9d",
+    "menuName": "洋食モーニングワンプレート",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:08:06.992Z",
+    "__v": 0
+  },
+  {
+    "_id": "694354468ddb6a6335c0d6b7",
+    "action": "menu:create",
+    "menu": "694354468ddb6a6335c0d6b4",
+    "menuName": "フレンチトースト＆プレート",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:09:26.507Z",
+    "__v": 0
+  },
+  {
+    "_id": "6943548a8ddb6a6335c10916",
+    "action": "menu:create",
+    "menu": "6943548a8ddb6a6335c10913",
+    "menuName": "腸活モーニングプレート",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:10:34.500Z",
+    "__v": 0
+  },
+  {
+    "_id": "694354c78ddb6a6335c13b6a",
+    "action": "menu:create",
+    "menu": "694354c78ddb6a6335c13b67",
+    "menuName": "スクランブルエッグのモーニングプレート",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:11:35.595Z",
+    "__v": 0
+  },
+  {
+    "_id": "6943550a8ddb6a6335c16df2",
+    "action": "menu:create",
+    "menu": "6943550a8ddb6a6335c16def",
+    "menuName": "簡単モーニング プレート",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:12:42.657Z",
+    "__v": 0
+  },
+  {
+    "_id": "694355588ddb6a6335c1a10b",
+    "action": "menu:create",
+    "menu": "694355588ddb6a6335c1a108",
+    "menuName": "ベーグルのモーニングプレート",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:14:00.424Z",
+    "__v": 0
+  },
+  {
+    "_id": "694355a08ddb6a6335c1d6ab",
+    "action": "menu:create",
+    "menu": "694355a08ddb6a6335c1d6a8",
+    "menuName": "オムレツ＆パンケーキ de モーニング",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2025-12-18T01:15:12.849Z",
+    "__v": 0
+  },
+  {
+    "_id": "698972f4219e94d911a0e862",
+    "action": "menu:create",
+    "menu": "698972f4219e94d911a0e860",
+    "menuName": "和食モーニング３種",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-09T05:39:00.075Z",
+    "__v": 0
+  },
+  {
+    "_id": "698975309db4dcb3a668bcb4",
+    "action": "menu:create",
+    "menu": "698975309db4dcb3a668bcb2",
+    "menuName": "洋食モーニング4種",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-09T05:48:32.481Z",
+    "__v": 0
+  },
+  {
+    "_id": "698975b79db4dcb3a668ec0e",
+    "action": "menu:create",
+    "menu": "698975b79db4dcb3a668ec0c",
+    "menuName": "和食モーニング２種",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-09T05:50:47.472Z",
+    "__v": 0
+  },
+  {
+    "_id": "6989764e9db4dcb3a6691b49",
+    "action": "menu:create",
+    "menu": "6989764e9db4dcb3a6691b47",
+    "menuName": "和食モーニングたっぷり",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-09T05:53:18.811Z",
+    "__v": 0
+  },
+  {
+    "_id": "698bc35bfd2196c952014d21",
+    "action": "menu:create",
+    "menu": "698bc35bfd2196c952014d1e",
+    "menuName": "すき焼きうどん",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-10T23:46:35.704Z",
+    "__v": 0
+  },
+  {
+    "_id": "698ee783841b4b0fbd3ff801",
+    "action": "menu:create",
+    "menu": "698ee783841b4b0fbd3ff7ff",
+    "menuName": "残ったカレーで美味カレードリア",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-13T08:57:39.355Z",
+    "__v": 0
+  },
+  {
+    "_id": "698ee7cc841b4b0fbd402756",
+    "action": "menu:create",
+    "menu": "698ee7cc841b4b0fbd402754",
+    "menuName": "残りカレーでリメイク！ポテトカレーグラタン",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-13T08:58:52.232Z",
+    "__v": 0
+  },
+  {
+    "_id": "698ee82a841b4b0fbd405681",
+    "action": "menu:create",
+    "menu": "698ee82a841b4b0fbd40567f",
+    "menuName": "肉じゃがリメイクカレー",
+    "actor": "67fee14baec9e540985a7c49",
+    "detail": "created by admin (masayuki)",
+    "createdAt": "2026-02-13T09:00:26.777Z",
+    "__v": 0
+  }
+]

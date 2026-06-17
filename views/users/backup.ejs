@@ -1,0 +1,130 @@
+<%
+  const defaultTab = 'backup';
+%>
+
+<section class="max-w-6xl mx-auto py-10 space-y-10">
+  <header class="flex flex-col gap-2">
+    <h1 class="text-3xl font-bold text-gray-900">システムバックアップ</h1>
+    <p class="text-sm text-gray-600">データベースの全データをバックアップ・リストアできます。</p>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- バックアップセクション -->
+    <div class="bg-white rounded-2xl shadow border border-gray-100 p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="lucide w-6 h-6 text-green-600" data-lucide="download"></span>
+        <h2 class="text-xl font-semibold text-gray-900">バックアップのダウンロード</h2>
+      </div>
+
+      <p class="text-sm text-gray-600 mb-6">
+        現在のすべてのデータをZIPファイルとしてダウンロードします。定期的にバックアップを取ることをお勧めします。
+      </p>
+
+      <form action="/settings/backup/download" method="POST" class="space-y-4">
+        <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p class="text-sm text-blue-900">
+            <strong>バックアップされるデータ：</strong>
+          </p>
+          <ul class="text-sm text-blue-900 mt-2 space-y-1">
+            <li>• すべてのメニュー情報</li>
+            <li>• ユーザー情報とプロフィール</li>
+            <li>• グループ情報とメンバー</li>
+            <li>• 買い物リストと在庫情報</li>
+            <li>• 備品情報</li>
+            <li>• その他すべてのシステムデータ</li>
+          </ul>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+        >
+          <span class="inline-flex items-center gap-2">
+            <span class="lucide w-4 h-4" data-lucide="download"></span>
+            バックアップファイルをダウンロード
+          </span>
+        </button>
+      </form>
+    </div>
+
+    <!-- リストアセクション -->
+    <div class="bg-white rounded-2xl shadow border border-gray-100 p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="lucide w-6 h-6 text-orange-600" data-lucide="upload"></span>
+        <h2 class="text-xl font-semibold text-gray-900">バックアップからのリストア</h2>
+      </div>
+
+      <p class="text-sm text-gray-600 mb-6">
+        バックアップファイルをアップロードして、データを復元します。既存のデータは削除されますので注意してください。
+      </p>
+
+      <form action="/settings/backup/upload" method="POST" enctype="multipart/form-data" class="space-y-4">
+        <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <p class="text-sm text-orange-900">
+            <strong>⚠️ 注意：</strong>
+          </p>
+          <p class="text-sm text-orange-900 mt-2">
+            リストアを実行すると、現在のすべてのデータが削除され、バックアップのデータに置き換わります。確認画面でもう一度確認できます。
+          </p>
+        </div>
+
+        <div class="relative">
+          <label for="backupFile" class="block text-sm font-medium text-gray-700 mb-2">
+            バックアップファイルを選択
+          </label>
+          <input
+            type="file"
+            id="backupFile"
+            name="backupFile"
+            accept=".zip,application/zip,application/x-zip-compressed"
+            required
+            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+          />
+          <p class="mt-2 text-xs text-gray-500">
+            ZIPファイルのみアップロード可能です
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+        >
+          <span class="inline-flex items-center gap-2">
+            <span class="lucide w-4 h-4" data-lucide="upload"></span>
+            ファイルをアップロード
+          </span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 情報セクション -->
+  <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-8">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">バックアップについて</h3>
+    <ul class="space-y-3 text-sm text-gray-700">
+      <li class="flex gap-3">
+        <span class="lucide w-5 h-5 text-blue-600 flex-shrink-0" data-lucide="info"></span>
+        <span>バックアップファイルは ZIP 形式で圧縮されます</span>
+      </li>
+      <li class="flex gap-3">
+        <span class="lucide w-5 h-5 text-blue-600 flex-shrink-0" data-lucide="info"></span>
+        <span>バックアップは定期的に取得することをお勧めします</span>
+      </li>
+      <li class="flex gap-3">
+        <span class="lucide w-5 h-5 text-blue-600 flex-shrink-0" data-lucide="info"></span>
+        <span>リストア前に必ず確認画面で内容を確認してください</span>
+      </li>
+      <li class="flex gap-3">
+        <span class="lucide w-5 h-5 text-blue-600 flex-shrink-0" data-lucide="info"></span>
+        <span>リストアは取り消せないため、慎重に操作してください</span>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<script>
+  // Lucide icon rendering
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+</script>

@@ -18,6 +18,8 @@ import User from '../models/users.js';
 import FoodGuideline from '../models/foodGuideline.js';
 import { renderTemplate, sendMail } from '../utils/mailer.js';
 import { normalizeSeasonList } from '../utils/season.js';
+import { createBackupFile, parseBackupFile, restoreFromBackup, cleanupTempFiles } from '../utils/backup.js';
+import multer from 'multer';
 // import { writeFileSync } from 'fs';
 // import { join } from 'path';
 import ExcelJS from 'exceljs';
@@ -2322,6 +2324,174 @@ router.get('/export/my-equipment', async (req, res) => {
   }
 });
 
+// =============== バックアップ機能 ===============
 
+// バックアップ/リストア画面表示
+router.get('/backup/index', async (req, res, next) => {
+  try {
+    res.render('admin/backup', {
+      activeTab: 'backup'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// バックアップダウンロード
+router.post('/backup/download', async (req, res, next) => {
+  let zipPath = null;
+  try {
+    // Clean up old temp files first
+    cleanupTempFiles(30);
+
+    console.log('Starting backup file creation...');
+    zipPath = await createBackupFile();
+    console.log('Backup file created at:', zipPath);
+
+    // Check if file exists
+    if (!fs.existsSync(zipPath)) {
+      throw new Error(`Backup file not found at ${zipPath}`);
+    }
+
+    const stats = fs.statSync(zipPath);
+    console.log(`Backup file size: ${stats.size} bytes`);
+
+    const fileName = `backup-${new Date().toISOString().slice(0, 10)}.zip`;
+
+    // Send the file
+    res.download(zipPath, fileName, (err) => {
+      if (err) {
+        console.error('Download error:', err);
+      }
+      // Clean up the zip file after download
+      if (zipPath && fs.existsSync(zipPath)) {
+        try {
+          fs.unlinkSync(zipPath);
+          console.log('Backup file cleaned up:', zipPath);
+        } catch (cleanupErr) {
+          console.error('Failed to clean up backup file:', cleanupErr);
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Backup error:', err);
+    req.flash('error', 'バックアップファイルの作成に失敗しました: ' + err.message);
+    res.redirect('/admin/backup/index');
+  }
+});
+
+// リストア用ファイルアップロード
+const restoreUpload = multer({ 
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    // Only accept zip files
+    if (file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed' || file.originalname.endsWith('.zip')) {
+      cb(null, true);
+    } else {
+      cb(new Error('ZIPファイルのみアップロード可能です'));
+    }
+  }
+});
+
+router.post('/backup/upload', restoreUpload.single('backupFile'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      req.flash('error', 'ファイルを選択してください');
+      return res.redirect('/admin/backup/index');
+    }
+
+    // Save uploaded file temporarily
+    const tempDir = path.join(process.cwd(), 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFileName = `restore-${Date.now()}.zip`;
+    const tempPath = path.join(tempDir, tempFileName);
+    
+    fs.writeFileSync(tempPath, req.file.buffer);
+
+    // Parse the backup file to show preview
+    const backupData = await parseBackupFile(tempPath);
+    
+    // Calculate summary
+    const summary = {};
+    for (const [modelName, data] of Object.entries(backupData)) {
+      summary[modelName] = Array.isArray(data) ? data.length : 0;
+    }
+
+    // Store temp file info in session
+    req.session.restoreData = {
+      tempPath,
+      fileName: tempFileName,
+      summary
+    };
+
+    res.render('admin/backup-confirm', {
+      summary,
+      fileName: req.file.originalname
+    });
+  } catch (err) {
+    console.error('Upload error:', err);
+    req.flash('error', 'ファイルの解析に失敗しました: ' + err.message);
+    res.redirect('/admin/backup/index');
+  }
+});
+
+// リストア確認画面
+router.get('/backup/confirm', async (req, res, next) => {
+  try {
+    if (!req.session.restoreData) {
+      req.flash('error', 'セッション情報が見つかりません');
+      return res.redirect('/admin/backup/index');
+    }
+
+    res.render('admin/backup-confirm', {
+      summary: req.session.restoreData.summary,
+      fileName: req.session.restoreData.fileName
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// リストア実行
+router.post('/backup/restore', async (req, res, next) => {
+  try {
+    if (!req.session.restoreData) {
+      req.flash('error', 'セッション情報が見つかりません');
+      return res.redirect('/admin/backup/index');
+    }
+
+    const { tempPath } = req.session.restoreData;
+
+    if (!fs.existsSync(tempPath)) {
+      req.flash('error', 'バックアップファイルが見つかりません');
+      return res.redirect('/admin/backup/index');
+    }
+
+    // Parse and restore
+    const backupData = await parseBackupFile(tempPath);
+    const results = await restoreFromBackup(backupData);
+
+    // Clean up temp file
+    try {
+      fs.unlinkSync(tempPath);
+      delete req.session.restoreData;
+    } catch (err) {
+      console.error('Failed to clean up temp file:', err);
+    }
+
+    // Show results
+    res.render('admin/backup-results', {
+      results,
+      isRestore: true
+    });
+  } catch (err) {
+    console.error('Restore error:', err);
+    req.flash('error', 'リストアに失敗しました: ' + err.message);
+    res.redirect('/admin/backup/index');
+  }
+});
 
 export default router;

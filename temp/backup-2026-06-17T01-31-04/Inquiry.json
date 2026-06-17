@@ -1,0 +1,128 @@
+[
+  {
+    "_id": "6997c5bf9c6e97fb4b6635ec",
+    "title": "退会することはできますか？",
+    "user": "686b2e37177892645da22f1c",
+    "status": "open",
+    "closed": false,
+    "messages": [
+      {
+        "content": "たいかいするにはどうすればいいですか？",
+        "sender": "686b2e37177892645da22f1c",
+        "isAdmin": false,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": true,
+        "entry_date": "2026-02-20T02:23:59.846Z",
+        "_id": "6997c5bf9c6e97fb4b6635ed"
+      },
+      {
+        "content": "お問い合わせいただきましてありがとうございます。\r\niOSのアプリの場合は、ハンバーガーメニューの設定をタップしていただき、設定画面の一番下に退会ボタンがございます。\r\nそこから退会手続きを行なってください。",
+        "sender": "68044fa544fe4b595dd5d13e",
+        "isAdmin": true,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": false,
+        "entry_date": "2026-02-20T02:25:35.645Z",
+        "_id": "6997c61f9c6e97fb4b66361a"
+      }
+    ],
+    "entry_date": "2026-02-20T02:23:59.848Z",
+    "update_date": "2026-02-20T02:25:36.595Z",
+    "__v": 1
+  },
+  {
+    "_id": "6997c6aa9c6e97fb4b663660",
+    "title": "レシートからの登録",
+    "user": "686b2e37177892645da22f1c",
+    "status": "open",
+    "closed": true,
+    "messages": [
+      {
+        "content": "レシートを撮影してそのデータから家計簿に登録させることはできませんか？",
+        "sender": "686b2e37177892645da22f1c",
+        "isAdmin": false,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": true,
+        "entry_date": "2026-02-20T02:27:54.953Z",
+        "_id": "6997c6aa9c6e97fb4b663661"
+      },
+      {
+        "content": "お問い合わせいただきまして、誠にありがとうございます。\r\nアプリのVersion1.1から登録ができるようになりました。\r\nアプリを最新の状態にしていただき、ご活用ください",
+        "sender": "68044fa544fe4b595dd5d13e",
+        "isAdmin": true,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": false,
+        "entry_date": "2026-02-20T02:29:10.416Z",
+        "_id": "6997c6f69c6e97fb4b66368a"
+      },
+      {
+        "content": "アップデートしたらその機能がついかされていました。是非かつようさせていただきます",
+        "sender": "686b2e37177892645da22f1c",
+        "isAdmin": false,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": true,
+        "entry_date": "2026-02-20T02:30:30.869Z",
+        "_id": "6997c7469c6e97fb4b6636e0"
+      },
+      {
+        "content": "ご確認いただきましてありがとうございます。\r\nまだまだ、改良を加えていきたいと考えています。\r\nご利用いただき、ご意見、実現して欲しい機能などございましたら、どんどんお問い合わせうださい。\r\nよろしくお願いいたします",
+        "sender": "68044fa544fe4b595dd5d13e",
+        "isAdmin": true,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": false,
+        "entry_date": "2026-02-20T02:32:27.242Z",
+        "_id": "6997c7bb9c6e97fb4b663703"
+      }
+    ],
+    "entry_date": "2026-02-20T02:27:54.954Z",
+    "update_date": "2026-02-20T02:32:28.326Z",
+    "__v": 3
+  },
+  {
+    "_id": "6997c8299c6e97fb4b663721",
+    "title": "レシート読み取り機能のプライバシーに関して",
+    "user": "686b2e37177892645da22f1c",
+    "status": "open",
+    "closed": false,
+    "messages": [
+      {
+        "content": "レシートを読み取って分析するのに、個人の購入情報が外部に漏れたりするのが心配です。",
+        "sender": "686b2e37177892645da22f1c",
+        "isAdmin": false,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": true,
+        "entry_date": "2026-02-20T02:34:17.335Z",
+        "_id": "6997c8299c6e97fb4b663722"
+      },
+      {
+        "content": "お問い合わせいただきまして、誠にありがとうございます。\r\nご懸念の点、もっともでございます。\r\n今回のレシート読み取りの機能に関してはいPhoneの中で完結しております。\r\niPhoneのAI機能を使用して、支出項目の分類を行なっております。\r\nサーバーにレシートの情報を送ったり、保管したりすることはございません。\r\nご安心いただければと思います。",
+        "sender": "68044fa544fe4b595dd5d13e",
+        "isAdmin": true,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": false,
+        "entry_date": "2026-02-20T02:36:31.125Z",
+        "_id": "6997c8af9c6e97fb4b66374f"
+      },
+      {
+        "content": "それを聞いて安心しました。",
+        "sender": "686b2e37177892645da22f1c",
+        "isAdmin": false,
+        "mail_delivery": true,
+        "mail_sent": true,
+        "isRead": true,
+        "entry_date": "2026-02-20T02:37:32.593Z",
+        "_id": "6997c8ec9c6e97fb4b6637bb"
+      }
+    ],
+    "entry_date": "2026-02-20T02:34:17.336Z",
+    "update_date": "2026-02-20T02:37:33.460Z",
+    "__v": 2
+  }
+]

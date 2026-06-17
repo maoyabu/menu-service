@@ -1,0 +1,115 @@
+[
+  {
+    "_id": "680452eacbaf3b478cacad5d",
+    "group_name": "大薮家@横浜",
+    "createdBy": "68044fa544fe4b595dd5d13e",
+    "members": [
+      "68044fa544fe4b595dd5d13e",
+      "68045369cbaf3b478cacad9d",
+      "680468cad1da4f002370d438"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 1,
+    "financeWalletManagementEnabled": false,
+    "updatedAt": "2026-03-30T08:08:03.117Z",
+    "__v": 22
+  },
+  {
+    "_id": "680471e85aafb7c2003cac0e",
+    "group_name": "昌幸の秘密",
+    "createdBy": "68044fa544fe4b595dd5d13e",
+    "members": [
+      "68044fa544fe4b595dd5d13e",
+      "68240c72041d725575f1afff"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 1,
+    "financeWalletManagementEnabled": false,
+    "updatedAt": "2025-05-17T01:24:45.412Z",
+    "__v": 3
+  },
+  {
+    "_id": "681cb39b29746481a623ff93",
+    "group_name": "大薮家@岐阜県可児市",
+    "createdBy": "68044fa544fe4b595dd5d13e",
+    "members": [
+      "68044fa544fe4b595dd5d13e",
+      "681cb42e29746481a623ffbe"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 1,
+    "financeWalletManagementEnabled": true,
+    "updatedAt": "2026-02-19T13:11:14.063Z",
+    "__v": 3
+  },
+  {
+    "_id": "683d336fafc3dcc96f2ca736",
+    "group_name": "Kurashi Campany",
+    "createdBy": "68044fa544fe4b595dd5d13e",
+    "members": [
+      "68044fa544fe4b595dd5d13e"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 1,
+    "financeWalletManagementEnabled": false,
+    "createdAt": "2025-06-02T05:15:27.816Z",
+    "updatedAt": "2025-06-02T05:15:27.816Z",
+    "__v": 0
+  },
+  {
+    "_id": "68610215a8e492bea2782b05",
+    "group_name": "Planner",
+    "createdBy": "68044fa544fe4b595dd5d13e",
+    "members": [
+      "68044fa544fe4b595dd5d13e"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 1,
+    "financeWalletManagementEnabled": false,
+    "createdAt": "2025-06-29T09:06:29.669Z",
+    "updatedAt": "2025-06-29T09:06:29.669Z",
+    "__v": 0
+  },
+  {
+    "_id": "686b2ecd177892645da22f49",
+    "group_name": "テスト",
+    "createdBy": "686b2e37177892645da22f1c",
+    "members": [
+      "686b2e37177892645da22f1c"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 1,
+    "financeWalletManagementEnabled": false,
+    "createdAt": "2025-07-07T02:19:57.475Z",
+    "updatedAt": "2025-07-07T02:19:57.475Z",
+    "__v": 0
+  },
+  {
+    "_id": "697fe581a6414e38b4becebe",
+    "group_name": "Family",
+    "createdBy": "69023817f5e62647799e9c63",
+    "members": [
+      "69023817f5e62647799e9c63"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 1,
+    "financeWalletManagementEnabled": false,
+    "createdAt": "2026-02-01T23:45:05.177Z",
+    "updatedAt": "2026-02-01T23:45:05.177Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a2a3743db2711819cd88a6",
+    "group_name": "ゆめ家計簿",
+    "createdBy": "6829f187629742305f470fe2",
+    "members": [
+      "6829f187629742305f470fe2"
+    ],
+    "invitedUsers": [],
+    "financeFiscalStartMonth": 4,
+    "financeWalletManagementEnabled": false,
+    "createdAt": "2026-02-28T08:12:36.678Z",
+    "updatedAt": "2026-02-28T08:13:53.534Z",
+    "__v": 0
+  }
+]

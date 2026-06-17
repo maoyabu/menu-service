@@ -1,0 +1,10 @@
+{
+  "ignore": [
+    "node_modules/",
+    "temp/",
+    "public/uploads/",
+    ".env",
+    ".git/"
+  ],
+  "ext": "js,mjs,json,ejs"
+}

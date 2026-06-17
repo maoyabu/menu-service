@@ -1,0 +1,153 @@
+<%
+  const results = results || { success: [], failed: [] };
+  const isRestore = isRestore || false;
+  const successCount = results.success ? results.success.length : 0;
+  const failCount = results.failed ? results.failed.length : 0;
+%>
+
+<section class="max-w-4xl mx-auto py-10 space-y-8">
+  <header class="flex flex-col gap-2">
+    <h1 class="text-3xl font-bold text-gray-900">
+      <% if (isRestore) { %>
+        リストア完了
+      <% } else { %>
+        バックアップ完了
+      <% } %>
+    </h1>
+    <p class="text-sm text-gray-600">
+      <% if (isRestore) { %>
+        データベースの復元が完了しました。
+      <% } else { %>
+        バックアップファイルが作成されました。
+      <% } %>
+    </p>
+  </header>
+
+  <!-- 成功/失敗サマリー -->
+  <div class="grid grid-cols-2 gap-4">
+    <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+      <div class="flex items-center gap-3">
+        <span class="lucide w-8 h-8 text-green-600" data-lucide="check-circle"></span>
+        <div>
+          <p class="text-sm text-green-700">成功したコレクション</p>
+          <p class="text-2xl font-bold text-green-900"><%= successCount %></p>
+        </div>
+      </div>
+    </div>
+
+    <% if (failCount > 0) { %>
+      <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6">
+        <div class="flex items-center gap-3">
+          <span class="lucide w-8 h-8 text-red-600" data-lucide="x-circle"></span>
+          <div>
+            <p class="text-sm text-red-700">失敗したコレクション</p>
+            <p class="text-2xl font-bold text-red-900"><%= failCount %></p>
+          </div>
+        </div>
+      </div>
+    <% } else { %>
+      <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+        <div class="flex items-center gap-3">
+          <span class="lucide w-8 h-8 text-blue-600" data-lucide="info"></span>
+          <div>
+            <p class="text-sm text-blue-700">問題なし</p>
+            <p class="text-2xl font-bold text-blue-900">すべて成功</p>
+          </div>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- 詳細結果 -->
+  <div class="space-y-6">
+    <% if (results.success && results.success.length > 0) { %>
+      <div class="bg-white rounded-xl shadow border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <span class="lucide w-5 h-5 text-green-600" data-lucide="check"></span>
+          成功したコレクション
+        </h2>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-gray-200">
+                <th class="text-left py-2 px-4 text-sm font-semibold text-gray-700">コレクション名</th>
+                <th class="text-right py-2 px-4 text-sm font-semibold text-gray-700">レコード数</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% results.success.forEach((item) => { %>
+                <tr class="border-b border-gray-100 hover:bg-green-50">
+                  <td class="py-3 px-4 text-sm text-gray-900">
+                    <span class="inline-flex items-center gap-2">
+                      <span class="w-2 h-2 bg-green-400 rounded-full"></span>
+                      <%= item.collection %>
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 text-sm text-right text-gray-600 font-medium">
+                    <%= item.count || 0 %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (results.failed && results.failed.length > 0) { %>
+      <div class="bg-white rounded-xl shadow border border-red-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <span class="lucide w-5 h-5 text-red-600" data-lucide="alert-circle"></span>
+          失敗したコレクション
+        </h2>
+        <div class="space-y-3">
+          <% results.failed.forEach((item) => { %>
+            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p class="text-sm font-medium text-red-900"><%= item.collection %></p>
+              <p class="text-sm text-red-700 mt-1"><%= item.reason %></p>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- 完了メッセージ -->
+  <% if (failCount === 0) { %>
+    <div class="p-6 bg-green-50 border-2 border-green-200 rounded-xl">
+      <div class="flex gap-4">
+        <span class="lucide w-6 h-6 text-green-600 flex-shrink-0" data-lucide="check-circle"></span>
+        <div>
+          <h3 class="font-semibold text-green-900 mb-2">✓ 処理が正常に完了しました</h3>
+          <p class="text-sm text-green-800">
+            <% if (isRestore) { %>
+              すべてのデータが正常に復元されました。アプリケーションは引き続き利用可能です。
+            <% } else { %>
+              バックアップファイルが正常に作成されました。安全な場所に保存してください。
+            <% } %>
+          </p>
+        </div>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- 戻るボタン -->
+  <div class="flex gap-4">
+    <a
+      href="/settings/backup/index"
+      class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 text-center"
+    >
+      <span class="inline-flex items-center gap-2 justify-center">
+        <span class="lucide w-4 h-4" data-lucide="arrow-left"></span>
+        バックアップ画面に戻る
+      </span>
+    </a>
+  </div>
+</section>
+
+<script>
+  // Lucide icon rendering
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+</script>

@@ -1,0 +1,92 @@
+[
+  {
+    "_id": "691945f3a4538b075c492f23",
+    "templateName": "weeklyPlanReady.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": true,
+    "timing": "毎週金曜日8:00 / 自動",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f24",
+    "templateName": "myMenuAdded.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": false,
+    "timing": "",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f1f",
+    "templateName": "monthlyStockReminderFollowup.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": false,
+    "timing": "",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f21",
+    "templateName": "notEating.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": true,
+    "timing": "即時",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f25",
+    "templateName": "invite.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": true,
+    "timing": "即時",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f1e",
+    "templateName": "eatingAgain.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": false,
+    "timing": "",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f20",
+    "templateName": "passwordReset.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": true,
+    "timing": "即時",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f26",
+    "templateName": "monthlyStockReminder.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": true,
+    "timing": "毎月1日 8:00 / 自動",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  },
+  {
+    "_id": "691945f3a4538b075c492f22",
+    "templateName": "planMenuAdded.ejs",
+    "__v": 0,
+    "createdAt": "2025-11-16T03:33:07.167Z",
+    "enabled": true,
+    "timing": "即時",
+    "updatedAt": "2025-11-16T03:47:29.546Z",
+    "updatedBy": "67fee14baec9e540985a7c49"
+  }
+]
