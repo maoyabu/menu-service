@@ -65,9 +65,9 @@
   }
   .wm2-compact-heading{ display:flex; align-items:center; gap:10px; min-width:0; }
   .wm2-compact-title{
-    font-size:15px;
+    font-size:18px;
     line-height:1.2;
-    font-weight:800;
+    font-weight:900;
     color:#0f172a;
     white-space:nowrap;
   }
@@ -592,13 +592,23 @@
 
 <!-- Weekly preview + fused layout -->
 <section id="wm2-section" class="relative max-w-6xl mx-auto space-y-4 border border-gray-300 rounded-3xl bg-white p-4 md:p-6 shadow-sm">
-  <!-- Title above preview -->
+  <% const wm2CanRegenerateWeek = (() => {
+    try {
+      const ws = weekStartISO ? new Date(weekStartISO) : null;
+      const t = todayISO ? new Date(todayISO) : new Date();
+      if (!ws || Number.isNaN(ws.getTime()) || Number.isNaN(t.getTime())) return false;
+      const todayWeekStart = new Date(t);
+      const offset = (todayWeekStart.getDay() + 6) % 7; // Monday -> 0
+      todayWeekStart.setHours(0, 0, 0, 0);
+      todayWeekStart.setDate(todayWeekStart.getDate() - offset);
+      return ws.getTime() > todayWeekStart.getTime();
+    } catch (_) {
+      return false;
+    }
+  })(); %>
   <div class="wm2-title-actions">
+    <% if (isModelPlanMode) { %>
     <div class="wm2-heading-row">
-      <div class="wm2-title">
-        <h2><%= isModelPlanMode ? (modelPlanTitle || 'モデルPLAN') : '7 DAYS PLAN' %></h2>
-      </div>
-      <% if (isModelPlanMode) { %>
       <div class="wm2-action-row">
         <button type="button" id="wm2-save-current" class="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
           <span class="lucide w-4 h-4" data-lucide="save"></span>
@@ -613,67 +623,54 @@
           モデルPLAN一覧
         </a>
       </div>
-      <% } else { %>
-    <% const wm2CanRegenerateWeek = (() => {
-      try {
-        const ws = weekStartISO ? new Date(weekStartISO) : null;
-        const t = todayISO ? new Date(todayISO) : new Date();
-        if (!ws || Number.isNaN(ws.getTime()) || Number.isNaN(t.getTime())) return false;
-        const todayWeekStart = new Date(t);
-        const offset = (todayWeekStart.getDay() + 6) % 7; // Monday -> 0
-        todayWeekStart.setHours(0, 0, 0, 0);
-        todayWeekStart.setDate(todayWeekStart.getDate() - offset);
-        return ws.getTime() > todayWeekStart.getTime();
-      } catch (_) {
-        return false;
-      }
-    })(); %>
-    <button
-      type="button"
-      id="wm2-regenerate"
-      data-group-id="<%= currentGroupId || '' %>"
-      data-week-start="<%= weekStartISO || '' %>"
-      class="wm2-pill-action wm2-regenerate-action <%= wm2CanRegenerateWeek ? '' : 'opacity-50 cursor-not-allowed' %>"
-      <%= wm2CanRegenerateWeek ? '' : 'disabled title="現在の週・過去の週は再提案できません"' %>
-    >
-      <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
-      メニュー再提案
-    </button>
-    <% } %>
     </div>
+    <% } %>
     <% if (!isModelPlanMode) { %>
-    <div class="wm2-action-row" aria-label="詳細Viewアクション">
-      <button type="button" id="wm2-toggle-supplies" class="wm2-pill-action">
-        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
-        <span data-wm2-toggle-label>お買い物リスト</span>
+    <div class="flex items-center justify-between gap-3 flex-wrap" aria-label="詳細Viewアクション">
+      <div class="wm2-action-row">
+        <button type="button" id="wm2-toggle-supplies" class="wm2-pill-action">
+          <span class="lucide w-4 h-4" data-lucide="file-text"></span>
+          <span data-wm2-toggle-label>お買い物リスト</span>
+        </button>
+        <a
+          href="/users/week-menu/ingredients.xlsx?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>"
+          class="wm2-pill-action"
+        >
+          <span class="lucide w-5 h-5" data-lucide="download"></span>
+          食材・調味料
+        </a>
+        <a
+          href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=1"
+          target="_blank"
+          rel="noopener"
+          class="wm2-pill-action"
+        >
+          <span class="lucide w-4 h-4" data-lucide="file-text"></span>
+          PDF表示
+          <span class="lucide w-5 h-5" data-lucide="camera"></span>
+        </a>
+        <a
+          href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=0"
+          target="_blank"
+          rel="noopener"
+          class="wm2-pill-action"
+        >
+          <span class="lucide w-4 h-4" data-lucide="file-text"></span>
+          PDF表示
+          <span class="lucide w-5 h-5" data-lucide="pencil-line"></span>
+        </a>
+      </div>
+      <button
+        type="button"
+        id="wm2-regenerate"
+        data-group-id="<%= currentGroupId || '' %>"
+        data-week-start="<%= weekStartISO || '' %>"
+        class="wm2-pill-action wm2-regenerate-action <%= wm2CanRegenerateWeek ? '' : 'opacity-50 cursor-not-allowed' %>"
+        <%= wm2CanRegenerateWeek ? '' : 'disabled title="現在の週・過去の週は再提案できません"' %>
+      >
+        <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
+        メニュー再提案
       </button>
-      <a
-        href="/users/week-menu/ingredients.xlsx?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>"
-        class="wm2-pill-action"
-      >
-        <span class="lucide w-5 h-5" data-lucide="download"></span>
-        食材・調味料
-      </a>
-      <a
-        href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=1"
-        target="_blank"
-        rel="noopener"
-        class="wm2-pill-action"
-      >
-        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
-        PDF表示
-        <span class="lucide w-5 h-5" data-lucide="camera"></span>
-      </a>
-      <a
-        href="/users/week-menu/pdf?plan=<%= encodeURIComponent(existingPlanId || '') %>&group=<%= encodeURIComponent(currentGroupId || '') %>&weekStart=<%= encodeURIComponent(weekStartISO || '') %>&withPhotos=0"
-        target="_blank"
-        rel="noopener"
-        class="wm2-pill-action"
-      >
-        <span class="lucide w-4 h-4" data-lucide="file-text"></span>
-        PDF表示
-        <span class="lucide w-5 h-5" data-lucide="pencil-line"></span>
-      </a>
     </div>
     <% } %>
   </div>
@@ -3999,7 +3996,13 @@
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
         const nowShowing = !box?.classList.contains('hidden');
-        setMode(nowShowing ? 'menu' : 'supplies');
+        if (nowShowing) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('show');
+          window.location.assign(url.toString());
+          return;
+        }
+        setMode('supplies');
       });
     }
 
