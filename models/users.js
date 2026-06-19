@@ -164,7 +164,18 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     }
-  }
+  },
+  wantedIngredients: [{
+    yearMonth: {
+      type: String,
+      required: true,
+      match: /^\d{4}-(0[1-9]|1[0-2])$/
+    },
+    ingredients: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Ingredient'
+    }]
+  }]
 });
 
 userSchema.plugin(passportLocalMongoose, {

@@ -2709,11 +2709,21 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     );
 
     let weekMenuSettings = WEEK_MENU_SETTINGS_DEFAULTS;
+    let wantedIngredients = [];
+    const wantedIngredientsNow = new Date();
+    const wantedIngredientsYearMonth = `${wantedIngredientsNow.getFullYear()}-${String(wantedIngredientsNow.getMonth() + 1).padStart(2, '0')}`;
     try {
-      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings').lean();
+      const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings wantedIngredients').lean();
       weekMenuSettings = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {});
+      const wantedEntry = (userSettingsDoc?.wantedIngredients || []).find((entry) => entry.yearMonth === wantedIngredientsYearMonth);
+      const ids = (wantedEntry?.ingredients || []).filter((id) => mongoose.Types.ObjectId.isValid(id));
+      const docs = ids.length
+        ? await Ingredient.find({ _id: { $in: ids } }).select('ingredient').sort({ ingredient: 1 }).lean()
+        : [];
+      wantedIngredients = docs.map((item) => ({ id: String(item._id), name: item.ingredient || '' }));
     } catch (e) {
       weekMenuSettings = normalizeWeekMenuSettings({});
+      wantedIngredients = [];
     }
 
     let groupSize = 1;
@@ -3092,6 +3102,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     doRecords,
     weekMenuMode,
     weekMenuSettings,
+    wantedIngredients,
+    wantedIngredientsYearMonth,
     isModelPlanMode,
     modelPlanId,
     modelPlanTitle,
@@ -6062,6 +6074,54 @@ router.get('/users/stock-top', isLoggedIn, async (req, res, next) => {
   }
 });
 
+router.post('/users/seasonal-ingredients/wanted', isLoggedIn, async (req, res) => {
+  try {
+    const yearMonth = String(req.body?.yearMonth || '');
+    const ingredientId = String(req.body?.ingredientId || '');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth) || !mongoose.Types.ObjectId.isValid(ingredientId)) {
+      return res.status(400).json({ error: '年月または食材が不正です。' });
+    }
+    const ingredientExists = await Ingredient.exists({ _id: ingredientId });
+    if (!ingredientExists) return res.status(404).json({ error: '食材が見つかりません。' });
+
+    const user = await User.findById(req.user._id).select('wantedIngredients');
+    if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+    let entry = (user.wantedIngredients || []).find((item) => item.yearMonth === yearMonth);
+    if (!entry) {
+      user.wantedIngredients.push({ yearMonth, ingredients: [ingredientId] });
+    } else if (!(entry.ingredients || []).some((id) => String(id) === ingredientId)) {
+      entry.ingredients.push(ingredientId);
+    }
+    await user.save();
+    return res.json({ success: true, registered: true, yearMonth, ingredientId });
+  } catch (err) {
+    console.error('食べたい食材登録エラー:', err);
+    return res.status(500).json({ error: '食べたい食材を登録できませんでした。' });
+  }
+});
+
+router.delete('/users/seasonal-ingredients/wanted', isLoggedIn, async (req, res) => {
+  try {
+    const yearMonth = String(req.body?.yearMonth || '');
+    const ingredientId = String(req.body?.ingredientId || '');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth) || !mongoose.Types.ObjectId.isValid(ingredientId)) {
+      return res.status(400).json({ error: '年月または食材が不正です。' });
+    }
+    const user = await User.findById(req.user._id).select('wantedIngredients');
+    if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+    const entry = (user.wantedIngredients || []).find((item) => item.yearMonth === yearMonth);
+    if (entry) {
+      entry.ingredients = (entry.ingredients || []).filter((id) => String(id) !== ingredientId);
+      user.wantedIngredients = user.wantedIngredients.filter((item) => item.yearMonth !== yearMonth || item.ingredients.length);
+      await user.save();
+    }
+    return res.json({ success: true, registered: false, yearMonth, ingredientId });
+  } catch (err) {
+    console.error('食べたい食材解除エラー:', err);
+    return res.status(500).json({ error: '食べたい食材を解除できませんでした。' });
+  }
+});
+
 // 旬の食材一覧（今月/季節）
 router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => {
   try {
@@ -6105,9 +6165,20 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
     const now = new Date();
     const currentMonthNumber = now.getMonth() + 1;
     const currentMonthLabel = `${currentMonthNumber}月`;
+    const currentYearMonth = `${now.getFullYear()}-${String(currentMonthNumber).padStart(2, '0')}`;
+    const wantedValues = (Array.isArray(req.query.wanted) ? req.query.wanted : [req.query.wanted])
+      .map((value) => String(value || ''))
+      .filter((value) => value === 'yes' || value === 'no');
+    const wantedFilter = new Set(wantedValues);
     const selectedSeason = hasSeasonParam ? normalizeSeason(season) : '';
     // デフォルトは今月で絞り込む。monthパラメータが空で渡された場合は未選択扱い。
     const selectedMonth = hasMonthParam ? normalizeMonthLabel(month) : currentMonthLabel;
+    // 一覧の「月」を食べたい登録年月にも使う。年は現在年として保存する。
+    const selectedWantedMonthNumber = Number(String(selectedMonth || currentMonthLabel).replace(/月$/, ''));
+    const selectedWantedMonth = `${now.getFullYear()}-${String(selectedWantedMonthNumber).padStart(2, '0')}`;
+    const userWanted = await User.findById(req.user._id).select('wantedIngredients').lean();
+    const wantedEntry = (userWanted?.wantedIngredients || []).find((entry) => entry.yearMonth === selectedWantedMonth);
+    const wantedIngredientIds = new Set((wantedEntry?.ingredients || []).map((id) => String(id)));
 
     const keywordRx = escapeRegex(keywordText);
     const filters = [];
@@ -6128,7 +6199,13 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
     const monthlyList = ingredients.filter((ing) => {
       const months = normalizeMonthList(ing.month);
       if (!months.length) return false;
-      return selectedMonth ? months.includes(selectedMonth) : true;
+      if (selectedMonth && !months.includes(selectedMonth)) return false;
+      const seasons = normalizeSeasonList(ing.season);
+      if (selectedSeason && !seasons.includes(selectedSeason)) return false;
+      const isWanted = wantedIngredientIds.has(String(ing._id));
+      if (wantedFilter.size === 1 && wantedFilter.has('yes') && !isWanted) return false;
+      if (wantedFilter.size === 1 && wantedFilter.has('no') && isWanted) return false;
+      return true;
     });
 
     const targetIds = new Set(monthlyList.map((ing) => String(ing._id)));
@@ -6231,6 +6308,10 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
       classification: classificationFilter,
       selectedSeason,
       selectedMonth,
+      selectedWantedMonth,
+      currentYearMonth,
+      wantedValues,
+      wantedIngredientIds: Array.from(wantedIngredientIds),
       currentMonthLabel,
       currentSeason: monthToSeason(currentMonthNumber),
       monthlyList,

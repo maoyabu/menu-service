@@ -10,6 +10,13 @@
     const key = String(id || '');
     return Array.isArray(menuUsage[key]) ? menuUsage[key] : [];
   };
+  const wantedIdSet = new Set((wantedIngredientIds || []).map(String));
+  const wantedChecked = new Set(wantedValues || []);
+  const wantedMonthLabel = (() => {
+    const parts = String(selectedWantedMonth || '').split('-');
+    return parts.length === 2 ? `${Number(parts[0])}年${Number(parts[1])}月` : '';
+  })();
+  const wantedActionMonthLabel = selectedWantedMonth === currentYearMonth ? '今月' : wantedMonthLabel;
 %>
 
 <section class="max-w-6xl mx-auto py-8 space-y-6">
@@ -28,7 +35,7 @@
           <span class="lucide w-6 h-6 text-emerald-600" data-lucide="leaf"></span>
           旬の食材リスト
         </h1>
-        <p class="text-sm text-gray-600">季節・月・分類・キーワードで旬の食材を検索できます。</p>
+        <p class="text-sm text-gray-600">季節・月・分類・キーワード・食べたい登録状況で旬の食材を検索できます。</p>
       </div>
     </div>
   </header>
@@ -65,8 +72,22 @@
         <% }) %>
       </select>
     </div>
+    <fieldset class="flex flex-col gap-1 md:col-span-2 lg:col-span-4">
+      <legend class="text-xs font-semibold text-gray-600">食べたい食材</legend>
+      <div class="flex items-center gap-5 h-11">
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" name="wanted" value="yes" <%= wantedChecked.has('yes') ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300 text-rose-600" />
+          登録あり
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" name="wanted" value="no" <%= wantedChecked.has('no') ? 'checked' : '' %> class="w-4 h-4 rounded border-gray-300 text-rose-600" />
+          登録なし
+        </label>
+        <span class="text-xs text-gray-500">対象: <%= wantedMonthLabel %></span>
+      </div>
+    </fieldset>
     <div class="md:col-span-2 lg:col-span-4 flex items-center justify-between flex-wrap gap-2 text-xs text-gray-600">
-      <span>春(3-6月)・夏(7-9月)・秋(10-11月)・冬(12-2月)として判定し、季節は ALL 登録を含めません。</span>
+      <span>春(3-5月)・夏(6-9月)・秋(10-11月)・冬(12-2月)として判定し、季節は ALL 登録を含めません。</span>
       <div class="flex items-center gap-2">
         <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">絞り込む</button>
         <a href="/users/seasonal-ingredients" class="px-4 py-2 rounded-lg border border-gray-600 text-sm font-semibold text-gray-900 hover:bg-gray-100 transition">クリア</a>
@@ -134,6 +155,18 @@
                     <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-blue-700 font-semibold">月: <%= months.join(' / ') %></span>
                   <% } %>
                 </div>
+                <% const isWanted = wantedIdSet.has(String(item._id)); %>
+                <button
+                  type="button"
+                  data-action="toggle-wanted"
+                  data-ingredient-id="<%= item._id %>"
+                  data-year-month="<%= selectedWantedMonth %>"
+                  data-registered="<%= isWanted ? 'true' : 'false' %>"
+                  class="w-full inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition <%= isWanted ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100' : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' %>"
+                >
+                  <span class="lucide w-4 h-4" data-lucide="<%= isWanted ? 'check' : 'plus' %>"></span>
+                  <span><%= isWanted ? `${wantedActionMonthLabel}の食べたい登録を外す` : `${wantedActionMonthLabel}はこの食材を食べたい` %></span>
+                </button>
                 <div class="space-y-1">
                   <p class="text-xs text-gray-500 font-semibold">この食材を使うメニュー</p>
                   <% if (!usage.length) { %>
@@ -238,6 +271,29 @@
     };
 
     document.addEventListener('click', (ev) => {
+      const wantedBtn = ev.target.closest('[data-action="toggle-wanted"]');
+      if (wantedBtn) {
+        const registered = wantedBtn.dataset.registered === 'true';
+        wantedBtn.disabled = true;
+        fetch('/users/seasonal-ingredients/wanted', {
+          method: registered ? 'DELETE' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ingredientId: wantedBtn.dataset.ingredientId,
+            yearMonth: wantedBtn.dataset.yearMonth
+          })
+        })
+          .then(async (response) => {
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || '更新できませんでした。');
+            window.location.reload();
+          })
+          .catch((error) => {
+            wantedBtn.disabled = false;
+            alert(error.message || '更新できませんでした。');
+          });
+        return;
+      }
       const showBtn = ev.target.closest('[data-action="show-usage"]');
       if (showBtn && showBtn.dataset.ingredientId) {
         openModal(showBtn.dataset.ingredientId);

@@ -45,6 +45,13 @@
             <option value="">すべて</option>
           </select>
         </div>
+        <div>
+          <label class="text-xs text-gray-500">今月の食べたい食材（<%= (() => { const ym = typeof wantedIngredientsYearMonth !== 'undefined' ? wantedIngredientsYearMonth : ''; const p = ym.split('-'); return p.length === 2 ? `${Number(p[0])}年${Number(p[1])}月` : ''; })() %>）</label>
+          <select data-menu-modal-wanted-ingredient class="w-full border rounded px-3 py-2">
+            <option value="">すべて</option>
+          </select>
+          <p class="mt-1 text-[11px] text-gray-400" data-menu-modal-wanted-empty>今月の登録はありません</p>
+        </div>
         <div class="flex items-end gap-4">
           <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap">
             <input type="checkbox" data-menu-modal-prep class="w-4 h-4 text-blue-600 border-gray-300 rounded">
@@ -117,6 +124,8 @@
     participantsByMeal: <%- serialize(typeof participantsMap !== "undefined" ? participantsMap : {}) %>,
     doRecords: <%- serialize(typeof doRecords !== "undefined" ? doRecords : []) %>,
     menuFilterSettings: <%- serialize(typeof weekMenuSettings !== "undefined" ? weekMenuSettings : {}) %>,
+    wantedIngredients: <%- serialize(typeof wantedIngredients !== "undefined" ? wantedIngredients : []) %>,
+    wantedIngredientsYearMonth: <%- serialize(typeof wantedIngredientsYearMonth !== "undefined" ? wantedIngredientsYearMonth : '') %>,
     isModelPlanMode: <%- serialize(typeof isModelPlanMode !== "undefined" ? isModelPlanMode : false) %>,
     modelPlanId: <%- serialize(typeof modelPlanId !== "undefined" ? modelPlanId : '') %>,
     modelPlanTitle: <%- serialize(typeof modelPlanTitle !== "undefined" ? modelPlanTitle : '') %>,
@@ -1379,6 +1388,8 @@
       kindSelect: document.querySelector('[data-menu-modal-kind]'),
       junleSelect: document.querySelector('[data-menu-modal-junle]'),
       menuSelect: document.querySelector('[data-menu-modal-menu]'),
+      wantedIngredientSelect: document.querySelector('[data-menu-modal-wanted-ingredient]'),
+      wantedIngredientEmpty: document.querySelector('[data-menu-modal-wanted-empty]'),
       prepOnly: document.querySelector('[data-menu-modal-prep]'),
       dinnerSetOnly: document.querySelector('[data-menu-modal-dinner-set]'),
       dinnerSetWrap: document.querySelector('[data-menu-modal-dinner-set-wrap]'),
@@ -1404,6 +1415,7 @@
         kind: '',
         junle: '',
         menuContent: '',
+        wantedIngredient: '',
         prepOnly: false,
         dinnerSetOnly: false,
         ignoreFilter: false
@@ -1514,6 +1526,26 @@
       if (modalElements.menuSelect) modalState.filters.menuContent = modalElements.menuSelect.value || '';
     };
 
+    const refreshWantedIngredientOptions = () => {
+      const items = Array.isArray(window.weekMenuData?.wantedIngredients)
+        ? window.weekMenuData.wantedIngredients
+        : [];
+      if (!modalElements.wantedIngredientSelect) return;
+      modalElements.wantedIngredientSelect.innerHTML = '<option value="">すべて</option>';
+      items.forEach((item) => {
+        if (!item?.id) return;
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = item.name || '名称未設定';
+        modalElements.wantedIngredientSelect.appendChild(option);
+      });
+      modalElements.wantedIngredientSelect.disabled = items.length === 0;
+      if (modalElements.wantedIngredientEmpty) {
+        modalElements.wantedIngredientEmpty.classList.toggle('hidden', items.length > 0);
+      }
+      modalState.filters.wantedIngredient = '';
+    };
+
     const renderMenuFilterBox = () => {
       if (!modalElements.filterBox || !modalElements.filterList || !modalElements.filterToggle || !modalElements.filterEmpty) return;
       const filter = modalState.menuFilter || { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
@@ -1568,7 +1600,7 @@
     };
 
     const applyModalFilters = () => {
-      const { search, kind, junle, menuContent, prepOnly, dinnerSetOnly } = modalState.filters;
+      const { search, kind, junle, menuContent, wantedIngredient, prepOnly, dinnerSetOnly } = modalState.filters;
       const query = search.trim().toLowerCase();
       const activeFilters = {
         kind: kind || '',
@@ -1582,6 +1614,13 @@
         if (activeFilters.kind && menu.kind !== activeFilters.kind) return false;
         if (activeFilters.junle && menu.junle !== activeFilters.junle) return false;
         if (activeFilters.menuContent && menu.menu !== activeFilters.menuContent) return false;
+        if (wantedIngredient) {
+          const directMatch = (menu.ingredients || []).some((item) => String(item?.id || '') === wantedIngredient);
+          const setMatch = (menu.setMenus || []).some((setMenu) =>
+            (setMenu?.ingredients || []).some((item) => String(item?.id || '') === wantedIngredient)
+          );
+          if (!directMatch && !setMatch) return false;
+        }
         if (prepOnly && !menu.makeAhead) return false;
         if (dinnerSetOnly && menu.menu !== '定番ディナーセット') return false;
         if (!query) return true;
@@ -1730,7 +1769,7 @@
       modalState.categoryKey = '';
       modalState.options = [];
       modalState.currentMenu = null;
-      modalState.filters = { search: '', kind: '', junle: '', menuContent: '', prepOnly: false, dinnerSetOnly: false, ignoreFilter: false };
+      modalState.filters = { search: '', kind: '', junle: '', menuContent: '', wantedIngredient: '', prepOnly: false, dinnerSetOnly: false, ignoreFilter: false };
       modalState.menuFilter = { mealType: '', enabled: false, allowedMenus: [], activeMenus: [] };
       if (modalElements.overlay) {
         modalElements.overlay.classList.add('hidden');
@@ -1824,12 +1863,14 @@
         kind: '',
         junle: currentMenu?.junle || '',
         menuContent: '',
+        wantedIngredient: '',
         prepOnly: false,
         dinnerSetOnly: false,
         ignoreFilter: false
       };
 
       refreshModalSelectOptions();
+      refreshWantedIngredientOptions();
       renderMenuFilterBox();
 
       if (
@@ -1916,6 +1957,13 @@
     if (modalElements.menuSelect) {
       modalElements.menuSelect.addEventListener('change', (event) => {
         modalState.filters.menuContent = event.target.value || '';
+        renderModalList();
+      });
+    }
+
+    if (modalElements.wantedIngredientSelect) {
+      modalElements.wantedIngredientSelect.addEventListener('change', (event) => {
+        modalState.filters.wantedIngredient = event.target.value || '';
         renderModalList();
       });
     }
