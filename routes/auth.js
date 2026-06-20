@@ -93,6 +93,8 @@ const WEEK_MENU_SETTINGS_DEFAULTS = {
     other: 0
   },
   dinnerArrangeCount: 1,
+  dailyMenuMailEnabled: true,
+  dailyMenuMailTime: '06:00',
   breakfastFilterEnabled: true,
   lunchFilterEnabled: true,
   dinnerFilterEnabled: true
@@ -188,6 +190,10 @@ const normalizeWeekMenuSettings = (raw = {}) => {
     dinnerArrangeCount: Number.isFinite(Number(raw.dinnerArrangeCount))
       ? Math.max(0, Math.min(7, Math.floor(Number(raw.dinnerArrangeCount))))
       : WEEK_MENU_SETTINGS_DEFAULTS.dinnerArrangeCount,
+    dailyMenuMailEnabled: raw.dailyMenuMailEnabled !== false,
+    dailyMenuMailTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(raw.dailyMenuMailTime || ''))
+      ? String(raw.dailyMenuMailTime)
+      : WEEK_MENU_SETTINGS_DEFAULTS.dailyMenuMailTime,
     breakfastFilterEnabled: raw.breakfastFilterEnabled !== false,
     lunchFilterEnabled: raw.lunchFilterEnabled !== false,
     dinnerFilterEnabled: raw.dinnerFilterEnabled !== false
@@ -2239,6 +2245,11 @@ router.post('/users/week-menu/settings', isLoggedIn, async (req, res) => {
       dinnerArrangeCount: Number.isFinite(Number(req.body?.dinnerArrangeCount))
         ? Math.max(0, Math.min(7, Math.floor(Number(req.body?.dinnerArrangeCount))))
         : WEEK_MENU_SETTINGS_DEFAULTS.dinnerArrangeCount,
+      dailyMenuMailEnabled: req.body?.dailyMenuMailEnabled !== false
+        && String(req.body?.dailyMenuMailEnabled) !== 'false',
+      dailyMenuMailTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(req.body?.dailyMenuMailTime || ''))
+        ? String(req.body.dailyMenuMailTime)
+        : WEEK_MENU_SETTINGS_DEFAULTS.dailyMenuMailTime,
       breakfastFilterEnabled: req.body?.breakfastFilterEnabled !== false && String(req.body?.breakfastFilterEnabled) !== 'false',
       lunchFilterEnabled: req.body?.lunchFilterEnabled !== false && String(req.body?.lunchFilterEnabled) !== 'false',
       dinnerFilterEnabled: req.body?.dinnerFilterEnabled !== false && String(req.body?.dinnerFilterEnabled) !== 'false'

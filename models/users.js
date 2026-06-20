@@ -163,6 +163,15 @@ const userSchema = new mongoose.Schema({
     lunchFilterEnabled: {
       type: Boolean,
       default: true
+    },
+    dailyMenuMailEnabled: {
+      type: Boolean,
+      default: true
+    },
+    dailyMenuMailTime: {
+      type: String,
+      default: '06:00',
+      match: /^([01]\d|2[0-3]):[0-5]\d$/
     }
   },
   wantedIngredients: [{

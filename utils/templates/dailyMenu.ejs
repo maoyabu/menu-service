@@ -1,0 +1,33 @@
+<%- include('_mailHeader') %>
+
+<div style="max-width:600px;margin:0 auto;">
+  <p style="margin:0 0 8px;"><%= recipientName %>さん</p>
+  <p style="margin:0 0 20px;"><strong><%= dateLabel %></strong>　本日予定しているメニューはこちらです</p>
+
+  <% meals.forEach((meal) => { %>
+    <div style="margin:0 0 20px;">
+      <h2 style="margin:0 0 8px;font-size:16px;color:#3a7ca5;"><%= meal.label %></h2>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+        <% meal.items.forEach((item) => { %>
+          <tr>
+            <td width="88" valign="middle" style="padding:6px 10px 6px 0;border-top:1px solid #eee;">
+              <% if (item.imageUrl) { %>
+                <img src="<%= item.imageUrl %>" alt="" width="78" height="58" style="display:block;width:78px;height:58px;object-fit:cover;border-radius:6px;">
+              <% } else { %>
+                <div style="width:78px;height:58px;line-height:58px;text-align:center;background:#f1f1f1;color:#999;border-radius:6px;font-size:11px;">NO IMAGE</div>
+              <% } %>
+            </td>
+            <td valign="middle" style="padding:6px 0;border-top:1px solid #eee;font-size:15px;font-weight:bold;"><%= item.name %></td>
+          </tr>
+        <% }) %>
+      </table>
+    </div>
+  <% }) %>
+
+  <p style="margin:24px 0 8px;text-align:center;">
+    <a href="<%= linkUrl %>" target="_blank" rel="noopener" style="display:inline-block;padding:11px 20px;border-radius:6px;background:#3a7ca5;color:#fff;text-decoration:none;font-weight:bold;">今日の詳細を見る</a>
+  </p>
+  <p style="margin:8px 0 0;text-align:center;font-size:12px;color:#777;"><%= groupName %></p>
+</div>
+
+<%- include('_mailFooter') %>

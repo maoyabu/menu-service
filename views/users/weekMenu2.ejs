@@ -1908,12 +1908,18 @@
         if (labelEl) labelEl.textContent = text;
       }catch(_){ if (labelEl) labelEl.textContent = 'この週の食材・調味料リスト'; }
     })();
-    // pick default selected index = today within week, else 0
+    // Pick the requested mail-link date first, then today within the week.
     const todayISO = (window.weekMenuData && window.weekMenuData.todayISO) || new Date().toISOString();
     const todayDateStr = new Date(todayISO).toDateString();
+    const requestedDate = new URL(window.location.href).searchParams.get('date');
+    const selectedDateStr = requestedDate ? new Date(`${requestedDate}T00:00:00`).toDateString() : todayDateStr;
     let sel = Math.max(0, (WEEK || []).findIndex(d => {
       const iso = d?.dateISO || d; if (!iso) return false; try { return new Date(iso).toDateString() === todayDateStr; } catch(_) { return false; }
     }));
+    const requestedIndex = (WEEK || []).findIndex(d => {
+      const iso = d?.dateISO || d; if (!iso) return false; try { return new Date(iso).toDateString() === selectedDateStr; } catch(_) { return false; }
+    });
+    if (requestedIndex >= 0) sel = requestedIndex;
 
     function toLabel(d){
       const display = d && d.display ? d.display : '';

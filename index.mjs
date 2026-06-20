@@ -38,6 +38,8 @@ import Seasoning from './models/seasonings.js';
 import EquipmentInventoryReminder from './models/equipmentInventoryReminder.js';
 import MyEquipment from './models/myEquipment.js';
 import PurchaseReminderLog from './models/purchaseReminderLog.js';
+import WeeklyMenuPlan from './models/weeklyMenuPlan.js';
+import DailyMenuAnnouncement from './models/dailyMenuAnnouncement.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -233,6 +235,145 @@ app.listen(PORT, () => {
     }
   };
   setInterval(tick, 60 * 1000);
+
+  // Daily menu mail: each user can choose the delivery hour in 7 DAYS PLAN settings.
+  const tickDailyMenu = async () => {
+    const timeZone = process.env.APP_TIME_ZONE || 'Asia/Tokyo';
+    const dateParts = (date) => Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value])
+    );
+    const toDateKey = (date) => {
+      const parts = dateParts(date);
+      return `${parts.year}-${parts.month}-${parts.day}`;
+    };
+    const absoluteUrl = (value, baseUrl) => {
+      if (!value) return '';
+      try { return new URL(value, baseUrl).toString(); } catch (_) { return ''; }
+    };
+
+    try {
+      const now = new Date();
+      const nowParts = dateParts(now);
+      const dateKey = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
+      const currentTime = `${nowParts.hour}:${nowParts.minute}`;
+      const timeConditions = [{ 'weekMenuSettings.dailyMenuMailTime': currentTime }];
+      if (currentTime === '06:00') timeConditions.push({ 'weekMenuSettings.dailyMenuMailTime': { $exists: false } });
+
+      const users = await User.find({
+        isMail: { $ne: false },
+        email: { $exists: true, $ne: '' },
+        $and: [
+          { $or: [
+            { 'weekMenuSettings.dailyMenuMailEnabled': true },
+            { 'weekMenuSettings.dailyMenuMailEnabled': { $exists: false } }
+          ] },
+          { $or: timeConditions }
+        ]
+      }).select('_id email displayname username').lean();
+
+      if (!users.length) return;
+      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
+      const broadStart = new Date(now.getTime() - (36 * 60 * 60 * 1000));
+      const broadEnd = new Date(now.getTime() + (36 * 60 * 60 * 1000));
+
+      for (const user of users) {
+        const groups = await Group.find({
+          $or: [{ createdBy: user._id }, { members: user._id }]
+        }).select('_id group_name').lean();
+
+        for (const group of groups) {
+          let reserved = null;
+          try {
+            const plan = await WeeklyMenuPlan.findOne({
+              group: group._id,
+              'dayPlans.date': { $gte: broadStart, $lte: broadEnd }
+            })
+              .populate({
+                path: 'dayPlans.slots.menu',
+                select: 'name imageUrl menuType setMenus',
+                populate: { path: 'setMenus', select: 'name imageUrl' }
+              })
+              .lean();
+            if (!plan) continue;
+
+            const todayPlans = (plan.dayPlans || []).filter((dayPlan) =>
+              dayPlan?.date && toDateKey(new Date(dayPlan.date)) === dateKey && Array.isArray(dayPlan.slots) && dayPlan.slots.length
+            );
+            if (!todayPlans.length) continue;
+
+            const mealDefinitions = [
+              { type: 'breakfast', label: '朝食' },
+              { type: 'lunch', label: '昼食' },
+              { type: 'dinner', label: '夕食' }
+            ];
+            const meals = mealDefinitions.map(({ type, label }) => ({
+              label,
+              items: todayPlans
+                .filter((dayPlan) => dayPlan.mealType === type)
+                .flatMap((dayPlan) => dayPlan.slots || [])
+                .map((slot) => {
+                  const menu = slot?.menu;
+                  if (!menu) return null;
+                  const fallbackImage = Array.isArray(menu.setMenus)
+                    ? menu.setMenus.find((item) => item?.imageUrl)?.imageUrl
+                    : '';
+                  return {
+                    name: slot.dineOut && slot.dineOutName ? slot.dineOutName : menu.name,
+                    imageUrl: absoluteUrl(menu.imageUrl || fallbackImage, baseUrl)
+                  };
+                })
+                .filter((item) => item?.name)
+            })).filter((meal) => meal.items.length);
+            if (!meals.length) continue;
+
+            try {
+              reserved = await DailyMenuAnnouncement.create({
+                group: group._id,
+                recipient: user._id,
+                dateKey,
+                sentAt: now
+              });
+            } catch (err) {
+              if (err?.code === 11000) continue;
+              throw err;
+            }
+
+            const recipientName = user.displayname || user.username || user.email;
+            const dateLabel = `${Number(nowParts.month)}/${Number(nowParts.day)}日`;
+            const linkUrl = `${baseUrl}/users/week-menu?group=${encodeURIComponent(String(group._id))}&weekStart=${encodeURIComponent(plan.weekStart.toISOString())}&date=${encodeURIComponent(dateKey)}&view=detail`;
+            const html = await renderTemplate('dailyMenu', {
+              recipientName,
+              groupName: group.group_name || '',
+              dateLabel,
+              meals,
+              linkUrl
+            });
+            await sendMail({
+              to: user.email,
+              subject: `${dateLabel}の予定メニュー - ${group.group_name || '7 DAYS PLAN'}`,
+              html
+            });
+          } catch (err) {
+            if (reserved?._id) {
+              await DailyMenuAnnouncement.deleteOne({ _id: reserved._id }).catch(() => {});
+            }
+            console.error('daily menu mail error:', group?._id, user?._id, err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('daily menu scheduler error:', err);
+    }
+  };
+  setInterval(tickDailyMenu, 60 * 1000);
 
   // Weekly announcement scheduler: every Friday 08:00, announce week after next (Mon start)
   const tickWeekly = async () => {

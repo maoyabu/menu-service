@@ -367,13 +367,31 @@
 <!-- 7 DAYS PLAN 設定モーダル -->
 <div id="weekmenu-settings-modal" class="fixed inset-0 z-[62] hidden" aria-hidden="true">
   <div class="absolute inset-0 bg-black/40" data-weekmenu-settings-close></div>
-  <div class="relative mx-auto mt-10 w-[900px] max-w-[96vw] rounded-2xl bg-white shadow-2xl border border-gray-200">
+  <div class="relative mx-auto mt-10 w-[900px] max-w-[96vw] max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-gray-200">
     <div class="flex items-center justify-between border-b px-5 py-3">
       <h3 class="font-semibold text-gray-900">7 DAYS PLAN 設定</h3>
       <button type="button" class="text-gray-500" data-weekmenu-settings-close>✕</button>
     </div>
     <div class="p-5 space-y-5">
-      <p class="text-sm text-gray-600">「メニューを追加」モーダルに表示する候補を、朝食・ランチごとに絞り込めます。</p>
+      <p class="text-sm text-gray-600">メニュー候補と、毎日の予定メニュー通知を設定できます。</p>
+      <div class="rounded-xl border border-sky-100 bg-sky-50/40 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h4 class="font-semibold text-sky-700">今日のメニューをメールでお知らせ</h4>
+            <p class="mt-1 text-xs text-gray-500">その日のメニューが設定されている場合だけ送信します。</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-5">
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" data-weekmenu-settings-daily-mail-enabled class="w-4 h-4 text-sky-600 border-gray-300 rounded">
+              <span>メールを受け取る</span>
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <span>送信時間</span>
+              <input type="time" data-weekmenu-settings-daily-mail-time class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="grid md:grid-cols-2 gap-4">
         <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
           <div class="flex items-center justify-between">
@@ -530,6 +548,8 @@
       other: modal.querySelector('[data-weekmenu-settings-dinner-ratio="other"]')
     };
     const dinnerArrangeCountEl = modal.querySelector('[data-weekmenu-settings-dinner-arrange-count]');
+    const dailyMailEnabledEl = modal.querySelector('[data-weekmenu-settings-daily-mail-enabled]');
+    const dailyMailTimeEl = modal.querySelector('[data-weekmenu-settings-daily-mail-time]');
     const ratioKeys = ['japanese', 'western', 'chinese', 'other'];
 
     const defaults = {
@@ -568,6 +588,8 @@
         other: 0
       },
       dinnerArrangeCount: 1,
+      dailyMenuMailEnabled: true,
+      dailyMenuMailTime: '06:00',
       breakfastFilterEnabled: true,
       lunchFilterEnabled: true,
       dinnerFilterEnabled: true
@@ -624,6 +646,10 @@
         dinnerArrangeCount: Number.isFinite(Number(raw?.dinnerArrangeCount))
           ? Math.max(0, Math.min(7, Math.floor(Number(raw?.dinnerArrangeCount))))
           : defaults.dinnerArrangeCount,
+        dailyMenuMailEnabled: raw?.dailyMenuMailEnabled !== false,
+        dailyMenuMailTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(raw?.dailyMenuMailTime || ''))
+          ? String(raw.dailyMenuMailTime)
+          : defaults.dailyMenuMailTime,
         breakfastFilterEnabled: raw?.breakfastFilterEnabled !== false,
         lunchFilterEnabled: raw?.lunchFilterEnabled !== false,
         dinnerFilterEnabled: raw?.dinnerFilterEnabled !== false
@@ -744,6 +770,8 @@
       setRatioInputs(settings.lunchRatios || defaults.lunchRatios, lunchRatioInputs);
       setRatioInputs(settings.dinnerRatios || defaults.dinnerRatios, dinnerRatioInputs);
       if (dinnerArrangeCountEl) dinnerArrangeCountEl.value = Number(settings.dinnerArrangeCount) || 0;
+      if (dailyMailEnabledEl) dailyMailEnabledEl.checked = settings.dailyMenuMailEnabled !== false;
+      if (dailyMailTimeEl) dailyMailTimeEl.value = settings.dailyMenuMailTime || '06:00';
       renderList(breakfastListEl, cachedMenus, breakfastSelected, breakfastSearchEl?.value || '');
       renderList(lunchListEl, cachedMenus, lunchSelected, lunchSearchEl?.value || '');
       renderList(dinnerListEl, cachedMenus, dinnerSelected, dinnerSearchEl?.value || '');
@@ -798,6 +826,8 @@
             dinnerMenus: collectSelected(dinnerListEl),
             dinnerRatios: readRatios(dinnerRatioInputs, defaults.dinnerRatios),
             dinnerArrangeCount: dinnerArrangeCountEl ? dinnerArrangeCountEl.value : 0,
+            dailyMenuMailEnabled: dailyMailEnabledEl ? dailyMailEnabledEl.checked : true,
+            dailyMenuMailTime: dailyMailTimeEl ? dailyMailTimeEl.value : '06:00',
             breakfastFilterEnabled: breakfastEnabledEl ? breakfastEnabledEl.checked : true,
             lunchFilterEnabled: lunchEnabledEl ? lunchEnabledEl.checked : true,
             dinnerFilterEnabled: dinnerEnabledEl ? dinnerEnabledEl.checked : true
