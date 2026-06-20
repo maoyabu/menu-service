@@ -177,6 +177,14 @@
   .wm2-view-toggle{ display:inline-flex; border:1px solid #bfdbfe; border-radius:9999px; overflow:hidden; background:#fff; }
   .wm2-view-toggle button{ padding:8px 14px; font-size:12px; font-weight:700; color:#1d4ed8; background:#fff; }
   .wm2-view-toggle button[data-active="true"]{ background:#2563eb; color:#fff; }
+  .wm2-week-size-toggle{ display:none; align-items:center; border:1px solid #cbd5e1; border-radius:9999px; overflow:hidden; background:#fff; }
+  #wm2-section[data-view-mode="week"] .wm2-week-size-toggle{ display:inline-flex; }
+  .wm2-week-size-toggle button{ padding:8px 12px; font-size:12px; font-weight:700; color:#475569; background:#fff; }
+  .wm2-week-size-toggle button[data-active="true"]{ background:#475569; color:#fff; }
+  .wm2-week-layout-toggle{ display:none; align-items:center; border:1px solid #a7f3d0; border-radius:9999px; overflow:hidden; background:#fff; }
+  #wm2-section[data-view-mode="week"] .wm2-week-layout-toggle{ display:inline-flex; }
+  .wm2-week-layout-toggle button{ padding:8px 12px; font-size:12px; font-weight:700; color:#047857; background:#fff; }
+  .wm2-week-layout-toggle button[data-active="true"]{ background:#059669; color:#fff; }
   /* Card list: up to 3 columns */
   .wm2-list{ display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:14px; }
   @media (min-width: 768px){ .wm2-list{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -214,6 +222,31 @@
   .wm2-week-scroll{
     overflow-x:auto;
     padding-bottom:8px;
+  }
+  .wm2-week-meal-tabs{
+    display:inline-flex;
+    margin-bottom:12px;
+    border:1px solid #bfdbfe;
+    border-radius:9999px;
+    overflow:hidden;
+    background:#fff;
+  }
+  .wm2-week-meal-tabs button{
+    min-width:88px;
+    padding:8px 14px;
+    font-size:12px;
+    font-weight:800;
+    color:#1d4ed8;
+    background:#fff;
+  }
+  .wm2-week-meal-tabs button[data-active="true"]{
+    color:#fff;
+    background:#2563eb;
+  }
+  #wm2-section[data-week-size="large"] .wm2-week-meal-tabs button{
+    min-width:120px;
+    padding:11px 18px;
+    font-size:16px;
   }
   .wm2-week-grid{
     display:grid;
@@ -257,11 +290,58 @@
     padding-top:0;
     margin-top:0;
   }
+  #wm2-week-view .wm2-week-meal[data-week-meal]{ display:none; }
+  #wm2-week-view[data-meal-tab="breakfast"] .wm2-week-meal[data-week-meal="breakfast"],
+  #wm2-week-view[data-meal-tab="lunch"] .wm2-week-meal[data-week-meal="lunch"],
+  #wm2-week-view[data-meal-tab="dinner"] .wm2-week-meal[data-week-meal="dinner"]{
+    display:block;
+    border-top:none;
+    padding-top:0;
+    margin-top:0;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal]{
+    display:block;
+    border-top:1px solid #dbeafe;
+    padding-top:8px;
+    margin-top:8px;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal="breakfast"]{
+    border-top:none;
+    padding-top:0;
+    margin-top:0;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal-tabs{
+    display:none;
+  }
   .wm2-week-meal-label{
     font-size:11px;
     font-weight:700;
     color:#2563eb;
     margin-bottom:6px;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal-label{
+    display:inline-flex;
+    align-items:center;
+    border:1px solid #bfdbfe;
+    border-radius:9999px;
+    background:#eff6ff;
+    padding:4px 10px;
+    font-size:12px;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal="breakfast"] .wm2-week-meal-label{
+    border-color:#fde68a;
+    background:#fffbeb;
+    color:#b45309;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal="lunch"] .wm2-week-meal-label{
+    border-color:#bfdbfe;
+    background:#eff6ff;
+    color:#1d4ed8;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal="dinner"] .wm2-week-meal-label{
+    border-color:#ddd6fe;
+    background:#f5f3ff;
+    color:#6d28d9;
   }
   .wm2-week-slot-list{
     display:flex;
@@ -299,6 +379,31 @@
     font-weight:700;
     color:#0f172a;
     line-height:1.35;
+  }
+  #wm2-section[data-week-size="large"] .wm2-week-slot{
+    display:block;
+    padding:8px;
+  }
+  #wm2-section[data-week-size="large"] .wm2-week-slot-thumb{
+    width:100%;
+    height:160px;
+    border-radius:12px;
+  }
+  #wm2-section[data-week-size="large"] .wm2-week-slot-name{
+    margin-top:8px;
+    font-size:16px;
+    line-height:1.5;
+  }
+  #wm2-section[data-week-size="large"] .wm2-week-meal-label{
+    font-size:16px;
+  }
+  #wm2-section[data-week-size="large"] .wm2-week-layout-toggle button{
+    padding:11px 16px;
+    font-size:16px;
+  }
+  #wm2-section[data-week-size="large"] #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal-label{
+    padding:7px 14px;
+    font-size:16px;
   }
   .wm2-week-empty{
     border:1px dashed #cbd5e1;
@@ -686,9 +791,19 @@
     <% } %>
   </div>
   <div class="flex items-center justify-between gap-3 flex-wrap">
-    <div class="wm2-view-toggle" id="wm2-view-toggle">
-      <button type="button" data-view-mode="week" data-active="false">1週間View</button>
-      <button type="button" data-view-mode="detail" data-active="true">詳細View</button>
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class="wm2-view-toggle" id="wm2-view-toggle">
+        <button type="button" data-view-mode="week" data-active="false">1週間View</button>
+        <button type="button" data-view-mode="detail" data-active="true">詳細View</button>
+      </div>
+      <div class="wm2-week-size-toggle" id="wm2-week-size-toggle" aria-label="1週間Viewの表示サイズ">
+        <button type="button" data-week-size="normal" data-active="true">現在のサイズ</button>
+        <button type="button" data-week-size="large" data-active="false">拡大サイズ</button>
+      </div>
+      <div class="wm2-week-layout-toggle" id="wm2-week-layout-toggle" aria-label="食事の表示形式">
+        <button type="button" data-week-layout="tabs" data-active="true">タブ形式</button>
+        <button type="button" data-week-layout="tags" data-active="false">タグ形式</button>
+      </div>
     </div>
     <% if (!isModelPlanMode) { %>
     <button
@@ -716,7 +831,12 @@
     <div class="grid grid-cols-7 gap-2 mt-2" id="wm2-days"></div>
   </div>
 
-  <div id="wm2-week-view" data-active="false">
+  <div id="wm2-week-view" data-active="false" data-meal-tab="breakfast" data-meal-layout="tabs">
+    <div class="wm2-week-meal-tabs" id="wm2-week-meal-tabs" aria-label="表示する食事">
+      <button type="button" data-week-meal-tab="breakfast" data-active="true">朝食</button>
+      <button type="button" data-week-meal-tab="lunch" data-active="false">昼食</button>
+      <button type="button" data-week-meal-tab="dinner" data-active="false">ディナー</button>
+    </div>
     <div class="wm2-week-scroll">
       <div id="wm2-week-grid" class="wm2-week-grid"></div>
     </div>
@@ -880,6 +1000,25 @@
     const enableRequirementsPanel = true;
     const requestedViewMode = new URL(window.location.href).searchParams.get('view');
     let currentViewMode = requestedViewMode === 'week' ? 'week' : 'detail';
+    const weekViewSizeStorageKey = 'menu-service:week-menu:week-view-size';
+    const weekViewLayoutStorageKey = 'menu-service:week-menu:week-meal-layout';
+    const loadWeekViewSize = () => {
+      try {
+        return window.localStorage.getItem(weekViewSizeStorageKey) === 'large' ? 'large' : 'normal';
+      } catch (_) {
+        return 'normal';
+      }
+    };
+    let currentWeekViewSize = loadWeekViewSize();
+    const loadWeekViewLayout = () => {
+      try {
+        return window.localStorage.getItem(weekViewLayoutStorageKey) === 'tags' ? 'tags' : 'tabs';
+      } catch (_) {
+        return 'tabs';
+      }
+    };
+    let currentWeekViewLayout = loadWeekViewLayout();
+    let currentWeekMealTab = 'breakfast';
     const persistViewMode = () => {
       const url = new URL(window.location.href);
       url.searchParams.set('view', currentViewMode);
@@ -3012,11 +3151,12 @@
 
         [
           { key: 'breakfast', label: '朝食', slots: breakfast },
-          { key: 'lunch', label: 'ランチ', slots: lunch },
+          { key: 'lunch', label: '昼食', slots: lunch },
           { key: 'dinner', label: 'ディナー', slots: dinnerSlots }
         ].forEach(({ key, label, slots }) => {
           const mealBlock = document.createElement('div');
           mealBlock.className = 'wm2-week-meal';
+          mealBlock.dataset.weekMeal = key;
           const mealLabel = document.createElement('div');
           mealLabel.className = 'wm2-week-meal-label';
           mealLabel.textContent = label;
@@ -3038,9 +3178,26 @@
       });
       if (main) main.dataset.active = String(currentViewMode === 'detail');
       if (weekView) weekView.dataset.active = String(currentViewMode === 'week');
+      if (weekView) weekView.dataset.mealTab = currentWeekMealTab;
+      if (weekView) weekView.dataset.mealLayout = currentWeekViewLayout;
       if (preview) preview.classList.toggle('hidden', currentViewMode !== 'detail');
       const section = document.getElementById('wm2-section');
-      if (section) section.dataset.viewMode = currentViewMode;
+      if (section) {
+        section.dataset.viewMode = currentViewMode;
+        section.dataset.weekSize = currentWeekViewSize;
+      }
+      document.querySelectorAll('#wm2-week-size-toggle [data-week-size]').forEach((btn) => {
+        btn.dataset.active = String(btn.dataset.weekSize === currentWeekViewSize);
+        btn.setAttribute('aria-pressed', btn.dataset.active);
+      });
+      document.querySelectorAll('#wm2-week-meal-tabs [data-week-meal-tab]').forEach((btn) => {
+        btn.dataset.active = String(btn.dataset.weekMealTab === currentWeekMealTab);
+        btn.setAttribute('aria-pressed', btn.dataset.active);
+      });
+      document.querySelectorAll('#wm2-week-layout-toggle [data-week-layout]').forEach((btn) => {
+        btn.dataset.active = String(btn.dataset.weekLayout === currentWeekViewLayout);
+        btn.setAttribute('aria-pressed', btn.dataset.active);
+      });
     }
 
     function rebuild(){ buildPills(); renderDay(); renderWeekView(); updateViewModeUI(); }
@@ -3049,6 +3206,31 @@
       btn.addEventListener('click', () => {
         currentViewMode = btn.dataset.viewMode === 'detail' ? 'detail' : 'week';
         persistViewMode();
+        updateViewModeUI();
+      });
+    });
+    document.querySelectorAll('#wm2-week-size-toggle [data-week-size]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentWeekViewSize = btn.dataset.weekSize === 'large' ? 'large' : 'normal';
+        try {
+          window.localStorage.setItem(weekViewSizeStorageKey, currentWeekViewSize);
+        } catch (_) { /* storage unavailable */ }
+        updateViewModeUI();
+      });
+    });
+    document.querySelectorAll('#wm2-week-meal-tabs [data-week-meal-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const meal = btn.dataset.weekMealTab;
+        currentWeekMealTab = ['breakfast', 'lunch', 'dinner'].includes(meal) ? meal : 'breakfast';
+        updateViewModeUI();
+      });
+    });
+    document.querySelectorAll('#wm2-week-layout-toggle [data-week-layout]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentWeekViewLayout = btn.dataset.weekLayout === 'tags' ? 'tags' : 'tabs';
+        try {
+          window.localStorage.setItem(weekViewLayoutStorageKey, currentWeekViewLayout);
+        } catch (_) { /* storage unavailable */ }
         updateViewModeUI();
       });
     });
