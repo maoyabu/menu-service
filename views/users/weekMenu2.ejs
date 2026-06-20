@@ -380,6 +380,8 @@
     color:#0f172a;
     line-height:1.35;
   }
+  a.wm2-week-slot-name:hover{ text-decoration:underline; }
+  .wm2-week-slot-thumb-link:hover .wm2-week-slot-thumb{ opacity:.9; }
   #wm2-section[data-week-size="large"] .wm2-week-slot{
     display:block;
     padding:8px;
@@ -388,6 +390,9 @@
     width:100%;
     height:160px;
     border-radius:12px;
+  }
+  #wm2-section[data-week-size="large"] .wm2-week-slot-thumb-link{
+    width:100%;
   }
   #wm2-section[data-week-size="large"] .wm2-week-slot-name{
     margin-top:8px;
@@ -797,7 +802,7 @@
         <button type="button" data-view-mode="detail" data-active="true">詳細View</button>
       </div>
       <div class="wm2-week-size-toggle" id="wm2-week-size-toggle" aria-label="1週間Viewの表示サイズ">
-        <button type="button" data-week-size="normal" data-active="true">現在のサイズ</button>
+        <button type="button" data-week-size="normal" data-active="true">通常サイズ</button>
         <button type="button" data-week-size="large" data-active="false">拡大サイズ</button>
       </div>
       <div class="wm2-week-layout-toggle" id="wm2-week-layout-toggle" aria-label="食事の表示形式">
@@ -3066,8 +3071,9 @@
         thumb.textContent = 'no image';
       };
       const makeWeekCard = (row, dayIndex, mealKey, slotIndex) => {
-        const item = document.createElement('button');
-        item.type = 'button';
+        const item = document.createElement('div');
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
         item.className = 'wm2-week-slot wm2-draggable';
         item.draggable = true;
         item.dataset.dragDay = String(dayIndex);
@@ -3076,11 +3082,40 @@
         const thumb = document.createElement('div');
         thumb.className = 'wm2-week-slot-thumb';
         renderWeekThumb(thumb, row);
-        const name = document.createElement('div');
+        const recipeUrl = row.url || (row.menuId ? `/users/menu/${row.menuId}` : '');
+        const thumbNode = recipeUrl ? document.createElement('a') : thumb;
+        if (recipeUrl) {
+          thumbNode.href = recipeUrl;
+          thumbNode.target = 'menuWindow';
+          thumbNode.rel = 'noopener noreferrer';
+          thumbNode.dataset.weekRecipeLink = '';
+          thumbNode.className = 'wm2-week-slot-thumb-link block flex-shrink-0';
+          thumbNode.title = `${row.name || 'メニュー'}のレシピを開く`;
+          thumbNode.appendChild(thumb);
+        }
+        const name = document.createElement(recipeUrl ? 'a' : 'div');
         name.className = 'wm2-week-slot-name';
         name.textContent = row.name || 'メニュー';
-        item.append(thumb, name);
-        item.addEventListener('click', () => {
+        if (recipeUrl) {
+          name.href = recipeUrl;
+          name.target = 'menuWindow';
+          name.rel = 'noopener noreferrer';
+          name.dataset.weekRecipeLink = '';
+          name.title = `${row.name || 'メニュー'}のレシピを開く`;
+        }
+        item.append(thumbNode, name);
+        item.addEventListener('click', (event) => {
+          if (event.target.closest('[data-week-recipe-link]')) return;
+          sel = dayIndex;
+          currentViewMode = 'detail';
+          persistViewMode();
+          updateViewModeUI();
+          rebuild();
+        });
+        item.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          if (event.target.closest('[data-week-recipe-link]')) return;
+          event.preventDefault();
           sel = dayIndex;
           currentViewMode = 'detail';
           persistViewMode();
