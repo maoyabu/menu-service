@@ -200,15 +200,26 @@
   #wm2-week-view{ display:none; }
   #wm2-week-view[data-active="true"]{ display:block; }
   #wm2-main[data-active="false"]{ display:none; }
+  @media (min-width: 1280px){
+    #wm2-section[data-view-mode="week"]{
+      width:calc(100vw - 2rem);
+      max-width:min(1800px, calc(100vw - 2rem));
+      position:relative;
+      left:50%;
+      transform:translateX(-50%);
+      margin-left:0;
+      margin-right:0;
+    }
+  }
   .wm2-week-scroll{
     overflow-x:auto;
     padding-bottom:8px;
   }
   .wm2-week-grid{
     display:grid;
-    grid-template-columns:repeat(7, minmax(180px, 1fr));
+    grid-template-columns:repeat(7, minmax(160px, 1fr));
     gap:12px;
-    min-width:1260px;
+    min-width:1192px;
   }
   .wm2-week-day{
     border:1px solid #dbeafe;
@@ -867,7 +878,13 @@
     const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
     const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
     const enableRequirementsPanel = true;
-    let currentViewMode = 'detail';
+    const requestedViewMode = new URL(window.location.href).searchParams.get('view');
+    let currentViewMode = requestedViewMode === 'week' ? 'week' : 'detail';
+    const persistViewMode = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', currentViewMode);
+      window.history.replaceState(window.history.state, '', url.toString());
+    };
     const guidelineTotals = (window.weekMenuData && window.weekMenuData.guidelineTotals) || {};
     const guidelineByUser = (window.weekMenuData && window.weekMenuData.guidelineByUser) || {};
     const ING_CLASS_ORDER = ['乳類','チーズ','卵類','肉類','魚介類','豆類','野菜類','いも及びでん粉類','きのこ類','果実類','穀物','藻類','加工食品','その他'];
@@ -2927,6 +2944,7 @@
         item.addEventListener('click', () => {
           sel = dayIndex;
           currentViewMode = 'detail';
+          persistViewMode();
           updateViewModeUI();
           rebuild();
         });
@@ -2976,6 +2994,7 @@
         openBtn.addEventListener('click', () => {
           sel = dayIndex;
           currentViewMode = 'detail';
+          persistViewMode();
           updateViewModeUI();
           rebuild();
         });
@@ -3020,6 +3039,8 @@
       if (main) main.dataset.active = String(currentViewMode === 'detail');
       if (weekView) weekView.dataset.active = String(currentViewMode === 'week');
       if (preview) preview.classList.toggle('hidden', currentViewMode !== 'detail');
+      const section = document.getElementById('wm2-section');
+      if (section) section.dataset.viewMode = currentViewMode;
     }
 
     function rebuild(){ buildPills(); renderDay(); renderWeekView(); updateViewModeUI(); }
@@ -3027,6 +3048,7 @@
     document.querySelectorAll('#wm2-view-toggle [data-view-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         currentViewMode = btn.dataset.viewMode === 'detail' ? 'detail' : 'week';
+        persistViewMode();
         updateViewModeUI();
       });
     });
