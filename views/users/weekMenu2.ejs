@@ -301,14 +301,23 @@
   }
   #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal]{
     display:block;
-    border-top:1px solid #dbeafe;
-    padding-top:8px;
+    border:1px solid transparent;
+    border-radius:12px;
+    padding:8px;
     margin-top:8px;
   }
   #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal="breakfast"]{
-    border-top:none;
-    padding-top:0;
+    border-color:#fde68a;
+    background:#fffbeb;
     margin-top:0;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal="lunch"]{
+    border-color:#bfdbfe;
+    background:#eff6ff;
+  }
+  #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal[data-week-meal="dinner"]{
+    border-color:#ddd6fe;
+    background:#f5f3ff;
   }
   #wm2-week-view[data-meal-layout="tags"] .wm2-week-meal-tabs{
     display:none;
@@ -3233,6 +3242,22 @@
         btn.dataset.active = String(btn.dataset.weekLayout === currentWeekViewLayout);
         btn.setAttribute('aria-pressed', btn.dataset.active);
       });
+      window.requestAnimationFrame(alignWeekTagMealRows);
+    }
+
+    function alignWeekTagMealRows(){
+      const weekView = document.getElementById('wm2-week-view');
+      if (!weekView) return;
+      const mealTypes = ['breakfast', 'lunch', 'dinner'];
+      const allBlocks = Array.from(weekView.querySelectorAll('.wm2-week-meal[data-week-meal]'));
+      allBlocks.forEach((block) => { block.style.minHeight = ''; });
+      if (currentWeekViewLayout !== 'tags' || currentViewMode !== 'week') return;
+      mealTypes.forEach((mealType) => {
+        const blocks = Array.from(weekView.querySelectorAll(`.wm2-week-meal[data-week-meal="${mealType}"]`));
+        const maxHeight = blocks.reduce((max, block) => Math.max(max, Math.ceil(block.getBoundingClientRect().height)), 0);
+        if (!maxHeight) return;
+        blocks.forEach((block) => { block.style.minHeight = `${maxHeight}px`; });
+      });
     }
 
     function rebuild(){ buildPills(); renderDay(); renderWeekView(); updateViewModeUI(); }
@@ -3267,6 +3292,14 @@
           window.localStorage.setItem(weekViewLayoutStorageKey, currentWeekViewLayout);
         } catch (_) { /* storage unavailable */ }
         updateViewModeUI();
+      });
+    });
+    let weekTagResizeFrame = 0;
+    window.addEventListener('resize', () => {
+      if (weekTagResizeFrame) window.cancelAnimationFrame(weekTagResizeFrame);
+      weekTagResizeFrame = window.requestAnimationFrame(() => {
+        weekTagResizeFrame = 0;
+        alignWeekTagMealRows();
       });
     });
     // Refresh after primary interactions from weekMenu (without disturbing anchor navigation)
