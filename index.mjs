@@ -277,7 +277,7 @@ app.listen(PORT, () => {
           ] },
           { $or: timeConditions }
         ]
-      }).select('_id email displayname username').lean();
+      }).select('_id email displayname username groups defaultGroup').lean();
 
       if (!users.length) return;
       const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
@@ -285,8 +285,18 @@ app.listen(PORT, () => {
       const broadEnd = new Date(now.getTime() + (36 * 60 * 60 * 1000));
 
       for (const user of users) {
+        // Membership is stored on both User and Group. Include both sides so older
+        // records with only the User reference still receive their group menu mail.
+        const userGroupIds = Array.from(new Set([
+          ...(Array.isArray(user.groups) ? user.groups : []),
+          user.defaultGroup
+        ].filter(Boolean).map(String)));
         const groups = await Group.find({
-          $or: [{ createdBy: user._id }, { members: user._id }]
+          $or: [
+            { createdBy: user._id },
+            { members: user._id },
+            ...(userGroupIds.length ? [{ _id: { $in: userGroupIds } }] : [])
+          ]
         }).select('_id group_name').lean();
 
         for (const group of groups) {
