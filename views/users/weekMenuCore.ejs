@@ -621,6 +621,11 @@
       return removed;
     };
 
+    const normalizeServingMultiplier = (value) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return 1;
+      return Math.round(Math.max(0.1, Math.min(99, parsed)) * 10) / 10;
+    };
     const createEmptySlot = (categoryKey = 'lunchMain') => ({
       menuId: null,
       categoryKey,
@@ -628,7 +633,8 @@
       dineOut: false,
       dineOutName: '',
       dineOutUrl: '',
-      locked: false
+      locked: false,
+      servingMultiplier: 1
     });
 
     const removeSlotReference = (target) => {
@@ -727,7 +733,8 @@
             const basePeople = Number(menu.people);
             const count = getParticipantIds(dayIndex, participantMeal).length;
             const extra = Math.max(0, Number(slot.prepExtra) || 0);
-            const rawMultiplier = basePeople && basePeople > 0 ? (count + extra) / basePeople : 1;
+            const servingMultiplier = normalizeServingMultiplier(slot.servingMultiplier);
+            const rawMultiplier = (basePeople && basePeople > 0 ? (count + extra) / basePeople : 1) * servingMultiplier;
             const multiplier = Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
             const ingredients = Array.isArray(menu.ingredients) ? menu.ingredients : [];
             const seasonings = Array.isArray(menu.seasoning) ? menu.seasoning : [];
@@ -1194,6 +1201,23 @@
           if (!slot) return 0;
           return Math.max(0, Number(slot.prepExtra) || 0);
         } catch(_) { return 0; }
+      };
+      window.weekMenuAPI.setServingMultiplier = (dayIndex, mealKey, index, value) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          if (!slot) return false;
+          slot.servingMultiplier = normalizeServingMultiplier(value);
+          render();
+          if (typeof window.refreshLucideIcons === 'function') window.refreshLucideIcons();
+          if (window.weekMenuAPI && window.weekMenuAPI.requestAutoSave) window.weekMenuAPI.requestAutoSave();
+          return true;
+        } catch (_) { return false; }
+      };
+      window.weekMenuAPI.getServingMultiplier = (dayIndex, mealKey, index) => {
+        try {
+          const slot = getSlotReference(dayIndex, mealKey, index);
+          return slot ? normalizeServingMultiplier(slot.servingMultiplier) : 1;
+        } catch (_) { return 1; }
       };
       // set/get day comment (per day)
       window.weekMenuAPI.setDayComment = (dayIndex, text) => {
@@ -2118,7 +2142,8 @@
           dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
           favorite: !!slot.favorite,
           locked: !!slot.locked,
-          prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
+          prepExtra: Math.max(0, Number(slot.prepExtra) || 0),
+          servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
         });
 
         if (breakfastSlotsForPayload.length) {
@@ -2160,7 +2185,8 @@
               dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
               favorite: !!slot.favorite,
               locked: !!slot.locked,
-              prepExtra: Math.max(0, Number(slot.prepExtra) || 0)
+              prepExtra: Math.max(0, Number(slot.prepExtra) || 0),
+              servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
             };
           });
 

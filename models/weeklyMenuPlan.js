@@ -48,6 +48,12 @@ const menuSlotSchema = new Schema({
     type: Number,
     default: 0,
     min: 0
+  },
+  servingMultiplier: {
+    type: Number,
+    default: 1,
+    min: 0.1,
+    max: 99
   }
 });
  

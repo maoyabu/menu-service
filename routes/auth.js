@@ -657,6 +657,12 @@ const CATEGORY_TO_SLOT_TYPE = {
   dinnerFlexible: 'dinner-flex'
 };
 
+const normalizeServingMultiplier = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.round(Math.max(0.1, Math.min(99, parsed)) * 10) / 10;
+};
+
 const SLOT_TYPE_DETAILS = Object.freeze({
   'breakfast-main': { meal: 'breakfast', key: 'main', categoryKey: 'breakfastMain' },
   'lunch-main': { meal: 'lunch', key: 'main', categoryKey: 'lunchMain' },
@@ -2317,7 +2323,8 @@ const parseEditableDayPlans = (dayPlans, fallbackWeekStart = null) => {
             locked: !!slot.locked,
             prepExtra: Number.isFinite(Number(slot.prepExtra)) && Number(slot.prepExtra) > 0
               ? Math.floor(Number(slot.prepExtra))
-              : 0
+              : 0,
+            servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
           };
         })
         .filter(Boolean);
@@ -2367,7 +2374,8 @@ const remapTemplateDayPlansToWeek = (template, weekStart) => {
         locked: !!slot.locked,
         prepExtra: Number.isFinite(Number(slot.prepExtra)) && Number(slot.prepExtra) > 0
           ? Math.floor(Number(slot.prepExtra))
-          : 0
+          : 0,
+        servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
       }))
     };
   });
@@ -2837,7 +2845,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
             locked: !!slot.locked,
             prepExtra: Number.isFinite(Number(slot?.prepExtra)) && Number(slot.prepExtra) > 0
               ? Math.floor(Number(slot.prepExtra))
-              : 0
+              : 0,
+            servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier)
           };
 
           if (map.meal === 'breakfast') {
@@ -2924,7 +2933,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           dineOutUrl: '',
           locked: false,
           prepExtra: 0,
-          ...(slot && { ...slot, menuId: null, favorite: false, dineOut: false, dineOutName: '', dineOutUrl: '', locked: false })
+          ...(slot && { ...slot, menuId: null, favorite: false, dineOut: false, dineOutName: '', dineOutUrl: '', locked: false }),
+          servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier)
         });
 
         plan = plan.map((day) => ({
@@ -3267,10 +3277,11 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       }
       return defaultPeopleCount;
     };
-    const addMenuToSummary = (menuDoc, peopleCount, extraCount, type = 'ingredient', metaMap = null) => {
+    const addMenuToSummary = (menuDoc, peopleCount, extraCount, servingMultiplier = 1, type = 'ingredient', metaMap = null) => {
       if (!menuDoc) return;
       const basePeople = Number(menuDoc.people) > 0 ? Number(menuDoc.people) : 1;
-      const multiplier = (peopleCount + (extraCount || 0)) > 0 ? ((peopleCount + (extraCount || 0)) / basePeople) : 1;
+      const peopleMultiplier = (peopleCount + (extraCount || 0)) > 0 ? ((peopleCount + (extraCount || 0)) / basePeople) : 1;
+      const multiplier = peopleMultiplier * normalizeServingMultiplier(servingMultiplier);
       if (type === 'ingredient') {
         (menuDoc.ingredients || []).forEach((it) => {
           const meta = it?.name || {};
@@ -3358,8 +3369,9 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
             const menuDoc = menuDetailMap.get(String(slot.menu));
             if (!menuDoc) return;
             const extraCount = Math.max(0, Number(slot?.prepExtra) || 0);
-            addMenuToSummary(menuDoc, peopleCount, extraCount, 'ingredient', ingredientMetaMap);
-            addMenuToSummary(menuDoc, peopleCount, extraCount, 'seasoning', seasoningMetaMap);
+            const servingMultiplier = normalizeServingMultiplier(slot?.servingMultiplier);
+            addMenuToSummary(menuDoc, peopleCount, extraCount, servingMultiplier, 'ingredient', ingredientMetaMap);
+            addMenuToSummary(menuDoc, peopleCount, extraCount, servingMultiplier, 'seasoning', seasoningMetaMap);
           });
         });
         // required totals: per person per day * dayCount (already set)
@@ -3535,7 +3547,8 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
         if (!menu) return;
         const extraCount = Math.max(0, Number(slot?.prepExtra) || 0);
         const basePeople = Number(menu.people) > 0 ? Number(menu.people) : 1;
-        const multiplier = (peopleCount + extraCount) > 0 ? ((peopleCount + extraCount) / basePeople) : 1;
+        const peopleMultiplier = (peopleCount + extraCount) > 0 ? ((peopleCount + extraCount) / basePeople) : 1;
+        const multiplier = peopleMultiplier * normalizeServingMultiplier(slot?.servingMultiplier);
         (menu.ingredients || []).forEach((it) => {
           const meta = it?.id ? ingredientMetaMap.get(String(it.id)) : null;
           const grams = toGrams(Number(it?.amount) * multiplier, it?.unit || '', meta);
@@ -3748,7 +3761,7 @@ router.get('/users/week-menu/ingredients.xlsx', isLoggedIn, async (req, res, nex
         const target = basePlan[dp.dayIndex]; if (!target) return;
         (dp.slots || []).forEach((slot) => {
           const map = SLOT_TYPE_DETAILS[slot?.slotType]; if (!map) return;
-          const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra) || 0 };
+          const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra) || 0, servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier) };
           if (map.meal === 'breakfast') target.breakfastSlots.push(data);
           else if (map.meal === 'lunch') target.lunchSlots.push(data);
           else if (map.key === 'extras') target.dinnerExtras.push(data);
@@ -3897,8 +3910,9 @@ router.get('/users/week-menu/ingredients.xlsx', isLoggedIn, async (req, res, nex
       const peopleSafe = Math.max(1, peopleCount);
       const extra = Math.max(0, Number(slot?.prepExtra) || 0);
       const basePeople = Number(menu.people) > 0 ? Number(menu.people) : 1;
-      const totalMultiplier = (peopleCount + extra) > 0 ? ((peopleCount + extra) / basePeople) : 1;
-      const perPersonMultiplier = (peopleCount + extra) > 0 ? ((peopleCount + extra) / (basePeople * peopleSafe)) : (1 / peopleSafe);
+      const servingMultiplier = normalizeServingMultiplier(slot?.servingMultiplier);
+      const totalMultiplier = ((peopleCount + extra) > 0 ? ((peopleCount + extra) / basePeople) : 1) * servingMultiplier;
+      const perPersonMultiplier = ((peopleCount + extra) > 0 ? ((peopleCount + extra) / (basePeople * peopleSafe)) : (1 / peopleSafe)) * servingMultiplier;
       const date = weekDates[dayIndex];
       const dateLabel = `${date.getMonth() + 1}/${date.getDate()}`;
       (menu.ingredients || []).forEach((it) => {
@@ -4200,7 +4214,7 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
         const target = basePlan[dp.dayIndex]; if(!target) return;
         (dp.slots||[]).forEach((slot)=>{
           const map = SLOT_TYPE_DETAILS[slot?.slotType]; if(!map) return;
-          const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra)||0 };
+          const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra)||0, servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier) };
           if (map.meal === 'breakfast') {
             target.breakfastSlots.push(data);
           } else if (map.meal === 'lunch') {
@@ -4397,7 +4411,8 @@ router.post('/users/week-menu', isLoggedIn, async (req, res) => {
               locked: !!slot.locked,
               prepExtra: Number.isFinite(Number(slot.prepExtra)) && Number(slot.prepExtra) > 0
                 ? Math.floor(Number(slot.prepExtra))
-                : 0
+                : 0,
+              servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
             };
           })
           .filter(Boolean);
@@ -4717,7 +4732,8 @@ router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
         locked: !!slot.locked,
         prepExtra: Number.isFinite(Number(slot?.prepExtra)) && Number(slot.prepExtra) > 0
           ? Math.floor(Number(slot.prepExtra))
-          : 0
+          : 0,
+        servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier)
       };
     };
 

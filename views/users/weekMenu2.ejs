@@ -456,6 +456,12 @@
   #wm2-shortage-menu-modal .panel{ position:relative; margin:40px auto; width:900px; max-width:96vw; background:#fff; border-radius:18px; box-shadow:0 20px 40px rgba(15,23,42,.2); }
   #wm2-shortage-menu-modal .panel-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
   #wm2-shortage-menu-modal .panel-body{ padding:16px; display:flex; flex-direction:column; gap:10px; max-height:72vh; overflow:auto; }
+  #wm2-actual-breakdown-modal{ position:fixed; inset:0; z-index:90; display:none; }
+  #wm2-actual-breakdown-modal.is-open{ display:block; }
+  #wm2-actual-breakdown-modal .overlay{ position:absolute; inset:0; background:rgba(15,23,42,.45); }
+  #wm2-actual-breakdown-modal .panel{ position:relative; margin:40px auto; width:680px; max-width:96vw; background:#fff; border-radius:18px; box-shadow:0 20px 40px rgba(15,23,42,.2); }
+  #wm2-actual-breakdown-modal .panel-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
+  #wm2-actual-breakdown-modal .panel-body{ padding:16px; max-height:72vh; overflow:auto; }
   .wm2-shortage-menu-item{ display:grid; grid-template-columns:80px minmax(0, 1fr) auto; gap:12px; align-items:center; border:1px solid #fde68a; border-radius:14px; padding:10px; background:#fffdf4; }
   .wm2-shortage-menu-thumb{ width:80px; height:64px; overflow:hidden; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:11px; }
   .wm2-shortage-menu-thumb img{ width:100%; height:100%; object-fit:cover; }
@@ -952,7 +958,33 @@
       </div>
       <button type="button" class="text-gray-500" data-shortage-close aria-label="閉じる">✕</button>
     </div>
-    <div class="panel-body" id="wm2-shortage-menu-body"></div>
+    <div class="panel-body">
+      <div class="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+        <label class="text-xs font-semibold text-gray-700">
+          <span class="mb-1 block">種類で絞り込む</span>
+          <select id="wm2-shortage-menu-kind" class="min-w-48 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">すべての種類</option>
+          </select>
+        </label>
+        <span id="wm2-shortage-menu-count" class="text-xs text-gray-500"></span>
+      </div>
+      <div class="flex flex-col gap-2" id="wm2-shortage-menu-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Per-menu breakdown for an actual ingredient-class total -->
+<div id="wm2-actual-breakdown-modal" aria-hidden="true">
+  <div class="overlay" data-actual-breakdown-close></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="wm2-actual-breakdown-title">
+    <div class="panel-header">
+      <div>
+        <h3 id="wm2-actual-breakdown-title" class="font-semibold">実績の内訳</h3>
+        <p id="wm2-actual-breakdown-description" class="mt-1 text-xs text-gray-500"></p>
+      </div>
+      <button type="button" class="text-gray-500" data-actual-breakdown-close aria-label="閉じる">✕</button>
+    </div>
+    <div class="panel-body" id="wm2-actual-breakdown-body"></div>
   </div>
 </div>
 
@@ -1014,6 +1046,11 @@
   (function(){
     const WEEKDAY = ['月','火','水','木','金','土','日'];
     const lookup = window.weekMenuData && window.weekMenuData.menuLookup || {};
+    const normalizeServingMultiplier = (value) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return 1;
+      return Math.round(Math.max(0.1, Math.min(99, parsed)) * 10) / 10;
+    };
     const arrangeBaseMenuIdSet = new Set(
       Object.values(lookup || {})
         .map((menu) => (menu && menu.menuType === 'arrange' && menu.arrangeBaseMenu) ? String(menu.arrangeBaseMenu) : '')
@@ -1638,7 +1675,9 @@
       const title = document.getElementById('wm2-shortage-menu-title');
       const description = document.getElementById('wm2-shortage-menu-description');
       const body = document.getElementById('wm2-shortage-menu-body');
-      if (!modal || !title || !description || !body) return;
+      const kindSelect = document.getElementById('wm2-shortage-menu-kind');
+      const count = document.getElementById('wm2-shortage-menu-count');
+      if (!modal || !title || !description || !body || !kindSelect || !count) return;
 
       const participantCount = Math.max(1, Number(snapshot?.participantCount) || defaultIds().length || 1);
       const menuUsesClassification = (menu) => {
@@ -1662,15 +1701,35 @@
 
       title.textContent = `${classification}を補うメニュー`;
       description.textContent = `${snapshot?.targetLabel || '表示中の日'}の朝食・ランチ・夕食へ追加できます。`;
-      body.innerHTML = '';
-      if (!candidates.length) {
-        const empty = document.createElement('p');
-        empty.className = 'py-8 text-center text-sm text-gray-500';
-        empty.textContent = 'この食材分類を使用しているメニューが見つかりませんでした。';
-        body.appendChild(empty);
-      }
+      const kinds = Array.from(new Set(candidates.map(({ menu }) => String(menu.kind || '').trim()).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, 'ja'));
+      kindSelect.innerHTML = '<option value="">すべての種類</option>';
+      kindSelect.disabled = false;
+      kinds.forEach((kind) => {
+        const option = document.createElement('option');
+        option.value = kind;
+        option.textContent = kind;
+        kindSelect.appendChild(option);
+      });
 
-      candidates.forEach(({ menu, grams }) => {
+      const renderCandidates = () => {
+        const selectedKind = kindSelect.value || '';
+        const filtered = selectedKind
+          ? candidates.filter(({ menu }) => String(menu.kind || '').trim() === selectedKind)
+          : candidates;
+        count.textContent = `${filtered.length}件表示 / 全${candidates.length}件`;
+        body.innerHTML = '';
+        if (!filtered.length) {
+          const empty = document.createElement('p');
+          empty.className = 'py-8 text-center text-sm text-gray-500';
+          empty.textContent = candidates.length
+            ? '選択した種類に該当するメニューがありません。'
+            : 'この食材分類を使用しているメニューが見つかりませんでした。';
+          body.appendChild(empty);
+          return;
+        }
+
+        filtered.forEach(({ menu, grams }) => {
         const item = document.createElement('div');
         item.className = 'wm2-shortage-menu-item';
 
@@ -1728,6 +1787,10 @@
         item.append(thumb, info, actions);
         body.appendChild(item);
       });
+      };
+      kindSelect.onchange = renderCandidates;
+      kindSelect.value = '';
+      renderCandidates();
 
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
@@ -1737,10 +1800,15 @@
       if (!classification || !snapshot) return;
       const modal = document.getElementById('wm2-shortage-menu-modal');
       const body = document.getElementById('wm2-shortage-menu-body');
-      if (!modal || !body) return;
+      const kindSelect = document.getElementById('wm2-shortage-menu-kind');
+      const count = document.getElementById('wm2-shortage-menu-count');
+      if (!modal || !body || !kindSelect || !count) return;
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('overflow-hidden');
+      kindSelect.innerHTML = '<option value="">すべての種類</option>';
+      kindSelect.disabled = true;
+      count.textContent = '';
       body.innerHTML = '<p class="py-8 text-center text-sm text-gray-500">メニューを読み込んでいます...</p>';
       const loaded = await ensureIngredientMeta();
       if (!loaded) {
@@ -1753,7 +1821,10 @@
       button.addEventListener('click', closeShortageMenuModal);
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeShortageMenuModal();
+      if (event.key === 'Escape') {
+        closeShortageMenuModal();
+        closeActualBreakdownModal();
+      }
     });
     const renderShortageSuggestions = async (container, snapshot, btn) => {
       if (!container) return;
@@ -2410,6 +2481,7 @@
         cook: m.cook || '',
         junle: m.junle || '',
         prepExtra: Math.max(0, Number(slot?.prepExtra) || 0),
+        servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier),
         shopName,
         shopUrl,
         detail,
@@ -2510,6 +2582,40 @@
       return wrap;
     }
 
+    const createServingControl = (dayIndex, mealType, slotIndex, slot, compact = false) => {
+      const label = document.createElement('label');
+      label.className = compact
+        ? 'inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700'
+        : 'inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-800';
+      const text = document.createElement('span');
+      text.textContent = '数量';
+      ['click', 'pointerdown', 'mousedown'].forEach((eventName) => {
+        label.addEventListener(eventName, (event) => event.stopPropagation());
+      });
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0.1';
+      input.max = '99';
+      input.step = '0.1';
+      input.value = String(normalizeServingMultiplier(slot?.servingMultiplier));
+      input.setAttribute('aria-label', 'メニューの数量');
+      input.className = `${compact ? 'w-12' : 'w-14'} rounded border border-violet-200 bg-white px-1.5 py-0.5 text-right text-xs text-gray-900`;
+      ['click', 'pointerdown', 'mousedown'].forEach((eventName) => {
+        input.addEventListener(eventName, (event) => event.stopPropagation());
+      });
+      input.addEventListener('keydown', (event) => event.stopPropagation());
+      input.addEventListener('change', () => {
+        const value = normalizeServingMultiplier(input.value);
+        input.value = String(value);
+        const api = window.weekMenuAPI || {};
+        if (!api.setServingMultiplier || !api.setServingMultiplier(dayIndex, mealType, slotIndex, value)) {
+          input.value = String(normalizeServingMultiplier(slot?.servingMultiplier));
+        }
+      });
+      label.append(text, input);
+      return label;
+    };
+
     function renderDay(){
       const leftTitle = document.getElementById('wm2-left-title');
       const rightTitle = document.getElementById('wm2-right-title');
@@ -2561,6 +2667,7 @@
             <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
             <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
             <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
+          actions.prepend(createServingControl(sel, mealType, idx, slot));
           const card = cardEl(row);
           // Add DO overlay button at image bottom-right on past/today
           try {
@@ -2626,6 +2733,7 @@
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"shuffle\" title=\"再提案\"><span class=\"sr-only\">再提案</span><span class=\"lucide w-4 h-4\" data-lucide=\"refresh-ccw\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN}\" data-action=\"change\" title=\"探す\"><span class=\"sr-only\">探す</span><span class=\"lucide w-4 h-4\" data-lucide=\"search\"></span></button>
           <button type=\"button\" class=\"${ICON_BTN} text-red-700 border-red-500 bg-red-50 hover:border-red-600 hover:text-red-800 hover:bg-red-100 focus:ring-red-200\" data-action=\"clear-slot\" title=\"メニューを未選択にする\"><span class=\"sr-only\">メニューを未選択にする</span><span class=\"lucide w-4 h-4\" data-lucide=\"x-circle\"></span></button>`;
+        actions.prepend(createServingControl(sel, 'dinner', i, slot));
         const card = cardEl(row);
         // Add DO overlay button at image bottom-right on past/today
         try {
@@ -2677,7 +2785,11 @@
         if (!slot) return;
         const menu = slot?.menuId && lookup[slot.menuId] ? lookup[slot.menuId] : (slot?.menu || null);
         if (!menu || slot?.dineOut) return;
-        buckets[bucketKey].push({ menu, extra: Math.max(0, Number(slot?.prepExtra) || 0) });
+        buckets[bucketKey].push({
+          menu,
+          extra: Math.max(0, Number(slot?.prepExtra) || 0),
+          servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier)
+        });
       };
       if (Array.isArray(dayObj?.breakfastSlots)) {
         dayObj.breakfastSlots.forEach((slot) => addSlot(slot, 'breakfast'));
@@ -2716,47 +2828,60 @@
         const val = parseFloat(amount);
         map.set(key, Number.isNaN(val) ? prev : prev + val);
       };
-      const appendEntry = (collector, it, scaled, people) => {
+      const appendEntry = (collector, it, scaled, people, menuMeta = {}) => {
         collector.push({
           id: it?.id ? String(it.id) : '',
           name: it?.name || '',
           classification: it?.classification || '',
           unit: it?.unit || '',
           amount: scaled,
-          people: Math.max(1, Number(people) || 1)
+          people: Math.max(1, Number(people) || 1),
+          menuId: menuMeta.menuId || '',
+          menuName: menuMeta.menuName || '',
+          planMenuName: menuMeta.planMenuName || '',
+          mealType: menuMeta.mealType || '',
+          dayIndex
         });
       };
-      const applyMenus = (entries, people) => {
+      const applyMenus = (entries, people, mealType) => {
         (entries || []).forEach((entry) => {
           const m = entry && entry.menu ? entry.menu : entry;
           if (!m) return;
           const extra = Math.max(0, Number(entry && entry.extra) || 0);
+          const servingMultiplier = normalizeServingMultiplier(entry?.servingMultiplier);
           const menusToApply = (m.menuType === 'set' && Array.isArray(m.setMenus) && m.setMenus.length)
             ? [m, ...m.setMenus]
             : [m];
           menusToApply.forEach((targetMenu) => {
             if (!targetMenu) return;
+            const menuMeta = {
+              menuId: targetMenu.id || m.id || '',
+              menuName: targetMenu.name || m.name || '',
+              planMenuName: m.name || '',
+              mealType
+            };
             const basePeople = Number(targetMenu.people) > 0 ? Number(targetMenu.people) : 1;
-            const multiplier = (people + extra) > 0 ? ((people + extra) / basePeople) : 1;
+            const peopleMultiplier = (people + extra) > 0 ? ((people + extra) / basePeople) : 1;
+            const multiplier = peopleMultiplier * servingMultiplier;
             (Array.isArray(targetMenu.ingredients) ? targetMenu.ingredients : []).forEach((it) => {
               const raw = Number(it?.amount);
               const scaled = raw * multiplier;
               addAmount(agg.ingredients, it?.name || '', scaled, it?.unit);
-              if (!Number.isNaN(raw)) appendEntry(classEntries, it, scaled, people);
+              if (!Number.isNaN(raw)) appendEntry(classEntries, it, scaled, people, menuMeta);
             });
             (Array.isArray(targetMenu.seasoning) ? targetMenu.seasoning : []).forEach((it) => {
               const raw = Number(it?.amount);
               if (Number.isNaN(raw)) return;
               const scaled = raw * multiplier;
               addAmount(agg.seasonings, it?.name || '', scaled, it?.unit);
-              appendEntry(seasoningClassEntries, it, scaled, people);
+              appendEntry(seasoningClassEntries, it, scaled, people, menuMeta);
             });
           });
         });
       };
-      applyMenus(buckets.breakfast, counts.breakfast);
-      applyMenus(buckets.lunch, counts.lunch);
-      applyMenus(buckets.dinner, counts.dinner);
+      applyMenus(buckets.breakfast, counts.breakfast, 'breakfast');
+      applyMenus(buckets.lunch, counts.lunch, 'lunch');
+      applyMenus(buckets.dinner, counts.dinner, 'dinner');
       return { agg, classEntries, seasoningClassEntries, participants: counts };
     }
 
@@ -2846,7 +2971,8 @@
         participantCount: participantMax || defaultIds().length || 1,
         participantIds,
         selectedIndex: safeIndex,
-        allowShortageMenuSelection: true
+        allowShortageMenuSelection: true,
+        allowActualBreakdown: true
       });
       latestRequirementsSnapshot = {
         entries: combinedEntries,
@@ -3066,6 +3192,84 @@
       renderSetMenuModal(menu);
     };
 
+    const closeActualBreakdownModal = () => {
+      const modal = document.getElementById('wm2-actual-breakdown-modal');
+      if (!modal) return;
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('overflow-hidden');
+    };
+    const openActualBreakdownModal = (classification, entries, seasoningEntries, options = {}) => {
+      const modal = document.getElementById('wm2-actual-breakdown-modal');
+      const title = document.getElementById('wm2-actual-breakdown-title');
+      const description = document.getElementById('wm2-actual-breakdown-description');
+      const body = document.getElementById('wm2-actual-breakdown-body');
+      if (!modal || !title || !description || !body) return;
+
+      const rows = new Map();
+      const addEntry = (entry, type) => {
+        const cls = type === 'seasoning'
+          ? resolveSeasoningClass(entry?.id, entry?.name, entry?.classification || '')
+          : resolveIngredientClass(entry?.id, entry?.name, entry?.classification || '');
+        if (cls !== classification) return;
+        const grams = type === 'seasoning'
+          ? convertSeasoningEntryToGrams(entry)
+          : convertEntryToGrams(entry);
+        if (typeof grams !== 'number' || Number.isNaN(grams)) return;
+        const perPerson = grams / Math.max(1, Number(entry?.people) || 1);
+        const dayIndex = Number.isInteger(Number(entry?.dayIndex)) ? Number(entry.dayIndex) : -1;
+        const mealType = entry?.mealType || '';
+        const menuName = entry?.menuName || 'メニュー名未設定';
+        const planMenuName = entry?.planMenuName || '';
+        const key = `${dayIndex}:${mealType}:${planMenuName}:${menuName}`;
+        const current = rows.get(key) || { dayIndex, mealType, menuName, planMenuName, grams: 0 };
+        current.grams += perPerson;
+        rows.set(key, current);
+      };
+      (entries || []).forEach((entry) => addEntry(entry, 'ingredient'));
+      (seasoningEntries || []).forEach((entry) => addEntry(entry, 'seasoning'));
+      const breakdown = Array.from(rows.values()).sort((a, b) => a.dayIndex - b.dayIndex || b.grams - a.grams);
+      const total = breakdown.reduce((sum, row) => sum + row.grams, 0);
+
+      title.textContent = `${classification}の実績内訳`;
+      description.textContent = `${options.targetLabel || '表示中の期間'} / 1人あたり合計 ${Math.round(total)}g`;
+      body.innerHTML = '';
+      if (!breakdown.length) {
+        body.innerHTML = '<p class="py-8 text-center text-sm text-gray-500">内訳を表示できるメニューがありません。</p>';
+      } else {
+        const list = document.createElement('div');
+        list.className = 'divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white';
+        const mealLabels = { breakfast: '朝食', lunch: 'ランチ', dinner: '夕食' };
+        breakdown.forEach((row) => {
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between gap-4 px-4 py-3';
+          const info = document.createElement('div');
+          const menuName = document.createElement('p');
+          menuName.className = 'text-sm font-semibold text-gray-900';
+          menuName.textContent = row.planMenuName && row.planMenuName !== row.menuName
+            ? `${row.planMenuName}（${row.menuName}）`
+            : row.menuName;
+          const context = document.createElement('p');
+          context.className = 'mt-1 text-xs text-gray-500';
+          const dayLabel = row.dayIndex >= 0 ? getDateLabel(row.dayIndex) : '';
+          context.textContent = [dayLabel, mealLabels[row.mealType] || ''].filter(Boolean).join(' / ');
+          info.append(menuName, context);
+          const grams = document.createElement('span');
+          grams.className = 'whitespace-nowrap text-sm font-bold text-blue-700';
+          grams.textContent = `${Math.round(row.grams * 10) / 10}g`;
+          item.append(info, grams);
+          list.appendChild(item);
+        });
+        body.appendChild(list);
+      }
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('overflow-hidden');
+    };
+    document.querySelectorAll('#wm2-actual-breakdown-modal [data-actual-breakdown-close]').forEach((button) => {
+      button.addEventListener('click', closeActualBreakdownModal);
+    });
+
     function renderClassSummary(target, entries, formatQty, token, options = {}){
       if (!target) return;
       target.innerHTML = '';
@@ -3217,6 +3421,21 @@
         } else {
           shortageCol.textContent = shortageText;
         }
+        const actualCol = buildValue('', 'text-blue-600');
+        if (actualVal > 0 && options.allowActualBreakdown) {
+          const actualButton = document.createElement('button');
+          actualButton.type = 'button';
+          actualButton.className = 'rounded-full px-2 py-1 text-blue-600 underline decoration-dotted underline-offset-2 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300';
+          actualButton.textContent = formatWhole(actualVal);
+          actualButton.title = `${cls}のメニュー別内訳を見る`;
+          actualButton.setAttribute('aria-label', `${cls}の実績${Math.round(actualVal)}gのメニュー別内訳を見る`);
+          actualButton.addEventListener('click', () => {
+            openActualBreakdownModal(cls, entries, seasoningEntries, options);
+          });
+          actualCol.appendChild(actualButton);
+        } else {
+          actualCol.textContent = formatWhole(actualVal);
+        }
 
         const labelCell = document.createElement('td');
         labelCell.className = 'py-1';
@@ -3225,7 +3444,7 @@
         row.append(
           labelCell,
           buildValue(formatWhole(requiredVal)),
-          buildValue(formatWhole(actualVal), 'text-blue-600'),
+          actualCol,
           shortageCol
         );
         tbody.appendChild(row);
@@ -3266,7 +3485,7 @@
         }
         thumb.textContent = 'no image';
       };
-      const makeWeekCard = (row, dayIndex, mealKey, slotIndex) => {
+      const makeWeekCard = (row, dayIndex, mealKey, slotIndex, slot) => {
         const item = document.createElement('div');
         item.tabIndex = 0;
         item.setAttribute('role', 'button');
@@ -3299,7 +3518,7 @@
           name.dataset.weekRecipeLink = '';
           name.title = `${row.name || 'メニュー'}のレシピを開く`;
         }
-        item.append(thumbNode, name);
+        item.append(thumbNode, name, createServingControl(dayIndex, mealKey, slotIndex, slot, true));
         item.addEventListener('click', (event) => {
           if (event.target.closest('[data-week-recipe-link]')) return;
           sel = dayIndex;
@@ -3336,7 +3555,7 @@
         slots.forEach((slot, index) => {
           const row = rowFromSlot(slot);
           if (!row.hasMenu) return;
-          const card = makeWeekCard(row, dayIndex, mealKey, index);
+          const card = makeWeekCard(row, dayIndex, mealKey, index, slot);
           list.appendChild(card);
         });
         container.appendChild(list);
