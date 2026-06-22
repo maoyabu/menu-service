@@ -575,6 +575,24 @@
           <% }); %>
         </div>
       </div>
+      <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h4 class="font-semibold text-blue-700">カレンダーの始まり</h4>
+            <p class="mt-1 text-xs text-gray-500">7 DAYS PLAN内の月間カレンダーに適用されます。</p>
+          </div>
+          <div class="inline-flex rounded-lg border border-blue-200 bg-white p-1" role="radiogroup" aria-label="カレンダーの開始曜日">
+            <label class="cursor-pointer rounded-md px-3 py-1.5 text-sm has-[:checked]:bg-blue-600 has-[:checked]:text-white">
+              <input type="radio" name="calendarWeekStart" value="monday" data-weekmenu-settings-calendar-start class="sr-only">
+              月曜日
+            </label>
+            <label class="cursor-pointer rounded-md px-3 py-1.5 text-sm has-[:checked]:bg-blue-600 has-[:checked]:text-white">
+              <input type="radio" name="calendarWeekStart" value="sunday" data-weekmenu-settings-calendar-start class="sr-only">
+              日曜日
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="grid md:grid-cols-2 gap-4">
         <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
           <div class="flex items-center justify-between">
@@ -735,6 +753,7 @@
     const dailyMailTimeEl = modal.querySelector('[data-weekmenu-settings-daily-mail-time]');
     const floatingEnabledEl = modal.querySelector('[data-weekmenu-settings-floating-enabled]');
     const floatingListEl = modal.querySelector('[data-weekmenu-settings-floating-list]');
+    const calendarStartEls = modal.querySelectorAll('[data-weekmenu-settings-calendar-start]');
     const ratioKeys = ['japanese', 'western', 'chinese', 'other'];
 
     const defaults = {
@@ -779,7 +798,8 @@
       lunchFilterEnabled: true,
       dinnerFilterEnabled: true,
       floatingMenuEnabled: false,
-      floatingMenuItems: ['my-top', 'current-week', 'shopping-list', 'my-menu']
+      floatingMenuItems: ['my-top', 'current-week', 'shopping-list', 'my-menu'],
+      calendarWeekStart: 'monday'
     };
 
     let cachedMenus = [];
@@ -841,7 +861,8 @@
         lunchFilterEnabled: raw?.lunchFilterEnabled !== false,
         dinnerFilterEnabled: raw?.dinnerFilterEnabled !== false,
         floatingMenuEnabled: raw?.floatingMenuEnabled === true,
-        floatingMenuItems: toArray(raw?.floatingMenuItems).length ? toArray(raw?.floatingMenuItems) : defaults.floatingMenuItems.slice()
+        floatingMenuItems: toArray(raw?.floatingMenuItems).length ? toArray(raw?.floatingMenuItems) : defaults.floatingMenuItems.slice(),
+        calendarWeekStart: raw?.calendarWeekStart === 'sunday' ? 'sunday' : 'monday'
       };
     };
 
@@ -968,6 +989,9 @@
           input.checked = selectedItems.has(input.value);
         });
       }
+      calendarStartEls.forEach((input) => {
+        input.checked = input.value === settings.calendarWeekStart;
+      });
       renderList(breakfastListEl, cachedMenus, breakfastSelected, breakfastSearchEl?.value || '');
       renderList(lunchListEl, cachedMenus, lunchSelected, lunchSearchEl?.value || '');
       renderList(dinnerListEl, cachedMenus, dinnerSelected, dinnerSearchEl?.value || '');
@@ -1036,7 +1060,8 @@
             lunchFilterEnabled: lunchEnabledEl ? lunchEnabledEl.checked : true,
             dinnerFilterEnabled: dinnerEnabledEl ? dinnerEnabledEl.checked : true,
             floatingMenuEnabled: floatingEnabledEl ? floatingEnabledEl.checked : false,
-            floatingMenuItems: selectedFloatingItems
+            floatingMenuItems: selectedFloatingItems,
+            calendarWeekStart: modal.querySelector('[data-weekmenu-settings-calendar-start]:checked')?.value || 'monday'
           };
           const res = await fetch('/users/week-menu/settings', {
             method: 'POST',
@@ -1045,12 +1070,14 @@
           });
           if (!res.ok) throw new Error('save failed');
           const json = await res.json();
+          const calendarStartChanged = (cachedSettings?.calendarWeekStart || 'monday') !== payload.calendarWeekStart;
           cachedSettings = normalizeSettings(json.settings || payload);
           if (window.weekMenuData) {
             window.weekMenuData.menuFilterSettings = cachedSettings;
           }
           window.dispatchEvent(new CustomEvent('floating-menu:settings-changed', { detail: cachedSettings }));
           closeModal();
+          if (calendarStartChanged) window.location.reload();
         } catch (e) {
           if (errorEl) {
             errorEl.textContent = '設定の保存に失敗しました。';

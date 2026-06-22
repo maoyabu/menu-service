@@ -594,7 +594,8 @@
 
       <div class="space-y-4">
         <div id="weekly-plan-day-buttons" class="grid grid-cols-7 gap-2">
-          <% weekPlanOverview.forEach((day) => { %>
+          <% const weekPlanDisplayOrder = calendarWeekStart === 'sunday' ? [6, 0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6]; %>
+          <% weekPlanDisplayOrder.map((index) => weekPlanOverview[index]).filter(Boolean).forEach((day) => { %>
             <button
               type="button"
               class="weekly-day-button"
@@ -774,13 +775,10 @@
       </header>
 
       <div class="grid grid-cols-7 gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        <span class="text-center">月</span>
-        <span class="text-center">火</span>
-        <span class="text-center">水</span>
-        <span class="text-center">木</span>
-        <span class="text-center">金</span>
-        <span class="text-center">土</span>
-        <span class="text-center">日</span>
+        <% const calendarWeekdays = calendarWeekStart === 'sunday' ? ['日', '月', '火', '水', '木', '金', '土'] : ['月', '火', '水', '木', '金', '土', '日']; %>
+        <% calendarWeekdays.forEach((weekday) => { %>
+          <span class="text-center"><%= weekday %></span>
+        <% }); %>
       </div>
 
       <div id="plan-calendar-grid" class="plan-calendar-grid text-sm text-gray-600">
@@ -905,14 +903,16 @@
     todayISO: <%- serialize(todayISO || '') %>,
     apiBase: '/users/api/week-plans',
     weekMenuBaseUrl: '/users/week-menu',
-    currentWeekLink: <%- serialize(currentWeekLink || '') %>
+    currentWeekLink: <%- serialize(currentWeekLink || '') %>,
+    calendarWeekStart: <%- serialize(typeof calendarWeekStart !== 'undefined' ? calendarWeekStart : 'monday') %>
   };
 </script>
 
 <script>
   window.myTopWeekPlanData = {
     days: <%- serialize(weekPlanOverview || []) %>,
-    defaultDayIndex: <%= typeof defaultWeekDayIndex !== 'undefined' ? defaultWeekDayIndex : 0 %>
+    defaultDayIndex: <%= typeof defaultWeekDayIndex !== 'undefined' ? defaultWeekDayIndex : 0 %>,
+    calendarWeekStart: <%- serialize(typeof calendarWeekStart !== 'undefined' ? calendarWeekStart : 'monday') %>
   };
 </script>
 

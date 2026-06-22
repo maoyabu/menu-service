@@ -657,13 +657,10 @@
       </header>
 
       <div class="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-        <span class="text-center">月</span>
-        <span class="text-center">火</span>
-        <span class="text-center">水</span>
-        <span class="text-center">木</span>
-        <span class="text-center">金</span>
-        <span class="text-center">土</span>
-        <span class="text-center">日</span>
+        <% const wm2CalendarWeekdays = weekMenuSettings?.calendarWeekStart === 'sunday' ? ['日', '月', '火', '水', '木', '金', '土'] : ['月', '火', '水', '木', '金', '土', '日']; %>
+        <% wm2CalendarWeekdays.forEach((weekday) => { %>
+          <span class="text-center"><%= weekday %></span>
+        <% }); %>
       </div>
 
       <div id="plan-calendar-grid" class="plan-calendar-grid text-[12px] text-gray-600">
@@ -1058,6 +1055,13 @@
     );
     const catConfig = window.weekMenuData && window.weekMenuData.categoryConfig || {};
     const WEEK = Array.isArray(window.weekMenuData?.weekDates) ? window.weekMenuData.weekDates : <%- JSON.stringify(weekDates || []) %>;
+    const DAY_DISPLAY_ORDER = window.weekMenuData?.calendarWeekStart === 'sunday'
+      ? [6, 0, 1, 2, 3, 4, 5]
+      : [0, 1, 2, 3, 4, 5, 6];
+    const dayDisplayRank = (dayIndex) => {
+      const rank = DAY_DISPLAY_ORDER.indexOf(Number(dayIndex));
+      return rank >= 0 ? rank : Number(dayIndex);
+    };
     const DO_RECS = Array.isArray(window.weekMenuData?.doRecords) ? window.weekMenuData.doRecords : [];
     const DO_SET = new Set(DO_RECS.map((r) => {
       const d = (r && r.dateISO) ? String(r.dateISO) : '';
@@ -1073,6 +1077,10 @@
     const currentUserId = (window.weekMenuData && window.weekMenuData.currentUserId) || '';
     const groupUsers = Array.isArray(window.weekMenuData?.currentGroupUsers) ? window.weekMenuData.currentGroupUsers : [];
     const participantsByMeal = (window.weekMenuData && window.weekMenuData.participantsByMeal) || {};
+    const getPlanIdForDay = (dayIndex) => {
+      const day = (window.weekMenuData?.planSnapshot || window.weekMenuData?.plan || [])[dayIndex];
+      return day?.sourcePlanId || window.weekMenuData?.planId || planId || '';
+    };
     const enableRequirementsPanel = true;
     const requestedViewMode = new URL(window.location.href).searchParams.get('view');
     let currentViewMode = requestedViewMode === 'week' ? 'week' : 'detail';
@@ -2035,7 +2043,7 @@
             await window.weekMenuAPI.saveWeekPlanSilently();
           }
         }
-        const latestPlanId = (window.weekMenuData && window.weekMenuData.planId) || planId;
+        const latestPlanId = getPlanIdForDay(day);
         if (!latestPlanId) throw new Error('プランIDが未確定のため保存できません');
         let endpoint = '/users/week-menu/participants';
         let body = null;
@@ -2092,7 +2100,7 @@
     // モーダルからの送信（理由付きの自分削除）を受け付ける
     window.__wm2_submitRemove = async (day, meal, reasonText) => {
       try {
-        const latestPlanId = (window.weekMenuData && window.weekMenuData.planId) || planId;
+        const latestPlanId = getPlanIdForDay(day);
         if (!latestPlanId) throw new Error('プランIDが未確定のため保存できません');
         const res = await fetch('/users/week-menu/participants', {
           method: 'POST',
@@ -2256,7 +2264,9 @@
 
     function buildPills(){
       const row = document.getElementById('wm2-days'); if (!row) return; row.innerHTML='';
-      (WEEK||[]).forEach((d,idx)=>{
+      DAY_DISPLAY_ORDER.forEach((idx)=>{
+        const d = WEEK[idx];
+        if (!d) return;
         const f=toLabel(d); const b=document.createElement('button'); b.type='button'; b.className='day-pill'; b.dataset.index=String(idx); b.dataset.active= String(idx===sel);
         b.innerHTML = `<div class="text-xs">${f.dow}</div><div class="day-date">${f.disp}</div>`;
         row.appendChild(b);
@@ -2289,13 +2299,16 @@
       if (!dndDayTargets || !dndDayList || !payload) return;
       dndDayList.innerHTML = '';
       if (dndDayTitle) dndDayTitle.textContent = `${mealLabelForDrag(payload.fromMeal)}の移動先`;
-      (WEEK || []).forEach((entry, idx) => {
+      DAY_DISPLAY_ORDER.forEach((idx) => {
+        const entry = WEEK[idx];
+        if (!entry) return;
         const info = toLabel(entry);
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dnd-day';
         btn.dataset.dropDay = String(idx);
         btn.dataset.active = String(idx === Number(payload.fromDay));
+        btn.disabled = getPlanData()[idx]?.isPreviousWeekDay === true;
         btn.innerHTML = `<span>${info.dow || WEEKDAY[idx] || ''}</span><span>${info.disp || ''}</span>`;
         dndDayList.appendChild(btn);
       });
@@ -2433,6 +2446,8 @@
         const targetItem = closestEl(event.target, '.wm2-draggable');
         if (targetItem) toIndex = Number(targetItem.dataset.dragIndex);
       }
+      const planForDrop = getPlanData();
+      if (planForDrop[payload.fromDay]?.isPreviousWeekDay || planForDrop[toDay]?.isPreviousWeekDay) return;
       event.preventDefault();
       document.querySelectorAll('.wm2-drop-target').forEach((el) => el.classList.remove('wm2-drop-target'));
       hideDndDayTargets();
@@ -2777,6 +2792,17 @@
       if (window.refreshLucideIcons) window.refreshLucideIcons();
 
       renderRequirementsForDay(day, requirementsMode, sel);
+      const main = document.getElementById('wm2-main');
+      const isPreviousSunday = day?.isPreviousWeekDay === true;
+      if (main) {
+        main.dataset.readonlyDay = String(isPreviousSunday);
+        main.querySelectorAll('button, input, select, textarea').forEach((control) => {
+          control.disabled = isPreviousSunday;
+        });
+      }
+      if (isPreviousSunday && leftTitle) {
+        leftTitle.textContent += '（前週PLAN・参照のみ）';
+      }
     }
 
     function collectMealEntries(dayObj){
@@ -3228,7 +3254,7 @@
       };
       (entries || []).forEach((entry) => addEntry(entry, 'ingredient'));
       (seasoningEntries || []).forEach((entry) => addEntry(entry, 'seasoning'));
-      const breakdown = Array.from(rows.values()).sort((a, b) => a.dayIndex - b.dayIndex || b.grams - a.grams);
+      const breakdown = Array.from(rows.values()).sort((a, b) => dayDisplayRank(a.dayIndex) - dayDisplayRank(b.dayIndex) || b.grams - a.grams);
       const total = breakdown.reduce((sum, row) => sum + row.grams, 0);
 
       title.textContent = `${classification}の実績内訳`;
@@ -3490,7 +3516,7 @@
         item.tabIndex = 0;
         item.setAttribute('role', 'button');
         item.className = 'wm2-week-slot wm2-draggable';
-        item.draggable = true;
+        item.draggable = plan[dayIndex]?.isPreviousWeekDay !== true;
         item.dataset.dragDay = String(dayIndex);
         item.dataset.dragMeal = mealKey;
         item.dataset.dragIndex = String(slotIndex);
@@ -3561,7 +3587,9 @@
         container.appendChild(list);
       };
 
-      (WEEK || []).forEach((entry, dayIndex) => {
+      DAY_DISPLAY_ORDER.forEach((dayIndex) => {
+        const entry = WEEK[dayIndex];
+        if (!entry) return;
         const day = plan[dayIndex] || {};
         const dayCard = document.createElement('div');
         dayCard.className = `wm2-week-day${dayIndex === sel ? ' is-selected' : ''}`;

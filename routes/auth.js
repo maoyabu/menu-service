@@ -99,7 +99,8 @@ const WEEK_MENU_SETTINGS_DEFAULTS = {
   lunchFilterEnabled: true,
   dinnerFilterEnabled: true,
   floatingMenuEnabled: false,
-  floatingMenuItems: ['my-top', 'current-week', 'shopping-list', 'my-menu']
+  floatingMenuItems: ['my-top', 'current-week', 'shopping-list', 'my-menu'],
+  calendarWeekStart: 'monday'
 };
 
 const FLOATING_MENU_ITEM_IDS = new Set([
@@ -208,7 +209,8 @@ const normalizeWeekMenuSettings = (raw = {}) => {
     floatingMenuEnabled: raw.floatingMenuEnabled === true || String(raw.floatingMenuEnabled) === 'true',
     floatingMenuItems: toArray(raw.floatingMenuItems).filter((id) => FLOATING_MENU_ITEM_IDS.has(id)).length
       ? toArray(raw.floatingMenuItems).filter((id) => FLOATING_MENU_ITEM_IDS.has(id))
-      : WEEK_MENU_SETTINGS_DEFAULTS.floatingMenuItems.slice()
+      : WEEK_MENU_SETTINGS_DEFAULTS.floatingMenuItems.slice(),
+    calendarWeekStart: raw.calendarWeekStart === 'sunday' ? 'sunday' : 'monday'
   };
 };
 
@@ -827,6 +829,14 @@ const startOfWeek = (value) => {
   const date = startOfDay(value);
   const day = date.getDay(); // 0 (Sun) ... 6 (Sat)
   const offset = (day + 6) % 7; // convert Sunday->6, Monday->0
+  date.setDate(date.getDate() - offset);
+  return date;
+};
+
+const startOfCalendarWeek = (value, calendarWeekStart = 'monday') => {
+  const date = startOfDay(value);
+  const day = date.getDay();
+  const offset = calendarWeekStart === 'sunday' ? day : (day + 6) % 7;
   date.setDate(date.getDate() - offset);
   return date;
 };
@@ -2272,7 +2282,8 @@ router.post('/users/week-menu/settings', isLoggedIn, async (req, res) => {
       lunchFilterEnabled: req.body?.lunchFilterEnabled !== false && String(req.body?.lunchFilterEnabled) !== 'false',
       dinnerFilterEnabled: req.body?.dinnerFilterEnabled !== false && String(req.body?.dinnerFilterEnabled) !== 'false',
       floatingMenuEnabled: req.body?.floatingMenuEnabled === true || String(req.body?.floatingMenuEnabled) === 'true',
-      floatingMenuItems: toArray(req.body?.floatingMenuItems).filter((id) => FLOATING_MENU_ITEM_IDS.has(id))
+      floatingMenuItems: toArray(req.body?.floatingMenuItems).filter((id) => FLOATING_MENU_ITEM_IDS.has(id)),
+      calendarWeekStart: req.body?.calendarWeekStart === 'sunday' ? 'sunday' : 'monday'
     };
 
     await User.findByIdAndUpdate(req.user._id, { weekMenuSettings: payload });
@@ -2568,6 +2579,8 @@ router.post('/users/week-menu/apply-template', isLoggedIn, async (req, res) => {
 // Unified 7 DAYS PLAN view
 router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
   try {
+    const calendarSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings.calendarWeekStart').lean();
+    const calendarWeekStartPreference = normalizeWeekMenuSettings(calendarSettingsDoc?.weekMenuSettings || {}).calendarWeekStart;
     const configKindSet = new Set();
     Object.values(CATEGORY_CONFIG).forEach((config) => {
       (config.kinds || []).forEach((kind) => {
@@ -2643,7 +2656,9 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     if (weekStartParam) {
       const parsed = startOfDay(weekStartParam);
       if (!Number.isNaN(parsed.getTime())) {
-        requestedWeekStart = startOfWeek(parsed);
+        requestedWeekStart = calendarWeekStartPreference === 'sunday'
+          ? startOfWeek(addDays(startOfCalendarWeek(parsed, 'sunday'), 1))
+          : startOfWeek(parsed);
       }
     }
 
@@ -2785,6 +2800,15 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     let ingredientSummary = [];
     let seasoningSummary = [];
     let weekDatesForView = [];
+    let previousSundayPlan = null;
+    let canonicalSundayPlan = null;
+
+    if (weekMenuSettings.calendarWeekStart === 'sunday' && currentGroupId && !isModelPlanMode) {
+      previousSundayPlan = await WeeklyMenuPlan.findOne({
+        group: currentGroupId,
+        weekStart: addDays(targetWeekStart, -7)
+      }).lean();
+    }
 
     if (existingPlan) {
       const basePlan = baseWeekDates.map((date, index) => ({
@@ -2814,6 +2838,13 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           }
         });
       });
+      (previousSundayPlan?.dayPlans || [])
+        .filter((dayPlan) => dayPlan?.dayIndex === 6)
+        .forEach((dayPlan) => {
+          (dayPlan.slots || []).forEach((slot) => {
+            if (slot?.menu) menuIdSet.add(slot.menu.toString());
+          });
+        });
 
       if (menuIdSet.size) {
         const menuDocs = await Menu.find({ _id: { $in: Array.from(menuIdSet) } })
@@ -2902,6 +2933,14 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         dateISO: date.toISOString(),
         display: formatDisplayDate(date)
       }));
+      if (weekMenuSettings.calendarWeekStart === 'sunday' && weekDatesForView[6]) {
+        const previousSundayDate = addDays(targetWeekStart, -1);
+        weekDatesForView[6] = {
+          ...weekDatesForView[6],
+          dateISO: previousSundayDate.toISOString(),
+          display: formatDisplayDate(previousSundayDate)
+        };
+      }
     } else {
       const myMenuFrequency = buildMyMenuFrequencyMap(myMenuDocsForGroup);
       const currentSeasonLabel = monthToSeason(new Date().getMonth() + 1);
@@ -2972,6 +3011,64 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         ingredientSummary = [];
         seasoningSummary = [];
       }
+    }
+
+    if (
+      weekMenuSettings.calendarWeekStart === 'sunday'
+      && !isModelPlanMode
+      && plan[6]
+      && !plan[6].isPreviousWeekDay
+    ) {
+      canonicalSundayPlan = JSON.parse(JSON.stringify(plan[6]));
+      const previousSundayDate = addDays(targetWeekStart, -1);
+      const target = {
+        ...plan[6],
+        dateISO: previousSundayDate.toISOString(),
+        breakfastSlots: [],
+        lunchSlots: [],
+        dinner: { staple: null, main: null, side: null, soup: null },
+        dinnerExtras: [],
+        dayComment: '',
+        isPreviousWeekDay: true,
+        sourcePlanId: previousSundayPlan?._id ? String(previousSundayPlan._id) : ''
+      };
+      const sourceDay = (previousSundayPlan?.dayPlans || []).find((entry) => entry?.dayIndex === 6);
+      (sourceDay?.slots || []).forEach((slot) => {
+        const map = SLOT_TYPE_DETAILS[slot?.slotType];
+        if (!map || !slot?.menu) return;
+        const slotData = {
+          menuId: slot.menu.toString(),
+          categoryKey: map.categoryKey,
+          dineOut: !!slot.dineOut,
+          dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+          dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
+          favorite: !!slot.favorite,
+          locked: !!slot.locked,
+          prepExtra: Number.isFinite(Number(slot?.prepExtra)) ? Math.max(0, Math.floor(Number(slot.prepExtra))) : 0,
+          servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier)
+        };
+        if (map.meal === 'breakfast') target.breakfastSlots.push(slotData);
+        else if (map.meal === 'lunch') target.lunchSlots.push(slotData);
+        else if (map.key === 'extras') target.dinnerExtras.push(slotData);
+        else if (!target.dinner[map.key]) target.dinner[map.key] = slotData;
+        else target.dinnerExtras.push(slotData);
+      });
+      const sourceComment = (previousSundayPlan?.dayComments || []).find((entry) => entry?.dayIndex === 6);
+      target.dayComment = typeof sourceComment?.comment === 'string' ? sourceComment.comment : '';
+      plan[6] = target;
+      if (weekDatesForView[6]) {
+        weekDatesForView[6] = {
+          ...weekDatesForView[6],
+          dateISO: previousSundayDate.toISOString(),
+          display: formatDisplayDate(previousSundayDate)
+        };
+      }
+      ingredientSummary = aggregateSummary(plan, menuLookup, 'ingredients');
+      seasoningSummary = aggregateSummary(plan, menuLookup, 'seasoning');
+    }
+
+    if (weekMenuSettings.calendarWeekStart === 'sunday' && !isModelPlanMode) {
+      weekRangeLabel = `${formatDisplayDate(addDays(targetWeekStart, -1))}〜${formatDisplayDate(addDays(targetWeekStart, 5))}`;
     }
 
     let currentGroupName = '';
@@ -3066,6 +3163,15 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         return acc;
       }, {});
     }
+    if (weekMenuSettings.calendarWeekStart === 'sunday' && Array.isArray(previousSundayPlan?.participants)) {
+      previousSundayPlan.participants
+        .filter((entry) => entry?.dayIndex === 6)
+        .forEach((entry) => {
+          participantsMap[`6:${entry.mealType}`] = Array.isArray(entry.users)
+            ? entry.users.map((userId) => String(userId))
+            : [];
+        });
+    }
     // MyMenu ids for current user+group to color hearts
     let myMenuIds = [];
     if (currentGroupId) {
@@ -3087,9 +3193,14 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     // Fetch current user's DO ("これ食べた") records for this week
     let doRecords = [];
     try {
-      if (currentGroupId && Array.isArray(baseWeekDates) && baseWeekDates.length >= 7) {
-        const rangeStart = startOfDay(baseWeekDates[0]);
-        const rangeEnd = startOfDay(baseWeekDates[6]);
+      if (currentGroupId && Array.isArray(weekDatesForView) && weekDatesForView.length >= 7) {
+        const visibleDates = weekDatesForView
+          .map((entry) => startOfDay(entry?.dateISO || entry))
+          .filter((date) => !Number.isNaN(date.getTime()))
+          .sort((a, b) => a.getTime() - b.getTime());
+        const rangeStart = visibleDates[0];
+        const rangeEnd = visibleDates[visibleDates.length - 1];
+        if (!rangeStart || !rangeEnd) throw new Error('表示週の日付が不正です');
         const docs = await MenuDo.find({
           group: currentGroupId,
           recordedBy: req.user?._id,
@@ -3119,6 +3230,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     currentGroupId,
     groupSize,
     existingPlanId,
+    canonicalSundayPlan,
     weekStartISO,
     isHistoricalWeek: targetWeekStart.getTime() < todayWeekStart.getTime(),
     todayISO: today.toISOString(),
@@ -5175,6 +5287,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
 
     const currentGroupId = defaultGroupId || fallbackGroupId || '';
+    const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings.calendarWeekStart').lean();
+    const calendarWeekStart = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {}).calendarWeekStart;
 
     // Next week (来週)
     const baseWeekDates = getNextWeekDates();
@@ -5334,18 +5448,24 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     }).select('_id weekStart weekEnd title').lean();
   }
 
-  const currentWeekStart = startOfWeek(today);
+  const currentCalendarWeekStart = startOfCalendarWeek(today, calendarWeekStart);
+  const currentWeekStart = calendarWeekStart === 'sunday'
+    ? startOfWeek(addDays(currentCalendarWeekStart, 1))
+    : startOfWeek(today);
   const currentWeekDates = getWeekDatesFromStart(currentWeekStart);
   const categoryLabels = Object.fromEntries(
     Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => [key, cfg.label])
   );
 
   let currentWeekPlanDoc = null;
+  let previousSundayPlanDoc = null;
   if (currentGroupId) {
-    currentWeekPlanDoc = await WeeklyMenuPlan.findOne({
-      group: currentGroupId,
-      weekStart: currentWeekStart
-    }).lean();
+    [currentWeekPlanDoc, previousSundayPlanDoc] = await Promise.all([
+      WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: currentWeekStart }).lean(),
+      calendarWeekStart === 'sunday'
+        ? WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: addDays(currentWeekStart, -7) }).lean()
+        : Promise.resolve(null)
+    ]);
   }
 
   const menuIdSet = new Set();
@@ -5357,6 +5477,15 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
         }
       });
     });
+  }
+  if (previousSundayPlanDoc?.dayPlans?.length) {
+    previousSundayPlanDoc.dayPlans
+      .filter((dayPlan) => dayPlan?.dayIndex === 6)
+      .forEach((dayPlan) => {
+        (dayPlan.slots || []).forEach((slot) => {
+          if (slot?.menu) menuIdSet.add(slot.menu.toString());
+        });
+      });
   }
 
   let headerImageItems = [];
@@ -5465,6 +5594,16 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 
   const weekPlanOverview = initializeWeekOverview();
 
+  if (calendarWeekStart === 'sunday' && weekPlanOverview[6]) {
+    const previousSundayDate = addDays(currentWeekStart, -1);
+    weekPlanOverview[6] = {
+      ...weekPlanOverview[6],
+      dateISO: previousSundayDate.toISOString(),
+      display: formatDisplayDate(previousSundayDate),
+      isToday: startOfDay(previousSundayDate).getTime() === today.getTime()
+    };
+  }
+
   const assignSlotToDay = (dayEntry, slotSource) => {
     if (!dayEntry || !slotSource) return;
     const slotType = slotSource.slotType || CATEGORY_TO_SLOT_TYPE[slotSource.categoryKey];
@@ -5518,12 +5657,22 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 
   if (currentWeekPlanDoc?.dayPlans?.length) {
     currentWeekPlanDoc.dayPlans.forEach((dayPlan) => {
+      if (calendarWeekStart === 'sunday' && dayPlan.dayIndex === 6) return;
       const dayEntry = weekPlanOverview[dayPlan.dayIndex];
       if (!dayEntry) return;
       const planDate = startOfDay(dayPlan.date);
       dayEntry.dateISO = planDate.toISOString();
       (dayPlan.slots || []).forEach((slot) => assignSlotToDay(dayEntry, slot));
     });
+  }
+  if (calendarWeekStart === 'sunday' && previousSundayPlanDoc?.dayPlans?.length) {
+    previousSundayPlanDoc.dayPlans
+      .filter((dayPlan) => dayPlan?.dayIndex === 6)
+      .forEach((dayPlan) => {
+        const dayEntry = weekPlanOverview[6];
+        if (!dayEntry) return;
+        (dayPlan.slots || []).forEach((slot) => assignSlotToDay(dayEntry, slot));
+      });
   }
 
   const aggregateItems = (menus, field) => {
@@ -5956,7 +6105,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     equipmentInventoryNotice,
     packingEvents,
     myTodoTasks,
-    otherMemberTaskCount
+    otherMemberTaskCount,
+    calendarWeekStart
   });
   } catch (err) {
     return next(err);
@@ -6372,6 +6522,8 @@ router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
+    const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings.calendarWeekStart').lean();
+    const calendarWeekStart = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {}).calendarWeekStart;
 
     let groupId = req.query.group ? String(req.query.group) : '';
     if (groupId && !userGroups.some((group) => group._id.toString() === groupId)) {
@@ -6406,19 +6558,22 @@ router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
         calendarStart: null,
         calendarEnd: null,
         weeks: [],
-        todayWeekStart: startOfWeek(new Date()).toISOString()
+        todayWeekStart: startOfWeek(new Date()).toISOString(),
+        calendarWeekStart
       });
     }
 
     const monthStart = new Date(year, monthIndex, 1);
     const monthEnd = new Date(year, monthIndex + 1, 0);
-    const calendarStart = startOfWeek(monthStart);
-    const lastWeekStart = startOfWeek(monthEnd);
-    const calendarEnd = addDays(lastWeekStart, 6);
+    const calendarStart = startOfCalendarWeek(monthStart, calendarWeekStart);
+    const lastCalendarWeekStart = startOfCalendarWeek(monthEnd, calendarWeekStart);
+    const calendarEnd = addDays(lastCalendarWeekStart, 6);
+    const firstPlanWeekStart = startOfWeek(calendarStart);
+    const lastPlanWeekStart = startOfWeek(calendarEnd);
 
     const plans = await WeeklyMenuPlan.find({
       group: groupId,
-      weekStart: { $gte: calendarStart, $lte: lastWeekStart }
+      weekStart: { $gte: firstPlanWeekStart, $lte: lastPlanWeekStart }
     })
       .select('_id weekStart title')
       .lean();
@@ -6433,8 +6588,8 @@ router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
     });
 
     const weeks = [];
-    let cursor = new Date(calendarStart);
-    while (cursor.getTime() <= calendarEnd.getTime()) {
+    let cursor = new Date(firstPlanWeekStart);
+    while (cursor.getTime() <= lastPlanWeekStart.getTime()) {
       const weekStartISO = cursor.toISOString();
       const entry = planMap.get(weekStartISO);
       weeks.push({
@@ -6451,7 +6606,8 @@ router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
       calendarStart: calendarStart.toISOString(),
       calendarEnd: calendarEnd.toISOString(),
       weeks,
-      todayWeekStart: startOfWeek(new Date()).toISOString()
+      todayWeekStart: startOfWeek(new Date()).toISOString(),
+      calendarWeekStart
     });
   } catch (err) {
     console.error('カレンダーデータ取得エラー:', err);

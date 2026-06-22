@@ -108,9 +108,11 @@
     currentGroupId: <%- serialize(currentGroupId || '') %>,
     groupSize: <%- serialize(groupSize || 1) %>,
     planId: <%- serialize(existingPlanId || '') %>,
+    canonicalSundayPlan: <%- serialize(typeof canonicalSundayPlan !== 'undefined' ? canonicalSundayPlan : null) %>,
     weekStartISO: <%- serialize(weekStartISO || '') %>,
     isHistoricalWeek: <%- serialize(isHistoricalWeek || false) %>,
     todayISO: <%- serialize(todayISO || '') %>,
+    calendarWeekStart: <%- serialize(weekMenuSettings?.calendarWeekStart === 'sunday' ? 'sunday' : 'monday') %>,
     // 換算用のグループ名とメンバー名を保持
     currentGroupName: <%- serialize(typeof currentGroupName !== 'undefined' ? currentGroupName : '') %>,
     currentGroupMembers: <%- serialize(typeof currentGroupMembers !== 'undefined' ? currentGroupMembers : []) %>,
@@ -253,9 +255,14 @@
         // Utilities
         const tzFix = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const startOfWeekMon = (d) => { const nd = tzFix(d); const day = (nd.getDay() + 6) % 7; nd.setDate(nd.getDate() - day); return nd; };
+        const startOfCalendarWeek = (d) => {
+          const nd = tzFix(d);
+          const day = window.weekMenuData?.calendarWeekStart === 'sunday' ? nd.getDay() : (nd.getDay() + 6) % 7;
+          nd.setDate(nd.getDate() - day);
+          return nd;
+        };
         const addDays = (d, n) => { const nd = new Date(d); nd.setDate(nd.getDate() + n); return nd; };
         const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
-        const endOfMonth   = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
         const formatMonthLabel = (d) => `${d.getFullYear()}年 ${d.getMonth() + 1}月`;
 
         // Prefer weekStart from URL if present (overrides plan/session)
@@ -294,9 +301,8 @@
 
         function renderCalendar() {
           const first = startOfMonth(stateCal.currentMonth);
-          const last  = endOfMonth(stateCal.currentMonth);
-          const gridStart = startOfWeekMon(first);
-          const gridEnd   = addDays(startOfWeekMon(addDays(last, 7)), 6); // 6 rows
+          const gridStart = startOfCalendarWeek(first);
+          const gridEnd = addDays(gridStart, 41); // Keep the existing six-row calendar layout.
 
           monthLabel.textContent = formatMonthLabel(first);
           grid.innerHTML = '';
@@ -2125,9 +2131,14 @@
     const buildPayload = () => {
       const dayPlans = [];
 
-      state.plan.forEach((day) => {
+      state.plan.forEach((visibleDay) => {
+        const day = visibleDay?.isPreviousWeekDay && data.canonicalSundayPlan
+          ? data.canonicalSundayPlan
+          : visibleDay;
         if (!day) return;
-        const dateISO = weekDates[day.index]?.dateISO || day.dateISO || null;
+        const dateISO = visibleDay?.isPreviousWeekDay && data.canonicalSundayPlan
+          ? (day.dateISO || null)
+          : (weekDates[day.index]?.dateISO || day.dateISO || null);
 
         const breakfastSlotsForPayload = ensureBreakfastSlots(day)
           .filter((slot) => slot && slot.menuId);
@@ -2201,13 +2212,20 @@
       });
 
       const weekStartISO = weekDates[0]?.dateISO || (state.plan[0]?.dateISO ?? null) || (dayPlans[0]?.dateISO ?? null);
-      const weekEndISO = weekDates[weekDates.length - 1]?.dateISO || (state.plan[state.plan.length - 1]?.dateISO ?? weekStartISO);
+      const weekEndISO = data.canonicalSundayPlan?.dateISO
+        || weekDates[weekDates.length - 1]?.dateISO
+        || (state.plan[state.plan.length - 1]?.dateISO ?? weekStartISO);
 
-      const dayComments = (state.plan || []).map((day, index) => ({
-        dayIndex: typeof day?.index === 'number' ? day.index : index,
-        dateISO: weekDates[day?.index ?? index]?.dateISO || day?.dateISO || null,
-        comment: ensureDayComment(day) || ''
-      }));
+      const dayComments = (state.plan || []).map((visibleDay, index) => {
+        const day = visibleDay?.isPreviousWeekDay && data.canonicalSundayPlan
+          ? data.canonicalSundayPlan
+          : visibleDay;
+        return {
+          dayIndex: typeof day?.index === 'number' ? day.index : index,
+          dateISO: day?.dateISO || weekDates[day?.index ?? index]?.dateISO || null,
+          comment: ensureDayComment(day) || ''
+        };
+      });
 
       return {
         groupId: currentGroupId,

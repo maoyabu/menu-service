@@ -180,6 +180,11 @@ const userSchema = new mongoose.Schema({
     floatingMenuItems: {
       type: [String],
       default: () => ['my-top', 'current-week', 'shopping-list', 'my-menu']
+    },
+    calendarWeekStart: {
+      type: String,
+      enum: ['monday', 'sunday'],
+      default: 'monday'
     }
   },
   wantedIngredients: [{
