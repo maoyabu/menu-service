@@ -2597,11 +2597,9 @@
       return wrap;
     }
 
-    const createServingControl = (dayIndex, mealType, slotIndex, slot, compact = false) => {
+    const createServingControl = (dayIndex, mealType, slotIndex, slot) => {
       const label = document.createElement('label');
-      label.className = compact
-        ? 'inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700'
-        : 'inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-800';
+      label.className = 'inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-800';
       const text = document.createElement('span');
       text.textContent = '数量';
       ['click', 'pointerdown', 'mousedown'].forEach((eventName) => {
@@ -2614,7 +2612,7 @@
       input.step = '0.1';
       input.value = String(normalizeServingMultiplier(slot?.servingMultiplier));
       input.setAttribute('aria-label', 'メニューの数量');
-      input.className = `${compact ? 'w-12' : 'w-14'} rounded border border-violet-200 bg-white px-1.5 py-0.5 text-right text-xs text-gray-900`;
+      input.className = 'w-14 rounded border border-violet-200 bg-white px-1.5 py-0.5 text-right text-xs text-gray-900';
       ['click', 'pointerdown', 'mousedown'].forEach((eventName) => {
         input.addEventListener(eventName, (event) => event.stopPropagation());
       });
@@ -3511,7 +3509,7 @@
         }
         thumb.textContent = 'no image';
       };
-      const makeWeekCard = (row, dayIndex, mealKey, slotIndex, slot) => {
+      const makeWeekCard = (row, dayIndex, mealKey, slotIndex) => {
         const item = document.createElement('div');
         item.tabIndex = 0;
         item.setAttribute('role', 'button');
@@ -3544,7 +3542,7 @@
           name.dataset.weekRecipeLink = '';
           name.title = `${row.name || 'メニュー'}のレシピを開く`;
         }
-        item.append(thumbNode, name, createServingControl(dayIndex, mealKey, slotIndex, slot, true));
+        item.append(thumbNode, name);
         item.addEventListener('click', (event) => {
           if (event.target.closest('[data-week-recipe-link]')) return;
           sel = dayIndex;
@@ -3581,7 +3579,7 @@
         slots.forEach((slot, index) => {
           const row = rowFromSlot(slot);
           if (!row.hasMenu) return;
-          const card = makeWeekCard(row, dayIndex, mealKey, index, slot);
+          const card = makeWeekCard(row, dayIndex, mealKey, index);
           list.appendChild(card);
         });
         container.appendChild(list);
