@@ -450,6 +450,16 @@
   #wm2-set-modal .panel{ position:relative; margin:40px auto; width:900px; max-width:96vw; background:#fff; border-radius:18px; box-shadow:0 20px 40px rgba(15,23,42,.2); }
   #wm2-set-modal .panel-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
   #wm2-set-modal .panel-body{ padding:16px; display:flex; flex-direction:column; gap:16px; max-height:72vh; overflow:auto; }
+  #wm2-shortage-menu-modal{ position:fixed; inset:0; z-index:90; display:none; }
+  #wm2-shortage-menu-modal.is-open{ display:block; }
+  #wm2-shortage-menu-modal .overlay{ position:absolute; inset:0; background:rgba(15,23,42,.45); }
+  #wm2-shortage-menu-modal .panel{ position:relative; margin:40px auto; width:900px; max-width:96vw; background:#fff; border-radius:18px; box-shadow:0 20px 40px rgba(15,23,42,.2); }
+  #wm2-shortage-menu-modal .panel-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid #e5e7eb; }
+  #wm2-shortage-menu-modal .panel-body{ padding:16px; display:flex; flex-direction:column; gap:10px; max-height:72vh; overflow:auto; }
+  .wm2-shortage-menu-item{ display:grid; grid-template-columns:80px minmax(0, 1fr) auto; gap:12px; align-items:center; border:1px solid #fde68a; border-radius:14px; padding:10px; background:#fffdf4; }
+  .wm2-shortage-menu-thumb{ width:80px; height:64px; overflow:hidden; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:11px; }
+  .wm2-shortage-menu-thumb img{ width:100%; height:100%; object-fit:cover; }
+  @media (max-width:640px){ .wm2-shortage-menu-item{ grid-template-columns:64px minmax(0, 1fr); } .wm2-shortage-menu-actions{ grid-column:1 / -1; } }
   .wm2-set-item{ border:1px solid #e5e7eb; border-radius:16px; padding:12px; background:#fafafa; }
   .wm2-set-item-head{ display:flex; gap:12px; align-items:flex-start; }
   .wm2-set-thumb{ width:96px; height:72px; border-radius:12px; overflow:hidden; background:#e2e8f0; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:#64748b; }
@@ -928,6 +938,21 @@
       <button type="button" class="text-gray-500" data-close>✕</button>
     </div>
     <div class="panel-body" id="wm2-set-modal-body"></div>
+  </div>
+</div>
+
+<!-- Menu selection for a deficient ingredient classification -->
+<div id="wm2-shortage-menu-modal" aria-hidden="true">
+  <div class="overlay" data-shortage-close></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="wm2-shortage-menu-title">
+    <div class="panel-header">
+      <div>
+        <h3 id="wm2-shortage-menu-title" class="font-semibold">不足を補うメニュー</h3>
+        <p id="wm2-shortage-menu-description" class="mt-1 text-xs text-gray-500"></p>
+      </div>
+      <button type="button" class="text-gray-500" data-shortage-close aria-label="閉じる">✕</button>
+    </div>
+    <div class="panel-body" id="wm2-shortage-menu-body"></div>
   </div>
 </div>
 
@@ -1585,11 +1610,11 @@
       return { picks, remaining };
     };
     const addSuggestionToMeal = (menuId, mealKey, snapshot, feedbackEl) => {
-      if (!menuId) return;
+      if (!menuId) return false;
       const api = window.weekMenuAPI || {};
       const dayIndex = Number(snapshot?.selectedIndex) || 0;
       const ok = api.addMenuToMeal ? api.addMenuToMeal(dayIndex, mealKey, menuId) : false;
-      if (!feedbackEl) return;
+      if (!feedbackEl) return ok;
       if (ok) {
         feedbackEl.textContent = '追加しました';
         feedbackEl.className = 'text-[11px] text-emerald-700';
@@ -1598,7 +1623,138 @@
         feedbackEl.textContent = '追加に失敗しました';
         feedbackEl.className = 'text-[11px] text-red-600';
       }
+      return ok;
     };
+
+    const closeShortageMenuModal = () => {
+      const modal = document.getElementById('wm2-shortage-menu-modal');
+      if (!modal) return;
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('overflow-hidden');
+    };
+    const renderShortageMenuModal = (classification, snapshot) => {
+      const modal = document.getElementById('wm2-shortage-menu-modal');
+      const title = document.getElementById('wm2-shortage-menu-title');
+      const description = document.getElementById('wm2-shortage-menu-description');
+      const body = document.getElementById('wm2-shortage-menu-body');
+      if (!modal || !title || !description || !body) return;
+
+      const participantCount = Math.max(1, Number(snapshot?.participantCount) || defaultIds().length || 1);
+      const menuUsesClassification = (menu) => {
+        if (!menu) return false;
+        const ingredientMatch = (Array.isArray(menu.ingredients) ? menu.ingredients : []).some((item) => {
+          const id = item?.id ? String(item.id) : '';
+          return resolveIngredientClass(id, item?.name || '', item?.classification || '') === classification;
+        });
+        const seasoningMatch = (Array.isArray(menu.seasoning) ? menu.seasoning : []).some((item) => {
+          const id = item?.id ? String(item.id) : '';
+          return resolveSeasoningClass(id, item?.name || '', item?.classification || '') === classification;
+        });
+        if (ingredientMatch || seasoningMatch) return true;
+        return Array.isArray(menu.setMenus) && menu.setMenus.some(menuUsesClassification);
+      };
+      const candidates = Object.values(lookup || {})
+        .filter((menu) => menu && menu.id && !menu.material)
+        .map((menu) => ({ menu, grams: calcMenuClassTotals(menu, participantCount).totals.get(classification) || 0 }))
+        .filter((entry) => menuUsesClassification(entry.menu))
+        .sort((a, b) => b.grams - a.grams || String(a.menu.name || '').localeCompare(String(b.menu.name || ''), 'ja'));
+
+      title.textContent = `${classification}を補うメニュー`;
+      description.textContent = `${snapshot?.targetLabel || '表示中の日'}の朝食・ランチ・夕食へ追加できます。`;
+      body.innerHTML = '';
+      if (!candidates.length) {
+        const empty = document.createElement('p');
+        empty.className = 'py-8 text-center text-sm text-gray-500';
+        empty.textContent = 'この食材分類を使用しているメニューが見つかりませんでした。';
+        body.appendChild(empty);
+      }
+
+      candidates.forEach(({ menu, grams }) => {
+        const item = document.createElement('div');
+        item.className = 'wm2-shortage-menu-item';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'wm2-shortage-menu-thumb';
+        if (menu.imageUrl) {
+          const img = document.createElement('img');
+          img.src = menu.imageUrl;
+          img.alt = menu.name || 'メニュー画像';
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = 'no image';
+        }
+
+        const info = document.createElement('div');
+        const name = document.createElement(menu.url ? 'a' : 'p');
+        name.className = `font-semibold ${menu.url ? 'text-blue-700 hover:underline' : 'text-gray-900'}`;
+        name.textContent = menu.name || '名称未設定';
+        if (menu.url) {
+          name.href = menu.url;
+          name.target = 'menuWindow';
+          name.rel = 'noopener';
+        }
+        const meta = document.createElement('p');
+        meta.className = 'mt-1 text-xs text-gray-500';
+        meta.textContent = [grams > 0 ? `${classification} 約${Math.round(grams)}g` : `${classification}を使用`, menu.menu, menu.kind, menu.junle].filter(Boolean).join(' / ');
+        info.append(name, meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'wm2-shortage-menu-actions flex flex-wrap items-center justify-end gap-2';
+        const meal = document.createElement('select');
+        meal.className = 'rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs';
+        [
+          { value: 'breakfast', label: '朝食' },
+          { value: 'lunch', label: 'ランチ' },
+          { value: 'dinner', label: '夕食' }
+        ].forEach(({ value, label }) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          meal.appendChild(option);
+        });
+        const feedback = document.createElement('span');
+        feedback.className = 'text-[11px] text-gray-500';
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'rounded-full border border-blue-200 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700';
+        add.textContent = 'この日に追加';
+        add.addEventListener('click', () => {
+          if (addSuggestionToMeal(menu.id, meal.value, snapshot, feedback)) {
+            closeShortageMenuModal();
+          }
+        });
+        actions.append(meal, add, feedback);
+        item.append(thumb, info, actions);
+        body.appendChild(item);
+      });
+
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('overflow-hidden');
+    };
+    const openShortageMenuModal = async (classification, snapshot) => {
+      if (!classification || !snapshot) return;
+      const modal = document.getElementById('wm2-shortage-menu-modal');
+      const body = document.getElementById('wm2-shortage-menu-body');
+      if (!modal || !body) return;
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('overflow-hidden');
+      body.innerHTML = '<p class="py-8 text-center text-sm text-gray-500">メニューを読み込んでいます...</p>';
+      const loaded = await ensureIngredientMeta();
+      if (!loaded) {
+        body.innerHTML = '<p class="py-8 text-center text-sm text-red-600">食材分類を読み込めませんでした。</p>';
+        return;
+      }
+      renderShortageMenuModal(classification, snapshot);
+    };
+    document.querySelectorAll('#wm2-shortage-menu-modal [data-shortage-close]').forEach((button) => {
+      button.addEventListener('click', closeShortageMenuModal);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeShortageMenuModal();
+    });
     const renderShortageSuggestions = async (container, snapshot, btn) => {
       if (!container) return;
       container.innerHTML = '';
@@ -2688,7 +2844,9 @@
         dayCount: mode === 'week' ? spanDayCount : 1,
         targetLabel: labelData,
         participantCount: participantMax || defaultIds().length || 1,
-        participantIds
+        participantIds,
+        selectedIndex: safeIndex,
+        allowShortageMenuSelection: true
       });
       latestRequirementsSnapshot = {
         entries: combinedEntries,
@@ -3035,7 +3193,30 @@
           return el;
         };
 
-        const shortageCol = buildValue(shortageText, `${shortageClass} ${shortageVal ? '' : 'text-gray-500'}`);
+        const shortageCol = buildValue('', `${shortageClass} ${shortageVal ? '' : 'text-gray-500'}`);
+        if (shortageVal < 0 && options.allowShortageMenuSelection) {
+          const shortageButton = document.createElement('button');
+          shortageButton.type = 'button';
+          shortageButton.className = 'rounded-full px-2 py-1 text-red-600 underline decoration-dotted underline-offset-2 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300';
+          shortageButton.textContent = shortageText;
+          shortageButton.title = `${cls}を使うメニューを選ぶ`;
+          shortageButton.setAttribute('aria-label', `${cls}の不足${shortageMagnitude}gを補うメニューを選ぶ`);
+          shortageButton.addEventListener('click', () => {
+            openShortageMenuModal(cls, {
+              entries,
+              seasoningEntries,
+              mode: options.mode,
+              dayCount: options.dayCount,
+              targetLabel: options.targetLabel,
+              participantCount: options.participantCount,
+              participantIds: options.participantIds,
+              selectedIndex: options.selectedIndex
+            });
+          });
+          shortageCol.appendChild(shortageButton);
+        } else {
+          shortageCol.textContent = shortageText;
+        }
 
         const labelCell = document.createElement('td');
         labelCell.className = 'py-1';
