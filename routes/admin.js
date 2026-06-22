@@ -611,7 +611,7 @@ router.post('/equipment-delete/:id', async (req, res) => {
 // レシピ一覧画面（DBから取得）
 router.get('/menu-list', async (req, res) => {
   try {
-    const { kind, junle, cook, menuContent, keyword, image: imageFilter, makeAhead, basicMenu, arrangeMenu } = req.query;
+    const { kind, junle, cook, menuContent, keyword, image: imageFilter, makeAhead, basicMenu, arrangeMenu, rankingExcluded } = req.query;
 
     const filterConditions = [];
 
@@ -656,6 +656,9 @@ router.get('/menu-list', async (req, res) => {
     if (toBool(arrangeMenu)) {
       filterConditions.push({ menuType: 'arrange' });
     }
+    if (toBool(rankingExcluded)) {
+      filterConditions.push({ excludeFromRanking: true });
+    }
 
     const composedFilter = filterConditions.length ? { $and: filterConditions } : {};
 
@@ -684,6 +687,7 @@ router.get('/menu-list', async (req, res) => {
     if (toBool(makeAhead)) appliedParams.append('makeAhead', 'true');
     if (toBool(basicMenu)) appliedParams.append('basicMenu', 'true');
     if (toBool(arrangeMenu)) appliedParams.append('arrangeMenu', 'true');
+    if (toBool(rankingExcluded)) appliedParams.append('rankingExcluded', 'true');
     const filterQueryString = appliedParams.toString();
     const filterQueryEncoded = encodeURIComponent(filterQueryString);
 
@@ -702,6 +706,7 @@ router.get('/menu-list', async (req, res) => {
       selectedMakeAhead: toBool(makeAhead) ? 'true' : '',
       selectedBasicMenu: toBool(basicMenu) ? 'true' : '',
       selectedArrangeMenu: toBool(arrangeMenu) ? 'true' : '',
+      selectedRankingExcluded: toBool(rankingExcluded) ? 'true' : '',
       menusJSON: JSON.stringify(menus), // 🔸追加
       ingredientList,
       seasoningList,
@@ -716,7 +721,7 @@ router.get('/menu-list', async (req, res) => {
 
 // レシピ一覧絞り込み処理（POST → GET へリダイレクト）
 router.post('/menu-list', (req, res) => {
-  const { kind, junle, cook, menuContent, keyword, image, makeAhead, basicMenu, arrangeMenu } = req.body;
+  const { kind, junle, cook, menuContent, keyword, image, makeAhead, basicMenu, arrangeMenu, rankingExcluded } = req.body;
 
   const query = new URLSearchParams();
   if (kind) query.append('kind', kind);
@@ -728,6 +733,7 @@ router.post('/menu-list', (req, res) => {
   if (makeAhead) query.append('makeAhead', makeAhead);
   if (basicMenu) query.append('basicMenu', basicMenu);
   if (arrangeMenu) query.append('arrangeMenu', arrangeMenu);
+  if (rankingExcluded) query.append('rankingExcluded', rankingExcluded);
 
   res.redirect(`/admin/menu-list?${query.toString()}`);
 });
@@ -1027,6 +1033,7 @@ router.post('/menu-new', async (req, res) => {
       makeAhead: normalizedMenuType === 'arrange' ? false : toBool(makeAhead),
       basicMenu: normalizedMenuType === 'arrange' ? false : toBool(basicMenu),
       isPrivate: toBool(req.body.isPrivate),
+      excludeFromRanking: toBool(req.body.excludeFromRanking),
       ingredients,
       seasoning: seasonings,
       season: selectedSeasons,
@@ -1261,6 +1268,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       makeAhead: normalizedMenuType === 'arrange' ? false : toBool(makeAhead),
       basicMenu: normalizedMenuType === 'arrange' ? false : toBool(basicMenu),
       isPrivate: toBool(req.body.isPrivate),
+      excludeFromRanking: toBool(req.body.excludeFromRanking),
       ingredients,
       seasoning: seasonings,
       season: selectedSeasons

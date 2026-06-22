@@ -22,6 +22,7 @@
   { id: 'menu-list', label: 'メニューリスト', icon: 'list', href: '/users/my-menu/shared-register' },
   { id: 'my-menu', label: 'マイメニュー', icon: 'book-open', href: '/users/my-menu' },
   { id: 'seasonal-ingredients', label: '旬の食材', icon: 'leaf', href: '/users/seasonal-ingredients' },
+  { id: 'menu-ranking', label: 'メニューランキング', icon: 'trophy', href: '/users/menu-ranking' },
   { id: 'stock-top', label: 'ストック管理トップ', icon: 'layout-grid', href: '/users/stock-top' },
   { id: 'my-stock', label: 'ストック管理', icon: 'package', href: '/users/my-stock' },
   { id: 'my-equipment', label: '備品管理', icon: 'boxes', href: '/users/my-equipment' },
@@ -192,6 +193,15 @@
               <span>旬の食材</span>
               <% if (isActive('/users/seasonal-ingredients')) { %>
                 <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
+              <% } %>
+            </a>
+          </li>
+          <li>
+            <a href="/users/menu-ranking" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/menu-ranking') ? 'bg-amber-50 text-amber-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="trophy" class="w-5 h-5 <%= isActive('/users/menu-ranking') ? 'text-amber-600' : 'text-gray-500 group-hover:text-amber-600' %>"></i>
+              <span>メニューランキング</span>
+              <% if (isActive('/users/menu-ranking')) { %>
+                <span class="absolute right-0 top-0 bottom-0 w-1 bg-amber-500 rounded-r"></span>
               <% } %>
             </a>
           </li>

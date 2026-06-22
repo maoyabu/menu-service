@@ -1,0 +1,133 @@
+<%
+  const mealConfig = [
+    { key: 'breakfast', label: '朝食', icon: 'sunrise', color: 'amber' },
+    { key: 'lunch', label: '昼食', icon: 'sun', color: 'sky' },
+    { key: 'dinner', label: '夕食', icon: 'moon-star', color: 'indigo' }
+  ];
+%>
+
+<section class="mx-auto max-w-6xl space-y-6 py-6">
+  <header class="rounded-2xl border border-amber-100 bg-white p-5 shadow-sm">
+    <nav class="mb-3 flex items-center gap-1 text-sm text-gray-500">
+      <a href="/users/my-top" class="font-semibold text-blue-600">マイトップ</a>
+      <span>›</span><span>メニューランキング</span>
+    </nav>
+    <div class="flex items-start gap-3">
+      <span class="rounded-xl bg-amber-100 p-2 text-amber-700"><i data-lucide="trophy" class="h-7 w-7"></i></span>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">メニューランキング</h1>
+        <p class="mt-1 text-sm text-gray-600">7 DAYS PLANに採用された回数を、食事ごとに集計しています。</p>
+      </div>
+    </div>
+  </header>
+
+  <form method="get" class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm" data-ranking-filter>
+    <div class="grid gap-4 md:grid-cols-2">
+      <fieldset>
+        <legend class="mb-2 text-xs font-semibold text-gray-500">集計対象</legend>
+        <div class="flex rounded-xl bg-gray-100 p-1">
+          <label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center text-sm font-semibold has-[:checked]:bg-white has-[:checked]:text-blue-700 has-[:checked]:shadow-sm">
+            <input type="radio" name="scope" value="group" class="sr-only" <%= rankingScope === 'group' ? 'checked' : '' %>>
+            <%= groupName || 'グループ' %>内
+          </label>
+          <label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center text-sm font-semibold has-[:checked]:bg-white has-[:checked]:text-blue-700 has-[:checked]:shadow-sm">
+            <input type="radio" name="scope" value="site" class="sr-only" <%= rankingScope === 'site' ? 'checked' : '' %>>
+            サイト全体
+          </label>
+        </div>
+        <% if (groupId) { %><input type="hidden" name="group" value="<%= groupId %>"><% } %>
+      </fieldset>
+
+      <fieldset>
+        <legend class="mb-2 text-xs font-semibold text-gray-500">集計期間</legend>
+        <div class="flex rounded-xl bg-gray-100 p-1">
+          <% [['all','累計'],['month','月'],['year','年']].forEach(([value,label]) => { %>
+            <label class="flex-1 cursor-pointer rounded-lg px-3 py-2 text-center text-sm font-semibold has-[:checked]:bg-white has-[:checked]:text-blue-700 has-[:checked]:shadow-sm">
+              <input type="radio" name="period" value="<%= value %>" class="sr-only" <%= period === value ? 'checked' : '' %>>
+              <%= label %>
+            </label>
+          <% }); %>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <label class="text-xs font-semibold text-gray-600" data-month-control>
+        対象月
+        <input type="month" name="month" value="<%= selectedMonth %>" class="mt-1 block rounded-lg border px-3 py-2 text-sm">
+      </label>
+      <label class="text-xs font-semibold text-gray-600" data-year-control>
+        対象年
+        <select name="year" class="mt-1 block rounded-lg border bg-white px-3 py-2 text-sm">
+          <% yearOptions.forEach((year) => { %><option value="<%= year %>" <%= year === selectedYear ? 'selected' : '' %>><%= year %>年</option><% }); %>
+        </select>
+      </label>
+      <button type="submit" class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">表示する</button>
+      <span class="pb-2 text-sm font-semibold text-gray-600"><%= periodLabel %></span>
+    </div>
+  </form>
+
+  <div class="flex gap-2 overflow-x-auto" role="tablist" aria-label="食事区分">
+    <% mealConfig.forEach((meal, index) => { %>
+      <button type="button" data-ranking-tab="<%= meal.key %>" aria-selected="<%= index === 0 %>" class="inline-flex min-w-28 items-center justify-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-semibold text-gray-600 aria-selected:border-blue-600 aria-selected:bg-blue-600 aria-selected:text-white">
+        <i data-lucide="<%= meal.icon %>" class="h-4 w-4"></i><%= meal.label %>
+      </button>
+    <% }); %>
+  </div>
+
+  <% mealConfig.forEach((meal, mealIndex) => { const entries = rankings[meal.key] || []; %>
+    <section data-ranking-panel="<%= meal.key %>" class="space-y-3 <%= mealIndex === 0 ? '' : 'hidden' %>">
+      <h2 class="flex items-center gap-2 text-xl font-bold"><i data-lucide="<%= meal.icon %>" class="h-5 w-5 text-<%= meal.color %>-600"></i><%= meal.label %>ランキング</h2>
+      <% if (!entries.length) { %>
+        <div class="rounded-xl border border-dashed bg-white px-6 py-12 text-center text-sm text-gray-500">この条件で採用されたメニューはありません。</div>
+      <% } else { %>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <% entries.forEach((entry) => { %>
+            <article class="overflow-hidden rounded-2xl border bg-white shadow-sm">
+              <div class="relative h-44 bg-gray-100">
+                <% const rankingImages = Array.isArray(entry.setImages) && entry.setImages.length > 1 ? entry.setImages : (entry.imageUrl ? [entry.imageUrl] : []); %>
+                <% if (rankingImages.length > 1) { const imageColumns = Math.ceil(Math.sqrt(rankingImages.length)); %>
+                  <div class="grid h-full w-full gap-px bg-gray-200" style="grid-template-columns: repeat(<%= imageColumns %>, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr);">
+                    <% rankingImages.forEach((imageUrl, imageIndex) => { %>
+                      <img src="<%= imageUrl %>" alt="<%= entry.name %> <%= imageIndex + 1 %>" class="h-full min-h-0 w-full object-cover">
+                    <% }); %>
+                  </div>
+                <% } else if (rankingImages.length === 1) { %>
+                  <img src="<%= rankingImages[0] %>" alt="<%= entry.name %>" class="h-full w-full object-cover">
+                <% } else { %>
+                  <div class="flex h-full items-center justify-center text-sm text-gray-400">no image</div>
+                <% } %>
+                <span class="absolute left-3 top-3 flex h-10 min-w-10 items-center justify-center rounded-full bg-white/95 px-2 text-lg font-black text-amber-600 shadow">#<%= entry.rank %></span>
+              </div>
+              <div class="space-y-2 p-4">
+                <a href="<%= entry.url %>" target="<%= /^https?:\/\//.test(entry.url) ? 'menuWindow' : '_self' %>" rel="noopener noreferrer" class="block text-lg font-bold text-gray-900 hover:text-blue-600"><%= entry.name %></a>
+                <div class="flex items-center justify-between gap-2 text-xs text-gray-500"><span><%= [entry.kind, entry.genre].filter(Boolean).join('・') %></span><span class="rounded-full bg-blue-50 px-3 py-1 font-bold text-blue-700"><%= entry.count %>回</span></div>
+              </div>
+            </article>
+          <% }); %>
+        </div>
+      <% } %>
+    </section>
+  <% }); %>
+</section>
+
+<script>
+  (function () {
+    const form = document.querySelector('[data-ranking-filter]');
+    const syncPeriodControls = () => {
+      const period = form?.querySelector('input[name="period"]:checked')?.value || 'all';
+      form?.querySelector('[data-month-control]')?.classList.toggle('hidden', period !== 'month');
+      form?.querySelector('[data-year-control]')?.classList.toggle('hidden', period !== 'year');
+    };
+    form?.querySelectorAll('input[name="period"]').forEach((input) => input.addEventListener('change', syncPeriodControls));
+    syncPeriodControls();
+
+    document.querySelectorAll('[data-ranking-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.rankingTab;
+        document.querySelectorAll('[data-ranking-tab]').forEach((tab) => tab.setAttribute('aria-selected', String(tab === button)));
+        document.querySelectorAll('[data-ranking-panel]').forEach((panel) => panel.classList.toggle('hidden', panel.dataset.rankingPanel !== key));
+      });
+    });
+  })();
+</script>

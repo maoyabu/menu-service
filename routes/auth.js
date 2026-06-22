@@ -105,7 +105,7 @@ const WEEK_MENU_SETTINGS_DEFAULTS = {
 
 const FLOATING_MENU_ITEM_IDS = new Set([
   'my-top', 'current-week', 'create-week', 'shopping-list', 'menu-list',
-  'my-menu', 'seasonal-ingredients', 'stock-top', 'my-stock', 'my-equipment',
+  'my-menu', 'seasonal-ingredients', 'menu-ranking', 'stock-top', 'my-stock', 'my-equipment',
   'purchase-reminder', 'packing', 'board', 'notices', 'settings', 'slideshow'
 ]);
 
@@ -6511,6 +6511,152 @@ router.get('/users/seasonal-ingredients', isLoggedIn, async (req, res, next) => 
       classifications,
       menuUsage,
       seo
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get('/users/menu-ranking', isLoggedIn, async (req, res, next) => {
+  try {
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const allowedGroupIds = new Set(userGroups.map((group) => String(group._id)));
+    const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
+    const fallbackGroupId = userGroups[0]?._id ? String(userGroups[0]._id) : '';
+
+    const scope = req.query.scope === 'site' ? 'site' : 'group';
+    const requestedGroupId = typeof req.query.group === 'string' ? req.query.group : '';
+    const groupId = allowedGroupIds.has(requestedGroupId)
+      ? requestedGroupId
+      : (activeGroupId || defaultGroupId || fallbackGroupId);
+    const period = ['month', 'year'].includes(req.query.period) ? req.query.period : 'all';
+
+    const now = new Date();
+    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const defaultMonth = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
+    const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(req.query.month || ''))
+      ? String(req.query.month)
+      : defaultMonth;
+    const requestedYear = Number(req.query.year);
+    const selectedYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2200
+      ? requestedYear
+      : now.getFullYear();
+
+    let dateStart = null;
+    let dateEnd = null;
+    if (period === 'month') {
+      const [year, month] = selectedMonth.split('-').map(Number);
+      dateStart = new Date(year, month - 1, 1);
+      dateEnd = new Date(year, month, 1);
+    } else if (period === 'year') {
+      dateStart = new Date(selectedYear, 0, 1);
+      dateEnd = new Date(selectedYear + 1, 0, 1);
+    }
+
+    const match = {};
+    if (scope === 'group') {
+      if (!groupId || !mongoose.Types.ObjectId.isValid(groupId)) {
+        return res.render('users/menuRanking', {
+          rankings: { breakfast: [], lunch: [], dinner: [] },
+          rankingScope: scope,
+          period,
+          selectedMonth,
+          selectedYear,
+          yearOptions: [now.getFullYear()],
+          groupId: '',
+          groupName: '',
+          periodLabel: period === 'month'
+            ? `${Number(selectedMonth.slice(0, 4))}年${Number(selectedMonth.slice(5, 7))}月`
+            : period === 'year' ? `${selectedYear}年` : '累計'
+        });
+      }
+      match.group = new mongoose.Types.ObjectId(groupId);
+    }
+
+    const dateMatch = dateStart && dateEnd
+      ? { 'dayPlans.date': { $gte: dateStart, $lt: dateEnd } }
+      : {};
+    const rows = await WeeklyMenuPlan.aggregate([
+      { $match: match },
+      { $unwind: '$dayPlans' },
+      { $match: dateMatch },
+      { $unwind: '$dayPlans.slots' },
+      {
+        $match: {
+          'dayPlans.slots.menu': { $ne: null },
+          'dayPlans.slots.dineOut': { $ne: true }
+        }
+      },
+      {
+        $group: {
+          _id: { mealType: '$dayPlans.mealType', menuId: '$dayPlans.slots.menu' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1, '_id.menuId': 1 } }
+    ]);
+
+    const menuIds = rows.map((row) => row._id.menuId).filter(Boolean);
+        const menus = menuIds.length
+      ? await Menu.find({
+          _id: { $in: menuIds },
+          excludeFromRanking: { $ne: true },
+          ...(scope === 'site' ? { isPrivate: { $ne: true } } : {})
+        })
+          .select('name menu kind junle imageUrl url menuType setMenus')
+          .populate({ path: 'setMenus', select: 'name imageUrl' })
+          .lean()
+      : [];
+    const menuMap = new Map(menus.map((menu) => [String(menu._id), menu]));
+    const rankings = { breakfast: [], lunch: [], dinner: [] };
+    rows.forEach((row) => {
+      const mealType = row?._id?.mealType;
+      const menu = menuMap.get(String(row?._id?.menuId || ''));
+      if (!menu || !rankings[mealType]) return;
+      const setImages = (menu.setMenus || []).map((item) => item?.imageUrl).filter(Boolean);
+      rankings[mealType].push({
+        id: String(menu._id),
+        name: menu.name || menu.menu || '名称未設定',
+        kind: menu.kind || '',
+        genre: menu.junle || '',
+        imageUrl: menu.imageUrl || setImages[0] || '',
+        setImages,
+        url: /^https?:\/\//i.test(String(menu.url || '')) ? menu.url : `/users/menu/${menu._id}`,
+        count: row.count
+      });
+    });
+    Object.keys(rankings).forEach((mealType) => {
+      rankings[mealType] = rankings[mealType]
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'))
+        .map((entry, index) => ({ ...entry, rank: index + 1 }));
+    });
+
+    const earliestPlan = await WeeklyMenuPlan.findOne(match).sort({ weekStart: 1 }).select('weekStart').lean();
+    const earliestYear = earliestPlan?.weekStart ? new Date(earliestPlan.weekStart).getFullYear() : now.getFullYear();
+    const yearOptions = Array.from(
+      { length: Math.max(1, now.getFullYear() - earliestYear + 1) },
+      (_, index) => now.getFullYear() - index
+    );
+    if (!yearOptions.includes(selectedYear)) yearOptions.unshift(selectedYear);
+
+    const groupName = userGroups.find((group) => String(group._id) === groupId)?.group_name || '';
+    const periodLabel = period === 'month'
+      ? `${Number(selectedMonth.slice(0, 4))}年${Number(selectedMonth.slice(5, 7))}月`
+      : period === 'year'
+        ? `${selectedYear}年`
+        : '累計';
+
+    return res.render('users/menuRanking', {
+      rankings,
+      rankingScope: scope,
+      period,
+      selectedMonth,
+      selectedYear,
+      yearOptions,
+      groupId,
+      groupName,
+      periodLabel
     });
   } catch (err) {
     return next(err);

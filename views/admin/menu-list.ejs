@@ -93,6 +93,10 @@
           <input type="checkbox" name="makeAhead" value="true" class="w-4 h-4 text-blue-600 border-gray-300 rounded" <%= selectedMakeAhead ? 'checked' : '' %>>
           <span>つくりおきのみ</span>
         </label>
+        <label class="inline-flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+          <input type="checkbox" name="rankingExcluded" value="true" class="w-4 h-4 text-amber-600 border-gray-300 rounded" <%= selectedRankingExcluded ? 'checked' : '' %>>
+          <span>ランキング対象外のみ</span>
+        </label>
       </div>
       <div class="md:col-span-3 flex items-center justify-end gap-2">
         <button type="submit" class="px-4 py-2 rounded bg-gray-900 text-white text-sm hover:bg-gray-800">絞込</button>
@@ -175,6 +179,9 @@
               <h2 class="text-lg font-semibold text-gray-800 leading-tight"><%= menu.name %></h2>
             <% if (menu.isPrivate) { %>
               <span class="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold">非公開</span>
+            <% } %>
+            <% if (menu.excludeFromRanking) { %>
+              <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-xs font-semibold">ランキング対象外</span>
             <% } %>
             </div>
             <div class="flex gap-2">
@@ -271,6 +278,8 @@
         if (makeAhead) makeAhead.checked = false;
         const basicMenu = form.querySelector('input[name="basicMenu"]');
         if (basicMenu) basicMenu.checked = false;
+        const rankingExcluded = form.querySelector('input[name="rankingExcluded"]');
+        if (rankingExcluded) rankingExcluded.checked = false;
         const arrangeMenu = form.querySelector('input[name="arrangeMenu"]');
         if (arrangeMenu) arrangeMenu.checked = false;
         form.submit();

@@ -172,6 +172,8 @@ const weeklyMenuPlanSchema = new Schema({
   timestamps: true
 });
 
+weeklyMenuPlanSchema.index({ 'dayPlans.date': 1 });
+
 weeklyMenuPlanSchema.pre('validate', function setWeekEnd(next) {
   if (this.weekStart && !this.weekEnd) {
     const end = new Date(this.weekStart);

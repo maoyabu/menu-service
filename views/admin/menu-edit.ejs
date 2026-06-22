@@ -47,6 +47,13 @@
           <span class="state-on">公開</span>
         </span>
       </label>
+      <span class="h-6 w-px bg-gray-300"></span>
+      <label class="inline-flex items-center gap-2 text-sm font-medium cursor-pointer">
+        <input type="hidden" name="excludeFromRanking" value="false">
+        <input type="checkbox" name="excludeFromRanking" value="true" class="w-4 h-4 text-amber-600 border-gray-300 rounded" <%= menu.excludeFromRanking ? 'checked' : '' %>>
+        <span>ランキングから除外する</span>
+      </label>
+      <span class="text-xs text-gray-500">白米など、定番で採用回数が偏るメニューに使用します。</span>
     </div>
     <% const isSetMenu = menu.menuType === 'set'; %>
     <% const isArrangeMenu = menu.menuType === 'arrange'; %>
