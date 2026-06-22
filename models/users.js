@@ -172,6 +172,14 @@ const userSchema = new mongoose.Schema({
       type: String,
       default: '06:00',
       match: /^([01]\d|2[0-3]):[0-5]\d$/
+    },
+    floatingMenuEnabled: {
+      type: Boolean,
+      default: false
+    },
+    floatingMenuItems: {
+      type: [String],
+      default: () => ['my-top', 'current-week', 'shopping-list', 'my-menu']
     }
   },
   wantedIngredients: [{

@@ -97,8 +97,16 @@ const WEEK_MENU_SETTINGS_DEFAULTS = {
   dailyMenuMailTime: '06:00',
   breakfastFilterEnabled: true,
   lunchFilterEnabled: true,
-  dinnerFilterEnabled: true
+  dinnerFilterEnabled: true,
+  floatingMenuEnabled: false,
+  floatingMenuItems: ['my-top', 'current-week', 'shopping-list', 'my-menu']
 };
+
+const FLOATING_MENU_ITEM_IDS = new Set([
+  'my-top', 'current-week', 'create-week', 'shopping-list', 'menu-list',
+  'my-menu', 'seasonal-ingredients', 'stock-top', 'my-stock', 'my-equipment',
+  'purchase-reminder', 'packing', 'board', 'notices', 'settings', 'slideshow'
+]);
 
 const normalizeBreakfastRatios = (raw = {}) => {
   const keys = ['japanese', 'western', 'chinese', 'other'];
@@ -196,7 +204,11 @@ const normalizeWeekMenuSettings = (raw = {}) => {
       : WEEK_MENU_SETTINGS_DEFAULTS.dailyMenuMailTime,
     breakfastFilterEnabled: raw.breakfastFilterEnabled !== false,
     lunchFilterEnabled: raw.lunchFilterEnabled !== false,
-    dinnerFilterEnabled: raw.dinnerFilterEnabled !== false
+    dinnerFilterEnabled: raw.dinnerFilterEnabled !== false,
+    floatingMenuEnabled: raw.floatingMenuEnabled === true || String(raw.floatingMenuEnabled) === 'true',
+    floatingMenuItems: toArray(raw.floatingMenuItems).filter((id) => FLOATING_MENU_ITEM_IDS.has(id)).length
+      ? toArray(raw.floatingMenuItems).filter((id) => FLOATING_MENU_ITEM_IDS.has(id))
+      : WEEK_MENU_SETTINGS_DEFAULTS.floatingMenuItems.slice()
   };
 };
 
@@ -2258,7 +2270,9 @@ router.post('/users/week-menu/settings', isLoggedIn, async (req, res) => {
         : WEEK_MENU_SETTINGS_DEFAULTS.dailyMenuMailTime,
       breakfastFilterEnabled: req.body?.breakfastFilterEnabled !== false && String(req.body?.breakfastFilterEnabled) !== 'false',
       lunchFilterEnabled: req.body?.lunchFilterEnabled !== false && String(req.body?.lunchFilterEnabled) !== 'false',
-      dinnerFilterEnabled: req.body?.dinnerFilterEnabled !== false && String(req.body?.dinnerFilterEnabled) !== 'false'
+      dinnerFilterEnabled: req.body?.dinnerFilterEnabled !== false && String(req.body?.dinnerFilterEnabled) !== 'false',
+      floatingMenuEnabled: req.body?.floatingMenuEnabled === true || String(req.body?.floatingMenuEnabled) === 'true',
+      floatingMenuItems: toArray(req.body?.floatingMenuItems).filter((id) => FLOATING_MENU_ITEM_IDS.has(id))
     };
 
     await User.findByIdAndUpdate(req.user._id, { weekMenuSettings: payload });

@@ -14,6 +14,24 @@
 <% const currentGroupName = (()=>{ const groups = Array.isArray(userGroups)? userGroups : []; const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; const gid = currentGroupId || defaultGroupId; const g = groups.find((gr)=> String(gr._id || '') === gid); return g ? g.group_name : ''; })(); %>
 <% /* Compute next week's Monday (week start) in ISO, same logic as server */ %>
 <% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); const _afterNextMon = new Date(_nextMon); _afterNextMon.setDate(_afterNextMon.getDate() + 7); const afterNextWeekStartISO = _afterNextMon.toISOString(); %>
+<% const floatingMenuItems = [
+  { id: 'my-top', label: 'トップページ', icon: 'home', href: '/users/my-top' },
+  { id: 'current-week', label: '今週の7 DAYS PLAN', icon: 'calendar', href: `/users/week-menu?weekStart=${encodeURIComponent(new Date().toISOString())}` },
+  { id: 'create-week', label: '再来週の7 DAYS PLANを作成', icon: 'calendar-plus', href: `/users/week-menu?weekStart=${encodeURIComponent(afterNextWeekStartISO)}` },
+  { id: 'shopping-list', label: '来週のお買い物リスト', icon: 'shopping-cart', href: `/users/week-menu?show=supplies&weekStart=${encodeURIComponent(nextWeekStartISO)}` },
+  { id: 'menu-list', label: 'メニューリスト', icon: 'list', href: '/users/my-menu/shared-register' },
+  { id: 'my-menu', label: 'マイメニュー', icon: 'book-open', href: '/users/my-menu' },
+  { id: 'seasonal-ingredients', label: '旬の食材', icon: 'leaf', href: '/users/seasonal-ingredients' },
+  { id: 'stock-top', label: 'ストック管理トップ', icon: 'layout-grid', href: '/users/stock-top' },
+  { id: 'my-stock', label: 'ストック管理', icon: 'package', href: '/users/my-stock' },
+  { id: 'my-equipment', label: '備品管理', icon: 'boxes', href: '/users/my-equipment' },
+  { id: 'purchase-reminder', label: 'そろそろ購入リスト', icon: 'shopping-bag', href: '/users/purchase-reminder' },
+  { id: 'packing', label: 'パッキングプラン', icon: 'clipboard-list', href: '/users/packing' },
+  { id: 'board', label: `${currentGroupName || 'グループ'}の掲示板`, icon: 'messages-square', href: '/users/board' },
+  { id: 'notices', label: 'お知らせ', icon: 'megaphone', href: '/notices' },
+  { id: 'settings', label: '設定', icon: 'settings', href: '/settings' },
+  { id: 'slideshow', label: 'スライドショー', icon: 'images', href: '/slideshow' }
+]; %>
 
 <div id="app-menu-overlay" class="hidden fixed inset-0 z-[60] bg-black/40 opacity-0 transition-opacity duration-200"></div>
 
@@ -364,6 +382,150 @@
   </div>
 </aside>
 
+<% if (typeof user !== 'undefined' && user) { %>
+<div id="floating-quick-menu" class="fixed z-[55] hidden w-64 max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-violet-200 bg-white/95 shadow-2xl backdrop-blur" aria-label="よく使うメニュー">
+  <div data-floating-menu-drag class="flex touch-none select-none items-center justify-between bg-violet-600 px-3 py-2 text-white cursor-move">
+    <div class="flex items-center gap-2 text-sm font-semibold">
+      <i data-lucide="grip" class="w-4 h-4"></i>
+      <span>よく使うメニュー</span>
+    </div>
+    <div class="flex items-center gap-1">
+      <button type="button" data-floating-menu-settings class="rounded p-1.5 hover:bg-white/15" aria-label="7 DAYS PLAN 設定を開く" title="7 DAYS PLAN 設定">
+        <i data-lucide="settings" class="w-4 h-4"></i>
+      </button>
+      <button type="button" data-floating-menu-toggle class="rounded p-1.5 hover:bg-white/15" aria-label="メニューを折りたたむ" aria-expanded="true">
+        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+  <nav data-floating-menu-list class="max-h-[min(55vh,420px)] overflow-y-auto p-2"></nav>
+</div>
+<script type="application/json" id="floating-menu-items-data"><%- JSON.stringify(floatingMenuItems).replace(/</g, '\\u003c') %></script>
+<script>
+  (function () {
+    const menu = document.getElementById('floating-quick-menu');
+    const list = menu?.querySelector('[data-floating-menu-list]');
+    const dragHandle = menu?.querySelector('[data-floating-menu-drag]');
+    const settingsButton = menu?.querySelector('[data-floating-menu-settings]');
+    const toggleButton = menu?.querySelector('[data-floating-menu-toggle]');
+    if (!menu || !list || !dragHandle) return;
+
+    let items = [];
+    try {
+      items = JSON.parse(document.getElementById('floating-menu-items-data')?.textContent || '[]');
+    } catch (_) {}
+    const itemMap = new Map(items.map((item) => [item.id, item]));
+    const positionKey = 'prepalace-floating-menu-position';
+    let dragState = null;
+    let moved = false;
+
+    const clampPosition = (left, top) => ({
+      left: Math.max(8, Math.min(left, window.innerWidth - menu.offsetWidth - 8)),
+      top: Math.max(8, Math.min(top, window.innerHeight - menu.offsetHeight - 8))
+    });
+
+    const setPosition = (left, top, persist) => {
+      const next = clampPosition(left, top);
+      menu.style.left = `${next.left}px`;
+      menu.style.top = `${next.top}px`;
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+      if (persist) {
+        try { localStorage.setItem(positionKey, JSON.stringify(next)); } catch (_) {}
+      }
+    };
+
+    const restorePosition = () => {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(positionKey) || 'null'); } catch (_) {}
+      if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+        setPosition(saved.left, saved.top, false);
+      } else {
+        setPosition(window.innerWidth - menu.offsetWidth - 20, window.innerHeight - menu.offsetHeight - 24, false);
+      }
+    };
+
+    const render = (settings) => {
+      const enabled = settings?.floatingMenuEnabled === true;
+      const selectedIds = Array.isArray(settings?.floatingMenuItems) ? settings.floatingMenuItems : [];
+      list.innerHTML = '';
+      selectedIds.forEach((id) => {
+        const item = itemMap.get(id);
+        if (!item) return;
+        const link = document.createElement('a');
+        link.href = item.href;
+        link.className = 'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 hover:bg-violet-50 hover:text-violet-700';
+        const icon = document.createElement('i');
+        icon.setAttribute('data-lucide', item.icon);
+        icon.className = 'w-4 h-4 text-violet-500';
+        const label = document.createElement('span');
+        label.textContent = item.label;
+        link.append(icon, label);
+        list.appendChild(link);
+      });
+      menu.classList.toggle('hidden', !enabled || !list.children.length);
+      if (enabled && list.children.length) {
+        requestAnimationFrame(restorePosition);
+        window.refreshLucideIcons?.();
+      }
+    };
+
+    const loadSettings = async () => {
+      try {
+        const response = await fetch('/users/week-menu/settings');
+        if (!response.ok) return;
+        const json = await response.json();
+        render(json.settings || {});
+      } catch (_) {}
+    };
+
+    dragHandle.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('button')) return;
+      const rect = menu.getBoundingClientRect();
+      dragState = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
+      moved = false;
+      dragHandle.setPointerCapture(event.pointerId);
+    });
+    dragHandle.addEventListener('pointermove', (event) => {
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+      moved = true;
+      setPosition(event.clientX - dragState.offsetX, event.clientY - dragState.offsetY, false);
+    });
+    const finishDrag = (event) => {
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+      if (moved) {
+        const rect = menu.getBoundingClientRect();
+        setPosition(rect.left, rect.top, true);
+      }
+      dragState = null;
+    };
+    dragHandle.addEventListener('pointerup', finishDrag);
+    dragHandle.addEventListener('pointercancel', finishDrag);
+
+    settingsButton?.addEventListener('click', () => {
+      window.dispatchEvent(new Event('weekmenu-settings:open'));
+    });
+    toggleButton?.addEventListener('click', () => {
+      const collapsed = !list.classList.contains('hidden');
+      list.classList.toggle('hidden', collapsed);
+      toggleButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      toggleButton.setAttribute('aria-label', collapsed ? 'メニューを開く' : 'メニューを折りたたむ');
+      const icon = toggleButton.querySelector('[data-lucide]');
+      if (icon) icon.classList.toggle('rotate-180', collapsed);
+      const rect = menu.getBoundingClientRect();
+      requestAnimationFrame(() => setPosition(rect.left, rect.top, false));
+    });
+    window.addEventListener('resize', () => {
+      if (menu.classList.contains('hidden')) return;
+      const rect = menu.getBoundingClientRect();
+      setPosition(rect.left, rect.top, false);
+    });
+    window.addEventListener('floating-menu:settings-changed', (event) => render(event.detail || {}));
+    loadSettings();
+  })();
+</script>
+<% } %>
+
 <!-- 7 DAYS PLAN 設定モーダル -->
 <div id="weekmenu-settings-modal" class="fixed inset-0 z-[62] hidden" aria-hidden="true">
   <div class="absolute inset-0 bg-black/40" data-weekmenu-settings-close></div>
@@ -390,6 +552,27 @@
               <input type="time" data-weekmenu-settings-daily-mail-time class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
             </label>
           </div>
+        </div>
+      </div>
+      <div class="rounded-xl border border-violet-100 bg-violet-50/40 p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 class="font-semibold text-violet-700">よく使うメニュー</h4>
+            <p class="mt-1 text-xs text-gray-500">選んだ機能を、移動できるフローティングメニューに表示します。</p>
+          </div>
+          <label class="inline-flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" data-weekmenu-settings-floating-enabled class="w-4 h-4 text-violet-600 border-gray-300 rounded">
+            <span>フローティングメニューを表示</span>
+          </label>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2" data-weekmenu-settings-floating-list>
+          <% floatingMenuItems.forEach((item) => { %>
+            <label class="inline-flex items-center gap-2 rounded-lg border border-violet-100 bg-white px-3 py-2 text-sm">
+              <input type="checkbox" value="<%= item.id %>" class="w-4 h-4 text-violet-600 border-gray-300 rounded">
+              <i data-lucide="<%= item.icon %>" class="w-4 h-4 text-gray-500"></i>
+              <span><%= item.label %></span>
+            </label>
+          <% }); %>
         </div>
       </div>
       <div class="grid md:grid-cols-2 gap-4">
@@ -550,6 +733,8 @@
     const dinnerArrangeCountEl = modal.querySelector('[data-weekmenu-settings-dinner-arrange-count]');
     const dailyMailEnabledEl = modal.querySelector('[data-weekmenu-settings-daily-mail-enabled]');
     const dailyMailTimeEl = modal.querySelector('[data-weekmenu-settings-daily-mail-time]');
+    const floatingEnabledEl = modal.querySelector('[data-weekmenu-settings-floating-enabled]');
+    const floatingListEl = modal.querySelector('[data-weekmenu-settings-floating-list]');
     const ratioKeys = ['japanese', 'western', 'chinese', 'other'];
 
     const defaults = {
@@ -592,7 +777,9 @@
       dailyMenuMailTime: '06:00',
       breakfastFilterEnabled: true,
       lunchFilterEnabled: true,
-      dinnerFilterEnabled: true
+      dinnerFilterEnabled: true,
+      floatingMenuEnabled: false,
+      floatingMenuItems: ['my-top', 'current-week', 'shopping-list', 'my-menu']
     };
 
     let cachedMenus = [];
@@ -652,7 +839,9 @@
           : defaults.dailyMenuMailTime,
         breakfastFilterEnabled: raw?.breakfastFilterEnabled !== false,
         lunchFilterEnabled: raw?.lunchFilterEnabled !== false,
-        dinnerFilterEnabled: raw?.dinnerFilterEnabled !== false
+        dinnerFilterEnabled: raw?.dinnerFilterEnabled !== false,
+        floatingMenuEnabled: raw?.floatingMenuEnabled === true,
+        floatingMenuItems: toArray(raw?.floatingMenuItems).length ? toArray(raw?.floatingMenuItems) : defaults.floatingMenuItems.slice()
       };
     };
 
@@ -772,6 +961,13 @@
       if (dinnerArrangeCountEl) dinnerArrangeCountEl.value = Number(settings.dinnerArrangeCount) || 0;
       if (dailyMailEnabledEl) dailyMailEnabledEl.checked = settings.dailyMenuMailEnabled !== false;
       if (dailyMailTimeEl) dailyMailTimeEl.value = settings.dailyMenuMailTime || '06:00';
+      if (floatingEnabledEl) floatingEnabledEl.checked = settings.floatingMenuEnabled === true;
+      if (floatingListEl) {
+        const selectedItems = new Set(settings.floatingMenuItems || []);
+        floatingListEl.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+          input.checked = selectedItems.has(input.value);
+        });
+      }
       renderList(breakfastListEl, cachedMenus, breakfastSelected, breakfastSearchEl?.value || '');
       renderList(lunchListEl, cachedMenus, lunchSelected, lunchSearchEl?.value || '');
       renderList(dinnerListEl, cachedMenus, dinnerSelected, dinnerSearchEl?.value || '');
@@ -818,6 +1014,14 @@
       saveButton.addEventListener('click', async () => {
         try {
           if (errorEl) errorEl.classList.add('hidden');
+          const selectedFloatingItems = collectSelected(floatingListEl);
+          if (floatingEnabledEl?.checked && !selectedFloatingItems.length) {
+            if (errorEl) {
+              errorEl.textContent = 'フローティングメニューに表示する項目を1つ以上選択してください。';
+              errorEl.classList.remove('hidden');
+            }
+            return;
+          }
           const payload = {
             breakfastMenus: collectSelected(breakfastListEl),
             breakfastRatios: readRatios(ratioInputs, defaults.breakfastRatios),
@@ -830,7 +1034,9 @@
             dailyMenuMailTime: dailyMailTimeEl ? dailyMailTimeEl.value : '06:00',
             breakfastFilterEnabled: breakfastEnabledEl ? breakfastEnabledEl.checked : true,
             lunchFilterEnabled: lunchEnabledEl ? lunchEnabledEl.checked : true,
-            dinnerFilterEnabled: dinnerEnabledEl ? dinnerEnabledEl.checked : true
+            dinnerFilterEnabled: dinnerEnabledEl ? dinnerEnabledEl.checked : true,
+            floatingMenuEnabled: floatingEnabledEl ? floatingEnabledEl.checked : false,
+            floatingMenuItems: selectedFloatingItems
           };
           const res = await fetch('/users/week-menu/settings', {
             method: 'POST',
@@ -843,6 +1049,7 @@
           if (window.weekMenuData) {
             window.weekMenuData.menuFilterSettings = cachedSettings;
           }
+          window.dispatchEvent(new CustomEvent('floating-menu:settings-changed', { detail: cachedSettings }));
           closeModal();
         } catch (e) {
           if (errorEl) {
