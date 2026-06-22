@@ -825,6 +825,24 @@ const startOfDay = (value) => {
   return date;
 };
 
+const startOfDayInTimeZone = (value, timeZone = process.env.APP_TIME_ZONE || 'Asia/Tokyo') => {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return startOfDay(value);
+  }
+
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return instant;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(instant).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value])
+  );
+  return new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+};
+
 const startOfWeek = (value) => {
   const date = startOfDay(value);
   const day = date.getDay(); // 0 (Sun) ... 6 (Sat)
@@ -2654,7 +2672,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
     let requestedWeekStart = null;
     if (weekStartParam) {
-      const parsed = startOfDay(weekStartParam);
+      const parsed = startOfDayInTimeZone(weekStartParam);
       if (!Number.isNaN(parsed.getTime())) {
         requestedWeekStart = calendarWeekStartPreference === 'sunday'
           ? startOfWeek(addDays(startOfCalendarWeek(parsed, 'sunday'), 1))

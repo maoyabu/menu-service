@@ -45,6 +45,14 @@ import DailyMenuAnnouncement from './models/dailyMenuAnnouncement.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
+const getAppBaseUrl = () => {
+  const configuredUrl = process.env.APP_BASE_URL || process.env.BASE_URL;
+  const fallbackUrl = process.env.NODE_ENV === 'production'
+    ? 'https://www.7daysplan.jp'
+    : `http://192.168.1.138:${process.env.PORT || 3001}`;
+  return String(configuredUrl || fallbackUrl).replace(/\/+$/, '');
+};
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(expressLayouts);
@@ -296,7 +304,7 @@ app.listen(PORT, () => {
       });
 
       if (!dueUsers.length) return;
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
+      const baseUrl = getAppBaseUrl();
       const broadStart = new Date(now.getTime() - (36 * 60 * 60 * 1000));
       const broadEnd = new Date(now.getTime() + (36 * 60 * 60 * 1000));
 
@@ -391,7 +399,8 @@ app.listen(PORT, () => {
 
             const recipientName = user.displayname || user.username || user.email;
             const dateLabel = `${Number(nowParts.month)}/${Number(nowParts.day)}日`;
-            const linkUrl = `${baseUrl}/users/week-menu?group=${encodeURIComponent(String(group._id))}&weekStart=${encodeURIComponent(plan.weekStart.toISOString())}&date=${encodeURIComponent(dateKey)}&view=detail`;
+            const weekStartKey = toDateKey(new Date(plan.weekStart));
+            const linkUrl = `${baseUrl}/users/week-menu?group=${encodeURIComponent(String(group._id))}&weekStart=${encodeURIComponent(weekStartKey)}&date=${encodeURIComponent(dateKey)}&view=detail`;
             const html = await renderTemplate('dailyMenu', {
               recipientName,
               groupName: group.group_name || '',
@@ -445,7 +454,7 @@ app.listen(PORT, () => {
       const rangeLabel = `${fmt(mondayAfterNext)}〜${fmt(end)}`;
 
       // Link base
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
+      const baseUrl = getAppBaseUrl();
 
       // For each group, send if not yet sent for this weekStart
       const groups = await Group.find({}).select('_id group_name createdBy members').lean();
@@ -498,7 +507,7 @@ app.listen(PORT, () => {
       const y = now.getFullYear();
       const m = now.getMonth();
       const monthStart = new Date(y, m, 1); monthStart.setHours(0,0,0,0);
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
+      const baseUrl = getAppBaseUrl();
       const linkUrl = `${baseUrl}/users/my-stock`;
 
       const groups = await Group.find({}).select('_id group_name createdBy members stockInventory').lean();
@@ -575,7 +584,7 @@ app.listen(PORT, () => {
       const y = now.getFullYear();
       const m = now.getMonth();
       const monthStart = new Date(y, m, 1); monthStart.setHours(0,0,0,0);
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
+      const baseUrl = getAppBaseUrl();
       const linkUrl = `${baseUrl}/users/my-stock/checklist`;
 
       const groups = await Group.find({}).select('_id group_name createdBy members stockInventory').lean();
@@ -685,7 +694,7 @@ app.listen(PORT, () => {
   const tickEquipmentInventory = async () => {
     try {
       const now = new Date();
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
+      const baseUrl = getAppBaseUrl();
       const linkUrl = `${baseUrl}/users/my-equipment/inventory`;
       const sendHour = 8;
 
@@ -756,7 +765,7 @@ app.listen(PORT, () => {
       const now = new Date();
       const today = new Date(now); today.setHours(0,0,0,0);
       const limit = new Date(today); limit.setDate(limit.getDate() + 31);
-      const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
+      const baseUrl = getAppBaseUrl();
       const linkUrl = `${baseUrl}/users/purchase-reminder`;
 
       const groups = await Group.find({}).select('_id group_name createdBy members').lean();
