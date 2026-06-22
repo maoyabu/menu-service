@@ -25,5 +25,17 @@ export const sendMail = async ({ to, subject, html }) => {
   const from = process.env.MAIL_FROM || 'no-reply@example.com';
   const toList = Array.isArray(to) ? to.filter(Boolean) : String(to || '').split(',').map(s => s.trim()).filter(Boolean);
   const mailTo = Array.isArray(to) ? toList : toList.join(', ');
-  await transporter.sendMail({ from, to: mailTo, subject, html });
+  const maskedTo = toList.map((address) => {
+    const [local, domain] = String(address).split('@');
+    return domain ? `${local.slice(0, 1)}***@${domain}` : '***';
+  });
+  console.log(`[mail] attempt to=${maskedTo.join(',')} subject=${JSON.stringify(subject || '')}`);
+  try {
+    const info = await transporter.sendMail({ from, to: mailTo, subject, html });
+    console.log(`[mail] sent to=${maskedTo.join(',')} messageId=${info?.messageId || '(mock)'}`);
+    return info;
+  } catch (err) {
+    console.error(`[mail] failed to=${maskedTo.join(',')} code=${err?.code || ''} message=${err?.message || err}`);
+    throw err;
+  }
 };

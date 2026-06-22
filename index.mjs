@@ -237,8 +237,21 @@ app.listen(PORT, () => {
   setInterval(tick, 60 * 1000);
 
   // Daily menu mail: each user can choose the delivery hour in 7 DAYS PLAN settings.
+  let dailyMenuSkipLogDate = '';
+  const dailyMenuSkipLogKeys = new Set();
+  const logDailyMenuSkipOnce = ({ reason, dateKey, groupId, recipientId, planId = '' }) => {
+    if (dailyMenuSkipLogDate !== dateKey) {
+      dailyMenuSkipLogDate = dateKey;
+      dailyMenuSkipLogKeys.clear();
+    }
+    const key = `${reason}:${groupId}:${recipientId}:${planId}`;
+    if (dailyMenuSkipLogKeys.has(key)) return;
+    dailyMenuSkipLogKeys.add(key);
+    console.warn(`[daily-menu-mail] skipped reason=${reason} date=${dateKey} group=${groupId} recipient=${recipientId}${planId ? ` plan=${planId}` : ''}`);
+  };
   const tickDailyMenu = async () => {
     const timeZone = process.env.APP_TIME_ZONE || 'Asia/Tokyo';
+    const logPrefix = '[daily-menu-mail]';
     const dateParts = (date) => Object.fromEntries(
       new Intl.DateTimeFormat('en-US', {
         timeZone,
@@ -264,27 +277,30 @@ app.listen(PORT, () => {
       const nowParts = dateParts(now);
       const dateKey = `${nowParts.year}-${nowParts.month}-${nowParts.day}`;
       const currentTime = `${nowParts.hour}:${nowParts.minute}`;
-      const timeConditions = [{ 'weekMenuSettings.dailyMenuMailTime': currentTime }];
-      if (currentTime === '06:00') timeConditions.push({ 'weekMenuSettings.dailyMenuMailTime': { $exists: false } });
 
       const users = await User.find({
         isMail: { $ne: false },
         email: { $exists: true, $ne: '' },
-        $and: [
-          { $or: [
-            { 'weekMenuSettings.dailyMenuMailEnabled': true },
-            { 'weekMenuSettings.dailyMenuMailEnabled': { $exists: false } }
-          ] },
-          { $or: timeConditions }
+        $or: [
+          { 'weekMenuSettings.dailyMenuMailEnabled': true },
+          { 'weekMenuSettings.dailyMenuMailEnabled': { $exists: false } }
         ]
-      }).select('_id email displayname username groups defaultGroup').lean();
+      }).select('_id email displayname username groups defaultGroup weekMenuSettings.dailyMenuMailTime').lean();
 
-      if (!users.length) return;
+      const dueUsers = users.filter((user) => {
+        const configuredTime = user.weekMenuSettings?.dailyMenuMailTime;
+        const deliveryTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(configuredTime || ''))
+          ? configuredTime
+          : '06:00';
+        return deliveryTime <= currentTime;
+      });
+
+      if (!dueUsers.length) return;
       const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `http://192.168.1.231:${process.env.PORT || 3001}`;
       const broadStart = new Date(now.getTime() - (36 * 60 * 60 * 1000));
       const broadEnd = new Date(now.getTime() + (36 * 60 * 60 * 1000));
 
-      for (const user of users) {
+      for (const user of dueUsers) {
         // Membership is stored on both User and Group. Include both sides so older
         // records with only the User reference still receive their group menu mail.
         const userGroupIds = Array.from(new Set([
@@ -298,11 +314,15 @@ app.listen(PORT, () => {
             ...(userGroupIds.length ? [{ _id: { $in: userGroupIds } }] : [])
           ]
         }).select('_id group_name').lean();
+        if (!groups.length) {
+          logDailyMenuSkipOnce({ reason: 'no-group', dateKey, groupId: '-', recipientId: user._id });
+          continue;
+        }
 
         for (const group of groups) {
           let reserved = null;
           try {
-            const plan = await WeeklyMenuPlan.findOne({
+            const plans = await WeeklyMenuPlan.find({
               group: group._id,
               'dayPlans.date': { $gte: broadStart, $lte: broadEnd }
             })
@@ -311,13 +331,20 @@ app.listen(PORT, () => {
                 select: 'name imageUrl menuType setMenus',
                 populate: { path: 'setMenus', select: 'name imageUrl' }
               })
+              .sort({ updatedAt: -1 })
               .lean();
-            if (!plan) continue;
+
+            const plan = plans.find((candidate) => (candidate.dayPlans || []).some((dayPlan) =>
+              dayPlan?.date && toDateKey(new Date(dayPlan.date)) === dateKey && Array.isArray(dayPlan.slots) && dayPlan.slots.length
+            ));
+            if (!plan) {
+              logDailyMenuSkipOnce({ reason: 'no-plan', dateKey, groupId: group._id, recipientId: user._id });
+              continue;
+            }
 
             const todayPlans = (plan.dayPlans || []).filter((dayPlan) =>
               dayPlan?.date && toDateKey(new Date(dayPlan.date)) === dateKey && Array.isArray(dayPlan.slots) && dayPlan.slots.length
             );
-            if (!todayPlans.length) continue;
 
             const mealDefinitions = [
               { type: 'breakfast', label: '朝食' },
@@ -342,7 +369,10 @@ app.listen(PORT, () => {
                 })
                 .filter((item) => item?.name)
             })).filter((meal) => meal.items.length);
-            if (!meals.length) continue;
+            if (!meals.length) {
+              logDailyMenuSkipOnce({ reason: 'no-menu', dateKey, groupId: group._id, recipientId: user._id, planId: plan._id });
+              continue;
+            }
 
             try {
               reserved = await DailyMenuAnnouncement.create({
@@ -352,7 +382,10 @@ app.listen(PORT, () => {
                 sentAt: now
               });
             } catch (err) {
-              if (err?.code === 11000) continue;
+              if (err?.code === 11000) {
+                logDailyMenuSkipOnce({ reason: 'already-sent', dateKey, groupId: group._id, recipientId: user._id, planId: plan._id });
+                continue;
+              }
               throw err;
             }
 
@@ -366,23 +399,27 @@ app.listen(PORT, () => {
               meals,
               linkUrl
             });
+            console.log(`${logPrefix} attempt date=${dateKey} time=${currentTime} group=${group._id} recipient=${user._id} plan=${plan._id}`);
             await sendMail({
               to: user.email,
               subject: `${dateLabel}の予定メニュー - ${group.group_name || '7 DAYS PLAN'}`,
               html
             });
+            console.log(`${logPrefix} sent date=${dateKey} group=${group._id} recipient=${user._id} announcement=${reserved._id}`);
           } catch (err) {
             if (reserved?._id) {
               await DailyMenuAnnouncement.deleteOne({ _id: reserved._id }).catch(() => {});
             }
-            console.error('daily menu mail error:', group?._id, user?._id, err);
+            console.error(`${logPrefix} failed date=${dateKey} group=${group?._id} recipient=${user?._id}`, err);
           }
         }
       }
     } catch (err) {
-      console.error('daily menu scheduler error:', err);
+      console.error(`${logPrefix} scheduler-failed`, err);
     }
   };
+  console.log(`[daily-menu-mail] scheduler-started timeZone=${process.env.APP_TIME_ZONE || 'Asia/Tokyo'}`);
+  tickDailyMenu();
   setInterval(tickDailyMenu, 60 * 1000);
 
   // Weekly announcement scheduler: every Friday 08:00, announce week after next (Mon start)
