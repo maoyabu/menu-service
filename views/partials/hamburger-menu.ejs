@@ -426,6 +426,7 @@
     } catch (_) {}
     const itemMap = new Map(items.map((item) => [item.id, item]));
     const positionKey = 'prepalace-floating-menu-position';
+    const collapsedKey = 'prepalace-floating-menu-collapsed';
     let dragState = null;
     let moved = false;
 
@@ -455,6 +456,23 @@
       }
     };
 
+    const setCollapsed = (collapsed, persist) => {
+      list.classList.toggle('hidden', collapsed);
+      toggleButton?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      toggleButton?.setAttribute('aria-label', collapsed ? 'メニューを開く' : 'メニューを折りたたむ');
+      const icon = toggleButton?.querySelector('[data-lucide]');
+      if (icon) icon.classList.toggle('rotate-180', collapsed);
+      if (persist) {
+        try { localStorage.setItem(collapsedKey, collapsed ? '1' : '0'); } catch (_) {}
+      }
+    };
+
+    const restoreCollapsed = () => {
+      let collapsed = false;
+      try { collapsed = localStorage.getItem(collapsedKey) === '1'; } catch (_) {}
+      setCollapsed(collapsed, false);
+    };
+
     const render = (settings) => {
       const enabled = settings?.floatingMenuEnabled === true;
       const selectedIds = Array.isArray(settings?.floatingMenuItems) ? settings.floatingMenuItems : [];
@@ -475,6 +493,7 @@
       });
       menu.classList.toggle('hidden', !enabled || !list.children.length);
       if (enabled && list.children.length) {
+        restoreCollapsed();
         requestAnimationFrame(restorePosition);
         window.refreshLucideIcons?.();
       }
@@ -517,11 +536,7 @@
     });
     toggleButton?.addEventListener('click', () => {
       const collapsed = !list.classList.contains('hidden');
-      list.classList.toggle('hidden', collapsed);
-      toggleButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      toggleButton.setAttribute('aria-label', collapsed ? 'メニューを開く' : 'メニューを折りたたむ');
-      const icon = toggleButton.querySelector('[data-lucide]');
-      if (icon) icon.classList.toggle('rotate-180', collapsed);
+      setCollapsed(collapsed, true);
       const rect = menu.getBoundingClientRect();
       requestAnimationFrame(() => setPosition(rect.left, rect.top, false));
     });
