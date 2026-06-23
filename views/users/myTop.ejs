@@ -997,8 +997,25 @@
     var fallbackItems = [
       { name: 'おすすめの主菜を登録してみましょう', junle: '主菜', imageUrl: '' }
     ];
+    var sourceStorageKey = 'prepalace-my-top-menu-ribbon-source';
     var index = 0;
     var currentSource = 'current';
+
+    var normalizeSource = function(source) {
+      return source === 'recent' ? 'recent' : 'current';
+    };
+
+    var getSavedSource = function() {
+      try {
+        return normalizeSource(localStorage.getItem(sourceStorageKey));
+      } catch (_) {
+        return 'current';
+      }
+    };
+
+    var saveSource = function(source) {
+      try { localStorage.setItem(sourceStorageKey, normalizeSource(source)); } catch (_) {}
+    };
 
     var getItems = function(source) {
       var sets = window.headerItemSets || {};
@@ -1009,10 +1026,15 @@
       return sourceItems.slice(0, 20);
     };
 
-    var renderItems = function(source) {
-      currentSource = source || 'current';
+    var renderItems = function(source, persist) {
+      currentSource = normalizeSource(source);
       var rawItems = getItems(currentSource);
+      if (!rawItems.length && currentSource === 'recent') {
+        currentSource = 'current';
+        rawItems = getItems(currentSource);
+      }
       var items = rawItems.length ? rawItems : fallbackItems;
+      if (persist) saveSource(currentSource);
 
       track.innerHTML = '';
       items.forEach(function(item, idx){
@@ -1099,12 +1121,12 @@
     nextBtn && nextBtn.addEventListener('click', function(){ update(index + 1); });
     sourceButtons.forEach(function(button) {
       button.addEventListener('click', function() {
-        renderItems(button.getAttribute('data-ribbon-source') || 'current');
+        renderItems(button.getAttribute('data-ribbon-source') || 'current', true);
       });
     });
     window.addEventListener('resize', function(){ update(index); });
 
-    renderItems('current');
+    renderItems(getSavedSource(), false);
   })();
 </script>
 
