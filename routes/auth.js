@@ -5545,7 +5545,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       .filter(Boolean)
   );
 
-  const candidateImageDocs = await Menu.find({
+  const headerMenuFilter = {
     imageUrl: { $exists: true, $ne: '' },
     $and: [
       {
@@ -5557,28 +5557,42 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       },
       { $or: [{ material: { $exists: false } }, { material: { $ne: true } }] }
     ]
-  })
+  };
+
+  const candidateImageDocs = await Menu.find(headerMenuFilter)
     .select('imageUrl name junle kind')
     .lean();
 
-  // unique by imageUrl
-  const uniqueByUrl = new Map();
-  (candidateImageDocs || []).forEach((d) => {
-    const url = d && d.imageUrl ? String(d.imageUrl) : '';
-    if (!url) return;
-    if (!uniqueByUrl.has(url)) {
-      uniqueByUrl.set(url, {
-        imageUrl: url,
-        name: d.name || '',
-        junle: d.junle || '',
-        kind: d.kind || ''
-      });
-    }
-  });
+  const recentImageDocs = await Menu.find(headerMenuFilter)
+    .select('imageUrl name junle kind entry_date update_date')
+    .sort({ entry_date: -1, update_date: -1, _id: -1 })
+    .limit(40)
+    .lean();
 
-  const allItems = Array.from(uniqueByUrl.values()).filter(
+  // unique by imageUrl
+  const toUniqueHeaderItems = (docs = []) => {
+    const uniqueByUrl = new Map();
+    (docs || []).forEach((d) => {
+      const url = d && d.imageUrl ? String(d.imageUrl) : '';
+      if (!url) return;
+      if (!uniqueByUrl.has(url)) {
+        uniqueByUrl.set(url, {
+          imageUrl: url,
+          name: d.name || '',
+          junle: d.junle || '',
+          kind: d.kind || ''
+        });
+      }
+    });
+    return Array.from(uniqueByUrl.values());
+  };
+
+  const allItems = toUniqueHeaderItems(candidateImageDocs).filter(
     (item) => !usedImageSet.has(item.imageUrl)
   );
+  const headerRecentImageItems = toUniqueHeaderItems(recentImageDocs).filter(
+    (item) => !usedImageSet.has(item.imageUrl)
+  ).slice(0, 20);
 
   // Fisher–Yates shuffle then take up to 10
   const pickRandom = (arr, n) => {
@@ -6106,6 +6120,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     defaultWeekDayIndex,
     currentWeekLink,
     headerImageItems,
+    headerRecentImageItems,
     // MyMenu cards
     mymenuStats: { sharedCount, urlCount, originalCount },
     mySharedSamples,

@@ -288,6 +288,17 @@
     cursor: not-allowed;
     box-shadow: none;
   }
+  .menu-ribbon-toggle {
+    position: absolute;
+    right: 58px;
+    bottom: 34px;
+    z-index: 35;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
   .ribbon-backdrop {
     position: absolute;
     inset: 0;
@@ -344,6 +355,40 @@
   .plan-hero-wrapper.is-hidden .plan-hero-image {
     display: none;
   }
+  .menu-ribbon-filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid #dbeafe;
+    background: rgba(255, 255, 255, 0.9);
+    color: #1d4ed8;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .menu-ribbon-filter:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+  }
+  .menu-ribbon-filter.is-active {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #ffffff;
+    box-shadow: 0 8px 22px rgba(37, 99, 235, 0.22);
+  }
+  @media (max-width: 640px) {
+    .menu-ribbon-toggle {
+      right: 18px;
+      bottom: 24px;
+    }
+    .menu-ribbon-filter {
+      font-size: 0.72rem;
+      padding: 0.34rem 0.7rem;
+    }
+  }
 </style>
 
 <section class="relative w-full overflow-hidden">
@@ -371,6 +416,20 @@
 
     <div class="-mx-4 sm:-mx-6 lg:-mx-12 px-4 sm:px-6 lg:px-12 relative">
       <div class="ribbon-shell" data-menu-ribbon>
+        <div class="menu-ribbon-toggle">
+          <button
+            type="button"
+            class="menu-ribbon-filter is-active"
+            data-ribbon-source="current"
+            aria-pressed="true"
+          >おすすめ</button>
+          <button
+            type="button"
+            class="menu-ribbon-filter"
+            data-ribbon-source="recent"
+            aria-pressed="false"
+          >新着メニュー</button>
+        </div>
         <div class="ribbon-viewport">
           <div class="ribbon-track" data-ribbon-track></div>
         </div>
@@ -393,9 +452,9 @@
         <% const isEditMode = hasAfterNextWeekPlan; %>
         <a
           href="<%= weekMenuLink %>"
-          class="floating-plan inline-flex items-center gap-2 rounded-full text-sm font-semibold px-5 py-2 transition shadow-sm border border-emerald-200 bg-white text-emerald-700 hover:-translate-y-0.5 hover:shadow-md"
+          class="floating-plan inline-flex items-center gap-2 rounded-full text-sm font-semibold px-5 py-2 transition shadow-sm border border-emerald-700 bg-emerald-700 text-white hover:-translate-y-0.5 hover:shadow-md hover:bg-emerald-800"
         >
-          <span class="lucide <%= isEditMode ? 'text-emerald-700' : 'text-emerald-500' %>" data-lucide="<%= buttonIcon %>"></span>
+          <span class="lucide text-white" data-lucide="<%= buttonIcon %>"></span>
           <%= planButtonLabel %>
         </a>
       </div>
@@ -460,6 +519,7 @@
   // Use server-provided headerImageItems (url+name), excluding today's & this week's images if available
   (function(){
     var serverItems = <%- serialize(headerImageItems || []) %>;
+    var serverRecentItems = <%- serialize(headerRecentImageItems || []) %>;
 
     // Exclusion list: today plan
     var exclude = [];
@@ -477,12 +537,20 @@
     }
 
     var excludeSet = new Set(exclude.filter(Boolean));
-    var candidates = Array.isArray(serverItems)
-      ? serverItems.filter(function(item){ return item && item.imageUrl && !excludeSet.has(item.imageUrl); })
-      : [];
+    var filterVisibleItems = function(items) {
+      return Array.isArray(items)
+        ? items.filter(function(item){ return item && item.imageUrl && !excludeSet.has(item.imageUrl); })
+        : [];
+    };
+    var candidates = filterVisibleItems(serverItems);
+    var recentCandidates = filterVisibleItems(serverRecentItems);
 
     // Fallback to serverItems if everything got excluded
-    window.headerItems = candidates.length ? candidates : (serverItems || []);
+    window.headerItemSets = {
+      current: candidates.length ? candidates : (serverItems || []),
+      recent: recentCandidates.length ? recentCandidates : (serverRecentItems || [])
+    };
+    window.headerItems = window.headerItemSets.current;
   })();
 </script>
 
@@ -924,47 +992,70 @@
 
     var prevBtn = ribbon.querySelector('[data-ribbon-prev]');
     var nextBtn = ribbon.querySelector('[data-ribbon-next]');
+    var sourceButtons = Array.prototype.slice.call(ribbon.querySelectorAll('[data-ribbon-source]'));
 
-    var rawItems = Array.isArray(window.headerItems) ? window.headerItems.slice(0, 20) : [];
     var fallbackItems = [
       { name: 'おすすめの主菜を登録してみましょう', junle: '主菜', imageUrl: '' }
     ];
-    var items = rawItems.length ? rawItems : fallbackItems;
-
-    track.innerHTML = '';
-    items.forEach(function(item, idx){
-      var card = document.createElement('article');
-      card.className = 'ribbon-card';
-      card.setAttribute('data-index', idx);
-
-      if (item.imageUrl) {
-        var img = document.createElement('img');
-        img.src = item.imageUrl;
-        img.alt = item.name || 'menu image';
-        card.appendChild(img);
-      } else {
-        var empty = document.createElement('div');
-        empty.className = 'w-full h-full flex items-center justify-center text-sm font-semibold text-slate-500 bg-gradient-to-br from-white via-slate-50 to-slate-100';
-        empty.textContent = '写真がまだありません';
-        card.appendChild(empty);
-      }
-
-      var chip = document.createElement('span');
-      chip.className = 'ribbon-chip';
-      chip.textContent = item.junle || item.kind || '主菜';
-      card.appendChild(chip);
-
-      var name = document.createElement('div');
-      name.className = 'ribbon-name';
-      var nameSpan = document.createElement('span');
-      nameSpan.textContent = item.name || 'メニュー名未設定';
-      name.appendChild(nameSpan);
-      card.appendChild(name);
-
-      track.appendChild(card);
-    });
-
     var index = 0;
+    var currentSource = 'current';
+
+    var getItems = function(source) {
+      var sets = window.headerItemSets || {};
+      var sourceItems = Array.isArray(sets[source]) ? sets[source] : [];
+      if (!sourceItems.length && source === 'recent') {
+        sourceItems = Array.isArray(sets.current) ? sets.current : [];
+      }
+      return sourceItems.slice(0, 20);
+    };
+
+    var renderItems = function(source) {
+      currentSource = source || 'current';
+      var rawItems = getItems(currentSource);
+      var items = rawItems.length ? rawItems : fallbackItems;
+
+      track.innerHTML = '';
+      items.forEach(function(item, idx){
+        var card = document.createElement('article');
+        card.className = 'ribbon-card';
+        card.setAttribute('data-index', idx);
+
+        if (item.imageUrl) {
+          var img = document.createElement('img');
+          img.src = item.imageUrl;
+          img.alt = item.name || 'menu image';
+          card.appendChild(img);
+        } else {
+          var empty = document.createElement('div');
+          empty.className = 'w-full h-full flex items-center justify-center text-sm font-semibold text-slate-500 bg-gradient-to-br from-white via-slate-50 to-slate-100';
+          empty.textContent = '写真がまだありません';
+          card.appendChild(empty);
+        }
+
+        var chip = document.createElement('span');
+        chip.className = 'ribbon-chip';
+        chip.textContent = item.junle || item.kind || '主菜';
+        card.appendChild(chip);
+
+        var name = document.createElement('div');
+        name.className = 'ribbon-name';
+        var nameSpan = document.createElement('span');
+        nameSpan.textContent = item.name || 'メニュー名未設定';
+        name.appendChild(nameSpan);
+        card.appendChild(name);
+
+        track.appendChild(card);
+      });
+
+      sourceButtons.forEach(function(button) {
+        var active = button.getAttribute('data-ribbon-source') === currentSource;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      index = 0;
+      update(0);
+    };
+
     var getGap = function(){
       var style = window.getComputedStyle(track);
       var gap = style.columnGap || style.gap || '0';
@@ -1006,9 +1097,14 @@
 
     prevBtn && prevBtn.addEventListener('click', function(){ update(index - 1); });
     nextBtn && nextBtn.addEventListener('click', function(){ update(index + 1); });
+    sourceButtons.forEach(function(button) {
+      button.addEventListener('click', function() {
+        renderItems(button.getAttribute('data-ribbon-source') || 'current');
+      });
+    });
     window.addEventListener('resize', function(){ update(index); });
 
-    update(0);
+    renderItems('current');
   })();
 </script>
 
