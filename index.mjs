@@ -246,18 +246,7 @@ app.listen(PORT, () => {
   setInterval(tick, 60 * 1000);
 
   // Daily menu mail: each user can choose the delivery hour in 7 DAYS PLAN settings.
-  let dailyMenuSkipLogDate = '';
-  const dailyMenuSkipLogKeys = new Set();
-  const logDailyMenuSkipOnce = ({ reason, dateKey, groupId, recipientId, planId = '' }) => {
-    if (dailyMenuSkipLogDate !== dateKey) {
-      dailyMenuSkipLogDate = dateKey;
-      dailyMenuSkipLogKeys.clear();
-    }
-    const key = `${reason}:${groupId}:${recipientId}:${planId}`;
-    if (dailyMenuSkipLogKeys.has(key)) return;
-    dailyMenuSkipLogKeys.add(key);
-    console.warn(`[daily-menu-mail] skipped reason=${reason} date=${dateKey} group=${groupId} recipient=${recipientId}${planId ? ` plan=${planId}` : ''}`);
-  };
+  const logDailyMenuSkipOnce = () => {};
   const tickDailyMenu = async () => {
     const timeZone = process.env.APP_TIME_ZONE || 'Asia/Tokyo';
     const logPrefix = '[daily-menu-mail]';
@@ -409,13 +398,11 @@ app.listen(PORT, () => {
               meals,
               linkUrl
             });
-            console.log(`${logPrefix} attempt date=${dateKey} time=${currentTime} group=${group._id} recipient=${user._id} plan=${plan._id}`);
             await sendMail({
               to: user.email,
               subject: `${dateLabel}の予定メニュー - ${group.group_name || '7 DAYS PLAN'}`,
               html
             });
-            console.log(`${logPrefix} sent date=${dateKey} group=${group._id} recipient=${user._id} announcement=${reserved._id}`);
           } catch (err) {
             if (reserved?._id) {
               await DailyMenuAnnouncement.deleteOne({ _id: reserved._id }).catch(() => {});
@@ -428,7 +415,6 @@ app.listen(PORT, () => {
       console.error(`${logPrefix} scheduler-failed`, err);
     }
   };
-  console.log(`[daily-menu-mail] scheduler-started timeZone=${process.env.APP_TIME_ZONE || 'Asia/Tokyo'}`);
   tickDailyMenu();
   setInterval(tickDailyMenu, 60 * 1000);
 
