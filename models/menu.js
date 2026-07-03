@@ -59,6 +59,11 @@ const menuSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    serving: {
+        type: Number,
+        min: 0,
+        index: true
+    },
     ingredients: [
     {
         name: {

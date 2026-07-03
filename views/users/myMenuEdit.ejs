@@ -132,7 +132,7 @@
         </div>
         <p class="text-[11px] text-gray-500 mt-1">画像をクリックして差し替え（Cloudinaryへアップロード・旧画像は削除）</p>
       </div>
-      <div class="grid grid-cols-2 gap-4 md:col-span-2">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:col-span-2">
         <div>
           <label class="text-xs text-gray-500">調理時間（分）</label>
           <input name="time" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.time || '' %>" />
@@ -140,6 +140,10 @@
         <div>
           <label class="text-xs text-gray-500">人数</label>
           <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" value="<%= menuDoc.people || 1 %>" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">SV</label>
+          <input name="serving" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" value="<%= typeof menuDoc.serving === 'number' ? menuDoc.serving : '' %>" placeholder="例: 1.0" />
         </div>
       </div>
       <% if (owned && owned.sourceType === 'original') { %>

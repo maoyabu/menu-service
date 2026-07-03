@@ -64,6 +64,12 @@ router.use(isLoggedIn);
 // ユーティリティ: 重複無し配列
 const unique = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const parseServing = (value) => {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(num * 10) / 10;
+};
 // ユーティリティ: メニューに紐づく食材IDを取得
 const pickIngredientIds = (menuDoc) => {
   if (!menuDoc || !Array.isArray(menuDoc.ingredients)) return [];
@@ -1272,6 +1278,7 @@ router.post('/from-url', async (req, res, next) => {
     const {
       name, yomi, menu, kind, junle, cook,
       url, imageUrl, time, people,
+      serving,
       // 食材・調味料: id配列/数量/単位（adminに準拠）
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
@@ -1304,6 +1311,7 @@ router.post('/from-url', async (req, res, next) => {
     const newMenu = await Menu.create({
       name, yomi, menu, kind, junle, cook,
       url, imageUrl, time, people: Number(people) || 1,
+      serving: parseServing(serving),
       ingredients, seasoning: seasonings,
       comment: req.body.comment || '',
       makeAhead: String(makeAhead) === 'true',
@@ -1520,6 +1528,7 @@ router.get('/duplicate/:id', async (req, res, next) => {
       imageUrl: menu.imageUrl || '',
       time: menu.time || '',
       people: menu.people || 1,
+      serving: typeof menu.serving === 'number' ? menu.serving : '',
       instruction: menu.instructionText || '',
       comment: menu.comment || '',
       makeAhead: !!menu.makeAhead,
@@ -1585,6 +1594,7 @@ router.post('/original', async (req, res, next) => {
     const {
       name, yomi, menu, kind, junle, cook,
       imageUrl, time, people,
+      serving,
       ingredient_ids = [], ingredient_amounts = [], ingredient_units = [],
       seasoning_ids = [], seasoning_amounts = [], seasoning_units = [],
       menuType = 'single', setType = [], set_menu_ids = [], arrange_base_menu_id = '',
@@ -1655,6 +1665,7 @@ router.post('/original', async (req, res, next) => {
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people: Number(people) || 1,
+      serving: parseServing(serving),
       ingredients,
       seasoning: normalizedMenuType === 'set' ? [] : seasonings,
       instructionText: String(instruction || ''),
@@ -2000,6 +2011,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       imageUrl,
       time,
       people,
+      serving,
       comment,
       instruction = '',
       yomi,
@@ -2081,6 +2093,7 @@ router.post('/edit/:menuId', async (req, res, next) => {
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people: Number(people) || 1,
+      serving: parseServing(serving),
       comment,
       makeAhead: normalizedMenuType === 'arrange' ? false : (String(makeAhead) === 'true'),
       basicMenu: normalizedMenuType === 'arrange' ? false : (String(basicMenu) === 'true'),

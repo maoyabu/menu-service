@@ -136,6 +136,10 @@
         <label class="text-xs text-gray-500">人数</label>
         <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" required />
       </div>
+      <div>
+        <label class="text-xs text-gray-500">SV</label>
+        <input name="serving" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="例: 1.0" />
+      </div>
       <div class="md:col-span-2" id="instruction-section">
         <label class="text-xs text-gray-500">作り方</label>
         <textarea name="instruction" rows="6" class="w-full border rounded-lg px-3 py-2" placeholder="手順を記入" required></textarea>
@@ -912,6 +916,7 @@
     setVal('input[name="imageUrl"]', PF.imageUrl||'');
     setVal('input[name="time"]', PF.time||'');
     setVal('input[name="people"]', PF.people||'');
+    setVal('input[name="serving"]', PF.serving||'');
     const inst = document.querySelector('textarea[name="instruction"]'); if (inst) inst.value = PF.instruction||'';
     const cmt = document.querySelector('textarea[name="comment"]'); if (cmt) cmt.value = PF.comment||'';
     // preview image

@@ -160,6 +160,13 @@ const toBool = (val) => {
   return s === 'true' || s === 'on' || s === '1';
 };
 
+const parseServing = (value) => {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(num * 10) / 10;
+};
+
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const fetchWikiImage = async (wikiUrl) => {
@@ -611,7 +618,7 @@ router.post('/equipment-delete/:id', async (req, res) => {
 // レシピ一覧画面（DBから取得）
 router.get('/menu-list', async (req, res) => {
   try {
-    const { kind, junle, cook, menuContent, keyword, image: imageFilter, makeAhead, basicMenu, arrangeMenu, rankingExcluded } = req.query;
+    const { kind, junle, cook, menuContent, keyword, image: imageFilter, makeAhead, basicMenu, arrangeMenu, rankingExcluded, svMissing } = req.query;
 
     const filterConditions = [];
 
@@ -659,6 +666,9 @@ router.get('/menu-list', async (req, res) => {
     if (toBool(rankingExcluded)) {
       filterConditions.push({ excludeFromRanking: true });
     }
+    if (toBool(svMissing)) {
+      filterConditions.push({ serving: null });
+    }
 
     const composedFilter = filterConditions.length ? { $and: filterConditions } : {};
 
@@ -666,16 +676,17 @@ router.get('/menu-list', async (req, res) => {
       .populate({ path: 'ingredients.name', model: 'Ingredient' })
       .populate({ path: 'seasoning.name', model: 'Seasoning' })
       .populate({ path: 'setMenus', select: 'imageUrl name menu kind junle cook menuType' })
-      .populate({ path: 'arrangeBaseMenu', select: 'imageUrl name menu kind junle cook menuType' });
+      .populate({ path: 'arrangeBaseMenu', select: 'imageUrl name menu kind junle cook menuType' })
+      .lean();
 
     // kind, junle, cook のユニークな一覧を取得
-    const allMenus = await Menu.find(); // 全体から取得するため再取得
+    const allMenus = await Menu.find().select('kind junle cook menu').lean(); // 全体から取得するため再取得
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
     const junleList = [...new Set(allMenus.map(menu => menu.junle).filter(Boolean))];
     const cookList = [...new Set(allMenus.map(menu => menu.cook).filter(Boolean))];
     const menuContentList = [...new Set(allMenus.map(menu => menu.menu).filter(Boolean))];
-    const ingredientList = await Ingredient.find();
-    const seasoningList = await Seasoning.find();
+    const ingredientList = await Ingredient.find().lean();
+    const seasoningList = await Seasoning.find().lean();
 
     const appliedParams = new URLSearchParams();
     if (kind) appliedParams.append('kind', kind);
@@ -688,6 +699,7 @@ router.get('/menu-list', async (req, res) => {
     if (toBool(basicMenu)) appliedParams.append('basicMenu', 'true');
     if (toBool(arrangeMenu)) appliedParams.append('arrangeMenu', 'true');
     if (toBool(rankingExcluded)) appliedParams.append('rankingExcluded', 'true');
+    if (toBool(svMissing)) appliedParams.append('svMissing', 'true');
     const filterQueryString = appliedParams.toString();
     const filterQueryEncoded = encodeURIComponent(filterQueryString);
 
@@ -707,6 +719,7 @@ router.get('/menu-list', async (req, res) => {
       selectedBasicMenu: toBool(basicMenu) ? 'true' : '',
       selectedArrangeMenu: toBool(arrangeMenu) ? 'true' : '',
       selectedRankingExcluded: toBool(rankingExcluded) ? 'true' : '',
+      selectedSvMissing: toBool(svMissing) ? 'true' : '',
       menusJSON: JSON.stringify(menus), // 🔸追加
       ingredientList,
       seasoningList,
@@ -721,7 +734,7 @@ router.get('/menu-list', async (req, res) => {
 
 // レシピ一覧絞り込み処理（POST → GET へリダイレクト）
 router.post('/menu-list', (req, res) => {
-  const { kind, junle, cook, menuContent, keyword, image, makeAhead, basicMenu, arrangeMenu, rankingExcluded } = req.body;
+  const { kind, junle, cook, menuContent, keyword, image, makeAhead, basicMenu, arrangeMenu, rankingExcluded, svMissing } = req.body;
 
   const query = new URLSearchParams();
   if (kind) query.append('kind', kind);
@@ -734,6 +747,7 @@ router.post('/menu-list', (req, res) => {
   if (basicMenu) query.append('basicMenu', basicMenu);
   if (arrangeMenu) query.append('arrangeMenu', arrangeMenu);
   if (rankingExcluded) query.append('rankingExcluded', rankingExcluded);
+  if (svMissing) query.append('svMissing', svMissing);
 
   res.redirect(`/admin/menu-list?${query.toString()}`);
 });
@@ -945,6 +959,7 @@ router.post('/menu-new', async (req, res) => {
       imageUrl,
       time,
       people,
+      serving,
       comment,
       yomi,
       material,
@@ -1027,6 +1042,7 @@ router.post('/menu-new', async (req, res) => {
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
+      serving: parseServing(serving),
       comment,
       yomi,
       material: normalizedMenuType === 'arrange' ? false : toBool(material),
@@ -1179,6 +1195,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       imageUrl,
       time,
       people,
+      serving,
       comment,
       yomi,
       material,
@@ -1262,6 +1279,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
+      serving: parseServing(serving),
       comment,
       yomi,
       material: normalizedMenuType === 'arrange' ? false : toBool(material),
