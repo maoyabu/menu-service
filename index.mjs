@@ -44,6 +44,7 @@ import DailyMenuAnnouncement from './models/dailyMenuAnnouncement.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const ONE_WEEK_MS = 1000 * 60 * 60 * 24 * 7;
 
 const getAppBaseUrl = () => {
   const configuredUrl = process.env.APP_BASE_URL || process.env.BASE_URL;
@@ -80,7 +81,7 @@ app.use(session({
   cookie: { 
     httpOnly: true, 
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 24 // 1 day
+    maxAge: ONE_WEEK_MS
   },
 }));
 
