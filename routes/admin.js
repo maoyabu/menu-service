@@ -160,11 +160,40 @@ const toBool = (val) => {
   return s === 'true' || s === 'on' || s === '1';
 };
 
+const toArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null || value === '') return [];
+  return [value];
+};
+
 const parseServing = (value) => {
   if (value === undefined || value === null || String(value).trim() === '') return null;
   const num = Number(value);
   if (!Number.isFinite(num) || num < 0) return null;
   return Math.round(num * 10) / 10;
+};
+
+const parseServings = (body = {}) => {
+  const values = body.servings && typeof body.servings === 'object' ? body.servings : {};
+  return {
+    staple: parseServing(values.staple ?? body.serving_staple),
+    sideDish: parseServing(values.sideDish ?? body.serving_sideDish),
+    mainDish: parseServing(values.mainDish ?? body.serving_mainDish),
+    dairy: parseServing(values.dairy ?? body.serving_dairy),
+    fruit: parseServing(values.fruit ?? body.serving_fruit)
+  };
+};
+
+const getServingValues = (menu = {}) => {
+  const servings = menu.servings || {};
+  const legacyServing = typeof menu.serving === 'number' ? menu.serving : null;
+  return {
+    staple: typeof servings.staple === 'number' ? servings.staple : legacyServing,
+    sideDish: typeof servings.sideDish === 'number' ? servings.sideDish : null,
+    mainDish: typeof servings.mainDish === 'number' ? servings.mainDish : null,
+    dairy: typeof servings.dairy === 'number' ? servings.dairy : null,
+    fruit: typeof servings.fruit === 'number' ? servings.fruit : null
+  };
 };
 
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -667,7 +696,15 @@ router.get('/menu-list', async (req, res) => {
       filterConditions.push({ excludeFromRanking: true });
     }
     if (toBool(svMissing)) {
-      filterConditions.push({ serving: null });
+      filterConditions.push({
+        $or: [
+          { 'servings.staple': null },
+          { 'servings.sideDish': null },
+          { 'servings.mainDish': null },
+          { 'servings.dairy': null },
+          { 'servings.fruit': null }
+        ]
+      });
     }
 
     const composedFilter = filterConditions.length ? { $and: filterConditions } : {};
@@ -959,7 +996,6 @@ router.post('/menu-new', async (req, res) => {
       imageUrl,
       time,
       people,
-      serving,
       comment,
       yomi,
       material,
@@ -987,24 +1023,34 @@ router.post('/menu-new', async (req, res) => {
       .filter((t) => ['morning', 'lunch', 'dinner'].includes(t));
 
     // 食材の構造を整える（セットメニューでも追加可）
-    const ingredients = ingredient_ids.map((id, index) => ({
+    const ingredientIds = toArray(ingredient_ids)
+      .map((id) => String(id || '').trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const ingredientAmounts = toArray(ingredient_amounts);
+    const ingredientUnits = toArray(ingredient_units);
+    const ingredients = ingredientIds.map((id, index) => ({
       name: id,
-      amount: ingredient_amounts[index],
-      unit: ingredient_units[index]
+      amount: ingredientAmounts[index],
+      unit: ingredientUnits[index]
     }));
 
     // 調味料の構造を整える
+    const seasoningIds = toArray(seasoning_ids)
+      .map((id) => String(id || '').trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const seasoningAmounts = toArray(seasoning_amounts);
+    const seasoningUnits = toArray(seasoning_units);
     const seasonings = normalizedMenuType === 'set'
       ? []
-      : seasoning_ids.map((id, index) => ({
+      : seasoningIds.map((id, index) => ({
           name: id,
-          amount: seasoning_amounts[index],
-          unit: seasoning_units[index]
+          amount: seasoningAmounts[index],
+          unit: seasoningUnits[index]
         }));
 
     let setMenus = [];
     if (normalizedMenuType === 'set') {
-      const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
+      const rawSetMenus = toArray(set_menu_ids);
       const candidateIds = rawSetMenus
         .map((id) => String(id || '').trim())
         .filter((id) => mongoose.Types.ObjectId.isValid(id));
@@ -1042,7 +1088,7 @@ router.post('/menu-new', async (req, res) => {
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
-      serving: parseServing(serving),
+      servings: parseServings(req.body),
       comment,
       yomi,
       material: normalizedMenuType === 'arrange' ? false : toBool(material),
@@ -1087,42 +1133,26 @@ router.get('/menu-edit/:id', async (req, res) => {
       return res.status(404).send('該当レシピが見つかりません');
     }
 
-    const allMenus = await Menu.find(); // セレクトボックスの候補用
+    const [
+      allMenus,
+      menuList,
+      setMenuCandidates,
+      ingredientClassifications,
+      seasoningClassifications
+    ] = await Promise.all([
+      Menu.find().select('kind junle cook menu').lean(),
+      Menu.find().distinct('menu'),
+      Menu.find({ _id: { $ne: menu._id }, menuType: { $ne: 'set' } })
+        .select('name menu kind junle cook imageUrl menuType')
+        .lean(),
+      Ingredient.distinct('classification'),
+      Seasoning.distinct('classification')
+    ]);
     const kindList = [...new Set(allMenus.map(menu => menu.kind).filter(Boolean))];
     const junleList = [...new Set(allMenus.map(menu => menu.junle).filter(Boolean))];
     const cookList = [...new Set(allMenus.map(menu => menu.cook).filter(Boolean))];
-
-    // Fetch all existing menu names from DB (distinct)
-    const menuList = await Menu.find().distinct('menu');
-    const setMenuCandidates = await Menu.find({ _id: { $ne: menu._id }, menuType: { $ne: 'set' } })
-      .select('name menu kind junle cook imageUrl menuType')
-      .lean();
-
-    // 追加: 食材と調味料を取得（栄養情報含む）＋ short_nutrition を動的生成
-    const ingredientsRaw = await Ingredient.find().select('ingredient classification unit imageUrl energy protein lipid carbohydrate');
-    const ingredients = ingredientsRaw.map(item => {
-      const short_nutrition = item.energy
-        ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
-        : '';
-      return {
-        ...item.toObject(),
-        short_nutrition
-      };
-    });
-    const seasoningsRaw = await Seasoning.find().select('seasoning classification unit imageUrl energy protein lipid carbohydrate');
-    const seasonings = seasoningsRaw.map(item => {
-      const short_nutrition = item.energy
-        ? `${item.energy}kcal P${item.protein || 0}g F${item.lipid || 0}g C${item.carbohydrate || 0}g`
-        : '';
-      return {
-        ...item.toObject(),
-        short_nutrition
-      };
-    });
-    const genreList = [...new Set(ingredients.map(i => i.classification).filter(Boolean))];
-    const seasoningGenreList = [...new Set(seasonings.map(s => s.classification).filter(Boolean))];
-    const initialIngredients = ingredients.slice(0, 10);
-    const initialSeasonings = seasonings.slice(0, 10);
+    const genreList = [...new Set((ingredientClassifications || []).filter(Boolean))];
+    const seasoningGenreList = [...new Set((seasoningClassifications || []).filter(Boolean))];
 
     const filtersRaw = typeof req.query.filters === 'string' ? req.query.filters : '';
     let filters = '';
@@ -1133,15 +1163,16 @@ router.get('/menu-edit/:id', async (req, res) => {
 
     res.render('admin/menu-edit', {
       menu,
+      servingValues: getServingValues(menu),
       kindList,
       junleList,
       menuList,
       cookList,
       junleListJSON: JSON.stringify(junleList),
-      ingredients,
-      seasonings,
-      ingredientList: ingredients,
-      seasoningList: seasonings,
+      ingredients: [],
+      seasonings: [],
+      ingredientList: [],
+      seasoningList: [],
       setMenuCandidates,
       arrangeMenuCandidates: setMenuCandidates,
       initialSetMenus: (menu.setMenus || []).map((m) => ({
@@ -1168,8 +1199,8 @@ router.get('/menu-edit/:id', async (req, res) => {
         : null,
       genreList,
       seasoningGenreList,
-      initialIngredients,
-      initialSeasonings,
+      initialIngredients: [],
+      initialSeasonings: [],
       filters,
       backToListUrl,
       menuUrlForForm
@@ -1195,7 +1226,6 @@ router.post('/menu-edit/:id', async (req, res) => {
       imageUrl,
       time,
       people,
-      serving,
       comment,
       yomi,
       material,
@@ -1223,24 +1253,34 @@ router.post('/menu-edit/:id', async (req, res) => {
       .filter((t) => ['morning', 'lunch', 'dinner'].includes(t));
 
     // 食材の構造を整える（セットメニューでも追加可）
-    const ingredients = ingredient_ids.map((id, index) => ({
+    const ingredientIds = toArray(ingredient_ids)
+      .map((id) => String(id || '').trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const ingredientAmounts = toArray(ingredient_amounts);
+    const ingredientUnits = toArray(ingredient_units);
+    const ingredients = ingredientIds.map((id, index) => ({
       name: id,
-      amount: ingredient_amounts[index],
-      unit: ingredient_units[index]
+      amount: ingredientAmounts[index],
+      unit: ingredientUnits[index]
     }));
 
     // 調味料の構造を整える
+    const seasoningIds = toArray(seasoning_ids)
+      .map((id) => String(id || '').trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const seasoningAmounts = toArray(seasoning_amounts);
+    const seasoningUnits = toArray(seasoning_units);
     const seasonings = normalizedMenuType === 'set'
       ? []
-      : seasoning_ids.map((id, index) => ({
+      : seasoningIds.map((id, index) => ({
           name: id,
-          amount: seasoning_amounts[index],
-          unit: seasoning_units[index]
+          amount: seasoningAmounts[index],
+          unit: seasoningUnits[index]
         }));
 
     let setMenus = [];
     if (normalizedMenuType === 'set') {
-      const rawSetMenus = Array.isArray(set_menu_ids) ? set_menu_ids : [set_menu_ids];
+      const rawSetMenus = toArray(set_menu_ids);
       const candidateIds = rawSetMenus
         .map((id) => String(id || '').trim())
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
@@ -1279,7 +1319,7 @@ router.post('/menu-edit/:id', async (req, res) => {
       imageUrl: normalizedMenuType === 'set' ? '' : imageUrl,
       time,
       people,
-      serving: parseServing(serving),
+      servings: parseServings(req.body),
       comment,
       yomi,
       material: normalizedMenuType === 'arrange' ? false : toBool(material),
@@ -1293,7 +1333,7 @@ router.post('/menu-edit/:id', async (req, res) => {
     });
 
     const redirectUrl = filters ? `/admin/menu-list?${filters}` : '/admin/menu-list';
-    res.redirect(redirectUrl);
+    res.redirect(303, redirectUrl);
   } catch (err) {
     console.error('レシピ更新エラー:', err);
     res.status(500).send('レシピを更新できませんでした');
@@ -2040,6 +2080,11 @@ router.get('/export/menus', async (req, res) => {
       { header: '画像URL', key: 'imageUrl' },
       { header: '時間', key: 'time' },
       { header: '人数', key: 'people' },
+      { header: '主食SV', key: 'servingStaple' },
+      { header: '副菜SV', key: 'servingSideDish' },
+      { header: '主菜SV', key: 'servingMainDish' },
+      { header: '牛乳・乳製品SV', key: 'servingDairy' },
+      { header: '果物SV', key: 'servingFruit' },
       { header: '素材フラグ', key: 'material' },
       { header: '非公開フラグ', key: 'isPrivate' },
       { header: 'コメント', key: 'comment' },
@@ -2090,6 +2135,11 @@ router.get('/export/menus', async (req, res) => {
         imageUrl: menu.imageUrl,
         time: menu.time,
         people: menu.people,
+        servingStaple: menu.servings?.staple,
+        servingSideDish: menu.servings?.sideDish,
+        servingMainDish: menu.servings?.mainDish,
+        servingDairy: menu.servings?.dairy,
+        servingFruit: menu.servings?.fruit,
         material: menu.material,
         isPrivate: menu.isPrivate,
         comment: menu.comment,

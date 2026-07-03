@@ -64,6 +64,38 @@ const menuSchema = new mongoose.Schema({
         min: 0,
         index: true
     },
+    servings: {
+        staple: {
+            type: Number,
+            min: 0,
+            default: null,
+            index: true
+        },
+        sideDish: {
+            type: Number,
+            min: 0,
+            default: null,
+            index: true
+        },
+        mainDish: {
+            type: Number,
+            min: 0,
+            default: null,
+            index: true
+        },
+        dairy: {
+            type: Number,
+            min: 0,
+            default: null,
+            index: true
+        },
+        fruit: {
+            type: Number,
+            min: 0,
+            default: null,
+            index: true
+        }
+    },
     ingredients: [
     {
         name: {

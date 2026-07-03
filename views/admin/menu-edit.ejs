@@ -34,7 +34,7 @@
     .toggle-invert .toggle-input:checked ~ .toggle-state .state-on { background: #fff; color: #9ca3af; }
   </style>
 
-  <form action="/admin/menu-edit/<%= menu._id %>?_method=PUT" method="POST" class="space-y-8">
+  <form action="/admin/menu-edit/<%= menu._id %>" method="POST" class="space-y-8">
     <input type="hidden" name="filters" value="<%= filters || '' %>">
     <div class="flex flex-wrap items-center gap-4 p-4 bg-gray-50 border rounded-lg">
       <span class="text-sm font-bold text-gray-700">公開設定</span>
@@ -58,6 +58,7 @@
     <% const isSetMenu = menu.menuType === 'set'; %>
     <% const isArrangeMenu = menu.menuType === 'arrange'; %>
     <% const setTypes = Array.isArray(menu.setType) ? menu.setType : (menu.setType ? [menu.setType] : []); %>
+    <% const sv = servingValues || {}; %>
 
     <div class="p-4 bg-gray-50 border rounded-lg space-y-3">
       <div class="flex flex-wrap items-center gap-4">
@@ -240,9 +241,30 @@
         <label class="block mb-1 text-sm font-bold">人数 *</label>
         <input type="number" name="people" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= menu.people %>" required>
       </div>
-      <div>
+      <div class="md:col-span-2">
         <label class="block mb-1 text-sm font-bold">SV</label>
-        <input type="number" name="serving" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= typeof menu.serving === 'number' ? menu.serving : '' %>" placeholder="例: 1.0">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">主食SV</label>
+            <input type="number" name="servings[staple]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= typeof sv.staple === 'number' ? sv.staple : '' %>" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">副菜SV</label>
+            <input type="number" name="servings[sideDish]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= typeof sv.sideDish === 'number' ? sv.sideDish : '' %>" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">主菜SV</label>
+            <input type="number" name="servings[mainDish]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= typeof sv.mainDish === 'number' ? sv.mainDish : '' %>" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">牛乳・乳製品SV</label>
+            <input type="number" name="servings[dairy]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= typeof sv.dairy === 'number' ? sv.dairy : '' %>" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">果物SV</label>
+            <input type="number" name="servings[fruit]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" value="<%= typeof sv.fruit === 'number' ? sv.fruit : '' %>" placeholder="例: 1.0">
+          </div>
+        </div>
       </div>
       <!-- コメント -->
       <div class="md:col-span-2">
@@ -299,7 +321,7 @@
                     NO IMG
                   <% } %>
                 </div>
-                <input type="hidden" name="ingredient_ids[]" value="<%= ingredient._id %>">
+                <input type="hidden" name="ingredient_ids[]" value="<%= ingredient.name?._id || ingredient.name || '' %>">
                 <span class="font-medium text-gray-800"><%= ingredient.name?.ingredient || '未設定' %></span>
                 <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= ingredient.name?.classification || '' %></span>
                 <input type="number" name="ingredient_amounts[]" step="any" placeholder="量" class="w-20 border rounded-md px-2 py-1 text-sm" value="<%= ingredient.amount %>">
@@ -353,7 +375,7 @@
                     NO IMG
                   <% } %>
                 </div>
-                <input type="hidden" name="seasoning_ids[]" value="<%= seasoning._id %>">
+                <input type="hidden" name="seasoning_ids[]" value="<%= seasoning.name?._id || seasoning.name || '' %>">
                 <span class="font-medium text-gray-800"><%= seasoning.name?.seasoning || '未設定' %></span>
                 <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded"><%= seasoning.name?.classification || '' %></span>
                 <input type="number" name="seasoning_amounts[]" step="any" placeholder="量" class="w-20 border rounded-md px-2 py-1 text-sm" value="<%= seasoning.amount %>">
@@ -1071,184 +1093,6 @@ function toggleNutritionInfo(btn) {
     initImagePreview('image-url-input', 'image-url-preview', 'image-url-placeholder');
     if (typeof window.refreshLucideIcons === 'function') {
       window.refreshLucideIcons();
-    }
-    // 初期描画用食材をEJSから受け取り
-    const initialIngredients = <%- JSON.stringify(menu.ingredients || []) %>;
-    const ingredientListData = <%- JSON.stringify(ingredientList || []) %>;
-    const ingredientsListEl = document.getElementById('ingredients-list');
-    if (ingredientsListEl && initialIngredients.length > 0) {
-      ingredientsListEl.innerHTML = '';
-      initialIngredients.forEach(item => {
-        const matchedIngredient = ingredientListData.find(ing => ing._id.toString() === item.name?._id.toString());
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between border p-4 rounded-lg bg-gray-50';
-
-        const hidden = document.createElement('input');
-        hidden.type = 'hidden';
-        hidden.name = 'ingredient_ids[]';
-        hidden.value = item.name?._id;
-
-        const thumb = document.createElement('div');
-        thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
-        if (matchedIngredient?.imageUrl) {
-          const img = document.createElement('img');
-          img.src = `/admin/image-proxy?url=${encodeURIComponent(matchedIngredient.imageUrl)}`;
-          img.alt = matchedIngredient.ingredient || 'ingredient image';
-          img.className = 'w-full h-full object-cover';
-          thumb.textContent = '';
-          thumb.appendChild(img);
-        } else {
-          thumb.textContent = 'NO IMG';
-        }
-
-        const topDiv = document.createElement('div');
-        topDiv.className = 'text-base font-medium text-gray-900';
-        topDiv.innerHTML = `${matchedIngredient ? matchedIngredient.ingredient : '未設定'} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${matchedIngredient?.classification || '分類'}</span>`;
-
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'flex items-center gap-3';
-        headerDiv.appendChild(thumb);
-        headerDiv.appendChild(topDiv);
-
-        const bottomDiv = document.createElement('div');
-        bottomDiv.className = 'flex flex-wrap items-center gap-2 mt-2 sm:mt-0';
-
-        const amount = document.createElement('input');
-        amount.type = 'number';
-        amount.step = 'any';
-        amount.name = 'ingredient_amounts[]';
-        amount.placeholder = '量';
-        amount.className = 'w-20 border rounded-md px-2 py-1 text-sm';
-        amount.value = item.amount;
-
-        const unitSelect = document.createElement('select');
-        unitSelect.name = 'ingredient_units[]';
-        unitSelect.className = 'border rounded-md px-2 py-1 text-sm';
-        let units = (matchedIngredient && matchedIngredient.unit) ? [...matchedIngredient.unit] : [];
-        if (item.unit && !units.includes(item.unit)) { units.unshift(item.unit); }
-        units.forEach(u => {
-          const opt = document.createElement('option');
-          opt.value = u;
-          opt.textContent = u;
-          if (u === item.unit) opt.selected = true;
-          unitSelect.appendChild(opt);
-        });
-
-        const nutritionSpan = document.createElement('span');
-        nutritionSpan.className = 'text-gray-500 text-sm';
-        nutritionSpan.textContent = matchedIngredient?.short_nutrition?.replace(/\s+/g, ' ').trim() || '-';
-
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
-        removeBtn.textContent = '×';
-        removeBtn.onclick = function () {
-          wrapper.remove();
-          if (ingredientsListEl.children.length === 0) {
-            ingredientsListEl.innerHTML = '食材を追加してください';
-          }
-        };
-
-        bottomDiv.appendChild(amount);
-        bottomDiv.appendChild(unitSelect);
-        bottomDiv.appendChild(nutritionSpan);
-        bottomDiv.appendChild(removeBtn);
-
-        wrapper.appendChild(hidden);
-        wrapper.appendChild(headerDiv);
-        wrapper.appendChild(bottomDiv);
-        ingredientsListEl.appendChild(wrapper);
-      });
-    }
-    // 初期描画用調味料
-    const initialSeasonings = <%- JSON.stringify(menu.seasoning || []) %>;
-    const seasoningListData = <%- JSON.stringify(seasoningList || []) %>;
-    const seasoningsListEl = document.getElementById('seasonings-list');
-    if (seasoningsListEl && initialSeasonings.length > 0) {
-      seasoningsListEl.innerHTML = '';
-      initialSeasonings.forEach(item => {
-        const matchedSeasoning = seasoningListData.find(s => s._id.toString() === item.name?._id.toString());
-        const container = seasoningsListEl;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between border p-4 rounded-lg bg-gray-50';
-
-        const hidden = document.createElement('input');
-        hidden.type = 'hidden';
-        hidden.name = 'seasoning_ids[]';
-        hidden.value = item.name?._id;
-
-        const thumb = document.createElement('div');
-        thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
-        if (matchedSeasoning?.imageUrl) {
-          const img = document.createElement('img');
-          img.src = matchedSeasoning.imageUrl;
-          img.alt = matchedSeasoning.seasoning || 'seasoning image';
-          img.className = 'w-full h-full object-cover';
-          thumb.textContent = '';
-          thumb.appendChild(img);
-        } else {
-          thumb.textContent = 'NO IMG';
-        }
-
-        const topDiv = document.createElement('div');
-        topDiv.className = 'text-base font-medium text-gray-900';
-        topDiv.innerHTML = `${matchedSeasoning ? matchedSeasoning.seasoning : '未設定'} <span class="ml-2 inline-block text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">${matchedSeasoning?.classification || '分類'}</span>`;
-
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'flex items-center gap-3';
-        headerDiv.appendChild(thumb);
-        headerDiv.appendChild(topDiv);
-
-        const bottomDiv = document.createElement('div');
-        bottomDiv.className = 'flex flex-wrap items-center gap-2 mt-2 sm:mt-0';
-
-        const amount = document.createElement('input');
-        amount.type = 'number';
-        amount.step = 'any';
-        amount.name = 'seasoning_amounts[]';
-        amount.placeholder = '量';
-        amount.className = 'w-20 border rounded-md px-2 py-1 text-sm';
-        amount.value = item.amount;
-
-        const unitSelect = document.createElement('select');
-        unitSelect.name = 'seasoning_units[]';
-        unitSelect.className = 'border rounded-md px-2 py-1 text-sm';
-        let units = (matchedSeasoning && matchedSeasoning.unit) ? [...matchedSeasoning.unit] : [];
-        if (item.unit && !units.includes(item.unit)) { units.unshift(item.unit); }
-        units.forEach(u => {
-          const opt = document.createElement('option');
-          opt.value = u;
-          opt.textContent = u;
-          if (u === item.unit) opt.selected = true;
-          unitSelect.appendChild(opt);
-        });
-
-        const nutritionSpan = document.createElement('span');
-        nutritionSpan.className = 'text-gray-500 text-sm';
-        nutritionSpan.textContent = matchedSeasoning?.short_nutrition?.replace(/\s+/g, ' ').trim() || '-';
-
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
-        removeBtn.textContent = '×';
-        removeBtn.onclick = function () {
-          wrapper.remove();
-          if (container.children.length === 0) {
-            container.innerHTML = '調味料を追加してください';
-          }
-        };
-
-        bottomDiv.appendChild(amount);
-        bottomDiv.appendChild(unitSelect);
-        bottomDiv.appendChild(nutritionSpan);
-        bottomDiv.appendChild(removeBtn);
-
-        wrapper.appendChild(hidden);
-        wrapper.appendChild(headerDiv);
-        wrapper.appendChild(bottomDiv);
-        container.appendChild(wrapper);
-      });
     }
   });
 </script>

@@ -216,9 +216,18 @@
             <% if (menu.material) { %>
               <span class="inline-block bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full text-xs font-semibold text-amber-700">素材</span>
             <% } %>
-            <% if (typeof menu.serving === 'number') { %>
-              <span class="inline-block bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full text-xs font-semibold text-sky-700">SV:<%= menu.serving %></span>
-            <% } %>
+            <% const svItems = [
+              ['主食SV', menu.servings?.staple],
+              ['副菜SV', menu.servings?.sideDish],
+              ['主菜SV', menu.servings?.mainDish],
+              ['牛乳・乳製品SV', menu.servings?.dairy],
+              ['果物SV', menu.servings?.fruit]
+            ]; %>
+            <% svItems.forEach(([label, value]) => { %>
+              <% if (typeof value === 'number') { %>
+                <span class="inline-block bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full text-xs font-semibold text-sky-700"><%= label %>:<%= value %></span>
+              <% } %>
+            <% }) %>
             <% if (Array.isArray(menu.season) && menu.season.length) { %>
               <span class="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-semibold text-emerald-700">
                 旬: <%= menu.season.join(' / ') %>

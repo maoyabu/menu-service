@@ -136,9 +136,30 @@
         <label class="text-xs text-gray-500">人数</label>
         <input name="people" type="number" min="1" step="1" class="w-full border rounded-lg px-3 py-2" required />
       </div>
-      <div>
+      <div class="md:col-span-2">
         <label class="text-xs text-gray-500">SV</label>
-        <input name="serving" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="例: 1.0" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div>
+            <label class="text-[11px] text-gray-500">主食SV</label>
+            <input name="servings[staple]" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="例: 1.0" />
+          </div>
+          <div>
+            <label class="text-[11px] text-gray-500">副菜SV</label>
+            <input name="servings[sideDish]" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="例: 1.0" />
+          </div>
+          <div>
+            <label class="text-[11px] text-gray-500">主菜SV</label>
+            <input name="servings[mainDish]" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="例: 1.0" />
+          </div>
+          <div>
+            <label class="text-[11px] text-gray-500">牛乳・乳製品SV</label>
+            <input name="servings[dairy]" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="例: 1.0" />
+          </div>
+          <div>
+            <label class="text-[11px] text-gray-500">果物SV</label>
+            <input name="servings[fruit]" type="number" min="0" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="例: 1.0" />
+          </div>
+        </div>
       </div>
       <div class="md:col-span-2" id="instruction-section">
         <label class="text-xs text-gray-500">作り方</label>
@@ -916,7 +937,11 @@
     setVal('input[name="imageUrl"]', PF.imageUrl||'');
     setVal('input[name="time"]', PF.time||'');
     setVal('input[name="people"]', PF.people||'');
-    setVal('input[name="serving"]', PF.serving||'');
+    setVal('input[name="servings[staple]"]', PF.servings?.staple ?? '');
+    setVal('input[name="servings[sideDish]"]', PF.servings?.sideDish ?? '');
+    setVal('input[name="servings[mainDish]"]', PF.servings?.mainDish ?? '');
+    setVal('input[name="servings[dairy]"]', PF.servings?.dairy ?? '');
+    setVal('input[name="servings[fruit]"]', PF.servings?.fruit ?? '');
     const inst = document.querySelector('textarea[name="instruction"]'); if (inst) inst.value = PF.instruction||'';
     const cmt = document.querySelector('textarea[name="comment"]'); if (cmt) cmt.value = PF.comment||'';
     // preview image

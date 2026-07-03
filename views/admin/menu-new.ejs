@@ -215,9 +215,30 @@
         <label class="block mb-1 text-sm font-bold">人数 *</label>
         <input type="number" name="people" class="w-full border rounded-md px-3 py-2 bg-gray-50" required>
       </div>
-      <div>
+      <div class="md:col-span-2">
         <label class="block mb-1 text-sm font-bold">SV</label>
-        <input type="number" name="serving" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 1.0">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">主食SV</label>
+            <input type="number" name="servings[staple]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">副菜SV</label>
+            <input type="number" name="servings[sideDish]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">主菜SV</label>
+            <input type="number" name="servings[mainDish]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">牛乳・乳製品SV</label>
+            <input type="number" name="servings[dairy]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 1.0">
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-500">果物SV</label>
+            <input type="number" name="servings[fruit]" min="0" step="0.1" class="w-full border rounded-md px-3 py-2 bg-gray-50" placeholder="例: 1.0">
+          </div>
+        </div>
       </div>
       <div class="md:col-span-2">
         <label class="block mb-1 text-sm font-bold">コメント</label>
