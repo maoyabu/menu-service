@@ -44,6 +44,7 @@ import WeeklyMenuPlan from '../models/weeklyMenuPlan.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMP_DIR = path.join(__dirname, '..', 'temp');
+const MENU_SERVING_KEYS = ['staple', 'sideDish', 'mainDish', 'dairy', 'fruit'];
 
 // Create temp directory if it doesn't exist
 if (!fs.existsSync(TEMP_DIR)) {
@@ -90,6 +91,34 @@ const MODELS = {
   'WeeklyMenuPlan': WeeklyMenuPlan
 };
 
+const parseServingValue = (value) => {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(num * 10) / 10;
+};
+
+const normalizeMenuBackupRecord = (record = {}) => {
+  const servings = record.servings && typeof record.servings === 'object' ? record.servings : {};
+  const hasServings = MENU_SERVING_KEYS.some((key) => parseServingValue(servings[key]) !== null);
+  const legacyServing = hasServings ? null : parseServingValue(record.serving);
+  return {
+    ...record,
+    servings: {
+      staple: parseServingValue(servings.staple ?? record.servingStaple ?? record.serving_staple ?? legacyServing),
+      sideDish: parseServingValue(servings.sideDish ?? record.servingSideDish ?? record.serving_sideDish),
+      mainDish: parseServingValue(servings.mainDish ?? record.servingMainDish ?? record.serving_mainDish),
+      dairy: parseServingValue(servings.dairy ?? record.servingDairy ?? record.serving_dairy),
+      fruit: parseServingValue(servings.fruit ?? record.servingFruit ?? record.serving_fruit)
+    }
+  };
+};
+
+const normalizeBackupDataForModel = (modelName, data) => {
+  if (modelName !== 'Menu' || !Array.isArray(data)) return data;
+  return data.map((record) => normalizeMenuBackupRecord(record));
+};
+
 /**
  * バックアップファイルを作成してダウンロード
  */
@@ -117,7 +146,7 @@ export async function createBackupFile() {
 
     for (const [modelName, Model] of Object.entries(MODELS)) {
       try {
-        const data = await Model.find({}).lean().exec();
+        const data = normalizeBackupDataForModel(modelName, await Model.find({}).lean().exec());
         const filePath = path.join(backupDir, `${modelName}.json`);
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
         console.log(`[Backup] Exported ${modelName}: ${data.length} records`);
@@ -238,14 +267,15 @@ export async function restoreFromBackup(backupData) {
       await Model.deleteMany({});
       
       // Insert new data
-      if (Array.isArray(data) && data.length > 0) {
-        await Model.insertMany(data, { ordered: false }).catch(err => {
+      const normalizedData = normalizeBackupDataForModel(modelName, data);
+      if (Array.isArray(normalizedData) && normalizedData.length > 0) {
+        await Model.insertMany(normalizedData, { ordered: false }).catch(err => {
           // Continue even if some documents fail to insert
           console.warn(`Warning inserting into ${modelName}:`, err.message);
         });
       }
       
-      results.success.push({ collection: modelName, count: data.length });
+      results.success.push({ collection: modelName, count: Array.isArray(normalizedData) ? normalizedData.length : 0 });
     } catch (err) {
       results.failed.push({ 
         collection: modelName, 
