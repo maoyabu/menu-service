@@ -697,7 +697,7 @@ router.get('/menu-list', async (req, res) => {
     }
     if (toBool(svMissing)) {
       filterConditions.push({
-        $or: [
+        $and: [
           { 'servings.staple': null },
           { 'servings.sideDish': null },
           { 'servings.mainDish': null },
