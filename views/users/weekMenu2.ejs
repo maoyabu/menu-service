@@ -1209,6 +1209,48 @@
         sexLabel: servingSexLabel(sex)
       };
     })();
+    const SV_GUIDE_URL = 'https://www.maff.go.jp/j/syokuiku/zissen_navi/balance/index.html';
+    const ensureSvGuideModal = () => {
+      let modal = document.getElementById('sv-guide-modal');
+      if (modal) return modal;
+      modal = document.createElement('div');
+      modal.id = 'sv-guide-modal';
+      modal.className = 'fixed inset-0 z-[95] hidden items-center justify-center bg-black/40 p-4';
+      modal.innerHTML = `
+        <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="sv-guide-modal-title">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <h3 id="sv-guide-modal-title" class="text-lg font-semibold text-gray-900">SVとは？</h3>
+            <button type="button" class="text-gray-500 hover:text-gray-700" data-sv-guide-close aria-label="閉じる">✕</button>
+          </div>
+          <div class="space-y-3 text-sm leading-6 text-gray-700">
+            <p>食事バランスガイドは、1日に「何を・どれくらい」食べるとよいかを、コマの形でわかりやすく示したものです。</p>
+            <p>主食・副菜・主菜・牛乳乳製品・果物をバランスよくとり、水分や運動も意識することで、健康的な食生活につながります。</p>
+            <p>詳細は<a href="${SV_GUIDE_URL}" target="_blank" rel="noopener noreferrer" class="font-semibold text-blue-600 underline underline-offset-2 hover:text-blue-800">こちら</a>をご覧ください。</p>
+          </div>
+        </div>
+      `;
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal || event.target.closest('[data-sv-guide-close]')) {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      });
+      document.body.appendChild(modal);
+      return modal;
+    };
+    const openSvGuideModal = () => {
+      const modal = ensureSvGuideModal();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    };
+    const createSvGuideButton = () => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'inline-flex items-center rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50';
+      button.textContent = 'SVとは？';
+      button.addEventListener('click', openSvGuideModal);
+      return button;
+    };
     const isModelPlanMode = !!(window.weekMenuData && window.weekMenuData.isModelPlanMode);
     const SEASONING_CAPTURE_CLASSES = new Set(['穀物','乳類','チーズ']);
     const modelTitleBtn = document.getElementById('wm2-edit-model-title');
@@ -3046,10 +3088,13 @@
       target.innerHTML = '';
       const header = document.createElement('div');
       header.className = 'flex flex-wrap items-center justify-between gap-2';
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'flex flex-wrap items-center gap-2';
       const title = document.createElement('p');
       title.className = 'text-sm font-semibold text-gray-800';
       title.textContent = 'SV合計';
-      header.appendChild(title);
+      titleWrap.append(title, createSvGuideButton());
+      header.appendChild(titleWrap);
       const profileNote = document.createElement('p');
       profileNote.className = 'text-[11px] font-medium text-emerald-700';
       const profileParts = [];
