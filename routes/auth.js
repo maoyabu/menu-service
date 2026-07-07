@@ -3272,6 +3272,11 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     guidelineTotals,
     guidelineByUser,
     currentUserId: req.user?._id ? String(req.user._id) : '',
+    currentUserProfile: {
+      id: req.user?._id ? String(req.user._id) : '',
+      sex: req.user?.sex || '',
+      birthDateISO: toISODateString(req.user?.birth_date)
+    },
     currentUserIsGroupOwner,
     participantsMap,
 
@@ -5677,6 +5682,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
           dineOutUrl: typeof slotSource.dineOutUrl === 'string' ? slotSource.dineOutUrl : '',
           favorite: !!slotSource.favorite,
           locked: !!slotSource.locked,
+          servingMultiplier: normalizeServingMultiplier(slotSource.servingMultiplier),
           menu: menuId && currentWeekMenuLookup[menuId] ? currentWeekMenuLookup[menuId] : null
         };
 
@@ -5782,7 +5788,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
           categoryKey: slot.categoryKey,
           categoryLabel: categoryLabels[slot.categoryKey] || '',
           menuId: slot.menuId,
-          menu: slot.menu
+          menu: slot.menu,
+          servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
         }))
       });
     }
@@ -5796,7 +5803,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
           categoryKey: slot.categoryKey,
           categoryLabel: categoryLabels[slot.categoryKey] || '',
           menuId: slot.menuId,
-          menu: slot.menu
+          menu: slot.menu,
+          servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
         }))
       });
     }
@@ -5812,7 +5820,8 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
           categoryKey: slot.categoryKey,
           categoryLabel: categoryLabels[slot.categoryKey] || '',
           menuId: slot.menuId,
-          menu: slot.menu
+          menu: slot.menu,
+          servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
         }))
       });
     }
@@ -6127,6 +6136,11 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
     afterNextWeekRangeLabel,
     currentGroupId,
     todayISO: today.toISOString(),
+    currentUserProfile: {
+      id: req.user?._id ? String(req.user._id) : '',
+      sex: req.user?.sex || '',
+      birthDateISO: toISODateString(req.user?.birth_date)
+    },
     initialCalendarMonthISO,
     todayPlan,
     weekPlanOverview,

@@ -967,6 +967,7 @@
 <script>
   window.myTopData = {
     currentGroupId: <%- serialize(currentGroupId || '') %>,
+    currentUserProfile: <%- serialize(typeof currentUserProfile !== 'undefined' ? currentUserProfile : {}) %>,
     initialMonth: <%- serialize(initialCalendarMonthISO || '') %>,
     todayISO: <%- serialize(todayISO || '') %>,
     apiBase: '/users/api/week-plans',
@@ -1160,18 +1161,187 @@
       if (!entry || !Array.isArray(entry.units) || !entry.units.length) {
         return '数量未設定';
       }
+      const qualitativeUnits = new Set(['少々', '適量', 'お好みで', 'ひとつまみ']);
+      const prefixNumberUnits = new Set(['大さじ', '小さじ']);
+      const suffixUnitPattern = /^(g|kg|mg|ml|mL|l|L|cc)$/;
       const parts = entry.units.map((unitEntry) => {
         if (!unitEntry) return '';
         const { amount, unit } = unitEntry;
+        const unitText = String(unit || '').trim();
+        if (qualitativeUnits.has(unitText)) return unitText;
         if (amount === null || typeof amount === 'undefined') {
-          return unit || '数量未設定';
+          return unitText || '数量未設定';
         }
         const quantityText = formatQuantity(amount);
-        if (!unit) return quantityText;
-        const hasNonAscii = /[^\x00-\x7F]/.test(unit);
-        return hasNonAscii ? `${unit}${quantityText}` : `${quantityText}${unit}`;
+        if (!unitText) return quantityText;
+        if (prefixNumberUnits.has(unitText)) return `${unitText}${quantityText}`;
+        if (suffixUnitPattern.test(unitText)) return `${quantityText}${unitText}`;
+        return `${quantityText}${unitText}`;
       }).filter(Boolean);
       return parts.length ? parts.join(' + ') : '数量未設定';
+    };
+
+    const SERVING_ITEMS = [
+      { key: 'staple', label: '主食SV' },
+      { key: 'sideDish', label: '副菜SV' },
+      { key: 'mainDish', label: '主菜SV' },
+      { key: 'dairy', label: '牛乳・乳製品SV' },
+      { key: 'fruit', label: '果物SV' }
+    ];
+    const SERVING_GUIDELINE_ROWS = {
+      low: {
+        staple: [4, 5],
+        sideDish: [5, 6],
+        mainDish: [3, 4],
+        dairy: [2, 2],
+        fruit: [2, 2]
+      },
+      basic: {
+        staple: [5, 7],
+        sideDish: [5, 6],
+        mainDish: [3, 5],
+        dairy: [2, 2],
+        fruit: [2, 2]
+      }
+    };
+    const normalizeSexForServing = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      if (raw === '男' || raw === '男性' || raw.toLowerCase().startsWith('m') || raw.includes('男')) return 'male';
+      if (raw === '女' || raw === '女性' || raw.toLowerCase().startsWith('f') || raw.includes('女')) return 'female';
+      return '';
+    };
+    const servingSexLabel = (sex) => sex === 'male' ? '男性' : (sex === 'female' ? '女性' : '');
+    const calculateAgeFromISOForServing = (iso) => {
+      if (!iso) return null;
+      const birth = new Date(iso);
+      if (Number.isNaN(birth.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age -= 1;
+      return age;
+    };
+    const servingGuidelineForUser = (user) => {
+      const age = calculateAgeFromISOForServing(user?.birthDateISO || user?.birthDate);
+      const sex = normalizeSexForServing(user?.sex);
+      let rowKey = 'basic';
+      if (typeof age === 'number' && Number.isFinite(age)) {
+        if (sex === 'male') rowKey = (age <= 9 || age >= 70) ? 'low' : 'basic';
+        else if (sex === 'female') rowKey = (age <= 11 || age >= 70) ? 'low' : 'basic';
+        else rowKey = (age <= 9 || age >= 70) ? 'low' : 'basic';
+      }
+      const row = SERVING_GUIDELINE_ROWS[rowKey] || SERVING_GUIDELINE_ROWS.basic;
+      const isChildDairyRange = typeof age === 'number' && age >= 6 && age <= 11;
+      return SERVING_ITEMS.map((item) => {
+        const range = row[item.key] || SERVING_GUIDELINE_ROWS.basic[item.key] || [0, 0];
+        const requiredMin = item.key === 'dairy' && isChildDairyRange ? 2 : range[0];
+        const requiredMax = item.key === 'dairy' && isChildDairyRange ? 3 : range[1];
+        return { ...item, requiredMin, requiredMax };
+      });
+    };
+    const servingRequirementItems = servingGuidelineForUser(window.myTopData?.currentUserProfile || {});
+    const servingRequirementProfile = (() => {
+      const profile = window.myTopData?.currentUserProfile || {};
+      const age = calculateAgeFromISOForServing(profile.birthDateISO || profile.birthDate);
+      const sex = normalizeSexForServing(profile.sex);
+      return {
+        age: typeof age === 'number' && Number.isFinite(age) ? age : null,
+        sexLabel: servingSexLabel(sex)
+      };
+    })();
+    const formatServingNumber = (value) => {
+      const num = Number(value) || 0;
+      const rounded = Math.round(num * 10) / 10;
+      return rounded % 1 ? rounded.toFixed(1) : String(rounded);
+    };
+    const buildServingTotals = (menu, multiplier = 1) => {
+      const totals = SERVING_ITEMS.reduce((acc, item) => {
+        acc[item.key] = 0;
+        return acc;
+      }, {});
+      const safeMultiplier = Math.max(0, Number(multiplier) || 1);
+      const addMenu = (targetMenu) => {
+        const servings = targetMenu?.servings || {};
+        SERVING_ITEMS.forEach((item) => {
+          const value = Number(servings[item.key]);
+          if (!Number.isFinite(value) || value <= 0) return;
+          totals[item.key] += value * safeMultiplier;
+        });
+      };
+      if (!menu) return totals;
+      addMenu(menu);
+      if (menu.menuType === 'set' && Array.isArray(menu.setMenus)) {
+        menu.setMenus.forEach(addMenu);
+      }
+      return totals;
+    };
+    const getServingChipItems = (totals = {}) => SERVING_ITEMS
+      .map((item) => ({ label: item.label, value: Number(totals[item.key]) || 0 }))
+      .filter((item) => item.value > 0);
+    const addServingTotalsInto = (target, source) => {
+      SERVING_ITEMS.forEach((item) => {
+        target[item.key] = (Number(target[item.key]) || 0) + (Number(source?.[item.key]) || 0);
+      });
+    };
+    const buildDayServingTotals = (day) => {
+      const totals = SERVING_ITEMS.reduce((acc, item) => {
+        acc[item.key] = 0;
+        return acc;
+      }, {});
+      (day?.meals || []).forEach((meal) => {
+        (meal?.slots || []).forEach((slot) => {
+          addServingTotalsInto(totals, buildServingTotals(slot?.menu, slot?.servingMultiplier));
+        });
+      });
+      return totals;
+    };
+    const formatRequiredServing = (item) => {
+      const min = Number(item.requiredMin) || 0;
+      const max = Number(item.requiredMax) || 0;
+      if (min === max) return formatServingNumber(min);
+      return `${formatServingNumber(min)}〜${formatServingNumber(max)}`;
+    };
+    const formatServingActualWithRequired = (actual, item) =>
+      `${formatServingNumber(actual)} / ${formatRequiredServing(item)}(SV)`;
+    const renderServingSummary = (totals) => {
+      const box = document.createElement('div');
+      box.className = 'mb-3 rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2';
+      const head = document.createElement('div');
+      head.className = 'mb-2 flex flex-wrap items-center justify-between gap-2';
+      const title = document.createElement('p');
+      title.className = 'text-xs font-bold text-gray-900';
+      title.textContent = 'SV合計';
+      const profileNote = document.createElement('p');
+      profileNote.className = 'text-[11px] font-medium text-emerald-700';
+      const profileParts = [];
+      if (servingRequirementProfile.age !== null) profileParts.push(`${servingRequirementProfile.age}歳`);
+      if (servingRequirementProfile.sexLabel) profileParts.push(servingRequirementProfile.sexLabel);
+      profileNote.textContent = profileParts.length
+        ? `SVの推奨値は${profileParts.join('、')}で判定`
+        : 'SVの推奨値は基本形で判定';
+      head.append(title, profileNote);
+      box.appendChild(head);
+      const table = document.createElement('table');
+      table.className = 'w-full text-sm';
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th></th><th class="pb-1 text-right text-[11px] font-semibold text-gray-500">その日</th></tr>';
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      servingRequirementItems.forEach((item) => {
+        const actual = Number(totals?.[item.key]) || 0;
+        const isOver = actual > (Number(item.requiredMax) || 0);
+        const row = document.createElement('tr');
+        row.className = 'text-gray-700';
+        row.innerHTML = `
+          <td class="py-1 text-xs font-medium">${item.label}</td>
+          <td class="py-1 text-right text-sm font-semibold ${isOver ? 'text-red-600' : 'text-blue-600'}">${formatServingActualWithRequired(actual, item)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      box.appendChild(table);
+      return box;
     };
 
     const arrangeBaseMenuIdSet = new Set();
@@ -1300,10 +1470,18 @@
             // Remove old time text here, will add as tag below
             slotWrap.appendChild(nameRow);
 
-            // タグ表示 (調理時間, ジャンル, 調理方法)
-            if (slot.menu && (slot.menu.time || slot.menu.junle || slot.menu.cook)) {
+            // タグ表示 (SV, 調理時間, ジャンル, 調理方法)
+            if (slot.menu) {
               const chipWrap = document.createElement('div');
               chipWrap.className = 'flex flex-wrap gap-2 text-[11px] text-gray-500';
+
+              const servingTotals = buildServingTotals(slot.menu, slot.servingMultiplier);
+              getServingChipItems(servingTotals).forEach((svItem) => {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-100 px-2 py-0.5 font-semibold text-sky-700';
+                chip.innerHTML = `<span>${svItem.label}</span><span>${formatServingNumber(svItem.value)}</span>`;
+                chipWrap.appendChild(chip);
+              });
 
               // 調理時間タグを最初に追加
               if (slot.menu && slot.menu.time) {
@@ -1324,7 +1502,7 @@
                 chip.innerHTML = `<span>調理方法</span><span class="font-medium text-amber-700">${slot.menu.cook}</span>`;
                 chipWrap.appendChild(chip);
               }
-              slotWrap.appendChild(chipWrap);
+              if (chipWrap.children.length) slotWrap.appendChild(chipWrap);
             }
 
             // 画像とメインタグオーバーレイ
@@ -1401,8 +1579,9 @@
         });
       }
 
-      ingredientsTitleEl.textContent = `${day.display} の食材 / 調味料`;
+      ingredientsTitleEl.textContent = `${day.display}の SV、食材 / 調味料`;
       ingredientsBodyEl.innerHTML = '';
+      ingredientsBodyEl.appendChild(renderServingSummary(buildDayServingTotals(day)));
 
       const sections = [
         { title: '食材', items: day.ingredientsSummary },

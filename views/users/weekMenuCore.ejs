@@ -119,6 +119,7 @@
     myMenuIds: <%- serialize(myMenuIds || []) %>,
     // 参加者・ユーザー情報
     currentUserId: <%- serialize(typeof currentUserId !== 'undefined' ? currentUserId : '') %>,
+    currentUserProfile: <%- serialize(typeof currentUserProfile !== 'undefined' ? currentUserProfile : {}) %>,
     currentGroupUsers: <%- serialize(typeof currentGroupUsers !== "undefined" ? currentGroupUsers : []) %>,
     guidelineTotals: <%- serialize(typeof guidelineTotals !== "undefined" ? guidelineTotals : {}) %>,
     guidelineByUser: <%- serialize(typeof guidelineByUser !== "undefined" ? guidelineByUser : {}) %>,

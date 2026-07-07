@@ -163,6 +163,7 @@
   .wm2-chip.time{ background:#ecfdf5; color:#065f46; }
   .wm2-chip.kind{ background:#fff7ed; color:#92400e; }
   .wm2-chip.prep{ background:#ffe4e6; color:#be123c; }
+  .wm2-chip.sv{ background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; }
   /* Small inline icon chips placed under cooking method */
   .wm2-mini-icons{ display:inline-flex; align-items:center; gap:8px; margin-left:4px; }
   .wm2-mini-icons .mini{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#374151; cursor:pointer; }
@@ -389,6 +390,9 @@
     color:#0f172a;
     line-height:1.35;
   }
+  .wm2-week-slot-meta{ min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .wm2-week-slot-sv{ display:flex; flex-wrap:wrap; gap:3px; }
+  .wm2-week-slot-sv span{ display:inline-flex; border:1px solid #bae6fd; background:#e0f2fe; color:#0369a1; border-radius:9999px; padding:1px 5px; font-size:10px; font-weight:700; line-height:1.25; }
   a.wm2-week-slot-name:hover{ text-decoration:underline; }
   .wm2-week-slot-thumb-link:hover .wm2-week-slot-thumb{ opacity:.9; }
   #wm2-section[data-week-size="large"] .wm2-week-slot{
@@ -408,6 +412,7 @@
     font-size:16px;
     line-height:1.5;
   }
+  #wm2-section[data-week-size="large"] .wm2-week-slot-sv{ margin-top:5px; }
   #wm2-section[data-week-size="large"] .wm2-week-meal-label{
     font-size:16px;
   }
@@ -1130,12 +1135,80 @@
     const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
     const DEFAULT_ING_CLASS = 'その他';
     const SERVING_ITEMS = [
-      { key: 'staple', label: '主食SV', requiredMin: 5, requiredMax: 7 },
-      { key: 'sideDish', label: '副菜SV', requiredMin: 5, requiredMax: 6 },
-      { key: 'mainDish', label: '主菜SV', requiredMin: 3, requiredMax: 5 },
-      { key: 'dairy', label: '牛乳・乳製品SV', requiredMin: 2, requiredMax: 2 },
-      { key: 'fruit', label: '果物SV', requiredMin: 2, requiredMax: 2 }
+      { key: 'staple', label: '主食SV' },
+      { key: 'sideDish', label: '副菜SV' },
+      { key: 'mainDish', label: '主菜SV' },
+      { key: 'dairy', label: '牛乳・乳製品SV' },
+      { key: 'fruit', label: '果物SV' }
     ];
+    const SERVING_GUIDELINE_ROWS = {
+      low: {
+        staple: [4, 5],
+        sideDish: [5, 6],
+        mainDish: [3, 4],
+        dairy: [2, 2],
+        fruit: [2, 2]
+      },
+      basic: {
+        staple: [5, 7],
+        sideDish: [5, 6],
+        mainDish: [3, 5],
+        dairy: [2, 2],
+        fruit: [2, 2]
+      }
+    };
+    const normalizeSexForServing = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      if (raw === '男' || raw === '男性' || raw.toLowerCase().startsWith('m') || raw.includes('男')) return 'male';
+      if (raw === '女' || raw === '女性' || raw.toLowerCase().startsWith('f') || raw.includes('女')) return 'female';
+      return '';
+    };
+    const servingSexLabel = (sex) => sex === 'male' ? '男性' : (sex === 'female' ? '女性' : '');
+    const calculateAgeFromISOForServing = (iso) => {
+      if (!iso) return null;
+      const birth = new Date(iso);
+      if (Number.isNaN(birth.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age -= 1;
+      return age;
+    };
+    const servingGuidelineForUser = (user) => {
+      const age = calculateAgeFromISOForServing(user?.birthDateISO || user?.birthDate);
+      const sex = normalizeSexForServing(user?.sex);
+      let rowKey = 'basic';
+      if (typeof age === 'number' && Number.isFinite(age)) {
+        if (sex === 'male') {
+          rowKey = (age <= 9 || age >= 70) ? 'low' : 'basic';
+        } else if (sex === 'female') {
+          rowKey = (age <= 11 || age >= 70) ? 'low' : 'basic';
+        } else {
+          rowKey = (age <= 9 || age >= 70) ? 'low' : 'basic';
+        }
+      }
+      const row = SERVING_GUIDELINE_ROWS[rowKey] || SERVING_GUIDELINE_ROWS.basic;
+      const isChildDairyRange = typeof age === 'number' && age >= 6 && age <= 11;
+      return SERVING_ITEMS.map((item) => {
+        const range = row[item.key] || SERVING_GUIDELINE_ROWS.basic[item.key] || [0, 0];
+        const requiredMin = item.key === 'dairy' && isChildDairyRange ? 2 : range[0];
+        const requiredMax = item.key === 'dairy' && isChildDairyRange ? 3 : range[1];
+        return { ...item, requiredMin, requiredMax };
+      });
+    };
+    const currentServingUser = groupUsers.find((u) => String(u.id) === String(currentUserId))
+      || (window.weekMenuData && window.weekMenuData.currentUserProfile)
+      || null;
+    const servingRequirementItems = servingGuidelineForUser(currentServingUser);
+    const servingRequirementProfile = (() => {
+      const age = calculateAgeFromISOForServing(currentServingUser?.birthDateISO || currentServingUser?.birthDate);
+      const sex = normalizeSexForServing(currentServingUser?.sex);
+      return {
+        age: typeof age === 'number' && Number.isFinite(age) ? age : null,
+        sexLabel: servingSexLabel(sex)
+      };
+    })();
     const isModelPlanMode = !!(window.weekMenuData && window.weekMenuData.isModelPlanMode);
     const SEASONING_CAPTURE_CLASSES = new Set(['穀物','乳類','チーズ']);
     const modelTitleBtn = document.getElementById('wm2-edit-model-title');
@@ -2468,6 +2541,38 @@
       currentDragPayload = null;
     });
 
+    const formatMenuServingValue = (value) => {
+      const num = Number(value) || 0;
+      const rounded = Math.round(num * 10) / 10;
+      return rounded % 1 ? rounded.toFixed(1) : String(rounded);
+    };
+    const buildMenuServingTotals = (menu, multiplier = 1) => {
+      const totals = SERVING_ITEMS.reduce((acc, item) => {
+        acc[item.key] = 0;
+        return acc;
+      }, {});
+      const addServings = (targetMenu) => {
+        const servings = targetMenu?.servings || {};
+        SERVING_ITEMS.forEach((item) => {
+          const value = Number(servings[item.key]);
+          if (!Number.isFinite(value) || value <= 0) return;
+          totals[item.key] += value * multiplier;
+        });
+      };
+      if (!menu) return totals;
+      addServings(menu);
+      if (menu.menuType === 'set' && Array.isArray(menu.setMenus)) {
+        menu.setMenus.forEach(addServings);
+      }
+      return totals;
+    };
+    const getMenuServingChipItems = (servingTotals = {}) => SERVING_ITEMS
+      .map((item) => ({
+        label: item.label,
+        value: Number(servingTotals?.[item.key]) || 0
+      }))
+      .filter((item) => item.value > 0);
+
     function rowFromSlot(slot){
       if (!slot) return { hasMenu:false };
       let m = null;
@@ -2488,6 +2593,7 @@
       } else if (slot?.categoryKey && slot.categoryKey.startsWith('dinner')) {
         mealType = 'dinner';
       }
+      const servingMultiplier = normalizeServingMultiplier(slot?.servingMultiplier);
       // Always keep menu name and image; only chips area changes for dine-out
       return {
         hasMenu:true,
@@ -2503,7 +2609,8 @@
         cook: m.cook || '',
         junle: m.junle || '',
         prepExtra: Math.max(0, Number(slot?.prepExtra) || 0),
-        servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier),
+        servingMultiplier,
+        servingTotals: buildMenuServingTotals(m, servingMultiplier),
         shopName,
         shopUrl,
         detail,
@@ -2543,6 +2650,9 @@
       const timeLabel = row.time ? (String(row.time).endsWith('分')? row.time: row.time+'分') : '';
       const wrap = document.createElement('div'); wrap.className='wm2-card';
       const cookChip = row.cook? `<span class=\"wm2-chip kind\"><span>調理方法</span><span>${row.cook}</span></span>`: '';
+      const svChipsHtml = getMenuServingChipItems(row.servingTotals)
+        .map((item) => `<span class=\"wm2-chip sv\"><span>${item.label}</span><span>${formatMenuServingValue(item.value)}</span></span>`)
+        .join('');
       const homeOrOutIcon = row.isDineOut
         ? '' // 外食時はチップ自体で切替できるためミニアイコンは表示しない
         : `<button type=\"button\" class=\"mini ${row.prepExtra>0?'is-home':''}\" data-action=\"toggle-dine\" title=\"家と外食を切り替え\"><span class=\"lucide w-4 h-4\" data-lucide=\"home\"></span></button>`;
@@ -2556,6 +2666,7 @@
             <span class=\"wm2-mini-icons\"><button type=\"button\" class=\"mini is-edit\" data-action=\"edit-dine\" title=\"外食情報を編集\"><span class=\"lucide w-4 h-4\" data-lucide=\"edit-3\"></span></button></span>
           ` : `
             ${timeLabel? `<span class=\"wm2-chip time\"><span>調理時間</span><span>${timeLabel}</span></span>`: ''}
+            ${svChipsHtml}
             ${row.junle? `<span class=\"wm2-chip kind\"><span>ジャンル</span><span>${row.junle}</span></span>`: ''}
             ${cookChip}
             ${cookChip ? `<span class=\"wm2-mini-icons\">${homeOrOutIcon}${prepIcon}</span>` : `<span class=\"wm2-mini-icons\">${homeOrOutIcon}${prepIcon}</span>`}
@@ -2933,24 +3044,36 @@
     function renderServingTotalsSummary(target, dayTotals = {}, weekTotals = {}, weekDayCount = 1){
       if (!target) return;
       target.innerHTML = '';
+      const header = document.createElement('div');
+      header.className = 'flex flex-wrap items-center justify-between gap-2';
       const title = document.createElement('p');
       title.className = 'text-sm font-semibold text-gray-800';
       title.textContent = 'SV合計';
-      target.appendChild(title);
+      header.appendChild(title);
+      const profileNote = document.createElement('p');
+      profileNote.className = 'text-[11px] font-medium text-emerald-700';
+      const profileParts = [];
+      if (servingRequirementProfile.age !== null) profileParts.push(`${servingRequirementProfile.age}歳`);
+      if (servingRequirementProfile.sexLabel) profileParts.push(servingRequirementProfile.sexLabel);
+      profileNote.textContent = profileParts.length
+        ? `SVの推奨値は${profileParts.join('、')}で判定`
+        : 'SVの推奨値は基本形で判定';
+      header.appendChild(profileNote);
+      target.appendChild(header);
       const formatSv = (val) => {
         const num = Number(val) || 0;
         const rounded = Math.round(num * 10) / 10;
-        return `${rounded % 1 ? rounded.toFixed(1) : String(rounded)}SV`;
+        return rounded % 1 ? rounded.toFixed(1) : String(rounded);
       };
       const formatRequiredSv = (item, multiplier = 1) => {
         const factor = Math.max(1, Number(multiplier) || 1);
         const min = (Number(item.requiredMin) || 0) * factor;
         const max = (Number(item.requiredMax) || 0) * factor;
         if (min === max) return formatSv(min);
-        return `${formatSv(min).replace(/SV$/, '')}-${formatSv(max)}`;
+        return `${formatSv(min)}〜${formatSv(max)}`;
       };
       const formatActualWithRequired = (actual, item, multiplier = 1) => {
-        return `${formatSv(actual)} / ${formatRequiredSv(item, multiplier)}`;
+        return `${formatSv(actual)} / ${formatRequiredSv(item, multiplier)}(SV)`;
       };
       const isSvOver = (actual, item, multiplier = 1) => {
         const factor = Math.max(1, Number(multiplier) || 1);
@@ -2969,7 +3092,7 @@
         </thead>
       `;
       const tbody = document.createElement('tbody');
-      SERVING_ITEMS.forEach((item) => {
+      servingRequirementItems.forEach((item) => {
         const dayVal = Number(dayTotals[item.key]) || 0;
         const weekVal = Number(weekTotals[item.key]) || 0;
         const dayClass = isSvOver(dayVal, item, 1) ? 'text-red-600' : 'text-blue-600';
@@ -3120,10 +3243,15 @@
         const box = document.createElement('div');
         const h = document.createElement('h4'); h.textContent = title; box.appendChild(h);
         const ul = document.createElement('ul');
+        const qualitativeUnits = new Set(['少々', '適量', 'お好みで', 'ひとつまみ']);
         Array.from(map.entries()).forEach(([k,v])=>{
           const [name, unit] = k.split('|');
           const li = document.createElement('li');
           const valStr = (typeof v === 'number' && !Number.isNaN(v)) ? formatQty1(v) : '';
+          const unitText = (unit || '').trim();
+          const amountText = qualitativeUnits.has(unitText)
+            ? unitText
+            : `${valStr}${unitText}`;
           let tagHtml = '';
           if (title === '食材' && ingredientMetaCache.ready) {
             const cls = resolveIngredientClass('', name);
@@ -3131,7 +3259,7 @@
               tagHtml = `<span class="ml-2 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-[10px] px-2 py-0.5">${cls}</span>`;
             }
           }
-          li.innerHTML = `<span>${name}${tagHtml}</span><span>${valStr}${unit? unit: ''}</span>`;
+          li.innerHTML = `<span>${name}${tagHtml}</span><span>${amountText}</span>`;
           ul.appendChild(li);
         });
         box.appendChild(ul);
@@ -3644,7 +3772,21 @@
           name.dataset.weekRecipeLink = '';
           name.title = `${row.name || 'メニュー'}のレシピを開く`;
         }
-        item.append(thumbNode, name);
+        const meta = document.createElement('div');
+        meta.className = 'wm2-week-slot-meta';
+        meta.appendChild(name);
+        const servingItems = getMenuServingChipItems(row.servingTotals);
+        if (servingItems.length) {
+          const svLine = document.createElement('div');
+          svLine.className = 'wm2-week-slot-sv';
+          servingItems.forEach((svItem) => {
+            const chip = document.createElement('span');
+            chip.textContent = `${svItem.label}:${formatMenuServingValue(svItem.value)}`;
+            svLine.appendChild(chip);
+          });
+          meta.appendChild(svLine);
+        }
+        item.append(thumbNode, meta);
         item.addEventListener('click', (event) => {
           if (event.target.closest('[data-week-recipe-link]')) return;
           sel = dayIndex;
