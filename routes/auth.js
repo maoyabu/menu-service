@@ -703,6 +703,15 @@ const formatSeasoningItems = (items = []) => (items || []).map((item) => ({
   unit: item?.unit || (Array.isArray(item?.name?.unit) ? item.name.unit[0] : '') || ''
 }));
 
+const formatServingValues = (servings = {}) => {
+  const result = {};
+  ['staple', 'sideDish', 'mainDish', 'dairy', 'fruit'].forEach((key) => {
+    const value = Number(servings?.[key]);
+    result[key] = Number.isFinite(value) && value >= 0 ? value : 0;
+  });
+  return result;
+};
+
 const formatSetMenuDocument = (doc) => {
   if (!doc || !doc._id) return null;
   return {
@@ -724,6 +733,7 @@ const formatSetMenuDocument = (doc) => {
     menuType: doc.menuType || 'single',
     arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
     setType: doc.setType || '',
+    servings: formatServingValues(doc.servings || {}),
     ingredients: formatIngredientItems(doc.ingredients || []),
     seasoning: formatSeasoningItems(doc.seasoning || [])
   };
@@ -750,6 +760,7 @@ const formatSetMenuDocumentLite = (doc) => {
     menuType: doc.menuType || 'single',
     arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
     setType: doc.setType || '',
+    servings: formatServingValues(doc.servings || {}),
     ingredients: [],
     seasoning: []
   };
@@ -777,6 +788,7 @@ const formatMenuDocument = (doc) => {
     menuType: doc.menuType || 'single',
     arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
     setType: doc.setType || '',
+    servings: formatServingValues(doc.servings || {}),
     setMenus: (doc.setMenus || []).map(formatSetMenuDocument).filter(Boolean),
     ingredients: formatIngredientItems(doc.ingredients || []),
     seasoning: formatSeasoningItems(doc.seasoning || [])
@@ -805,6 +817,7 @@ const formatMenuDocumentLite = (doc) => {
     menuType: doc.menuType || 'single',
     arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
     setType: doc.setType || '',
+    servings: formatServingValues(doc.servings || {}),
     setMenus: (doc.setMenus || []).map(formatSetMenuDocumentLite).filter(Boolean),
     ingredients: [],
     seasoning: []
@@ -2620,7 +2633,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .populate({
             path: 'setMenus',
-            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
             populate: [
               { path: 'ingredients.name', select: 'ingredient unit classification' },
               { path: 'seasoning.name', select: 'seasoning unit classification' }
@@ -2870,7 +2883,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .populate({
             path: 'setMenus',
-            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
             populate: [
               { path: 'ingredients.name', select: 'ingredient unit classification' },
               { path: 'seasoning.name', select: 'seasoning unit classification' }
@@ -4277,7 +4290,7 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
         .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
         .populate({
           path: 'setMenus',
-          select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+          select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
           populate: [
             { path: 'ingredients.name', select: 'ingredient unit classification' },
             { path: 'seasoning.name', select: 'seasoning unit classification' }
@@ -4345,7 +4358,7 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .populate({
             path: 'setMenus',
-            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
             populate: [
               { path: 'ingredients.name', select: 'ingredient unit classification' },
               { path: 'seasoning.name', select: 'seasoning unit classification' }
@@ -4796,7 +4809,7 @@ router.post('/users/week-menu/regenerate', isLoggedIn, async (req, res) => {
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .populate({
             path: 'setMenus',
-            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
             populate: [
               { path: 'ingredients.name', select: 'ingredient unit classification' },
               { path: 'seasoning.name', select: 'seasoning unit classification' }
@@ -4969,7 +4982,7 @@ router.post('/users/week-menu/shuffle-slot', isLoggedIn, async (req, res) => {
           .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
           .populate({
             path: 'setMenus',
-            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+            select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
             populate: [
               { path: 'ingredients.name', select: 'ingredient unit classification' },
               { path: 'seasoning.name', select: 'seasoning unit classification' }
@@ -5514,7 +5527,7 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
       .populate({ path: 'seasoning.name', select: 'seasoning unit classification' })
       .populate({
         path: 'setMenus',
-        select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning',
+        select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
         populate: [
           { path: 'ingredients.name', select: 'ingredient unit classification' },
           { path: 'seasoning.name', select: 'seasoning unit classification' }

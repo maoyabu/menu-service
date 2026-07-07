@@ -1129,6 +1129,13 @@
     };
     const ING_CLASS_SET = new Set(ING_CLASS_ORDER);
     const DEFAULT_ING_CLASS = 'その他';
+    const SERVING_ITEMS = [
+      { key: 'staple', label: '主食SV', requiredMin: 5, requiredMax: 7 },
+      { key: 'sideDish', label: '副菜SV', requiredMin: 5, requiredMax: 6 },
+      { key: 'mainDish', label: '主菜SV', requiredMin: 3, requiredMax: 5 },
+      { key: 'dairy', label: '牛乳・乳製品SV', requiredMin: 2, requiredMax: 2 },
+      { key: 'fruit', label: '果物SV', requiredMin: 2, requiredMax: 2 }
+    ];
     const isModelPlanMode = !!(window.weekMenuData && window.weekMenuData.isModelPlanMode);
     const SEASONING_CAPTURE_CLASSES = new Set(['穀物','乳類','チーズ']);
     const modelTitleBtn = document.getElementById('wm2-edit-model-title');
@@ -2838,7 +2845,12 @@
       const agg = { ingredients: new Map(), seasonings: new Map() };
       const classEntries = [];
       const seasoningClassEntries = [];
-      if (!dayObj) return { agg, classEntries, seasoningClassEntries };
+      const createServingTotals = () => SERVING_ITEMS.reduce((acc, item) => {
+        acc[item.key] = 0;
+        return acc;
+      }, {});
+      const servingTotals = createServingTotals();
+      if (!dayObj) return { agg, classEntries, seasoningClassEntries, servingTotals };
       const buckets = collectMealEntries(dayObj);
       const counts = {
         breakfast: getIds(dayIndex, 'breakfast').length,
@@ -2867,6 +2879,14 @@
           dayIndex
         });
       };
+      const addServingTotals = (menu, multiplier) => {
+        const servings = menu?.servings || {};
+        SERVING_ITEMS.forEach((item) => {
+          const value = Number(servings[item.key]);
+          if (!Number.isFinite(value) || value <= 0) return;
+          servingTotals[item.key] += value * multiplier;
+        });
+      };
       const applyMenus = (entries, people, mealType) => {
         (entries || []).forEach((entry) => {
           const m = entry && entry.menu ? entry.menu : entry;
@@ -2887,6 +2907,7 @@
             const basePeople = Number(targetMenu.people) > 0 ? Number(targetMenu.people) : 1;
             const peopleMultiplier = (people + extra) > 0 ? ((people + extra) / basePeople) : 1;
             const multiplier = peopleMultiplier * servingMultiplier;
+            addServingTotals(targetMenu, servingMultiplier);
             (Array.isArray(targetMenu.ingredients) ? targetMenu.ingredients : []).forEach((it) => {
               const raw = Number(it?.amount);
               const scaled = raw * multiplier;
@@ -2906,7 +2927,64 @@
       applyMenus(buckets.breakfast, counts.breakfast, 'breakfast');
       applyMenus(buckets.lunch, counts.lunch, 'lunch');
       applyMenus(buckets.dinner, counts.dinner, 'dinner');
-      return { agg, classEntries, seasoningClassEntries, participants: counts };
+      return { agg, classEntries, seasoningClassEntries, servingTotals, participants: counts };
+    }
+
+    function renderServingTotalsSummary(target, dayTotals = {}, weekTotals = {}, weekDayCount = 1){
+      if (!target) return;
+      target.innerHTML = '';
+      const title = document.createElement('p');
+      title.className = 'text-sm font-semibold text-gray-800';
+      title.textContent = 'SV合計';
+      target.appendChild(title);
+      const formatSv = (val) => {
+        const num = Number(val) || 0;
+        const rounded = Math.round(num * 10) / 10;
+        return `${rounded % 1 ? rounded.toFixed(1) : String(rounded)}SV`;
+      };
+      const formatRequiredSv = (item, multiplier = 1) => {
+        const factor = Math.max(1, Number(multiplier) || 1);
+        const min = (Number(item.requiredMin) || 0) * factor;
+        const max = (Number(item.requiredMax) || 0) * factor;
+        if (min === max) return formatSv(min);
+        return `${formatSv(min).replace(/SV$/, '')}-${formatSv(max)}`;
+      };
+      const formatActualWithRequired = (actual, item, multiplier = 1) => {
+        return `${formatSv(actual)} / ${formatRequiredSv(item, multiplier)}`;
+      };
+      const isSvOver = (actual, item, multiplier = 1) => {
+        const factor = Math.max(1, Number(multiplier) || 1);
+        const max = (Number(item.requiredMax) || 0) * factor;
+        return max > 0 && (Number(actual) || 0) > max;
+      };
+      const table = document.createElement('table');
+      table.className = 'mt-2 w-full text-[13px]';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="text-left text-[11px] font-semibold text-gray-500"></th>
+            <th class="w-32 text-right text-[11px] font-semibold text-gray-500">その日</th>
+            <th class="w-32 text-right text-[11px] font-semibold text-gray-500">週累計</th>
+          </tr>
+        </thead>
+      `;
+      const tbody = document.createElement('tbody');
+      SERVING_ITEMS.forEach((item) => {
+        const dayVal = Number(dayTotals[item.key]) || 0;
+        const weekVal = Number(weekTotals[item.key]) || 0;
+        const dayClass = isSvOver(dayVal, item, 1) ? 'text-red-600' : 'text-blue-600';
+        const weekClass = isSvOver(weekVal, item, weekDayCount) ? 'text-red-600' : 'text-emerald-700';
+        const row = document.createElement('tr');
+        row.className = 'text-gray-700';
+        row.innerHTML = `
+          <td class="py-1 font-medium">${item.label}</td>
+          <td class="py-1 text-right text-sm font-semibold ${dayClass}">${formatActualWithRequired(dayVal, item, 1)}</td>
+          <td class="py-1 text-right text-sm font-semibold ${weekClass}">${formatActualWithRequired(weekVal, item, weekDayCount)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      target.appendChild(table);
     }
 
     function renderRequirementsForDay(day, mode = 'day', selectedIndex = sel){
@@ -2963,6 +3041,10 @@
       classBox.className = 'mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-3 text-xs';
       classBox.dataset.role = 'ingredient-class-summary';
       reqEl.appendChild(classBox);
+      const servingBox = document.createElement('div');
+      servingBox.className = 'mt-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 text-xs';
+      servingBox.dataset.role = 'serving-summary';
+      reqEl.appendChild(servingBox);
       const suggestionBox = document.createElement('div');
       suggestionBox.className = 'mt-3 text-xs text-gray-700 space-y-1';
       suggestionBox.dataset.role = 'shortage-suggestions';
@@ -2970,13 +3052,25 @@
       const indicesForClassification = mode === 'week'
         ? Array.from({ length: safeIndex + 1 }, (_, idx) => idx)
         : [safeIndex];
+      const indicesForServingTotals = Array.from({ length: safeIndex + 1 }, (_, idx) => idx);
+      const aggregateCache = new Map([[safeIndex, dayAgg]]);
+      const getAggregateForIndex = (idx) => {
+        if (aggregateCache.has(idx)) return aggregateCache.get(idx);
+        const aggregated = aggregateDayData(plan[idx], idx);
+        aggregateCache.set(idx, aggregated);
+        return aggregated;
+      };
       const combinedEntries = [];
       const combinedSeasoningEntries = [];
+      const weekServingTotals = SERVING_ITEMS.reduce((acc, item) => {
+        acc[item.key] = 0;
+        return acc;
+      }, {});
       let participantMax = 0;
       const participantIds = collectParticipantIds(indicesForClassification);
       indicesForClassification.forEach((idx) => {
         if (idx < 0 || idx >= plan.length) return;
-        const target = idx === safeIndex ? dayAgg : aggregateDayData(plan[idx], idx);
+        const target = getAggregateForIndex(idx);
         combinedEntries.push(...target.classEntries);
         combinedSeasoningEntries.push(...target.seasoningClassEntries);
         const p = target.participants || {};
@@ -2986,6 +3080,13 @@
           Number(p.lunch) || 0,
           Number(p.dinner) || 0
         );
+      });
+      indicesForServingTotals.forEach((idx) => {
+        if (idx < 0 || idx >= plan.length) return;
+        const target = getAggregateForIndex(idx);
+        SERVING_ITEMS.forEach((item) => {
+          weekServingTotals[item.key] += Number(target.servingTotals?.[item.key]) || 0;
+        });
       });
       renderClassSummary(classBox, combinedEntries, formatQty1, renderToken, {
         seasoningEntries: combinedSeasoningEntries,
@@ -2998,6 +3099,7 @@
         allowShortageMenuSelection: true,
         allowActualBreakdown: true
       });
+      renderServingTotalsSummary(servingBox, dayAgg.servingTotals, weekServingTotals, spanDayCount);
       latestRequirementsSnapshot = {
         entries: combinedEntries,
         seasoningEntries: combinedSeasoningEntries,
