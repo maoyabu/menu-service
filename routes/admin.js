@@ -2746,6 +2746,7 @@ router.post('/backup/restore', async (req, res, next) => {
     // Show results
     res.render('admin/backup-results', {
       results,
+      isMenuContentUpdate: false,
       isRestore: true
     });
   } catch (err) {

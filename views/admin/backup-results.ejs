@@ -1,25 +1,28 @@
 <%
-  const successCount = results && results.success ? results.success.length : 0;
-  const failCount = results && results.failed ? results.failed.length : 0;
-  const summary = results && results.summary ? results.summary : {};
-  const details = results && results.details ? results.details : [];
+  const viewResults = typeof results !== 'undefined' && results ? results : {};
+  const menuContentUpdateMode = typeof isMenuContentUpdate !== 'undefined' && Boolean(isMenuContentUpdate);
+  const restoreMode = typeof isRestore !== 'undefined' && Boolean(isRestore);
+  const successCount = viewResults.success ? viewResults.success.length : 0;
+  const failCount = viewResults.failed ? viewResults.failed.length : 0;
+  const summary = viewResults.summary ? viewResults.summary : {};
+  const details = viewResults.details ? viewResults.details : [];
 %>
 
 <section class="max-w-4xl mx-auto py-10 space-y-8">
   <header class="flex flex-col gap-2">
     <h1 class="text-3xl font-bold text-gray-900">
-      <% if (isMenuContentUpdate) { %>
+      <% if (menuContentUpdateMode) { %>
         メニュー内容一括更新完了
-      <% } else if (isRestore) { %>
+      <% } else if (restoreMode) { %>
         リストア完了
       <% } else { %>
         バックアップ完了
       <% } %>
     </h1>
     <p class="text-sm text-gray-600">
-      <% if (isMenuContentUpdate) { %>
+      <% if (menuContentUpdateMode) { %>
         Excelファイルをもとにメニュー内容の更新を実行しました。
-      <% } else if (isRestore) { %>
+      <% } else if (restoreMode) { %>
         データベースの復元が完了しました。
       <% } else { %>
         バックアップファイルが作成されました。
@@ -27,7 +30,7 @@
     </p>
   </header>
 
-  <% if (isMenuContentUpdate) { %>
+  <% if (menuContentUpdateMode) { %>
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
         <p class="text-sm text-blue-700">対象行</p>
@@ -126,7 +129,7 @@
 
   <!-- 詳細結果 -->
   <div class="space-y-6">
-    <% if (results.success && results.success.length > 0) { %>
+    <% if (viewResults.success && viewResults.success.length > 0) { %>
       <div class="bg-white rounded-xl shadow border border-gray-100 p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <span class="lucide w-5 h-5 text-green-600" data-lucide="check"></span>
@@ -141,7 +144,7 @@
               </tr>
             </thead>
             <tbody>
-              <% results.success.forEach((item) => { %>
+              <% viewResults.success.forEach((item) => { %>
                 <tr class="border-b border-gray-100 hover:bg-green-50">
                   <td class="py-3 px-4 text-sm text-gray-900">
                     <span class="inline-flex items-center gap-2">
@@ -160,14 +163,14 @@
       </div>
     <% } %>
 
-    <% if (results.failed && results.failed.length > 0) { %>
+    <% if (viewResults.failed && viewResults.failed.length > 0) { %>
       <div class="bg-white rounded-xl shadow border border-red-100 p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <span class="lucide w-5 h-5 text-red-600" data-lucide="alert-circle"></span>
           失敗したコレクション
         </h2>
         <div class="space-y-3">
-          <% results.failed.forEach((item) => { %>
+          <% viewResults.failed.forEach((item) => { %>
             <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
               <p class="text-sm font-medium text-red-900"><%= item.collection %></p>
               <p class="text-sm text-red-700 mt-1"><%= item.reason %></p>
@@ -186,7 +189,7 @@
         <div>
           <h3 class="font-semibold text-green-900 mb-2">✓ 処理が正常に完了しました</h3>
           <p class="text-sm text-green-800">
-            <% if (isRestore) { %>
+            <% if (restoreMode) { %>
               すべてのデータが正常に復元されました。アプリケーションは引き続き利用可能です。
             <% } else { %>
               バックアップファイルが正常に作成されました。安全な場所に保存してください。
