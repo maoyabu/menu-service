@@ -29,6 +29,13 @@ const getDateRangeJST = (dateString) => {
   return { start, end };
 };
 
+const dayIndexForPlan = (plan, targetRange) => {
+  const weekStartKey = plan?.weekStart ? formatDateKey(plan.weekStart) : '';
+  const weekStartRange = getDateRangeJST(weekStartKey);
+  if (!weekStartRange) return null;
+  return Math.round((targetRange.start.getTime() - weekStartRange.start.getTime()) / 86_400_000);
+};
+
 const groupMealsTemplate = () => ({
   breakfast: [],
   lunch: [],
@@ -215,7 +222,6 @@ router.get('/day', authenticateToken, async (req, res) => {
     }
 
     const todayKey = formatDateKey(new Date());
-    const isToday = dateString === todayKey;
     const isFuture = dateString > todayKey;
 
     const selectedGroupId = String(req.query.groupId || '').trim();
@@ -249,8 +255,6 @@ router.get('/day', authenticateToken, async (req, res) => {
       return grouped.get(key);
     };
 
-    let shouldLoadPlanned = isFuture || isToday;
-    let eatenCount = 0;
     if (!isFuture) {
       const records = await MenuDo.find({
         group: { $in: groupIds },
@@ -304,18 +308,13 @@ router.get('/day', authenticateToken, async (req, res) => {
           source: 'eaten'
         });
         container.meals[mealType].push(item);
-        eatenCount += 1;
-      }
-
-      if (eatenCount === 0 && isToday) {
-        shouldLoadPlanned = true;
       }
     }
 
-    if (shouldLoadPlanned) {
+    {
       const plans = await WeeklyMenuPlan.find({
         group: { $in: groupIds },
-        weekStart: { $lte: range.start },
+        weekStart: { $lt: range.end },
         weekEnd: { $gte: range.start }
       })
         .populate('group', 'group_name')
@@ -332,7 +331,12 @@ router.get('/day', authenticateToken, async (req, res) => {
         if (plan.group?.group_name) {
           container.group.name = plan.group.group_name;
         }
-        const dayPlans = (plan.dayPlans || []).filter((dp) => dp.date && dp.date >= range.start && dp.date < range.end);
+        const targetDayIndex = dayIndexForPlan(plan, range);
+        const dayPlans = (plan.dayPlans || []).filter((dp) => {
+          const matchesDate = dp.date && formatDateKey(dp.date) === dateString;
+          const matchesIndex = targetDayIndex !== null && Number(dp.dayIndex) === targetDayIndex;
+          return matchesDate || matchesIndex;
+        });
         for (const dayPlan of dayPlans) {
           const mealType = normalizeMealType(dayPlan.mealType);
           for (const slot of dayPlan.slots || []) {
