@@ -180,6 +180,32 @@ router.post('/config', authenticateToken, async (req, res) => {
   }
 });
 
+const findAccessibleGroups = async (userId) => {
+  return Group.find({
+    $or: [
+      { createdBy: userId },
+      { members: userId }
+    ]
+  })
+    .select('group_name')
+    .lean();
+};
+
+router.get('/groups', authenticateToken, async (req, res) => {
+  try {
+    const groups = await findAccessibleGroups(req.apiUser._id);
+    return res.json({
+      groups: groups.map((group) => ({
+        id: String(group._id),
+        name: group.group_name || 'Group'
+      }))
+    });
+  } catch (err) {
+    console.error('api meal groups error:', err);
+    return res.status(500).json({ error: 'failed', message: err?.message || '' });
+  }
+});
+
 router.get('/day', authenticateToken, async (req, res) => {
   try {
     const dateString = String(req.query.date || '').trim();
@@ -192,14 +218,14 @@ router.get('/day', authenticateToken, async (req, res) => {
     const isToday = dateString === todayKey;
     const isFuture = dateString > todayKey;
 
-    const groups = await Group.find({
-      $or: [
-        { createdBy: req.apiUser._id },
-        { members: req.apiUser._id }
-      ]
-    })
-      .select('group_name')
-      .lean();
+    const selectedGroupId = String(req.query.groupId || '').trim();
+    let groups = await findAccessibleGroups(req.apiUser._id);
+    if (selectedGroupId) {
+      groups = groups.filter((group) => String(group._id) === selectedGroupId);
+      if (groups.length === 0) {
+        return res.status(403).json({ error: 'forbidden_group', message: '指定されたグループにアクセスできません' });
+      }
+    }
 
     const groupIds = groups.map((g) => g._id);
     const groupNameMap = new Map(groups.map((g) => [String(g._id), g.group_name || 'Group']));
