@@ -712,6 +712,19 @@ const formatServingValues = (servings = {}) => {
   return result;
 };
 
+const getArrangeBaseMenuIds = (doc = {}) => {
+  const ids = [];
+  const pushId = (value) => {
+    const id = value?._id || value;
+    if (id) ids.push(String(id));
+  };
+  if (Array.isArray(doc.arrangeBaseMenus)) {
+    doc.arrangeBaseMenus.forEach(pushId);
+  }
+  pushId(doc.arrangeBaseMenu);
+  return Array.from(new Set(ids.filter(Boolean)));
+};
+
 const formatSetMenuDocument = (doc) => {
   if (!doc || !doc._id) return null;
   return {
@@ -731,7 +744,8 @@ const formatSetMenuDocument = (doc) => {
     basicMenu: !!doc.basicMenu,
     season: normalizeSeasonList(doc.season || []),
     menuType: doc.menuType || 'single',
-    arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
+    arrangeBaseMenu: getArrangeBaseMenuIds(doc)[0] || '',
+    arrangeBaseMenus: getArrangeBaseMenuIds(doc),
     setType: doc.setType || '',
     servings: formatServingValues(doc.servings || {}),
     ingredients: formatIngredientItems(doc.ingredients || []),
@@ -758,7 +772,8 @@ const formatSetMenuDocumentLite = (doc) => {
     basicMenu: !!doc.basicMenu,
     season: normalizeSeasonList(doc.season || []),
     menuType: doc.menuType || 'single',
-    arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
+    arrangeBaseMenu: getArrangeBaseMenuIds(doc)[0] || '',
+    arrangeBaseMenus: getArrangeBaseMenuIds(doc),
     setType: doc.setType || '',
     servings: formatServingValues(doc.servings || {}),
     ingredients: [],
@@ -786,7 +801,8 @@ const formatMenuDocument = (doc) => {
     basicMenu: !!doc.basicMenu,
     season: normalizeSeasonList(doc.season || []),
     menuType: doc.menuType || 'single',
-    arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
+    arrangeBaseMenu: getArrangeBaseMenuIds(doc)[0] || '',
+    arrangeBaseMenus: getArrangeBaseMenuIds(doc),
     setType: doc.setType || '',
     servings: formatServingValues(doc.servings || {}),
     setMenus: (doc.setMenus || []).map(formatSetMenuDocument).filter(Boolean),
@@ -815,7 +831,8 @@ const formatMenuDocumentLite = (doc) => {
     basicMenu: !!doc.basicMenu,
     season: normalizeSeasonList(doc.season || []),
     menuType: doc.menuType || 'single',
-    arrangeBaseMenu: doc.arrangeBaseMenu ? doc.arrangeBaseMenu.toString() : '',
+    arrangeBaseMenu: getArrangeBaseMenuIds(doc)[0] || '',
+    arrangeBaseMenus: getArrangeBaseMenuIds(doc),
     setType: doc.setType || '',
     servings: formatServingValues(doc.servings || {}),
     setMenus: (doc.setMenus || []).map(formatSetMenuDocumentLite).filter(Boolean),
@@ -1748,10 +1765,14 @@ const buildDinnerPlan = (menusByCategory, options = {}) => {
       if (!menu || arrangeAssignmentsHasMenu(menu.id)) continue;
       if (usedMains.has(menu.id)) continue;
       if (!allowPrevWeek && previousWeekMainIds?.has(String(menu.id))) continue;
-      const baseId = menu?.arrangeBaseMenu ? String(menu.arrangeBaseMenu) : '';
-      if (!baseId) continue;
-      if (usedMains.has(baseId) || usedStaples.has(baseId) || usedSides.has(baseId) || usedSoups.has(baseId)) continue;
-      const baseMenu = baseMenuById.get(baseId) || null;
+      const baseIds = getArrangeBaseMenuIds(menu);
+      if (!baseIds.length) continue;
+      const availableBaseId = baseIds.find((id) => {
+        if (usedMains.has(id) || usedStaples.has(id) || usedSides.has(id) || usedSoups.has(id)) return false;
+        return !!baseMenuById.get(id);
+      });
+      if (!availableBaseId) continue;
+      const baseMenu = baseMenuById.get(availableBaseId) || null;
       if (!baseMenu) continue;
       if (baseMenu.menuType === 'arrange') continue;
       const baseSlotKey = resolveBaseSlotKey(baseMenu);

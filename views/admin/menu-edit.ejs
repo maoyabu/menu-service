@@ -288,7 +288,7 @@
       <p class="text-xs text-gray-500 mt-2">セットメニューや自分自身は追加できません。</p>
     </div>
 
-    <input type="hidden" name="arrange_base_menu_id" id="arrange-base-input" value="<%= menu.arrangeBaseMenu?._id || '' %>">
+    <input type="hidden" id="arrange-base-input" value="">
     <div id="arrange-base-section" class="<%= isArrangeMenu ? '' : 'hidden' %>">
       <div class="flex items-center justify-start gap-3">
         <label class="block mb-1 text-sm font-bold">アレンジ元メニュー</label>
@@ -299,7 +299,7 @@
       <div class="border rounded-lg p-4 bg-white shadow-sm space-y-2">
         <div id="arrange-base-selected" class="space-y-2 text-sm text-gray-500">メニューを選択してください</div>
       </div>
-      <p class="text-xs text-gray-500 mt-2">アレンジの元になるメニューを1つ選択してください。</p>
+      <p class="text-xs text-gray-500 mt-2">アレンジの元になるメニューを1つ以上選択してください。</p>
     </div>
 
     <div id="ingredients-section">
@@ -1286,24 +1286,31 @@ function toggleNutritionInfo(btn) {
   }
 
   const arrangeBaseState = {
-    selected: null
+    selected: new Map()
   };
 
   function renderArrangeBaseSelected() {
     const holder = document.getElementById('arrange-base-selected');
     const hiddenInput = document.getElementById('arrange-base-input');
     if (!holder) return;
-    if (!arrangeBaseState.selected) {
+    const values = Array.from(arrangeBaseState.selected.values());
+    if (!values.length) {
       holder.textContent = 'メニューを選択してください';
       if (hiddenInput) hiddenInput.value = '';
       return;
     }
-    const item = arrangeBaseState.selected;
-    if (hiddenInput) hiddenInput.value = item._id;
+    if (hiddenInput) hiddenInput.value = values.map((item) => item._id).join(',');
     holder.innerHTML = '';
+    values.forEach((item) => {
 
     const wrap = document.createElement('div');
     wrap.className = 'flex flex-wrap items-center gap-3 border border-gray-200 rounded p-2 bg-gray-50';
+
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'arrange_base_menu_id';
+    hidden.value = item._id;
+    wrap.appendChild(hidden);
 
     if (item.imageUrl) {
       const img = document.createElement('img');
@@ -1335,12 +1342,14 @@ function toggleNutritionInfo(btn) {
     removeBtn.className = 'ml-auto px-2 py-1 text-sm text-red-600 border rounded hover:bg-red-100';
     removeBtn.textContent = '×';
     removeBtn.addEventListener('click', () => {
-      arrangeBaseState.selected = null;
+      arrangeBaseState.selected.delete(item._id);
       renderArrangeBaseSelected();
+      renderArrangeBaseResults();
     });
     wrap.appendChild(removeBtn);
 
     holder.appendChild(wrap);
+    });
   }
 
   function renderArrangeBaseResults() {
@@ -1371,14 +1380,15 @@ function toggleNutritionInfo(btn) {
     }
 
     filtered.forEach((item) => {
-      const isSelected = arrangeBaseState.selected && String(arrangeBaseState.selected._id) === String(item._id);
+      const isSelected = arrangeBaseState.selected.has(item._id);
       const row = document.createElement('div');
       row.dataset.itemId = String(item._id || '');
       row.className = `flex items-start gap-3 border rounded p-2 cursor-pointer transition ${isSelected ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' : 'bg-white hover:bg-gray-50'}`;
       row.addEventListener('click', () => {
-        arrangeBaseState.selected = item;
+        if (arrangeBaseState.selected.has(item._id)) arrangeBaseState.selected.delete(item._id);
+        else arrangeBaseState.selected.set(item._id, item);
         renderArrangeBaseSelected();
-        closeArrangeBaseModal();
+        renderArrangeBaseResults();
       });
 
       if (item.imageUrl) {
@@ -1473,9 +1483,10 @@ function toggleNutritionInfo(btn) {
       setMenuState.selected.set(item._id, item);
     });
 
-    if (initialArrangeBaseMenu && initialArrangeBaseMenu._id) {
-      arrangeBaseState.selected = initialArrangeBaseMenu;
-    }
+    (Array.isArray(initialArrangeBaseMenu) ? initialArrangeBaseMenu : [initialArrangeBaseMenu]).forEach((item) => {
+      if (!item || !item._id) return;
+      arrangeBaseState.selected.set(item._id, item);
+    });
     renderArrangeBaseSelected();
 
     document.querySelectorAll('input[name="menuType"]').forEach((el) => {
@@ -1500,8 +1511,7 @@ function toggleNutritionInfo(btn) {
           return;
         }
         if (isArrange) {
-          const baseId = document.getElementById('arrange-base-input')?.value;
-          if (!baseId) {
+          if (!arrangeBaseState.selected.size) {
             e.preventDefault();
             alert('アレンジ元メニューを選択してください。');
           }

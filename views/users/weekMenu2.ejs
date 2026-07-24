@@ -1053,11 +1053,16 @@
       if (!Number.isFinite(parsed)) return 1;
       return Math.round(Math.max(0.1, Math.min(99, parsed)) * 10) / 10;
     };
-    const arrangeBaseMenuIdSet = new Set(
-      Object.values(lookup || {})
-        .map((menu) => (menu && menu.menuType === 'arrange' && menu.arrangeBaseMenu) ? String(menu.arrangeBaseMenu) : '')
-        .filter(Boolean)
-    );
+    const arrangeBaseMenuIdSet = new Set();
+    Object.values(lookup || {}).forEach((menu) => {
+      if (!menu || menu.menuType !== 'arrange') return;
+      const ids = Array.isArray(menu.arrangeBaseMenus) && menu.arrangeBaseMenus.length
+        ? menu.arrangeBaseMenus
+        : (menu.arrangeBaseMenu ? [menu.arrangeBaseMenu] : []);
+      ids.forEach((id) => {
+        if (id) arrangeBaseMenuIdSet.add(String(id));
+      });
+    });
     const catConfig = window.weekMenuData && window.weekMenuData.categoryConfig || {};
     const WEEK = Array.isArray(window.weekMenuData?.weekDates) ? window.weekMenuData.weekDates : <%- JSON.stringify(weekDates || []) %>;
     const DAY_DISPLAY_ORDER = window.weekMenuData?.calendarWeekStart === 'sunday'

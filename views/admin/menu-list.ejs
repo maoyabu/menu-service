@@ -318,8 +318,11 @@
         const typeLabel = menu.menuType === 'set'
           ? 'セットメニュー'
           : (menu.menuType === 'arrange' ? 'アレンジメニュー' : '従来レシピ');
+        const arrangeBaseItems = Array.isArray(menu.arrangeBaseMenus) && menu.arrangeBaseMenus.length
+          ? menu.arrangeBaseMenus
+          : (menu.arrangeBaseMenu ? [menu.arrangeBaseMenu] : []);
         const arrangeBaseLabel = menu.menuType === 'arrange'
-          ? (menu.arrangeBaseMenu?.name || menu.arrangeBaseMenu?.menu || '未設定')
+          ? (arrangeBaseItems.map((item) => item?.name || item?.menu).filter(Boolean).join(' / ') || '未設定')
           : '-';
         modalContent.innerHTML = `
           <p class="text-sm text-gray-500">レシピの詳細情報</p>

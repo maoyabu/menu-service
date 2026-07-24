@@ -33,6 +33,12 @@ const menuSchema = new mongoose.Schema({
         ref: 'Menu',
         default: null
     },
+    arrangeBaseMenus: [
+    {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Menu'
+    }
+    ],
     setType: {
         type: [String],
         enum: ['morning', 'lunch', 'dinner'],
