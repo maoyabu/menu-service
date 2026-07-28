@@ -910,6 +910,17 @@ const formatDisplayDate = (date) => {
   return `${month}/${day}`;
 };
 
+const formatFilenameDate = (date, includeYear = true) => {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return includeYear ? `${year}${month}${day}` : `${month}${day}`;
+};
+
+const formatWeekRangeFilename = (startDate, endDate) => {
+  return `${formatFilenameDate(startDate)}-${formatFilenameDate(endDate, false)}`;
+};
+
 const toJstDate = (date = new Date()) => {
   const offsetMinutes = 9 * 60;
   const currentOffset = date.getTimezoneOffset();
@@ -3763,6 +3774,8 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
     const titleStart = weekDates[0];
     const titleEnd = weekDates[6];
     const titleLabel = `${titleStart.getFullYear()}年${titleStart.getMonth() + 1}月${titleStart.getDate()}日 〜 ${titleEnd.getFullYear()}年${titleEnd.getMonth() + 1}月${titleEnd.getDate()}日の献立表`;
+    const weekRangeFilename = formatWeekRangeFilename(titleStart, titleEnd);
+    const pdfFilename = `${showPhotos ? 'week-menu' : 'week-menu-no-photo'}-${weekRangeFilename}.pdf`;
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
     const days = weekDates.map((date, index) => ({
       label: `${date.getMonth() + 1}/${date.getDate()}(${weekdays[index] || ''})`,
@@ -3833,7 +3846,8 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       days,
       summaryRows,
       baseOrigin,
-      showPhotos
+      showPhotos,
+      pdfFilename
     });
   } catch (err) {
     console.error('week menu pdf error:', err);

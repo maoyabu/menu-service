@@ -251,7 +251,7 @@
         btn.addEventListener('click', () => {
           const opt = {
             margin: [0, 0, 0, 0],
-            filename: '<%= showPhotos ? 'week-menu.pdf' : 'week-menu-no-photo.pdf' %>',
+            filename: <%- JSON.stringify(pdfFilename || (showPhotos ? 'week-menu.pdf' : 'week-menu-no-photo.pdf')) %>,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 1, useCORS: true, allowTaint: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
