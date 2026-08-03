@@ -129,9 +129,12 @@ app.use(async (req, res, next) => {
 
     res.locals.userGroups = groups || [];
     res.locals.userDefaultGroupId = req.user.defaultGroup ? req.user.defaultGroup.toString() : '';
+    const requestedGroupId = typeof req.query?.group === 'string' ? String(req.query.group) : '';
+    const hasRequested = !!requestedGroupId && (res.locals.userGroups || []).some((g) => String(g._id) === requestedGroupId);
     const activeGroupId = req.session?.activeGroupId ? String(req.session.activeGroupId) : '';
     const hasActive = !!activeGroupId && (res.locals.userGroups || []).some((g) => String(g._id) === activeGroupId);
-    res.locals.selectedGroupId = hasActive ? activeGroupId : '';
+    res.locals.selectedGroupId = hasRequested ? requestedGroupId : (hasActive ? activeGroupId : '');
+    if (hasRequested && req.session) req.session.activeGroupId = requestedGroupId;
     if (activeGroupId && !hasActive) req.session.activeGroupId = '';
     return next();
   } catch (err) {

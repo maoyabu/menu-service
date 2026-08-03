@@ -339,10 +339,16 @@
   (() => {
     const selects = document.querySelectorAll('select[data-group-switch]');
     if (!selects.length) return;
-    const reloadSamePage = () => {
+    const reloadSamePage = (groupId) => {
       try{
         const url = new URL(window.location.href);
-        url.searchParams.delete('group');
+        if (groupId) url.searchParams.set('group', groupId);
+        else url.searchParams.delete('group');
+        if (url.pathname === '/users/week-menu' || url.pathname === '/users/week-menu2') {
+          url.searchParams.delete('plan');
+          url.searchParams.delete('modelPlan');
+          url.searchParams.delete('setMenuId');
+        }
         window.location.href = url.toString();
       }catch(_){
         window.location.reload();
@@ -359,7 +365,7 @@
               body: JSON.stringify({ groupId: '' })
             });
           }catch(_){}
-          reloadSamePage();
+          reloadSamePage('');
           return;
         }
         try{
@@ -369,7 +375,7 @@
             body: JSON.stringify({ groupId: id })
           });
         }catch(_){}
-        reloadSamePage();
+        reloadSamePage(id);
       });
     });
   })();

@@ -13,8 +13,9 @@ router.use(isLoggedIn);
 
 function getGroupId(res){
   const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+  const selected = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
   const def = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
-  return def || (groups[0]?._id?.toString?.() ?? null);
+  return selected || def || (groups[0]?._id?.toString?.() ?? null);
 }
 
 const formatDate = (date) => {

@@ -5577,10 +5577,11 @@ router.post('/users/week-menu/participants/reset', isLoggedIn, async (req, res) 
 router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
   try {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
 
-    const currentGroupId = defaultGroupId || fallbackGroupId || '';
+    const currentGroupId = activeGroupId || defaultGroupId || fallbackGroupId || '';
     const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings.calendarWeekStart').lean();
     const calendarWeekStart = normalizeWeekMenuSettings(userSettingsDoc?.weekMenuSettings || {}).calendarWeekStart;
 
@@ -6435,9 +6436,10 @@ router.get('/users/my-top', isLoggedIn, async (req, res, next) => {
 router.get('/users/stock-top', isLoggedIn, async (req, res, next) => {
   try {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
-    const currentGroupId = defaultGroupId || fallbackGroupId || '';
+    const currentGroupId = activeGroupId || defaultGroupId || fallbackGroupId || '';
     const groupConfig = currentGroupId
       ? await Group.findById(currentGroupId).select('group_name stockInventory equipmentInventory members createdBy').lean()
       : null;
@@ -6984,6 +6986,7 @@ router.get('/users/menu-ranking', isLoggedIn, async (req, res, next) => {
 router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
   try {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const activeGroupId = res.locals.selectedGroupId ? String(res.locals.selectedGroupId) : '';
     const defaultGroupId = res.locals.userDefaultGroupId ? String(res.locals.userDefaultGroupId) : '';
     const fallbackGroupId = userGroups.length ? userGroups[0]._id.toString() : '';
     const userSettingsDoc = await User.findById(req.user._id).select('weekMenuSettings.calendarWeekStart').lean();
@@ -6994,7 +6997,7 @@ router.get('/users/api/week-plans', isLoggedIn, async (req, res) => {
       return res.status(403).json({ error: 'このグループに対する権限がありません。' });
     }
     if (!groupId) {
-      groupId = defaultGroupId || fallbackGroupId || '';
+      groupId = activeGroupId || defaultGroupId || fallbackGroupId || '';
     }
 
     const monthParam = typeof req.query.month === 'string' ? req.query.month : '';
