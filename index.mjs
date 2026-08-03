@@ -390,7 +390,7 @@ app.listen(PORT, () => {
             const recipientName = user.displayname || user.username || user.email;
             const dateLabel = `${Number(nowParts.month)}/${Number(nowParts.day)}日`;
             const weekStartKey = toDateKey(new Date(plan.weekStart));
-            const linkUrl = `${baseUrl}/users/week-menu?group=${encodeURIComponent(String(group._id))}&weekStart=${encodeURIComponent(weekStartKey)}&date=${encodeURIComponent(dateKey)}&view=detail`;
+            const linkUrl = `${baseUrl}/users/week-menu?public=1&group=${encodeURIComponent(String(group._id))}&weekStart=${encodeURIComponent(weekStartKey)}&date=${encodeURIComponent(dateKey)}`;
             const html = await renderTemplate('dailyMenu', {
               recipientName,
               groupName: group.group_name || '',

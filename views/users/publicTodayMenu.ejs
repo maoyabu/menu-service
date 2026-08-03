@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title><%= selectedDateLabel %> <%= selectedMealLabel %> | <%= group.group_name || '7 DAYS PLAN' %></title>
+  <style>
+    :root {
+      color-scheme: light;
+      --blue: #0b72b9;
+      --blue-soft: #e7f6ff;
+      --blue-line: #9bdcff;
+      --ink: #111827;
+      --muted: #6b7280;
+      --green-soft: #e9fff5;
+      --green: #047857;
+      --orange-soft: #fff7ed;
+      --orange: #9a4314;
+      --rose-soft: #fff1f2;
+      --rose: #be123c;
+      --surface: #ffffff;
+      --page: #f6f8fb;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", "Noto Sans JP", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    .page {
+      width: min(100%, 820px);
+      min-height: 100svh;
+      margin: 0 auto;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      margin: -16px -16px 18px;
+      padding: max(16px, env(safe-area-inset-top)) 16px 12px;
+      background: rgba(246, 248, 251, .94);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(203, 213, 225, .75);
+    }
+    .heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 5vw, 34px);
+      line-height: 1.18;
+      color: #075aa0;
+      letter-spacing: 0;
+    }
+    .group-name {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: 2px solid var(--blue-line);
+      background: var(--blue-soft);
+      color: #075985;
+      font-size: 16px;
+      font-weight: 900;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .tab[aria-current="true"] {
+      background: #dff8ff;
+      border-color: #38bdf8;
+      color: #034f84;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .8);
+    }
+    .date-tabs { margin-bottom: 8px; }
+    .date-tabs .tab {
+      min-height: 34px;
+      font-size: 14px;
+      color: #334155;
+      border-color: #d8c9ff;
+      background: #f5f0ff;
+    }
+    .date-tabs .tab[aria-current="true"] {
+      color: #5b21b6;
+      border-color: #bda7ff;
+      background: #f1eaff;
+    }
+    .selected-meta {
+      margin: 10px 2px 0;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    @media (min-width: 700px) {
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .menu-card {
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      border-radius: 26px;
+      background: var(--surface);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, .10);
+    }
+    .photo {
+      position: relative;
+      height: 250px;
+      background: #eef2f7;
+    }
+    .photo img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .set-grid {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      gap: 1px;
+      background: #e5e7eb;
+    }
+    .set-grid.one { grid-template-columns: 1fr; }
+    .set-grid.two { grid-template-columns: repeat(2, 1fr); }
+    .set-grid.three,
+    .set-grid.four { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+    .set-grid.five { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); }
+    .set-grid .tile { overflow: hidden; background: #f8fafc; }
+    .set-grid .tile.span-2 { grid-column: 1 / 3; }
+    .badge-on-photo {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 2px solid #facc15;
+      background: rgba(255, 255, 255, .9);
+      color: #b45309;
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .body {
+      padding: 22px 24px 24px;
+    }
+    .name {
+      margin: 0 0 14px;
+      font-size: clamp(24px, 6vw, 32px);
+      line-height: 1.35;
+      letter-spacing: 0;
+      font-weight: 800;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 16px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .chip.time { color: var(--green); background: var(--green-soft); }
+    .chip.sv { color: var(--blue); background: var(--blue-soft); border: 1px solid var(--blue-line); }
+    .chip.kind { color: var(--orange); background: var(--orange-soft); }
+    .chip.recipe { color: var(--rose); background: var(--rose-soft); border: 1px solid #fecdd3; text-decoration: none; }
+    .quantity {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      margin-top: 2px;
+      padding: 8px 16px;
+      border-radius: 18px;
+      border: 2px solid #d8c9ff;
+      background: #f5f0ff;
+      color: #5b21b6;
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .quantity strong {
+      min-width: 48px;
+      padding: 4px 16px;
+      border-radius: 8px;
+      border: 2px solid #c4b5fd;
+      background: #fff;
+      color: #111827;
+      text-align: center;
+    }
+    .empty {
+      border: 1px dashed #cbd5e1;
+      border-radius: 18px;
+      background: #fff;
+      padding: 28px 18px;
+      color: #64748b;
+      text-align: center;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="heading">
+        <h1><%= selectedMealLabel %></h1>
+        <div class="group-name"><%= group.group_name || '' %></div>
+      </div>
+      <nav class="tabs date-tabs" aria-label="日付">
+        <% dateChoices.forEach((choice) => { %>
+          <a class="tab" href="<%= choice.href %>" aria-current="<%= choice.key === selectedDateKey ? 'true' : 'false' %>">
+            <%= choice.label %> <%= choice.dateLabel %>
+          </a>
+        <% }) %>
+      </nav>
+      <nav class="tabs" aria-label="食事">
+        <% mealTabs.forEach((tab) => { %>
+          <a class="tab" href="<%= tab.href %>" aria-current="<%= tab.type === selectedMealType ? 'true' : 'false' %>"><%= tab.label %></a>
+        <% }) %>
+      </nav>
+      <div class="selected-meta"><%= selectedDateLabel %> の予定メニュー</div>
+    </header>
+
+    <% if (!cards.length) { %>
+      <div class="empty">この時間帯の予定メニューはまだありません</div>
+    <% } %>
+
+    <section class="cards" aria-label="予定メニュー">
+      <% cards.forEach((card) => { %>
+        <article class="menu-card">
+          <div class="photo">
+            <% const gridItems = card.menuType === 'set' && card.setMenus && card.setMenus.length ? card.setMenus.slice(0, 5) : []; %>
+            <% if (gridItems.length) { %>
+              <div class="set-grid <%= ['zero','one','two','three','four','five'][gridItems.length] || 'five' %>">
+                <% gridItems.forEach((item, idx) => { %>
+                  <div class="tile <%= gridItems.length === 3 && idx === 2 ? 'span-2' : '' %>">
+                    <% if (item.imageUrl) { %>
+                      <img src="<%= item.imageUrl %>" alt="">
+                    <% } %>
+                  </div>
+                <% }) %>
+              </div>
+            <% } else if (card.imageUrl) { %>
+              <img src="<%= card.imageUrl %>" alt="">
+            <% } %>
+            <% if (card.slotLabel) { %>
+              <div class="badge-on-photo"><%= card.slotLabel %></div>
+            <% } %>
+          </div>
+          <div class="body">
+            <h2 class="name"><%= card.name %></h2>
+            <div class="chips">
+              <% if (card.menuType === 'set') { %>
+                <span class="chip recipe">セットメニュー</span>
+              <% } %>
+              <% if (card.cookTime) { %>
+                <span class="chip time">調理時間 <%= card.cookTime %></span>
+              <% } %>
+              <% card.servings.forEach((serving) => { %>
+                <span class="chip sv"><%= serving.label %> <%= serving.value %></span>
+              <% }) %>
+              <% if (card.junle) { %>
+                <span class="chip kind">ジャンル <%= card.junle %></span>
+              <% } %>
+              <% if (card.cook) { %>
+                <span class="chip kind">調理方法 <%= card.cook %></span>
+              <% } %>
+              <% card.recipeLinks.forEach((link) => { %>
+                <a class="chip recipe" href="<%= link.url %>" target="_blank" rel="noopener"><%= link.label %></a>
+              <% }) %>
+            </div>
+            <div class="quantity">数量 <strong><%= card.servingMultiplier %></strong></div>
+          </div>
+        </article>
+      <% }) %>
+    </section>
+  </main>
+</body>
+</html>

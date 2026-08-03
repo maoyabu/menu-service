@@ -910,6 +910,14 @@ const formatDisplayDate = (date) => {
   return `${month}/${day}`;
 };
 
+const formatDateKey = (date) => {
+  const value = startOfDay(date);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const formatFilenameDate = (date, includeYear = true) => {
   const year = String(date.getFullYear());
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -1033,6 +1041,193 @@ const aggregateSummary = (plan, menuLookup, field) => {
       classification: entry.classification || ''
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+};
+
+const PUBLIC_MEAL_LABELS = {
+  breakfast: '朝食',
+  lunch: '昼食',
+  dinner: '夕食'
+};
+
+const PUBLIC_SLOT_LABELS = {
+  'breakfast-main': '朝食',
+  'lunch-main': '昼食',
+  'dinner-staple': '主食',
+  'dinner-main': '主菜',
+  'dinner-side': '副菜',
+  'dinner-soup': '汁物',
+  'dinner-flex': '追加'
+};
+
+const publicDateParts = (date = new Date()) => Object.fromEntries(
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: process.env.APP_TIME_ZONE || 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value])
+);
+
+const publicTodayDate = (date = new Date()) => {
+  const parts = publicDateParts(date);
+  return new Date(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+};
+
+const publicMealFromTime = (date = new Date()) => {
+  const parts = publicDateParts(date);
+  const today = publicTodayDate(date);
+  const hour = Number(parts.hour);
+  if (hour >= 20) return { date: addDays(today, 1), mealType: 'breakfast' };
+  if (hour >= 14) return { date: today, mealType: 'dinner' };
+  if (hour >= 10) return { date: today, mealType: 'lunch' };
+  return { date: today, mealType: 'breakfast' };
+};
+
+const absolutePublicUrl = (value, req) => {
+  if (!value) return '';
+  const baseUrl = process.env.APP_BASE_URL || process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  try { return new URL(value, baseUrl).toString(); } catch (_) { return ''; }
+};
+
+const formatPublicServing = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return '';
+  return Number.isInteger(num) ? String(num) : String(Math.round(num * 10) / 10);
+};
+
+const formatPublicMenuCard = (slot, req) => {
+  const doc = slot?.menu;
+  if (!doc) return null;
+  const formatted = formatMenuDocument(doc);
+  const fallbackImage = Array.isArray(formatted.setMenus)
+    ? formatted.setMenus.find((item) => item?.imageUrl)?.imageUrl
+    : '';
+  const recipeLinks = [];
+  if (formatted.url) recipeLinks.push({ label: 'レシピを見る', url: absolutePublicUrl(formatted.url, req) });
+  if (Array.isArray(formatted.setMenus)) {
+    formatted.setMenus.forEach((item) => {
+      if (item?.url) recipeLinks.push({ label: item.name || 'レシピを見る', url: absolutePublicUrl(item.url, req) });
+    });
+  }
+  const servings = [
+    { label: '主食SV', value: formatPublicServing(formatted.servings?.staple) },
+    { label: '副菜SV', value: formatPublicServing(formatted.servings?.sideDish) },
+    { label: '主菜SV', value: formatPublicServing(formatted.servings?.mainDish) },
+    { label: '牛乳・乳製品SV', value: formatPublicServing(formatted.servings?.dairy) },
+    { label: '果物SV', value: formatPublicServing(formatted.servings?.fruit) }
+  ].filter((item) => item.value);
+
+  return {
+    id: formatted.id,
+    name: slot.dineOut && slot.dineOutName ? slot.dineOutName : formatted.name,
+    slotLabel: PUBLIC_SLOT_LABELS[slot.slotType] || '',
+    imageUrl: absolutePublicUrl(formatted.imageUrl || fallbackImage, req),
+    menuType: formatted.menuType || 'single',
+    setMenus: (formatted.setMenus || []).map((item) => ({
+      name: item.name || '',
+      imageUrl: absolutePublicUrl(item.imageUrl, req),
+      url: absolutePublicUrl(item.url, req)
+    })),
+    cookTime: formatted.time || '',
+    kind: formatted.kind || '',
+    junle: formatted.junle || '',
+    cook: formatted.cook || '',
+    servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier),
+    prepExtra: Number.isFinite(Number(slot.prepExtra)) ? Math.max(0, Math.floor(Number(slot.prepExtra))) : 0,
+    servings,
+    recipeLinks: recipeLinks.filter((item) => item.url)
+  };
+};
+
+const buildPublicMenuPageData = async (req) => {
+  const groupId = String(req.query.group || req.params.groupId || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(groupId)) {
+    return { status: 404, error: 'グループが見つかりません。' };
+  }
+
+  const group = await Group.findById(groupId).select('group_name').lean();
+  if (!group) return { status: 404, error: 'グループが見つかりません。' };
+
+  const defaultSelection = publicMealFromTime(new Date());
+  const requestedDate = typeof req.query.date === 'string' ? startOfDay(req.query.date) : null;
+  const selectedDate = requestedDate && !Number.isNaN(requestedDate.getTime())
+    ? requestedDate
+    : defaultSelection.date;
+  const selectedMealType = ['breakfast', 'lunch', 'dinner'].includes(String(req.query.meal || ''))
+    ? String(req.query.meal)
+    : defaultSelection.mealType;
+
+  const today = startOfDay(publicTodayDate(new Date()));
+  const tomorrow = addDays(today, 1);
+  const rangeStart = startOfDay(selectedDate < today ? selectedDate : today);
+  const rangeEnd = addDays(startOfDay(selectedDate > tomorrow ? selectedDate : tomorrow), 1);
+
+  const plans = await WeeklyMenuPlan.find({
+    group: groupId,
+    'dayPlans.date': { $gte: rangeStart, $lt: rangeEnd }
+  })
+    .populate({
+      path: 'dayPlans.slots.menu',
+      populate: [
+        { path: 'ingredients.name', select: 'ingredient unit classification' },
+        { path: 'seasoning.name', select: 'seasoning unit classification' },
+        {
+          path: 'setMenus',
+          select: 'name menu kind junle cook imageUrl url time people menuType setType ingredients seasoning servings',
+          populate: [
+            { path: 'ingredients.name', select: 'ingredient unit classification' },
+            { path: 'seasoning.name', select: 'seasoning unit classification' }
+          ]
+        }
+      ]
+    })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  const mealsByDate = {};
+  plans.forEach((plan) => {
+    (plan.dayPlans || []).forEach((dayPlan) => {
+      if (!dayPlan?.date || !Array.isArray(dayPlan.slots)) return;
+      const key = formatDateKey(dayPlan.date);
+      if (!mealsByDate[key]) mealsByDate[key] = { breakfast: [], lunch: [], dinner: [] };
+      if (!mealsByDate[key][dayPlan.mealType]) return;
+      mealsByDate[key][dayPlan.mealType].push(
+        ...dayPlan.slots.map((slot) => formatPublicMenuCard(slot, req)).filter(Boolean)
+      );
+    });
+  });
+
+  const dateChoices = [today, tomorrow].map((date) => {
+    const key = formatDateKey(date);
+    return {
+      key,
+      label: date.getTime() === today.getTime() ? '今日' : '明日',
+      dateLabel: `${formatDisplayDate(date)}(${WEEKDAY_JA[(date.getDay() + 6) % 7]})`,
+      href: `/users/week-menu?public=1&group=${encodeURIComponent(groupId)}&date=${encodeURIComponent(key)}&meal=${encodeURIComponent(selectedMealType)}`
+    };
+  });
+
+  const selectedDateKey = formatDateKey(selectedDate);
+  const mealTabs = ['breakfast', 'lunch', 'dinner'].map((mealType) => ({
+    type: mealType,
+    label: PUBLIC_MEAL_LABELS[mealType],
+    href: `/users/week-menu?public=1&group=${encodeURIComponent(groupId)}&date=${encodeURIComponent(selectedDateKey)}&meal=${encodeURIComponent(mealType)}`
+  }));
+
+  return {
+    status: 200,
+    group,
+    groupId,
+    selectedDateKey,
+    selectedDateLabel: `${formatDisplayDate(selectedDate)}(${WEEKDAY_JA[(selectedDate.getDay() + 6) % 7]})`,
+    selectedMealType,
+    selectedMealLabel: PUBLIC_MEAL_LABELS[selectedMealType] || '',
+    dateChoices,
+    mealTabs,
+    cards: mealsByDate[selectedDateKey]?.[selectedMealType] || []
+  };
 };
 
 const normalizeId = (value) => {
@@ -2636,6 +2831,27 @@ router.post('/users/week-menu/apply-template', isLoggedIn, async (req, res) => {
   } catch (err) {
     console.error('モデルPLAN反映エラー:', err);
     return res.status(500).json({ error: 'モデルPLANを週PLANに反映できませんでした。' });
+  }
+});
+
+router.get('/users/week-menu/public/:groupId', async (req, res, next) => {
+  try {
+    const data = await buildPublicMenuPageData(req);
+    if (data.status !== 200) return res.status(data.status || 404).send(data.error || 'Not found');
+    return res.render('users/publicTodayMenu', { ...data, layout: false });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get('/users/week-menu', async (req, res, next) => {
+  if (String(req.query.public || '') !== '1') return next();
+  try {
+    const data = await buildPublicMenuPageData(req);
+    if (data.status !== 200) return res.status(data.status || 404).send(data.error || 'Not found');
+    return res.render('users/publicTodayMenu', { ...data, layout: false });
+  } catch (err) {
+    return next(err);
   }
 });
 
