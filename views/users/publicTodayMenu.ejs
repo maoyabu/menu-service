@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title><%= selectedDateLabel %> <%= selectedMealLabel %> | <%= group.group_name || '7 DAYS PLAN' %></title>
+  <% const appTitle = `${group.group_name || 'グループ'}の今日の食事`; %>
+  <title><%= appTitle %></title>
+  <meta name="apple-mobile-web-app-title" content="<%= appTitle %>">
+  <meta name="application-name" content="<%= appTitle %>">
   <style>
     :root {
       color-scheme: light;
