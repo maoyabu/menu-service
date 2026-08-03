@@ -1111,6 +1111,7 @@ const formatPublicMenuCard = (slot, req) => {
       if (item?.url) recipeLinks.push({ label: item.name || 'レシピを見る', url: absolutePublicUrl(item.url, req) });
     });
   }
+  const normalizedRecipeLinks = recipeLinks.filter((item) => item.url);
   const servings = [
     { label: '主食SV', value: formatPublicServing(formatted.servings?.staple) },
     { label: '副菜SV', value: formatPublicServing(formatted.servings?.sideDish) },
@@ -1137,7 +1138,8 @@ const formatPublicMenuCard = (slot, req) => {
     servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier),
     prepExtra: Number.isFinite(Number(slot.prepExtra)) ? Math.max(0, Math.floor(Number(slot.prepExtra))) : 0,
     servings,
-    recipeLinks: recipeLinks.filter((item) => item.url)
+    recipeLinks: normalizedRecipeLinks,
+    primaryRecipeUrl: normalizedRecipeLinks[0]?.url || ''
   };
 };
 
@@ -1168,6 +1170,7 @@ const buildPublicMenuPageData = async (req) => {
     group: groupId,
     'dayPlans.date': { $gte: rangeStart, $lt: rangeEnd }
   })
+    .populate({ path: 'group', select: 'group_name' })
     .populate({
       path: 'dayPlans.slots.menu',
       populate: [
@@ -1187,6 +1190,7 @@ const buildPublicMenuPageData = async (req) => {
     .lean();
 
   const mealsByDate = {};
+  const planGroup = plans.find((plan) => plan?.group?.group_name)?.group || group;
   plans.forEach((plan) => {
     (plan.dayPlans || []).forEach((dayPlan) => {
       if (!dayPlan?.date || !Array.isArray(dayPlan.slots)) return;
@@ -1218,7 +1222,10 @@ const buildPublicMenuPageData = async (req) => {
 
   return {
     status: 200,
-    group,
+    group: {
+      _id: planGroup?._id || group._id,
+      group_name: planGroup?.group_name || group.group_name || ''
+    },
     groupId,
     selectedDateKey,
     selectedDateLabel: `${formatDisplayDate(selectedDate)}(${WEEKDAY_JA[(selectedDate.getDay() + 6) % 7]})`,
