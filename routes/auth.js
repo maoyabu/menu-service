@@ -3575,6 +3575,7 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
     }
 
     let guidelineTotals = { ...DEFAULT_GUIDELINE_TOTALS };
+    let currentGroupName = '';
     if (currentGroupId) {
       const groupDoc = await Group.findById(currentGroupId)
         .populate({ path: 'createdBy', select: 'displayname username email sex birth_date' })
@@ -3603,7 +3604,11 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
         const hydratedUsers = await hydrateGroupUsers(usersList);
         const guidelineData = await aggregateGuidelineTotals(hydratedUsers);
         guidelineTotals = guidelineData.totals || guidelineTotals;
+        currentGroupName = groupDoc.group_name || '';
       }
+    }
+    if (!currentGroupName && currentGroupId) {
+      currentGroupName = userGroups.find((group) => String(group._id) === String(currentGroupId))?.group_name || '';
     }
 
     const planIdParam = req.query.plan && mongoose.Types.ObjectId.isValid(req.query.plan)
@@ -3996,7 +4001,8 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
 
     const titleStart = weekDates[0];
     const titleEnd = weekDates[6];
-    const titleLabel = `${titleStart.getFullYear()}年${titleStart.getMonth() + 1}月${titleStart.getDate()}日 〜 ${titleEnd.getFullYear()}年${titleEnd.getMonth() + 1}月${titleEnd.getDate()}日の献立表`;
+    const titleDateLabel = `${titleStart.getFullYear()}年${titleStart.getMonth() + 1}月${titleStart.getDate()}日 〜 ${titleEnd.getFullYear()}年${titleEnd.getMonth() + 1}月${titleEnd.getDate()}日の献立表`;
+    const titleLabel = currentGroupName ? `${currentGroupName} ${titleDateLabel}` : titleDateLabel;
     const weekRangeFilename = formatWeekRangeFilename(titleStart, titleEnd);
     const pdfFilename = `${showPhotos ? 'week-menu' : 'week-menu-no-photo'}-${weekRangeFilename}.pdf`;
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
@@ -4064,8 +4070,18 @@ router.get('/users/week-menu/pdf', isLoggedIn, async (req, res, next) => {
       .map(({ _order, ...row }) => row);
 
     const baseOrigin = `${req.protocol}://${req.get('host')}`;
+    const appBaseUrl = String(process.env.APP_BASE_URL || process.env.BASE_URL || baseOrigin).replace(/\/+$/, '');
+    const publicMenuUrl = currentGroupId ? `${appBaseUrl}/users/week-menu/public/${encodeURIComponent(String(currentGroupId))}` : '';
+    const publicMenuQrSourceUrl = publicMenuUrl
+      ? `https://quickchart.io/qr?text=${encodeURIComponent(publicMenuUrl)}&size=140&margin=1`
+      : '';
+    const publicMenuQrUrl = publicMenuQrSourceUrl
+      ? `/users/week-menu/image-proxy?url=${encodeURIComponent(publicMenuQrSourceUrl)}`
+      : '';
     return res.render('users/weekMenuPdf', {
       titleLabel,
+      publicMenuUrl,
+      publicMenuQrUrl,
       days,
       summaryRows,
       baseOrigin,

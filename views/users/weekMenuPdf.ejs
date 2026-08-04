@@ -15,7 +15,31 @@
         box-sizing: border-box;
       }
       .page-first { page-break-after: always; }
-      h1 { font-size: 20px; font-weight: 800; margin: 0 0 12px 0; }
+      h1 { font-size: 20px; font-weight: 800; margin: 0; }
+      .pdf-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin: 0 0 8px 0;
+      }
+      .qr-access {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 0 0 auto;
+      }
+      .qr-access-text {
+        color: #ff2a1a;
+        font-size: 14px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .qr-access img {
+        width: 58px;
+        height: 58px;
+        display: block;
+      }
       table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #111827; }
       th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
       th { background: #f3f4f6; font-size: 14pt; text-align: center; font-weight: 700; }
@@ -90,7 +114,15 @@
     </div>
     <div class="doc" id="pdf-doc">
     <div class="page page-first">
-      <h1><%= titleLabel %></h1>
+      <div class="pdf-header">
+        <h1><%= titleLabel %></h1>
+        <% if (publicMenuQrUrl) { %>
+          <div class="qr-access">
+            <div class="qr-access-text">今日のメニューはこちらにアクセス</div>
+            <img src="<%= publicMenuQrUrl %>" alt="<%= publicMenuUrl || '今日のメニュー' %>" crossorigin="anonymous" referrerpolicy="no-referrer">
+          </div>
+        <% } %>
+      </div>
       <table>
         <thead>
           <tr>
