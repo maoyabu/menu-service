@@ -1,4 +1,9 @@
 <div class="max-w-4xl mx-auto bg-white p-8 rounded-md shadow">
+  <% const adminImageSrc = (url) => {
+    const value = String(url || '').trim();
+    if (!value) return '';
+    return /^https?:\/\//i.test(value) ? `/admin/image-proxy?url=${encodeURIComponent(value)}` : value;
+  }; %>
   <h1 class="text-2xl font-semibold mb-2 flex items-center space-x-2">
     <i data-lucide="chef-hat" class="w-6 h-6 text-gray-700"></i>
     <span>レシピ編集</span>
@@ -222,7 +227,7 @@
           <div class="w-full md:w-48">
             <div class="relative w-full h-32 border border-dashed border-gray-300 rounded bg-gray-50 flex items-center justify-center overflow-hidden">
               <% if (menu.imageUrl) { %>
-                <img id="image-url-preview" src="/admin/image-proxy?url=<%= encodeURIComponent(menu.imageUrl) %>" alt="画像プレビュー" class="object-cover w-full h-full">
+                <img id="image-url-preview" src="<%= adminImageSrc(menu.imageUrl) %>" alt="画像プレビュー" class="object-cover w-full h-full">
               <% } else { %>
                 <img id="image-url-preview" src="" alt="画像プレビュー" class="object-cover w-full h-full hidden">
               <% } %>
@@ -316,7 +321,7 @@
               <div class="ingredient-card flex flex-wrap items-center gap-2 border border-gray-200 rounded p-2 bg-gray-50">
                 <div class="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden">
                   <% if (ingredient.name?.imageUrl) { %>
-                    <img src="/admin/image-proxy?url=<%= encodeURIComponent(ingredient.name.imageUrl) %>" alt="<%= ingredient.name?.ingredient || 'ingredient image' %>" class="w-full h-full object-cover">
+                    <img src="<%= adminImageSrc(ingredient.name.imageUrl) %>" alt="<%= ingredient.name?.ingredient || 'ingredient image' %>" class="w-full h-full object-cover">
                   <% } else { %>
                     NO IMG
                   <% } %>
@@ -418,6 +423,12 @@
 </div>
 
 <script>
+  function adminImageSrc(url) {
+    const value = String(url || '').trim();
+    if (!value) return '';
+    return /^https?:\/\//i.test(value) ? `/admin/image-proxy?url=${encodeURIComponent(value)}` : value;
+  }
+
   // --- 新しい食材追加モーダル用JS ---
   let currentIngredientTab = 'search';
   
@@ -617,7 +628,7 @@
     thumb.className = 'w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-500 overflow-hidden';
     if (imageUrl) {
       const img = document.createElement('img');
-      img.src = `/admin/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+      img.src = adminImageSrc(imageUrl);
       img.alt = name || 'ingredient image';
       img.className = 'w-full h-full object-cover';
       thumb.textContent = '';
@@ -1051,7 +1062,7 @@ function toggleNutritionInfo(btn) {
       const url = (input?.value || '').trim();
       if (url) {
         if (img) {
-          img.src = `/admin/image-proxy?url=${encodeURIComponent(url)}`;
+          img.src = adminImageSrc(url);
           img.classList.remove('hidden');
         }
         if (placeholder) {
