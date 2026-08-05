@@ -105,6 +105,17 @@ const weeklyMenuTemplateSchema = new Schema({
   sourceWeekStart: {
     type: Date
   },
+  isPublic: {
+    type: Boolean,
+    default: true,
+    index: true
+  },
+  publicScope: {
+    type: String,
+    enum: ['group', 'all'],
+    default: 'group',
+    index: true
+  },
   dayPlans: {
     type: [dayPlanSchema],
     validate: {

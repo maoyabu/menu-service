@@ -2681,6 +2681,39 @@ const stripTemplateDates = (dayPlans = []) => (Array.isArray(dayPlans) ? dayPlan
     }))
   }));
 
+const normalizeTemplatePublicScope = (value) => (value === 'all' ? 'all' : 'group');
+
+const normalizeTemplatePublicSettings = (body = {}) => ({
+  isPublic: body?.isPublic === false || body?.isPublic === 'false' || body?.isPublic === '0'
+    ? false
+    : true,
+  publicScope: normalizeTemplatePublicScope(body?.publicScope)
+});
+
+const maskGroupName = (name = '') => {
+  const text = String(name || 'グループ').trim() || 'グループ';
+  const chars = Array.from(text);
+  if (chars.length <= 2) return `${chars[0] || ''}***`;
+  if (chars.length <= 4) return `${chars[0]}***${chars[chars.length - 1]}`;
+  return `${chars.slice(0, 2).join('')}***${chars.slice(-1).join('')}`;
+};
+
+const decoratePublishedTemplate = (template) => {
+  const groupName = template?.group?.group_name || 'グループ';
+  const title = template?.title || 'モデルPLAN';
+  return {
+    ...template,
+    maskedGroupName: maskGroupName(groupName),
+    publishedTitle: `${maskGroupName(groupName)} ${title}`
+  };
+};
+
+const userCanUsePublishedTemplate = (template, userGroups = []) => {
+  if (!template || template.isPublic === false) return false;
+  if (template.publicScope === 'all') return true;
+  return userCanAccessGroup(userGroups, template.group?._id || template.group);
+};
+
 const remapTemplateDayPlansToWeek = (template, weekStart) => {
   const baseWeekStart = startOfWeek(weekStart);
   return (template?.dayPlans || []).map((dayPlan) => {
@@ -2712,12 +2745,30 @@ router.get('/users/my-menu/model-plans', isLoggedIn, async (req, res, next) => {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const groupIds = userGroups.map((group) => group._id);
     const templates = groupIds.length
-      ? await WeeklyMenuTemplate.find({ group: { $in: groupIds } })
+      ? await WeeklyMenuTemplate.find({ group: { $in: groupIds }, createdBy: req.user._id })
           .populate('group', 'group_name')
           .sort({ updatedAt: -1 })
           .lean()
       : [];
-    res.render('users/modelPlans', { templates });
+    const ownTemplateIds = templates.map((template) => template._id);
+    const publicTemplates = await WeeklyMenuTemplate.find({
+      _id: { $nin: ownTemplateIds },
+      isPublic: { $ne: false },
+      $or: [
+        { publicScope: 'all' },
+        { publicScope: { $exists: false }, group: { $in: groupIds } },
+        { publicScope: 'group', group: { $in: groupIds } }
+      ]
+    })
+      .populate('group', 'group_name')
+      .sort({ updatedAt: -1 })
+      .limit(100)
+      .lean();
+    res.render('users/modelPlans', {
+      templates,
+      publicTemplates: publicTemplates.map(decoratePublishedTemplate),
+      userGroups
+    });
   } catch (err) {
     next(err);
   }
@@ -2726,6 +2777,7 @@ router.get('/users/my-menu/model-plans', isLoggedIn, async (req, res, next) => {
 router.post('/users/my-menu/model-plans/from-week', isLoggedIn, async (req, res) => {
   try {
     const { planId, groupId, weekStart, title, description } = req.body || {};
+    const publicSettings = normalizeTemplatePublicSettings(req.body || {});
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     let plan = null;
 
@@ -2749,6 +2801,8 @@ router.post('/users/my-menu/model-plans/from-week', isLoggedIn, async (req, res)
       createdBy: req.user._id,
       title: (typeof title === 'string' && title.trim()) || plan.title || 'モデルPLAN',
       description: typeof description === 'string' ? description.trim() : '',
+      isPublic: publicSettings.isPublic,
+      publicScope: publicSettings.publicScope,
       dayPlans: stripTemplateDates(plan.dayPlans || []),
       dayComments: (plan.dayComments || []).map((entry) => ({
         dayIndex: entry.dayIndex,
@@ -2779,8 +2833,8 @@ router.post('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
     const template = await WeeklyMenuTemplate.findById(id);
     if (!template) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
-    if (!userCanAccessGroup(userGroups, template.group)) {
-      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    if (!userCanAccessGroup(userGroups, template.group) || String(template.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({ error: 'このモデルPLANを編集できません。' });
     }
 
     const parsedDayPlans = parseEditableDayPlans(req.body?.dayPlans, null, { includeDates: false });
@@ -2788,6 +2842,11 @@ router.post('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
 
     template.title = (typeof req.body?.title === 'string' && req.body.title.trim()) || template.title || 'モデルPLAN';
     template.description = typeof req.body?.description === 'string' ? req.body.description.trim() : template.description || '';
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'isPublic') || Object.prototype.hasOwnProperty.call(req.body || {}, 'publicScope')) {
+      const publicSettings = normalizeTemplatePublicSettings(req.body || {});
+      template.isPublic = publicSettings.isPublic;
+      template.publicScope = publicSettings.publicScope;
+    }
     template.dayPlans = parsedDayPlans;
     template.dayComments = parseEditableDayComments(req.body?.dayComments, { includeDates: false }).map((entry) => ({
       dayIndex: entry.dayIndex,
@@ -2803,6 +2862,80 @@ router.post('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
   }
 });
 
+router.post('/users/my-menu/model-plans/:id/public-settings', isLoggedIn, async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'モデルPLAN IDが不正です。' });
+    }
+
+    const template = await WeeklyMenuTemplate.findById(id);
+    if (!template) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    if (!userCanAccessGroup(userGroups, template.group) || String(template.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({ error: 'このモデルPLANの公開設定を変更できません。' });
+    }
+
+    const publicSettings = normalizeTemplatePublicSettings(req.body || {});
+    template.isPublic = publicSettings.isPublic;
+    template.publicScope = publicSettings.publicScope;
+    await template.save();
+
+    return res.json({ success: true, isPublic: template.isPublic, publicScope: template.publicScope });
+  } catch (err) {
+    console.error('モデルPLAN公開設定保存エラー:', err);
+    return res.status(500).json({ error: 'モデルPLANの公開設定を保存できませんでした。' });
+  }
+});
+
+router.post('/users/my-menu/model-plans/:id/duplicate', isLoggedIn, async (req, res) => {
+  try {
+    const id = String(req.params.id || '');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'モデルPLAN IDが不正です。' });
+    }
+
+    const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
+    const requestedGroupId = typeof req.body?.groupId === 'string' ? req.body.groupId : '';
+    const fallbackGroupId = res.locals.selectedGroupId || res.locals.userDefaultGroupId || userGroups[0]?._id || '';
+    const targetGroupId = requestedGroupId || String(fallbackGroupId || '');
+    if (!targetGroupId || !mongoose.Types.ObjectId.isValid(targetGroupId)) {
+      return res.status(400).json({ error: '保存先グループが不正です。' });
+    }
+    if (!userCanAccessGroup(userGroups, targetGroupId)) {
+      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    }
+
+    const source = await WeeklyMenuTemplate.findById(id).populate('group', 'group_name').lean();
+    if (!source) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
+    if (!userCanUsePublishedTemplate(source, userGroups)) {
+      return res.status(403).json({ error: 'この公開モデルPLANを取り込めません。' });
+    }
+
+    const rawTitle = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const title = rawTitle || `${source.title || 'モデルPLAN'} のコピー`;
+    const publicSettings = normalizeTemplatePublicSettings(req.body || {});
+    const created = await WeeklyMenuTemplate.create({
+      group: targetGroupId,
+      createdBy: req.user._id,
+      title,
+      description: typeof req.body?.description === 'string' ? req.body.description.trim() : (source.description || ''),
+      isPublic: publicSettings.isPublic,
+      publicScope: publicSettings.publicScope,
+      dayPlans: stripTemplateDates(source.dayPlans || []),
+      dayComments: (source.dayComments || []).map((entry) => ({
+        dayIndex: entry.dayIndex,
+        comment: entry.comment || ''
+      }))
+    });
+
+    return res.status(201).json({ success: true, templateId: created._id });
+  } catch (err) {
+    console.error('公開モデルPLAN複製エラー:', err);
+    return res.status(500).json({ error: '公開モデルPLANを取り込めませんでした。' });
+  }
+});
+
 router.delete('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
   try {
     const id = String(req.params.id || '');
@@ -2810,8 +2943,8 @@ router.delete('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => 
     const template = await WeeklyMenuTemplate.findById(id).lean();
     if (!template) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
-    if (!userCanAccessGroup(userGroups, template.group)) {
-      return res.status(403).json({ error: 'このグループに対する権限がありません。' });
+    if (!userCanAccessGroup(userGroups, template.group) || String(template.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({ error: 'このモデルPLANを削除できません。' });
     }
     await WeeklyMenuTemplate.deleteOne({ _id: id });
     return res.json({ success: true });
@@ -2842,7 +2975,7 @@ router.post('/users/week-menu/apply-template', isLoggedIn, async (req, res) => {
 
     const template = await WeeklyMenuTemplate.findById(templateId).lean();
     if (!template) return res.status(404).json({ error: 'モデルPLANが見つかりません。' });
-    if (String(template.group) !== String(groupId) || !userCanAccessGroup(userGroups, template.group)) {
+    if (String(template.group) !== String(groupId) || !userCanAccessGroup(userGroups, template.group) || String(template.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ error: 'このモデルPLANを利用できません。' });
     }
 
@@ -3021,7 +3154,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
       if (template) {
         const templateGroupId = template.group.toString();
         const canAccess = userGroups.some((group) => group._id.toString() === templateGroupId);
-        if (canAccess && (!currentGroupId || templateGroupId === currentGroupId)) {
+        const canEditTemplate = String(template.createdBy) === String(req.user._id);
+        if (canAccess && canEditTemplate && (!currentGroupId || templateGroupId === currentGroupId)) {
           isModelPlanMode = true;
           modelPlanId = template._id.toString();
           modelPlanTitle = template.title || 'モデルPLAN';
@@ -3057,7 +3191,7 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
 
     const shouldPromptPlanSource = !isModelPlanMode && !existingPlan && !!currentGroupId && targetWeekStart.getTime() >= todayWeekStart.getTime();
     const modelPlanChoices = currentGroupId
-      ? await WeeklyMenuTemplate.find({ group: currentGroupId })
+      ? await WeeklyMenuTemplate.find({ group: currentGroupId, createdBy: req.user._id })
           .select('title description updatedAt dayPlans')
           .sort({ updatedAt: -1 })
           .lean()
