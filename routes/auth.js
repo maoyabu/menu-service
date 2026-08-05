@@ -2847,7 +2847,7 @@ router.post('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
       template.isPublic = publicSettings.isPublic;
       template.publicScope = publicSettings.publicScope;
     }
-    template.dayPlans = parsedDayPlans;
+    template.dayPlans = stripTemplateDates(parsedDayPlans);
     template.dayComments = parseEditableDayComments(req.body?.dayComments, { includeDates: false }).map((entry) => ({
       dayIndex: entry.dayIndex,
       comment: entry.comment || ''
@@ -3130,6 +3130,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     let modelPlanId = '';
     let modelPlanTitle = '';
     let modelPlanDescription = '';
+    let modelPlanIsPublic = true;
+    let modelPlanPublicScope = 'group';
 
     if (planIdParam) {
       const plan = await WeeklyMenuPlan.findById(planIdParam).lean();
@@ -3160,6 +3162,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           modelPlanId = template._id.toString();
           modelPlanTitle = template.title || 'モデルPLAN';
           modelPlanDescription = template.description || '';
+          modelPlanIsPublic = template.isPublic !== false;
+          modelPlanPublicScope = normalizeTemplatePublicScope(template.publicScope);
           targetWeekStart = startOfWeek(MODEL_PLAN_WEEK_START);
           baseWeekDates = getWeekDatesFromStart(targetWeekStart);
           existingPlan = {
@@ -3726,6 +3730,8 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
     modelPlanId,
     modelPlanTitle,
     modelPlanDescription,
+    modelPlanIsPublic,
+    modelPlanPublicScope,
     shouldPromptPlanSource,
     modelPlanChoices
 	});

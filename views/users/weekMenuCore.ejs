@@ -133,6 +133,8 @@
     modelPlanId: <%- serialize(typeof modelPlanId !== "undefined" ? modelPlanId : '') %>,
     modelPlanTitle: <%- serialize(typeof modelPlanTitle !== "undefined" ? modelPlanTitle : '') %>,
     modelPlanDescription: <%- serialize(typeof modelPlanDescription !== "undefined" ? modelPlanDescription : '') %>,
+    modelPlanIsPublic: <%- serialize(typeof modelPlanIsPublic !== "undefined" ? modelPlanIsPublic : true) %>,
+    modelPlanPublicScope: <%- serialize(typeof modelPlanPublicScope !== "undefined" ? modelPlanPublicScope : 'group') %>,
     saveEndpoint: <%- serialize((typeof isModelPlanMode !== "undefined" && isModelPlanMode && typeof modelPlanId !== "undefined" && modelPlanId) ? `/users/my-menu/model-plans/${modelPlanId}` : '/users/week-menu') %>,
     shouldPromptPlanSource: <%- serialize(typeof shouldPromptPlanSource !== "undefined" ? shouldPromptPlanSource : false) %>,
     modelPlanChoices: <%- serialize(typeof modelPlanChoices !== "undefined" ? modelPlanChoices : []) %>
@@ -2240,7 +2242,11 @@
         description: data.isModelPlanMode
           ? ((window.weekMenuData && window.weekMenuData.modelPlanDescription) || '')
           : '',
-        planId: state.planId || undefined
+        planId: state.planId || undefined,
+        ...(data.isModelPlanMode ? {
+          isPublic: window.weekMenuData?.modelPlanIsPublic !== false,
+          publicScope: window.weekMenuData?.modelPlanPublicScope === 'all' ? 'all' : 'group'
+        } : {})
       };
     };
 
