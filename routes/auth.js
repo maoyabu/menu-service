@@ -611,6 +611,7 @@ router.post('/api/auth/signup', async (req, res, next) => {
 
 const WEEKDAY_JA = ['月', '火', '水', '木', '金', '土', '日'];
 const WEEKDAY_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MODEL_PLAN_WEEK_START = new Date(2001, 0, 1);
 
 const CATEGORY_CONFIG = {
   breakfastMain: {
@@ -2571,7 +2572,8 @@ const parsePlanDate = (value) => {
   return parsed;
 };
 
-const parseEditableDayPlans = (dayPlans, fallbackWeekStart = null) => {
+const parseEditableDayPlans = (dayPlans, fallbackWeekStart = null, options = {}) => {
+  const includeDates = options.includeDates !== false;
   const baseWeekStart = fallbackWeekStart ? startOfWeek(fallbackWeekStart) : null;
   return (Array.isArray(dayPlans) ? dayPlans : [])
     .map((plan) => {
@@ -2584,8 +2586,8 @@ const parseEditableDayPlans = (dayPlans, fallbackWeekStart = null) => {
         return null;
       }
 
-      let date = parsePlanDate(plan.dateISO || plan.date);
-      if (!date && baseWeekStart) {
+      let date = includeDates ? parsePlanDate(plan.dateISO || plan.date) : null;
+      if (includeDates && !date && baseWeekStart) {
         date = addDays(baseWeekStart, plan.dayIndex);
         date.setHours(0, 0, 0, 0);
       }
@@ -2623,7 +2625,7 @@ const parseEditableDayPlans = (dayPlans, fallbackWeekStart = null) => {
 
       return {
         dayIndex: plan.dayIndex,
-        date: date || undefined,
+        ...(includeDates && date ? { date } : {}),
         mealType,
         slots
       };
@@ -2631,19 +2633,41 @@ const parseEditableDayPlans = (dayPlans, fallbackWeekStart = null) => {
     .filter(Boolean);
 };
 
-const parseEditableDayComments = (dayComments) => Array.isArray(dayComments)
+const parseEditableDayComments = (dayComments, options = {}) => {
+  const includeDates = options.includeDates !== false;
+  return Array.isArray(dayComments)
   ? dayComments
       .map((entry) => {
         if (!entry || typeof entry.dayIndex !== 'number' || entry.dayIndex < 0 || entry.dayIndex > 6) return null;
-        const date = parsePlanDate(entry.dateISO || entry.date);
+        const date = includeDates ? parsePlanDate(entry.dateISO || entry.date) : null;
         return {
           dayIndex: entry.dayIndex,
-          ...(date ? { date } : {}),
+          ...(includeDates && date ? { date } : {}),
           comment: typeof entry.comment === 'string' ? entry.comment.trim() : ''
         };
       })
       .filter(Boolean)
   : [];
+};
+
+const stripTemplateDates = (dayPlans = []) => (Array.isArray(dayPlans) ? dayPlans : [])
+  .map((dayPlan) => ({
+    dayIndex: dayPlan.dayIndex,
+    mealType: dayPlan.mealType,
+    slots: (dayPlan.slots || []).map((slot) => ({
+      slotType: slot.slotType,
+      menu: slot.menu,
+      dineOut: !!slot.dineOut,
+      dineOutName: typeof slot.dineOutName === 'string' ? slot.dineOutName : '',
+      dineOutUrl: typeof slot.dineOutUrl === 'string' ? slot.dineOutUrl : '',
+      favorite: !!slot.favorite,
+      locked: !!slot.locked,
+      prepExtra: Number.isFinite(Number(slot.prepExtra)) && Number(slot.prepExtra) > 0
+        ? Math.floor(Number(slot.prepExtra))
+        : 0,
+      servingMultiplier: normalizeServingMultiplier(slot.servingMultiplier)
+    }))
+  }));
 
 const remapTemplateDayPlansToWeek = (template, weekStart) => {
   const baseWeekStart = startOfWeek(weekStart);
@@ -2713,8 +2737,7 @@ router.post('/users/my-menu/model-plans/from-week', isLoggedIn, async (req, res)
       createdBy: req.user._id,
       title: (typeof title === 'string' && title.trim()) || plan.title || 'モデルPLAN',
       description: typeof description === 'string' ? description.trim() : '',
-      sourceWeekStart: plan.weekStart,
-      dayPlans: plan.dayPlans || [],
+      dayPlans: stripTemplateDates(plan.dayPlans || []),
       dayComments: (plan.dayComments || []).map((entry) => ({
         dayIndex: entry.dayIndex,
         comment: entry.comment || ''
@@ -2748,16 +2771,17 @@ router.post('/users/my-menu/model-plans/:id', isLoggedIn, async (req, res) => {
       return res.status(403).json({ error: 'このグループに対する権限がありません。' });
     }
 
-    const parsedDayPlans = parseEditableDayPlans(req.body?.dayPlans, template.sourceWeekStart || new Date());
+    const parsedDayPlans = parseEditableDayPlans(req.body?.dayPlans, null, { includeDates: false });
     if (!parsedDayPlans.length) return res.status(400).json({ error: '保存するメニューがありません。' });
 
     template.title = (typeof req.body?.title === 'string' && req.body.title.trim()) || template.title || 'モデルPLAN';
     template.description = typeof req.body?.description === 'string' ? req.body.description.trim() : template.description || '';
     template.dayPlans = parsedDayPlans;
-    template.dayComments = parseEditableDayComments(req.body?.dayComments).map((entry) => ({
+    template.dayComments = parseEditableDayComments(req.body?.dayComments, { includeDates: false }).map((entry) => ({
       dayIndex: entry.dayIndex,
       comment: entry.comment || ''
     }));
+    template.set('sourceWeekStart', undefined);
     await template.save();
 
     return res.json({ success: true, templateId: template._id });
@@ -2990,15 +3014,16 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
           modelPlanId = template._id.toString();
           modelPlanTitle = template.title || 'モデルPLAN';
           modelPlanDescription = template.description || '';
+          targetWeekStart = startOfWeek(MODEL_PLAN_WEEK_START);
+          baseWeekDates = getWeekDatesFromStart(targetWeekStart);
           existingPlan = {
             ...template,
-            weekStart: template.sourceWeekStart || targetWeekStart,
-            weekEnd: addDays(startOfWeek(template.sourceWeekStart || targetWeekStart), 6),
+            weekStart: targetWeekStart,
+            weekEnd: addDays(targetWeekStart, 6),
+            dayPlans: stripTemplateDates(template.dayPlans || []),
             participants: []
           };
           existingPlanId = '';
-          targetWeekStart = startOfWeek(existingPlan.weekStart || targetWeekStart);
-          baseWeekDates = getWeekDatesFromStart(targetWeekStart);
           weekRangeLabel = modelPlanTitle;
           if (!currentGroupId) currentGroupId = templateGroupId;
         }
@@ -3219,7 +3244,16 @@ router.get('/users/week-menu', isLoggedIn, async (req, res, next) => {
         dateISO: date.toISOString(),
         display: formatDisplayDate(date)
       }));
-      if (weekMenuSettings.calendarWeekStart === 'sunday' && weekDatesForView[6]) {
+      if (isModelPlanMode) {
+        weekDatesForView = baseWeekDates.map((date, index) => ({
+          label: WEEKDAY_JA[index],
+          labelEn: WEEKDAY_EN[index],
+          weekday: '',
+          dateISO: date.toISOString(),
+          display: `${WEEKDAY_JA[index]}曜日`
+        }));
+      }
+      if (!isModelPlanMode && weekMenuSettings.calendarWeekStart === 'sunday' && weekDatesForView[6]) {
         const previousSundayDate = addDays(targetWeekStart, -1);
         weekDatesForView[6] = {
           ...weekDatesForView[6],

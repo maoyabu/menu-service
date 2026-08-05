@@ -618,7 +618,7 @@
   <%
     const parts = weekRangeLabel.split('〜');
     const year = new Date().getFullYear();
-    const displayLabel = parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`;
+    const displayLabel = isModelPlanMode ? weekRangeLabel : (parts.length === 2 ? `${year}/${parts[0]}〜${parts[1]}` : `${year}/${weekRangeLabel}`);
     const compactTitle = (typeof weekMenuMode !== 'undefined' && weekMenuMode === 'supplies') ? 'お買い物リスト' : '7 DAYS PLAN';
   %>
   <header class="wm2-compact-header">
@@ -626,6 +626,7 @@
       <span class="wm2-compact-title"><%= compactTitle %></span>
       <span class="wm2-week-label"><%= displayLabel %></span>
     </div>
+    <% if (!isModelPlanMode) { %>
     <div class="wm2-week-nav">
       <button type="button" class="wm2-nav-btn" data-week-shift="-1" aria-label="前の週">
         <span class="lucide w-4 h-4" data-lucide="chevron-left"></span>
@@ -678,6 +679,7 @@
         <span class="plan-calendar-legend plan-calendar-legend--past">過去を記録</span>
       </div>
     </aside>
+    <% } %>
   </header>
 </section>
 
@@ -2285,6 +2287,9 @@
 
     function toLabel(d){
       const display = d && d.display ? d.display : '';
+      if (display && d && Object.prototype.hasOwnProperty.call(d, 'weekday')) {
+        return { disp: display, dow: d.weekday || '' };
+      }
       const iso = d && d.dateISO ? d.dateISO : d;
       let dow = '';
       try { const dt = new Date(iso); dow = WEEKDAY[(dt.getDay()+6)%7] || ''; } catch(_) {}
