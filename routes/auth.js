@@ -4589,7 +4589,7 @@ router.post('/users/shopping-list/api/state', isLoggedIn, async (req, res) => {
   }
 });
 
-// Shopping list (next week by default): aggregate ingredients/seasonings and split by MyStock
+// Shopping list: aggregate ingredients/seasonings for a selected date range and split by MyStock
 router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
   try {
     const userGroups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
@@ -4600,16 +4600,30 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
     if (currentGroupId && !userGroups.some((g)=> g._id.toString() === currentGroupId)) currentGroupId = fallbackGroupId || '';
 
-    // Decide target 7-day range (next Monday through Sunday by default)
-    const rangeStartParam = typeof req.query.startDate === 'string'
-      ? req.query.startDate
-      : typeof req.query.rangeStart === 'string'
-        ? req.query.rangeStart
-        : typeof req.query.weekStart === 'string'
-          ? req.query.weekStart
+    // Decide target range (next Monday through Sunday by default)
+    const rangeStartParam = typeof req.query.fromDate === 'string'
+      ? req.query.fromDate
+      : typeof req.query.startDate === 'string'
+        ? req.query.startDate
+        : typeof req.query.rangeStart === 'string'
+          ? req.query.rangeStart
+          : typeof req.query.weekStart === 'string'
+            ? req.query.weekStart
+            : '';
+    const rangeEndParam = typeof req.query.toDate === 'string'
+      ? req.query.toDate
+      : typeof req.query.endDate === 'string'
+        ? req.query.endDate
+        : typeof req.query.rangeEnd === 'string'
+          ? req.query.rangeEnd
           : '';
     let rangeStart = parseDateInputValue(rangeStartParam) || getNextWeekStart();
-    let baseWeekDates = Array.from({ length: 7 }, (_, index) => addDays(rangeStart, index));
+    let rangeEnd = parseDateInputValue(rangeEndParam) || addDays(rangeStart, 6);
+    if (rangeEnd.getTime() < rangeStart.getTime()) {
+      rangeEnd = rangeStart;
+    }
+    const rangeDayCount = Math.floor((rangeEnd.getTime() - rangeStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+    let baseWeekDates = Array.from({ length: rangeDayCount }, (_, index) => addDays(rangeStart, index));
     let targetWeekStart = startOfWeek(rangeStart);
 
     // Build menus by category (for lookup/aggregation)
@@ -4735,7 +4749,7 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
       });
       plan = basePlan;
     } else {
-      const canGenerateFallback = !rangeStartParam || formatDateKey(rangeStart) === formatDateKey(getNextWeekStart());
+      const canGenerateFallback = !rangeStartParam && !rangeEndParam;
       if (canGenerateFallback) {
         let previousWeekMainIds = new Set();
         if (currentGroupId) {
@@ -4801,19 +4815,21 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     ingredients.forEach((x)=> (ingNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'ingredient')));
     seasonings.forEach((x)=> (seaNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'seasoning')));
 
-    const rangeEnd = baseWeekDates[6] || addDays(rangeStart, 6);
+    rangeEnd = baseWeekDates[baseWeekDates.length - 1] || rangeEnd;
     const weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(rangeEnd)}`;
     const weekStartISO = rangeStart.toISOString();
+    const rangeEndISO = rangeEnd.toISOString();
     return res.render('users/shoppingList', {
       weekRangeLabel,
       weekStartISO,
+      rangeEndISO,
       rangeStartInput: formatDateKey(rangeStart),
       rangeEndInput: formatDateKey(rangeEnd),
       groupId: currentGroupId,
       topItems,
       bottomStockItems,
-      pageTitle: '1週間のお買い物リスト',
-      seo: { title: '1週間のお買い物リスト' }
+      pageTitle: 'お買い物リスト',
+      seo: { title: 'お買い物リスト' }
     });
   } catch (err) { return next(err); }
 });

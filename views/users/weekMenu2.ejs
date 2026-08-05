@@ -558,6 +558,8 @@
   /* Supplies range label under title */
   #wm2-supplies-range{ display:none; font-size:12px; color:#475569; margin-top:4px; }
   #wm2-section[data-mode="supplies"] #wm2-supplies-range{ display:block; }
+  #wm2-supplies-filter{ display:none; }
+  #wm2-section[data-mode="supplies"] #wm2-supplies-filter{ display:flex; }
 
   /* Attendees tags */
   .attendees { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
@@ -854,6 +856,24 @@
     <% } %>
   </div>
   <p id="wm2-supplies-range" aria-live="polite"></p>
+  <form id="wm2-supplies-filter" class="flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-3">
+    <label class="text-sm font-semibold text-gray-700">
+      From
+      <input type="date" id="wm2-supplies-from" class="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm">
+    </label>
+    <label class="text-sm font-semibold text-gray-700">
+      To
+      <input type="date" id="wm2-supplies-to" class="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm">
+    </label>
+    <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+      <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
+      表示
+    </button>
+    <a id="wm2-supplies-open-page" href="/users/shopping-list" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+      <span class="lucide w-4 h-4" data-lucide="external-link"></span>
+      お買い物リストへ
+    </a>
+  </form>
   <!-- Weekly supplies (collapsed by default) -->
   <div id="wm2-supplies" class="hidden"></div>
 
@@ -4487,7 +4507,81 @@
       return nonAscii ? `${q}${unit}` : `${q} ${unit}`;
     };
 
-    const computeWeekly = () => {
+    const pad2 = (value) => String(value).padStart(2, '0');
+    const dateInputValue = (date) => {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+      return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+    };
+    const parseDateInput = (value) => {
+      if (!value) return null;
+      const parts = String(value).split('-').map(Number);
+      if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+      const date = new Date(parts[0], parts[1] - 1, parts[2]);
+      date.setHours(0, 0, 0, 0);
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
+    const normalizeDate = (value) => {
+      const date = value instanceof Date ? new Date(value) : new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
+    const getDefaultRange = () => {
+      const data = window.weekMenuData || {};
+      const week = Array.isArray(data.weekDates) && data.weekDates.length ? data.weekDates : WEEK;
+      const startISO = data.weekStartISO || (Array.isArray(week) && week[0] && (week[0].dateISO || week[0]));
+      const start = normalizeDate(startISO) || normalizeDate(new Date());
+      const endISO = Array.isArray(week) && week.length
+        ? (week[week.length - 1]?.dateISO || week[week.length - 1])
+        : null;
+      const end = normalizeDate(endISO) || (start ? new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6) : null);
+      return { start, end };
+    };
+    const ensureRangeInputs = () => {
+      const fromInput = document.getElementById('wm2-supplies-from');
+      const toInput = document.getElementById('wm2-supplies-to');
+      const defaults = getDefaultRange();
+      if (fromInput && !fromInput.value) fromInput.value = dateInputValue(defaults.start);
+      if (toInput && !toInput.value) toInput.value = dateInputValue(defaults.end);
+      return { fromInput, toInput };
+    };
+    const getSelectedRange = () => {
+      const { fromInput, toInput } = ensureRangeInputs();
+      const defaults = getDefaultRange();
+      const start = parseDateInput(fromInput?.value) || defaults.start;
+      let end = parseDateInput(toInput?.value) || defaults.end;
+      if (start && end && end.getTime() < start.getTime()) end = start;
+      if (fromInput) fromInput.value = dateInputValue(start);
+      if (toInput) toInput.value = dateInputValue(end);
+      return { start, end };
+    };
+    const inRange = (date, start, end) => {
+      if (!date || !start || !end) return true;
+      const time = date.getTime();
+      return time >= start.getTime() && time <= end.getTime();
+    };
+    const updateSuppliesRangeUI = (start, end) => {
+      const labelEl = document.getElementById('wm2-supplies-range');
+      const fmt = (d, withYear=false) => {
+        if (!d || Number.isNaN(d.getTime())) return '';
+        const y = d.getFullYear();
+        const m = d.getMonth()+1;
+        const day = d.getDate();
+        return withYear ? `${y}年${m}月${day}日` : `${m}月${day}日`;
+      };
+      if (labelEl) labelEl.textContent = `${fmt(start, true)}から${fmt(end)}の食材・調味料リスト`;
+      const openLink = document.getElementById('wm2-supplies-open-page');
+      if (openLink) {
+        const data = window.weekMenuData || {};
+        const url = new URL('/users/shopping-list', window.location.origin);
+        if (data.currentGroupId) url.searchParams.set('group', data.currentGroupId);
+        if (start) url.searchParams.set('fromDate', dateInputValue(start));
+        if (end) url.searchParams.set('toDate', dateInputValue(end));
+        openLink.href = url.toString();
+      }
+    };
+
+    const computeWeekly = (range) => {
       const data = window.weekMenuData || {}; const lookup = data.menuLookup || {};
       const grp = Number(data.groupSize) > 0 ? Number(data.groupSize) : 1;
       const plan = (data.planSnapshot || data.plan) || [];
@@ -4502,6 +4596,8 @@
         items.set(name, entry);
       };
       (plan||[]).forEach((day)=>{
+        const dayDate = normalizeDate(day?.dateISO);
+        if (!inRange(dayDate, range?.start, range?.end)) return;
         const lunch = Array.isArray(day?.lunchSlots)? day.lunchSlots: [];
         let dinner = Array.isArray(day?.dinnerSlots)? day.dinnerSlots: [];
         if (!Array.isArray(day?.dinnerSlots)){
@@ -4532,8 +4628,11 @@
     const render = async () => {
       const box = document.getElementById('wm2-supplies'); if (!box) return;
       const data = window.weekMenuData || {}; const groupId = data.currentGroupId || '';
-      const weekISO = data.weekStartISO || (Array.isArray(data.weekDates) && data.weekDates[0] && data.weekDates[0].dateISO) || '';
-      const KEY = `shopping:${groupId}:${weekISO}`;
+      const range = getSelectedRange();
+      updateSuppliesRangeUI(range.start, range.end);
+      const weekISO = range.start ? range.start.toISOString() : (data.weekStartISO || (Array.isArray(data.weekDates) && data.weekDates[0] && data.weekDates[0].dateISO) || '');
+      const rangeEndISO = range.end ? range.end.toISOString() : '';
+      const KEY = `shopping:${groupId}:${weekISO}:${rangeEndISO}`;
       const API_URL = '/users/shopping-list/api/state';
       const loadLocalState = () => { try { return JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(_) { return {}; } };
       const DKEY = KEY + ':dates';
@@ -4545,7 +4644,7 @@
           return { state: loadLocalState(), dates: loadLocalDates() };
         }
         try {
-          const res = await fetch(`${API_URL}?group=${encodeURIComponent(groupId)}&weekStart=${encodeURIComponent(weekISO)}`);
+          const res = await fetch(`${API_URL}?group=${encodeURIComponent(groupId)}&weekStart=${encodeURIComponent(weekISO)}&rangeEnd=${encodeURIComponent(rangeEndISO)}`);
           if (!res.ok) throw new Error('fetch failed');
           const data = await res.json();
           const state = (data && typeof data.state === 'object') ? data.state : {};
@@ -4555,17 +4654,18 @@
           const localDates = loadLocalDates();
           const localHas = (localState && Object.keys(localState).length > 0) || (localDates && Object.keys(localDates).length > 0);
           if (serverEmpty && localHas) {
-            try {
-              await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  groupId,
-                  weekStart: weekISO,
-                  state: localState,
-                  dates: localDates
-                })
-              });
+	            try {
+	              await fetch(API_URL, {
+	                method: 'POST',
+	                headers: { 'Content-Type': 'application/json' },
+	                body: JSON.stringify({
+	                  groupId,
+	                  weekStart: weekISO,
+	                  rangeEnd: rangeEndISO,
+	                  state: localState,
+	                  dates: localDates
+	                })
+	              });
               return { state: localState || {}, dates: localDates || {} };
             } catch (_) {
               return { state: localState || {}, dates: localDates || {} };
@@ -4581,17 +4681,18 @@
         if (window.__wm2_supSaveTimer) clearTimeout(window.__wm2_supSaveTimer);
         window.__wm2_supSaveTimer = setTimeout(async () => {
           window.__wm2_supSaveTimer = null;
-          try {
-            await fetch(API_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                groupId,
-                weekStart: weekISO,
-                state: window.__wm2_supStateCache || {},
-                dates: window.__wm2_supDates || {}
-              })
-            });
+	          try {
+	            await fetch(API_URL, {
+	              method: 'POST',
+	              headers: { 'Content-Type': 'application/json' },
+	              body: JSON.stringify({
+	                groupId,
+	                weekStart: weekISO,
+	                rangeEnd: rangeEndISO,
+	                state: window.__wm2_supStateCache || {},
+	                dates: window.__wm2_supDates || {}
+	              })
+	            });
           } catch (_) {
             saveLocalState(window.__wm2_supStateCache || {});
             saveLocalDates(window.__wm2_supDates || {});
@@ -4599,15 +4700,16 @@
         }, 300);
       };
 
-      if (!window.__wm2_supStateCache || !window.__wm2_supDates) {
+      if (window.__wm2_supCacheKey !== KEY || !window.__wm2_supStateCache || !window.__wm2_supDates) {
         const shared = await loadSharedState();
+        window.__wm2_supCacheKey = KEY;
         window.__wm2_supStateCache = shared.state || {};
         window.__wm2_supDates = shared.dates || {};
       }
       const state = window.__wm2_supStateCache || {};
       const dates = window.__wm2_supDates || {};
 
-      const agg = computeWeekly();
+      const agg = computeWeekly(range);
       const fmtDate = (iso)=>{ try { const d=new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString('ja-JP'); } catch(_){ return ''; } };
       // Build my-stock name sets and name->id map (cached)
       async function getStockNameSets(){
@@ -5008,6 +5110,21 @@
         setMode('supplies');
       });
     }
+    const suppliesFilter = document.getElementById('wm2-supplies-filter');
+    const suppliesFrom = document.getElementById('wm2-supplies-from');
+    const suppliesTo = document.getElementById('wm2-supplies-to');
+    if (suppliesFilter) {
+      suppliesFilter.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        render();
+      });
+    }
+    [suppliesFrom, suppliesTo].forEach((input) => {
+      if (!input) return;
+      input.addEventListener('change', () => {
+        if (box && !box.classList.contains('hidden')) render();
+      });
+    });
 
     const regenBtn = document.getElementById('wm2-regenerate');
     if (regenBtn) {

@@ -19,7 +19,7 @@
   { id: 'my-top', label: 'トップページ', icon: 'home', href: '/users/my-top' },
   { id: 'current-week', label: '今週の7 DAYS PLAN', icon: 'calendar', href: `/users/week-menu?weekStart=${encodeURIComponent(new Date().toISOString())}` },
   { id: 'create-week', label: '再来週の7 DAYS PLANを作成', icon: 'calendar-plus', href: `/users/week-menu?weekStart=${encodeURIComponent(afterNextWeekStartISO)}` },
-  { id: 'shopping-list', label: '1週間のお買い物リスト', icon: 'shopping-cart', href: '/users/shopping-list' },
+  { id: 'shopping-list', label: 'お買い物リスト', icon: 'shopping-cart', href: '/users/shopping-list' },
   { id: 'menu-list', label: 'メニューリスト', icon: 'list', href: '/users/my-menu/shared-register' },
   { id: 'my-menu', label: 'マイメニュー・マイプラン', icon: 'book-open', href: '/users/my-menu' },
   { id: 'seasonal-ingredients', label: '旬の食材', icon: 'leaf', href: '/users/seasonal-ingredients' },
@@ -167,7 +167,7 @@
           <li>
             <a href="/users/shopping-list" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeShoppingList ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
               <i data-lucide="shopping-cart" class="w-5 h-5 <%= activeShoppingList ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-              <span>1週間のお買い物リスト</span>
+              <span>お買い物リスト</span>
               <% if (activeShoppingList) { %>
                 <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
               <% } %>

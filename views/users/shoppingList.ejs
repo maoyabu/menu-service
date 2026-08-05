@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-2">
         <span class="lucide w-5 h-5" data-lucide="shopping-cart"></span>
-        <h1 class="text-xl font-bold">1週間のお買い物リスト</h1>
+        <h1 class="text-xl font-bold">お買い物リスト</h1>
       </div>
       <p class="text-sm text-gray-500"><%= weekRangeLabel %></p>
     </div>
@@ -12,12 +12,12 @@
         <input type="hidden" name="group" value="<%= groupId %>">
       <% } %>
       <label class="text-sm font-semibold text-gray-700">
-        開始日
-        <input type="date" name="startDate" value="<%= rangeStartInput || '' %>" class="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm">
+        From
+        <input type="date" name="fromDate" value="<%= rangeStartInput || '' %>" class="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm">
       </label>
       <label class="text-sm font-semibold text-gray-700">
-        終了日
-        <input type="date" value="<%= rangeEndInput || '' %>" class="mt-1 block rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" readonly>
+        To
+        <input type="date" name="toDate" value="<%= rangeEndInput || '' %>" class="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm">
       </label>
       <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
         <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
@@ -49,7 +49,8 @@
   (function(){
     const groupId = '<%= groupId %>';
     const weekStartISO = '<%= weekStartISO %>';
-    const KEY = `shopping:${groupId}:${weekStartISO}`;
+    const rangeEndISO = '<%= typeof rangeEndISO !== "undefined" ? rangeEndISO : "" %>';
+    const KEY = `shopping:${groupId}:${weekStartISO}:${rangeEndISO}`;
     const API_URL = '/users/shopping-list/api/state';
     const dataTop = <%- JSON.stringify(topItems || []) %>;
     const dataStock = <%- JSON.stringify(bottomStockItems || []) %>;
@@ -182,7 +183,7 @@
       if (groupId) {
         local = loadLocalState();
         try {
-          const res = await fetch(`${API_URL}?group=${encodeURIComponent(groupId)}&weekStart=${encodeURIComponent(weekStartISO)}`);
+            const res = await fetch(`${API_URL}?group=${encodeURIComponent(groupId)}&weekStart=${encodeURIComponent(weekStartISO)}&rangeEnd=${encodeURIComponent(rangeEndISO)}`);
           if (res.ok) {
             const data = await res.json();
             if (data && typeof data.state === 'object') st = data.state || {};
