@@ -919,6 +919,18 @@ const formatDateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const parseDateInputValue = (value) => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return Number.isNaN(date.getTime()) ? null : startOfDay(date);
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : startOfDay(parsed);
+};
+
 const formatFilenameDate = (date, includeYear = true) => {
   const year = String(date.getFullYear());
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -4509,7 +4521,7 @@ router.get('/users/shopping-list/api/state', isLoggedIn, async (req, res) => {
     if (!currentGroupId) return res.json({ state: {}, updatedAt: null });
 
     const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
-    const targetWeekStart = startOfWeek(weekStartParam || new Date());
+    const targetWeekStart = parseDateInputValue(weekStartParam) || startOfDay(new Date());
     const doc = await ShoppingListState.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
     const rawState = doc?.state || {};
     const rawDates = doc?.dates || {};
@@ -4536,7 +4548,7 @@ router.post('/users/shopping-list/api/state', isLoggedIn, async (req, res) => {
     if (!currentGroupId) return res.status(400).json({ error: 'グループが見つかりません。' });
 
     const weekStartParam = typeof req.body?.weekStart === 'string' ? req.body.weekStart : '';
-    const targetWeekStart = startOfWeek(weekStartParam || new Date());
+    const targetWeekStart = parseDateInputValue(weekStartParam) || startOfDay(new Date());
     const rawState = (req.body && typeof req.body.state === 'object') ? req.body.state : {};
     const entries = Object.entries(rawState || {});
     if (entries.length > 5000) {
@@ -4588,10 +4600,17 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     let currentGroupId = requestedGroupId || activeGroupId || defaultGroupId || fallbackGroupId || '';
     if (currentGroupId && !userGroups.some((g)=> g._id.toString() === currentGroupId)) currentGroupId = fallbackGroupId || '';
 
-    // Decide target week (next week by default)
-    const weekStartParam = typeof req.query.weekStart === 'string' ? req.query.weekStart : '';
-    let targetWeekStart = weekStartParam ? startOfWeek(weekStartParam) : getNextWeekStart();
-    let baseWeekDates = getWeekDatesFromStart(targetWeekStart);
+    // Decide target 7-day range (next Monday through Sunday by default)
+    const rangeStartParam = typeof req.query.startDate === 'string'
+      ? req.query.startDate
+      : typeof req.query.rangeStart === 'string'
+        ? req.query.rangeStart
+        : typeof req.query.weekStart === 'string'
+          ? req.query.weekStart
+          : '';
+    let rangeStart = parseDateInputValue(rangeStartParam) || getNextWeekStart();
+    let baseWeekDates = Array.from({ length: 7 }, (_, index) => addDays(rangeStart, index));
+    let targetWeekStart = startOfWeek(rangeStart);
 
     // Build menus by category (for lookup/aggregation)
     const kindSet = new Set();
@@ -4621,10 +4640,18 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     };
     const menusByCategory = Object.entries(CATEGORY_CONFIG).reduce((acc, [key, config])=>{ acc[key] = combineMenusByKinds(config.kinds); return acc; }, {});
 
-    // Find existing plan for the target week if any
-    let existingPlan = null;
+    // Find existing plans covering the selected 7-day range.
+    let existingPlans = [];
     if (currentGroupId) {
-      existingPlan = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: targetWeekStart }).lean();
+      const weekStartMap = new Map();
+      baseWeekDates.forEach((date) => {
+        const weekStart = startOfWeek(date);
+        weekStartMap.set(formatDateKey(weekStart), weekStart);
+      });
+      existingPlans = await WeeklyMenuPlan.find({
+        group: currentGroupId,
+        weekStart: { $in: Array.from(weekStartMap.values()) }
+      }).lean();
     }
     let myMenuFrequency = {};
     let preferredSetMenuIds = new Set();
@@ -4652,7 +4679,7 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     const currentSeasonLabel = monthToSeason(new Date().getMonth() + 1);
     let plan = [];
     let menuLookup = {};
-    if (existingPlan) {
+    if (existingPlans.length) {
       const basePlan = baseWeekDates.map((date, index) => ({
         index,
         dateISO: date.toISOString(),
@@ -4661,10 +4688,18 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
         dinner: { staple: null, main: null, side: null, soup: null },
         dinnerExtras: []
       }));
+      const dayTargetByKey = new Map(basePlan.map((day) => [formatDateKey(new Date(day.dateISO)), day]));
       menuLookup = {};
       Object.values(menusByCategory).forEach((list)=> list.forEach((m)=> { menuLookup[m.id] = m; }));
       const ids = new Set();
-      (existingPlan.dayPlans||[]).forEach((dp)=> (dp.slots||[]).forEach((s)=> s?.menu && ids.add(s.menu.toString())));
+      (existingPlans || []).forEach((planDoc) => {
+        const planWeekStart = startOfWeek(planDoc.weekStart);
+        (planDoc.dayPlans || []).forEach((dp) => {
+          const targetDate = dp?.date ? startOfDay(dp.date) : addDays(planWeekStart, Number(dp?.dayIndex) || 0);
+          if (!dayTargetByKey.has(formatDateKey(targetDate))) return;
+          (dp.slots || []).forEach((s) => s?.menu && ids.add(s.menu.toString()));
+        });
+      });
       if (ids.size) {
         const docs = await Menu.find({ _id: { $in: Array.from(ids) } })
           .populate({ path: 'ingredients.name', select: 'ingredient unit classification' })
@@ -4680,44 +4715,62 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
           .lean();
         docs.forEach((d)=>{ const f=formatMenuDocument(d); menuLookup[f.id]=f; });
       }
-      (existingPlan.dayPlans||[]).forEach((dp)=>{
-        const target = basePlan[dp.dayIndex]; if(!target) return;
-        (dp.slots||[]).forEach((slot)=>{
-          const map = SLOT_TYPE_DETAILS[slot?.slotType]; if(!map) return;
-          const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra)||0, servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier) };
-          if (map.meal === 'breakfast') {
-            target.breakfastSlots.push(data);
-          } else if (map.meal === 'lunch') {
-            target.lunchSlots.push(data);
-          }
-          else if (map.key === 'extras') { target.dinnerExtras.push(data); }
-          else if (!target.dinner[map.key]) { target.dinner[map.key] = data; } else { target.dinnerExtras.push(data); }
+      (existingPlans || []).forEach((planDoc) => {
+        const planWeekStart = startOfWeek(planDoc.weekStart);
+        (planDoc.dayPlans || []).forEach((dp)=>{
+          const targetDate = dp?.date ? startOfDay(dp.date) : addDays(planWeekStart, Number(dp?.dayIndex) || 0);
+          const target = dayTargetByKey.get(formatDateKey(targetDate)); if(!target) return;
+          (dp.slots||[]).forEach((slot)=>{
+            const map = SLOT_TYPE_DETAILS[slot?.slotType]; if(!map) return;
+            const data = { menuId: slot.menu.toString(), categoryKey: map.categoryKey, dineOut: !!slot.dineOut, prepExtra: Number(slot?.prepExtra)||0, servingMultiplier: normalizeServingMultiplier(slot?.servingMultiplier) };
+            if (map.meal === 'breakfast') {
+              target.breakfastSlots.push(data);
+            } else if (map.meal === 'lunch') {
+              target.lunchSlots.push(data);
+            }
+            else if (map.key === 'extras') { target.dinnerExtras.push(data); }
+            else if (!target.dinner[map.key]) { target.dinner[map.key] = data; } else { target.dinnerExtras.push(data); }
+          });
         });
       });
       plan = basePlan;
     } else {
-      let previousWeekMainIds = new Set();
-      if (currentGroupId) {
-        try {
-          const prevWeekStart = addDays(targetWeekStart, -7);
-          const prevPlan = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: prevWeekStart })
-            .select('dayPlans')
-            .lean();
-          previousWeekMainIds = extractDinnerMainIds(prevPlan);
-        } catch (_) {
-          previousWeekMainIds = new Set();
+      const canGenerateFallback = !rangeStartParam || formatDateKey(rangeStart) === formatDateKey(getNextWeekStart());
+      if (canGenerateFallback) {
+        let previousWeekMainIds = new Set();
+        if (currentGroupId) {
+          try {
+            const prevWeekStart = addDays(targetWeekStart, -7);
+            const prevPlan = await WeeklyMenuPlan.findOne({ group: currentGroupId, weekStart: prevWeekStart })
+              .select('dayPlans')
+              .lean();
+            previousWeekMainIds = extractDinnerMainIds(prevPlan);
+          } catch (_) {
+            previousWeekMainIds = new Set();
+          }
         }
+        const generated = buildWeekPlanPayload(menusByCategory, {
+          startDate: targetWeekStart,
+          myMenuFrequency,
+          currentSeason: currentSeasonLabel,
+          weekMenuSettings,
+          preferredSetMenuIds,
+          previousWeekMainIds
+        });
+        plan = generated.plan; menuLookup = generated.menuLookup; baseWeekDates = generated.weekDates.map(w=> new Date(w.dateISO));
+        rangeStart = startOfDay(baseWeekDates[0] || rangeStart);
+        targetWeekStart = startOfWeek(new Date(generated.weekStartISO));
+      } else {
+        plan = baseWeekDates.map((date, index) => ({
+          index,
+          dateISO: date.toISOString(),
+          breakfastSlots: [],
+          lunchSlots: [],
+          dinner: { staple: null, main: null, side: null, soup: null },
+          dinnerExtras: []
+        }));
+        menuLookup = {};
       }
-      const generated = buildWeekPlanPayload(menusByCategory, {
-        startDate: targetWeekStart,
-        myMenuFrequency,
-        currentSeason: currentSeasonLabel,
-        weekMenuSettings,
-        preferredSetMenuIds,
-        previousWeekMainIds
-      });
-      plan = generated.plan; menuLookup = generated.menuLookup; baseWeekDates = generated.weekDates.map(w=> new Date(w.dateISO));
-      targetWeekStart = startOfWeek(new Date(generated.weekStartISO));
     }
 
     // Aggregate
@@ -4748,14 +4801,19 @@ router.get('/users/shopping-list', isLoggedIn, async (req, res, next) => {
     ingredients.forEach((x)=> (ingNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'ingredient')));
     seasonings.forEach((x)=> (seaNameSet.has(x.name) ? bottomStockItems : topItems).push(toEntry(x, 'seasoning')));
 
-    const weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(baseWeekDates[6])}`;
-    const weekStartISO = targetWeekStart.toISOString();
+    const rangeEnd = baseWeekDates[6] || addDays(rangeStart, 6);
+    const weekRangeLabel = `${formatDisplayDate(baseWeekDates[0])}〜${formatDisplayDate(rangeEnd)}`;
+    const weekStartISO = rangeStart.toISOString();
     return res.render('users/shoppingList', {
       weekRangeLabel,
       weekStartISO,
+      rangeStartInput: formatDateKey(rangeStart),
+      rangeEndInput: formatDateKey(rangeEnd),
       groupId: currentGroupId,
       topItems,
-      bottomStockItems
+      bottomStockItems,
+      pageTitle: '1週間のお買い物リスト',
+      seo: { title: '1週間のお買い物リスト' }
     });
   } catch (err) { return next(err); }
 });

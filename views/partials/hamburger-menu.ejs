@@ -6,6 +6,7 @@
 <% const activeNext = (isWeekRoute && wmView === 'next'); %>
 <% const wmMode = (typeof weekMenuMode !== 'undefined' ? weekMenuMode : null); %>
 <% const activeNextSupplies = (isWeekRoute && wmView === 'next' && wmMode === 'supplies'); %>
+<% const activeShoppingList = isActive('/users/shopping-list'); %>
 <% const activePacking = isActive('/users/packing'); %>
 <% const activePurchaseReminder = isActive('/users/purchase-reminder'); %>
 <% const isStockService = isActive('/users/my-stock') || isActive('/users/my-equipment') || activePurchaseReminder || isActive('/users/stock-top'); %>
@@ -18,9 +19,9 @@
   { id: 'my-top', label: 'トップページ', icon: 'home', href: '/users/my-top' },
   { id: 'current-week', label: '今週の7 DAYS PLAN', icon: 'calendar', href: `/users/week-menu?weekStart=${encodeURIComponent(new Date().toISOString())}` },
   { id: 'create-week', label: '再来週の7 DAYS PLANを作成', icon: 'calendar-plus', href: `/users/week-menu?weekStart=${encodeURIComponent(afterNextWeekStartISO)}` },
-  { id: 'shopping-list', label: '来週のお買い物リスト', icon: 'shopping-cart', href: `/users/week-menu?show=supplies&weekStart=${encodeURIComponent(nextWeekStartISO)}` },
+  { id: 'shopping-list', label: '1週間のお買い物リスト', icon: 'shopping-cart', href: '/users/shopping-list' },
   { id: 'menu-list', label: 'メニューリスト', icon: 'list', href: '/users/my-menu/shared-register' },
-  { id: 'my-menu', label: 'マイメニュー', icon: 'book-open', href: '/users/my-menu' },
+  { id: 'my-menu', label: 'マイメニュー・マイプラン', icon: 'book-open', href: '/users/my-menu' },
   { id: 'seasonal-ingredients', label: '旬の食材', icon: 'leaf', href: '/users/seasonal-ingredients' },
   { id: 'menu-ranking', label: 'メニューランキング', icon: 'trophy', href: '/users/menu-ranking' },
   { id: 'stock-top', label: 'ストック管理トップ', icon: 'layout-grid', href: '/users/stock-top' },
@@ -164,10 +165,10 @@
             </a>
           </li>
           <li>
-            <a href="/users/week-menu?show=supplies&weekStart=<%= encodeURIComponent(nextWeekStartISO) %>" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeNextSupplies ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
-              <i data-lucide="shopping-cart" class="w-5 h-5 <%= activeNextSupplies ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-              <span>来週のお買い物リスト</span>
-              <% if (activeNextSupplies) { %>
+            <a href="/users/shopping-list" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= activeShoppingList ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
+              <i data-lucide="shopping-cart" class="w-5 h-5 <%= activeShoppingList ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
+              <span>1週間のお買い物リスト</span>
+              <% if (activeShoppingList) { %>
                 <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
               <% } %>
             </a>
@@ -181,7 +182,7 @@
           <li>
             <a href="/users/my-menu" class="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition <%= isActive('/users/my-menu') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' %>">
               <i data-lucide="book-open" class="w-5 h-5 <%= isActive('/users/my-menu') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700' %>"></i>
-              <span>マイメニュー</span>
+              <span>マイメニュー・マイプラン</span>
               <% if (isActive('/users/my-menu')) { %>
                 <span class="absolute right-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></span>
               <% } %>

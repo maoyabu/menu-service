@@ -196,7 +196,9 @@ router.get('/', async (req, res, next) => {
       groupMemberItems,
       currentGroup,
       groupFacets,
-      groupSelected
+      groupSelected,
+      pageTitle: 'マイメニュー・マイプラン',
+      seo: { title: 'マイメニュー・マイプラン' }
     });
   } catch (err) { next(err); }
 });

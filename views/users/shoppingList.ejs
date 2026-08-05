@@ -1,10 +1,29 @@
 <section class="max-w-5xl mx-auto space-y-4 p-4 md:p-6">
-  <header class="flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <span class="lucide w-5 h-5" data-lucide="shopping-cart"></span>
-      <h1 class="text-xl font-bold">来週のお買い物リスト</h1>
+  <header class="space-y-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-center gap-2">
+        <span class="lucide w-5 h-5" data-lucide="shopping-cart"></span>
+        <h1 class="text-xl font-bold">1週間のお買い物リスト</h1>
+      </div>
+      <p class="text-sm text-gray-500"><%= weekRangeLabel %></p>
     </div>
-    <p class="text-sm text-gray-500"><%= weekRangeLabel %></p>
+    <form method="get" action="/users/shopping-list" class="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-3">
+      <% if (typeof groupId !== 'undefined' && groupId) { %>
+        <input type="hidden" name="group" value="<%= groupId %>">
+      <% } %>
+      <label class="text-sm font-semibold text-gray-700">
+        開始日
+        <input type="date" name="startDate" value="<%= rangeStartInput || '' %>" class="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm">
+      </label>
+      <label class="text-sm font-semibold text-gray-700">
+        終了日
+        <input type="date" value="<%= rangeEndInput || '' %>" class="mt-1 block rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" readonly>
+      </label>
+      <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+        <span class="lucide w-4 h-4" data-lucide="refresh-cw"></span>
+        表示
+      </button>
+    </form>
   </header>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
