@@ -306,7 +306,7 @@
       let eventCompleted = !!<%- JSON.stringify(event.completed || false) %>;
       let eventName = <%- JSON.stringify(event.name || '') %>;
       const storages = <%- JSON.stringify(storages || []) %>;
-      const selectedStorageIds = (<%- JSON.stringify(event.storageIds || []) %>).length ? <%- JSON.stringify(event.storageIds || []) %> : storages.map((s)=> s.id);
+      const selectedStorageIds = <%- JSON.stringify(event.storageIds || []) %>;
       const masterItems = <%- JSON.stringify(masterItems || []) %>;
       const memberMap = new Map((members||[]).map((m)=> [m.id, m.name]));
       const items = <%- JSON.stringify(items || []) %>;
@@ -1010,6 +1010,10 @@
           .catch(()=> toast('解除に失敗しました'));
       } else if (assignBtn){
         const id = assignBtn.dataset.itemAssign;
+        if (!activeStorageId){
+          toast('収納先を選択してください');
+          return;
+        }
         assignItemToStorage(id, activeStorageId);
       }
     }

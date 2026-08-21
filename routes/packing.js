@@ -846,12 +846,11 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
-      .filter((s)=> !storageIds.length || storageIds.includes(s.id))
+      .filter((s)=> storageIds.includes(s.id))
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
     const items = (itemsRaw || [])
       .filter((it)=> !it.hidden)
       .filter((it)=> {
-        if (!storageIds.length) return true;
         return storageIds.includes(String(it.storageId || ''));
       })
       .map((it)=> ({
@@ -863,7 +862,8 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
         owner: it.owner ? String(it.owner) : 'all'
       }))
       .filter((it)=> {
-        if (owner === 'all') return true;
+        if (owner === 'everyone') return true;
+        if (owner === 'all') return it.owner === 'all';
         if (it.owner === 'all') return true;
         return it.owner === owner;
       });
@@ -875,8 +875,10 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const y = today.getFullYear();
     const m = String(today.getMonth()+1).padStart(2,'0');
     const d = String(today.getDate()).padStart(2,'0');
-    const ownerLabel = owner === 'all'
-      ? '共有'
+    const ownerLabel = owner === 'everyone'
+      ? '全員'
+      : owner === 'all'
+        ? '共有'
       : (memberInfo.labelMap.get(owner) || 'メンバー');
     const title = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト`;
     sheet.mergeCells('A1:E1');
@@ -1152,11 +1154,20 @@ router.patch('/api/items/:id', async (req, res) => {
     const id = req.params.id;
     const item = await PackingItem.findOne({ _id: id, group: groupId }).lean();
     if (!item) return res.status(404).json({ error: 'not found' });
-    const [storage, thing, memberInfo] = await Promise.all([
+    const [event, storage, thing, memberInfo] = await Promise.all([
+      PackingEvent.findOne({ _id: item.event, group: groupId }).lean(),
       req.body?.storageId ? PackingStorage.findOne({ _id: req.body.storageId, group: groupId }).lean() : null,
       req.body?.thingId ? PackingMasterItem.findOne({ _id: req.body.thingId, group: groupId }).lean() : null,
       getMemberOptions(groupId)
     ]);
+    if (!event) return res.status(404).json({ error: 'event not found' });
+    if (req.body?.storageId && !storage) {
+      return res.status(400).json({ error: 'storage not found', message: '収納先を選択してください' });
+    }
+    const eventStorageIds = new Set((event.storageIds || []).map(String));
+    if (storage && !eventStorageIds.has(String(storage._id))) {
+      return res.status(400).json({ error: 'storage not selected', message: 'このプランで使用する収納先を選択してください' });
+    }
     const masterWish = typeof thing?.wish === 'boolean' ? thing.wish : item.wish;
     const wish = typeof req.body?.wish !== 'undefined' ? parseBool(req.body.wish) : !!masterWish;
     if (wish && req.body?.storageId) return res.status(400).json({ error: 'wish item cannot have storage' });
@@ -1280,12 +1291,11 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
-      .filter((s)=> !storageIds.length || storageIds.includes(s.id))
+      .filter((s)=> storageIds.includes(s.id))
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
     const items = (itemsRaw || [])
       .filter((it)=> !it.hidden)
       .filter((it)=> {
-        if (!storageIds.length) return true;
         return storageIds.includes(String(it.storageId || ''));
       })
       .map((it)=> ({
@@ -1297,7 +1307,8 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
         owner: it.owner ? String(it.owner) : 'all'
       }))
       .filter((it)=> {
-        if (owner === 'all') return true;
+        if (owner === 'everyone') return true;
+        if (owner === 'all') return it.owner === 'all';
         if (it.owner === 'all') return true;
         return it.owner === owner;
       });
@@ -1362,8 +1373,10 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const y = today.getFullYear();
     const m = String(today.getMonth()+1).padStart(2,'0');
     const d = String(today.getDate()).padStart(2,'0');
-    const ownerLabel = owner === 'all'
-      ? '共有'
+    const ownerLabel = owner === 'everyone'
+      ? '全員'
+      : owner === 'all'
+        ? '共有'
       : (memberInfo.labelMap.get(owner) || 'メンバー');
     const baseName = `${ev.name || 'パッキングプラン'}${ownerLabel}${y}${m}${d}のチェックリスト.xls`;
     const encoded = encodeURIComponent(baseName);
@@ -1392,7 +1405,7 @@ router.get('/check/:eventId', async (req, res, next) => {
       .slice()
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
-    const filteredStorages = storageIds.length ? storages.filter((s)=> storageIds.includes(s.id)) : storages;
+    const filteredStorages = storages.filter((s)=> storageIds.includes(s.id));
     const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), {
       defaultWeight: m.defaultWeight || 0,
       category: m.category || '',
@@ -1403,6 +1416,7 @@ router.get('/check/:eventId', async (req, res, next) => {
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || [])
       .filter((it)=> !it.hidden)
+      .filter((it)=> storageIds.includes(String(it.storageId || '')))
       .map((it)=> ({
       id: String(it._id),
       name: it.name,

@@ -69,7 +69,7 @@ app.use((req, res, next) => {
 // Trust first proxy (needed for secure cookies on Heroku)
 app.set('trust proxy', 1);
 
-await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.1.229:27017/finance', {
+await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.1.230:27017/finance', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -77,7 +77,7 @@ await mongoose.connect(process.env.MONGODB_URI || 'mongodb://192.168.1.229:27017
 app.use(session({ 
   secret: process.env.SESSION_SECRET || 'secret',
   resave: false, saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://192.168.1.229:27017/finance', collectionName: 'sessions' }),
+  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://192.168.1.230:27017/finance', collectionName: 'sessions' }),
   cookie: { 
     httpOnly: true, 
     secure: process.env.NODE_ENV === 'production',
