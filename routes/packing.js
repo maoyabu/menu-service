@@ -140,6 +140,11 @@ async function getMemberOptions(groupId){
   return { list, idSet: new Set(list.map((u)=>u.id)), labelMap: new Map(list.map((u)=>[u.id, u.name])) };
 }
 
+const isActiveStorageOwner = (owner, memberInfo) => {
+  const ownerId = String(owner || 'all');
+  return ownerId === 'all' || memberInfo.idSet.has(ownerId);
+};
+
 async function hydrateItemWeights(itemsRaw, masterMap, groupId){
   if (!Array.isArray(itemsRaw) || !itemsRaw.length) return [];
   const updates = [];
@@ -481,8 +486,9 @@ router.patch('/api/events/:id', async (req, res) => {
     if (hasStorageIds) {
       let storageIds = [];
       if (rawStorageIds.length) {
-        const valid = await PackingStorage.find({ _id: { $in: rawStorageIds }, group: groupId }).select('_id').lean();
-        storageIds = valid.map((s)=> s._id.toString());
+        const valid = await PackingStorage.find({ _id: { $in: rawStorageIds }, group: groupId }).select('_id owner').lean();
+        const active = valid.filter((storage)=> isActiveStorageOwner(storage.owner, memberInfo));
+        storageIds = active.map((s)=> s._id.toString());
       }
       event.storageIds = storageIds;
     }
@@ -846,12 +852,13 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
-      .filter((s)=> storageIds.includes(s.id))
+      .filter((s)=> storageIds.includes(s.id) && isActiveStorageOwner(s.owner, memberInfo))
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
+    const activeStorageIds = new Set(storages.map((s)=> s.id));
     const items = (itemsRaw || [])
       .filter((it)=> !it.hidden)
       .filter((it)=> {
-        return storageIds.includes(String(it.storageId || ''));
+        return activeStorageIds.has(String(it.storageId || ''));
       })
       .map((it)=> ({
         id: String(it._id),
@@ -1168,6 +1175,9 @@ router.patch('/api/items/:id', async (req, res) => {
     if (storage && !eventStorageIds.has(String(storage._id))) {
       return res.status(400).json({ error: 'storage not selected', message: 'このプランで使用する収納先を選択してください' });
     }
+    if (storage && !isActiveStorageOwner(storage.owner, memberInfo)) {
+      return res.status(400).json({ error: 'storage owner inactive', message: '退会済みメンバーの収納先は使用できません' });
+    }
     const masterWish = typeof thing?.wish === 'boolean' ? thing.wish : item.wish;
     const wish = typeof req.body?.wish !== 'undefined' ? parseBool(req.body.wish) : !!masterWish;
     if (wish && req.body?.storageId) return res.status(400).json({ error: 'wish item cannot have storage' });
@@ -1291,12 +1301,13 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
-      .filter((s)=> storageIds.includes(s.id))
+      .filter((s)=> storageIds.includes(s.id) && isActiveStorageOwner(s.owner, memberInfo))
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
+    const activeStorageIds = new Set(storages.map((s)=> s.id));
     const items = (itemsRaw || [])
       .filter((it)=> !it.hidden)
       .filter((it)=> {
-        return storageIds.includes(String(it.storageId || ''));
+        return activeStorageIds.has(String(it.storageId || ''));
       })
       .map((it)=> ({
         id: String(it._id),
@@ -1405,7 +1416,10 @@ router.get('/check/:eventId', async (req, res, next) => {
       .slice()
       .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
-    const filteredStorages = storages.filter((s)=> storageIds.includes(s.id));
+    const filteredStorages = storages.filter((s)=> (
+      storageIds.includes(s.id) && isActiveStorageOwner(s.owner, memberInfo)
+    ));
+    const activeStorageIds = new Set(filteredStorages.map((s)=> s.id));
     const masterMap = new Map((masterItemsRaw || []).map((m)=> [m._id.toString(), {
       defaultWeight: m.defaultWeight || 0,
       category: m.category || '',
@@ -1416,7 +1430,7 @@ router.get('/check/:eventId', async (req, res, next) => {
     const hydratedItems = await hydrateItemWeights(itemsRaw || [], masterMap, groupId);
     const items = (hydratedItems || [])
       .filter((it)=> !it.hidden)
-      .filter((it)=> storageIds.includes(String(it.storageId || '')))
+      .filter((it)=> activeStorageIds.has(String(it.storageId || '')))
       .map((it)=> ({
       id: String(it._id),
       name: it.name,
