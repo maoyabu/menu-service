@@ -1183,11 +1183,16 @@ router.patch('/api/items/:id', async (req, res) => {
     if (wish && req.body?.storageId) return res.status(400).json({ error: 'wish item cannot have storage' });
     const ownerId = memberInfo.idSet.has(String(req.body?.owner || '')) ? String(req.body.owner) : 'all';
     const storageAllowed = !wish && storage;
+    const hasWeight = req.body?.weight !== undefined && req.body?.weight !== null && req.body?.weight !== '';
+    const requestedWeight = Number(req.body?.weight);
+    const weight = hasWeight && Number.isFinite(requestedWeight)
+      ? Math.max(0, requestedWeight)
+      : Math.max(0, Number(item.weight) || 0);
     const update = {
       name: String(req.body?.name || item.name || '').trim(),
       owner: ownerId,
       quantity: Math.max(0, Number(req.body?.quantity) || 0),
-      weight: Math.max(0, Number(req.body?.weight) || item.weight || 0),
+      weight,
       priority: typeof req.body?.priority !== 'undefined' ? normalizePackingPriority(req.body.priority) : normalizePackingPriority(item.priority || thing?.priority),
       category: typeof req.body?.category === 'string' ? String(req.body.category || '').trim() : item.category || '',
       comment: String(req.body?.comment || '').trim(),
@@ -1223,6 +1228,7 @@ router.patch('/api/items/:id', async (req, res) => {
       name: updated.name,
       owner: updated.owner,
       quantity: updated.quantity,
+      weight: updated.weight,
       priority: normalizePackingPriority(updated.priority),
       comment: updated.comment,
       storageId: updated.storageId ? String(updated.storageId) : '',
