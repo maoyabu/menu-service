@@ -4,6 +4,7 @@
 <% const isPackingService = pathNow.startsWith('/users/packing'); %>
 <% const isBoardService = pathNow.startsWith('/users/board'); %>
 <% const currentService = onAdminRoute ? 'admin' : (isBoardService ? 'board' : (isPackingService ? 'packing' : (isStockService ? 'stock' : 'plan'))); %>
+<% const allowedServices = (typeof availableGroupServices !== 'undefined' && availableGroupServices) ? availableGroupServices : { plan: true, stock: true, packing: true, board: true }; %>
 <% const safeSelectedGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; %>
 <% const safeDefaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; %>
 <% const headerGroupName = (() => { const groups = Array.isArray(userGroups) ? userGroups : []; const gid = safeSelectedGroupId || safeDefaultGroupId; const g = groups.find((gr)=> String(gr._id || '') === String(gid)); return g ? g.group_name : ''; })(); %>
@@ -93,9 +94,9 @@
       <a href="/notices" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="お知らせ" title="お知らせ">
         <i data-lucide="megaphone" class="w-4 h-4"></i>
       </a>
-      <a href="/users/board" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="掲示板" title="掲示板">
+      <% if (allowedServices.board !== false) { %><a href="/users/board" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="掲示板" title="掲示板">
         <i data-lucide="messages-square" class="w-4 h-4"></i>
-      </a>
+      </a><% } %>
       <form action="/logout" method="POST">
         <button type="submit" class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100" aria-label="ログアウト" title="ログアウト">
           <i data-lucide="log-out" class="w-4 h-4"></i>

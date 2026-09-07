@@ -471,7 +471,7 @@
                 <header class="flex items-center justify-between">
                   <div>
                     <h3 class="text-lg font-semibold text-gray-900">参加メンバー</h3>
-                    <p class="text-xs text-gray-500">グループに参加しているメンバーの一覧です。</p>
+                    <p class="text-xs text-gray-500">オーナーはメンバーごとに利用可能なサービスを設定できます。</p>
                   </div>
                   <% 
                     const selectedMemberIdSet = new Set();
@@ -505,20 +505,41 @@
                   <% (selectedGroup.members || []).filter((member) => String(member._id || member) !== String(selectedGroup.createdBy?._id || selectedGroup.createdBy)).forEach((member) => { %>
                     <% const memberLabel = member.displayname || member.username || member.email || member; %>
                     <% const memberEmail = member.email || (typeof member === 'string' ? member : '') || 'メール未設定'; %>
-                    <li class="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3">
-                      <div>
+                    <% const memberId = String(member._id || member); %>
+                    <% const memberPermission = (selectedGroup.memberServicePermissions || []).find((permission) => String(permission.member?._id || permission.member) === memberId); %>
+                    <% const memberServices = memberPermission?.services || {}; %>
+                    <li class="border border-gray-200 rounded-xl px-4 py-3 space-y-3">
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
                         <p class="font-semibold"><%= memberLabel %></p>
                         <p class="text-xs text-gray-500"><%= memberEmail %></p>
-                      </div>
-                      <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
+                        </div>
+                        <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
                         <form action="/settings/groups/<%= selectedGroup._id %>/remove-member" method="POST" onsubmit="return confirm('<%= memberLabel %> をグループから退会させます。よろしいですか？');">
-                          <input type="hidden" name="memberId" value="<%= member._id || member %>" />
+                          <input type="hidden" name="memberId" value="<%= memberId %>" />
                           <button type="submit" class="inline-flex items-center gap-2 text-sm text-red-500 hover:text-red-600">
                             <span class="lucide w-4 h-4" data-lucide="user-minus"></span>
                             退会させる
                           </button>
                         </form>
-                      <% } %>
+                        <% } %>
+                      </div>
+                      <form action="/settings/groups/<%= selectedGroup._id %>/services" method="POST" class="space-y-2">
+                        <input type="hidden" name="memberId" value="<%= memberId %>" />
+                        <div class="grid grid-cols-2 gap-2">
+                          <% [['plan', '7 DAYS PLAN'], ['stock', 'ストック管理'], ['packing', 'パッキング'], ['board', '掲示板']].forEach(([serviceId, serviceLabel]) => { %>
+                            <label class="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-2 text-xs">
+                              <input type="checkbox" name="services[<%= serviceId %>]" <%= memberServices[serviceId] !== false ? 'checked' : '' %> <%= String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id) ? '' : 'disabled' %> />
+                              <span><%= serviceLabel %></span>
+                            </label>
+                          <% }) %>
+                        </div>
+                        <% if (String(selectedGroup.createdBy?._id || selectedGroup.createdBy) === String(settingsUser._id)) { %>
+                          <div class="flex justify-end">
+                            <button type="submit" class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">サービス設定を保存</button>
+                          </div>
+                        <% } %>
+                      </form>
                     </li>
                   <% }) %>
                 </ul>

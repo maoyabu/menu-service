@@ -22,6 +22,18 @@ const groupSchema = new Schema({
     type: [String],
     default: []
   },
+  // Service availability can be configured independently for each member.
+  // Members without an entry retain access to every service for compatibility.
+  memberServicePermissions: [{
+    _id: false,
+    member: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    services: {
+      plan: { type: Boolean, default: true },
+      stock: { type: Boolean, default: true },
+      packing: { type: Boolean, default: true },
+      board: { type: Boolean, default: true }
+    }
+  }],
   // Group-level settings
   stockInventory: {
     enabled: { type: Boolean, default: true },

@@ -12,9 +12,16 @@
 <% const isStockService = isActive('/users/my-stock') || isActive('/users/my-equipment') || activePurchaseReminder || isActive('/users/stock-top'); %>
 <% const isBoardRoute = isActive('/users/board'); %>
 <% const currentService = isBoardRoute ? 'board' : (activePacking ? 'packing' : (isStockService ? 'stock' : 'plan')); %>
+<% const allowedServices = (typeof availableGroupServices !== 'undefined' && availableGroupServices) ? availableGroupServices : { plan: true, stock: true, packing: true, board: true }; %>
 <% const currentGroupName = (()=>{ const groups = Array.isArray(userGroups)? userGroups : []; const currentGroupId = (typeof selectedGroupId !== 'undefined' && selectedGroupId) ? String(selectedGroupId) : ''; const defaultGroupId = (typeof userDefaultGroupId !== 'undefined' && userDefaultGroupId) ? String(userDefaultGroupId) : ''; const gid = currentGroupId || defaultGroupId; const g = groups.find((gr)=> String(gr._id || '') === gid); return g ? g.group_name : ''; })(); %>
 <% /* Compute next week's Monday (week start) in ISO, same logic as server */ %>
 <% const _tmpNow = new Date(); _tmpNow.setHours(0,0,0,0); const _day = _tmpNow.getDay(); const _offset = (_day + 6) % 7; const _nextMon = new Date(_tmpNow); _nextMon.setDate(_nextMon.getDate() - _offset + 7); const nextWeekStartISO = _nextMon.toISOString(); const _afterNextMon = new Date(_nextMon); _afterNextMon.setDate(_afterNextMon.getDate() + 7); const afterNextWeekStartISO = _afterNextMon.toISOString(); %>
+<% const floatingMenuServiceById = {
+  'my-top': 'plan', 'current-week': 'plan', 'create-week': 'plan', 'shopping-list': 'plan',
+  'menu-list': 'plan', 'my-menu': 'plan', 'seasonal-ingredients': 'plan', 'menu-ranking': 'plan',
+  'stock-top': 'stock', 'my-stock': 'stock', 'my-equipment': 'stock', 'purchase-reminder': 'stock',
+  packing: 'packing', board: 'board'
+}; %>
 <% const floatingMenuItems = [
   { id: 'my-top', label: 'トップページ', icon: 'home', href: '/users/my-top' },
   { id: 'current-week', label: '今週の7 DAYS PLAN', icon: 'calendar', href: `/users/week-menu?weekStart=${encodeURIComponent(new Date().toISOString())}` },
@@ -33,7 +40,10 @@
   { id: 'notices', label: 'お知らせ', icon: 'megaphone', href: '/notices' },
   { id: 'settings', label: '設定', icon: 'settings', href: '/settings' },
   { id: 'slideshow', label: 'スライドショー', icon: 'images', href: '/slideshow' }
-]; %>
+].filter((item) => {
+  const serviceId = floatingMenuServiceById[item.id];
+  return !serviceId || allowedServices[serviceId] !== false;
+}); %>
 
 <div id="app-menu-overlay" class="hidden fixed inset-0 z-[60] bg-black/40 opacity-0 transition-opacity duration-200"></div>
 
@@ -114,22 +124,22 @@
     <div class="px-4 py-3">
       <p class="px-2 text-xs font-semibold tracking-wide text-gray-500">サービス切替</p>
       <div class="mt-2 grid gap-2">
-        <a href="/users/switch-service?target=plan" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'plan' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+        <% if (allowedServices.plan !== false) { %><a href="/users/switch-service?target=plan" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'plan' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
           <i data-lucide="calendar" class="w-4 h-4"></i>
           <span>7 DAYS PLAN</span>
-        </a>
-        <a href="/users/switch-service?target=stock" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'stock' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+        </a><% } %>
+        <% if (allowedServices.stock !== false) { %><a href="/users/switch-service?target=stock" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'stock' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
           <i data-lucide="package" class="w-4 h-4"></i>
           <span>ストック管理</span>
-        </a>
-        <a href="/users/switch-service?target=packing" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'packing' ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+        </a><% } %>
+        <% if (allowedServices.packing !== false) { %><a href="/users/switch-service?target=packing" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'packing' ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
           <i data-lucide="clipboard-list" class="w-4 h-4"></i>
           <span>パッキングプラン</span>
-        </a>
-        <a href="/users/board" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'board' ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
+        </a><% } %>
+        <% if (allowedServices.board !== false) { %><a href="/users/board" class="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition <%= currentService === 'board' ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' %>">
           <i data-lucide="messages-square" class="w-4 h-4"></i>
           <span><%= currentGroupName || 'グループ' %>の掲示板</span>
-        </a>
+        </a><% } %>
       </div>
     </div>
 

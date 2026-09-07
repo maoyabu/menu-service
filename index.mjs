@@ -40,6 +40,7 @@ import MyEquipment from './models/myEquipment.js';
 import PurchaseReminderLog from './models/purchaseReminderLog.js';
 import WeeklyMenuPlan from './models/weeklyMenuPlan.js';
 import DailyMenuAnnouncement from './models/dailyMenuAnnouncement.js';
+import { GROUP_SERVICE_HOME, enabledGroupServiceIds, normalizeGroupServices, serviceIdForPath, servicesForGroupMember } from './utils/groupServices.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -112,6 +113,7 @@ app.use(async (req, res, next) => {
   res.locals.userGroups = [];
   res.locals.userDefaultGroupId = '';
   res.locals.selectedGroupId = '';
+  res.locals.availableGroupServices = normalizeGroupServices();
   if (!req.user) {
     return next();
   }
@@ -124,7 +126,7 @@ app.use(async (req, res, next) => {
       ]
     })
       .sort({ createdAt: 1 })
-      .select('group_name createdBy members')
+      .select('group_name createdBy members memberServicePermissions')
       .lean();
 
     res.locals.userGroups = groups || [];
@@ -134,6 +136,9 @@ app.use(async (req, res, next) => {
     const activeGroupId = req.session?.activeGroupId ? String(req.session.activeGroupId) : '';
     const hasActive = !!activeGroupId && (res.locals.userGroups || []).some((g) => String(g._id) === activeGroupId);
     res.locals.selectedGroupId = hasRequested ? requestedGroupId : (hasActive ? activeGroupId : '');
+    const effectiveGroupId = res.locals.selectedGroupId || res.locals.userDefaultGroupId || res.locals.userGroups[0]?._id?.toString?.() || '';
+    const effectiveGroup = res.locals.userGroups.find((group) => String(group._id) === effectiveGroupId);
+    res.locals.availableGroupServices = servicesForGroupMember(effectiveGroup, req.user._id);
     if (hasRequested && req.session) req.session.activeGroupId = requestedGroupId;
     if (activeGroupId && !hasActive) req.session.activeGroupId = '';
     return next();
@@ -141,8 +146,24 @@ app.use(async (req, res, next) => {
     res.locals.userGroups = [];
     res.locals.userDefaultGroupId = req.user.defaultGroup ? req.user.defaultGroup.toString() : '';
     res.locals.selectedGroupId = '';
+    res.locals.availableGroupServices = normalizeGroupServices();
     return next(err);
   }
+});
+
+// Do not allow a hidden service to be reached directly by URL for the active group.
+app.use((req, res, next) => {
+  if (!req.user) return next();
+  const serviceId = serviceIdForPath(req.path);
+  if (!serviceId || res.locals.availableGroupServices?.[serviceId] !== false) return next();
+
+  const allowedServiceId = enabledGroupServiceIds(res.locals.availableGroupServices)[0];
+  const redirectTo = GROUP_SERVICE_HOME[allowedServiceId] || '/settings';
+  if (req.method !== 'GET' || req.accepts(['html', 'json']) === 'json') {
+    return res.status(403).json({ error: 'このグループではこのサービスを利用できません。' });
+  }
+  req.flash('error', 'このグループではこのサービスを利用できません。');
+  return res.redirect(redirectTo);
 });
 
 app.use(bodyParser.urlencoded({ extended: true }));

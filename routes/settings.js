@@ -9,6 +9,7 @@ import fs from 'fs';
 
 import multer from 'multer';
 import cloudinary from '../utils/cloudinary.js';
+import { GROUP_SERVICE_IDS } from '../utils/groupServices.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -455,6 +456,49 @@ router.post('/groups/:groupId/update', async (req, res, next) => {
   }
 });
 
+// グループ内でメンバーが利用できるサービスの更新（オーナーのみ）
+router.post('/groups/:groupId/services', async (req, res, next) => {
+  const { groupId } = req.params;
+  try {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      req.flash('error', 'グループが見つかりませんでした');
+      return res.redirect('/settings');
+    }
+    if (!group.createdBy.equals(req.user._id)) {
+      req.flash('error', '利用可能なサービスを変更できるのはオーナーのみです');
+      return res.redirect(`/settings?group=${groupId}&view=group-detail`);
+    }
+
+    const memberId = String(req.body?.memberId || '');
+    const isGroupMember = (group.members || []).some((member) => String(member) === memberId);
+    if (!isGroupMember || String(group.createdBy) === memberId) {
+      req.flash('error', '対象の参加メンバーが見つかりませんでした');
+      return res.redirect(`/settings?group=${groupId}&view=group-detail`);
+    }
+
+    const submitted = req.body?.services || {};
+    const services = Object.fromEntries(
+      GROUP_SERVICE_IDS.map((serviceId) => [serviceId, toBoolean(submitted[serviceId])])
+    );
+    const existing = (group.memberServicePermissions || []).find(
+      (permission) => String(permission.member) === memberId
+    );
+    if (existing) {
+      existing.services = services;
+    } else {
+      group.memberServicePermissions = group.memberServicePermissions || [];
+      group.memberServicePermissions.push({ member: memberId, services });
+    }
+
+    await group.save();
+    req.flash('success', 'メンバーの利用可能なサービスを更新しました');
+    return res.redirect(`/settings?group=${groupId}&view=group-detail`);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 
 // グループ削除処理
 router.post('/groups/:groupId/delete', async (req, res, next) => {
@@ -642,6 +686,9 @@ router.post('/groups/:groupId/remove-member', async (req, res, next) => {
 
     group.members = (group.members || []).filter(
       (member) => member.toString() !== memberIdString
+    );
+    group.memberServicePermissions = (group.memberServicePermissions || []).filter(
+      (permission) => String(permission.member) !== memberIdString
     );
     await group.save();
 

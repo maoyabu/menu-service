@@ -21,6 +21,7 @@ import Notice from '../models/notice.js';
 import PackingEvent from '../models/packingEvent.js';
 import ShoppingListState from '../models/shoppingListState.js';
 import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
+import { servicesForGroupMember } from '../utils/groupServices.js';
 import { isLoggedIn } from '../middleware.js';
 import ExcelJS from 'exceljs';
 import passport from 'passport';
@@ -411,7 +412,7 @@ const normalizeBoolean = (value) => {
   return normalized === 'true' || normalized === 'on' || normalized === '1';
 };
 
-const SERVICE_CHOICES = new Set(['plan', 'stock', 'packing']);
+const SERVICE_CHOICES = new Set(['plan', 'stock', 'packing', 'board']);
 
 const normalizeServiceChoice = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -421,6 +422,7 @@ const normalizeServiceChoice = (value) => {
 const getServiceRedirect = (service) => {
   if (service === 'stock') return '/users/stock-top';
   if (service === 'packing') return '/users/packing';
+  if (service === 'board') return '/users/board';
   return '/users/my-top';
 };
 
@@ -2304,9 +2306,13 @@ router.post('/user/login', (req, res, next) =>
 router.get('/users/switch-service', isLoggedIn, async (req, res) => {
   try {
     const choice = normalizeServiceChoice(req.query?.target);
-    const preferred = choice || req.user?.preferredService || 'plan';
-    if (choice && req.user?.preferredService !== choice) {
-      await User.updateOne({ _id: req.user._id }, { $set: { preferredService: choice } });
+    const available = res.locals.availableGroupServices || {};
+    const requested = choice || req.user?.preferredService || 'plan';
+    const preferred = available[requested] !== false
+      ? requested
+      : ['plan', 'stock', 'packing', 'board'].find((serviceId) => available[serviceId] !== false) || 'plan';
+    if (preferred && req.user?.preferredService !== preferred) {
+      await User.updateOne({ _id: req.user._id }, { $set: { preferredService: preferred } });
     }
     return res.redirect(getServiceRedirect(preferred));
   } catch (_) {
@@ -2320,7 +2326,8 @@ router.get('/api/groups', isLoggedIn, async (req, res) => {
     const groups = Array.isArray(res.locals.userGroups) ? res.locals.userGroups : [];
     const list = (groups || []).map((g) => ({
       id: g._id?.toString?.() || '',
-      name: g.group_name || g.name || ''
+      name: g.group_name || g.name || '',
+      availableServices: servicesForGroupMember(g, req.user._id)
     }));
     res.json(list);
   } catch (err) {
