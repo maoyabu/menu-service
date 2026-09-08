@@ -181,7 +181,7 @@
   <section class="border rounded-2xl bg-white p-4 space-y-3">
     <div class="flex items-center gap-2">
       <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-50 text-green-700 border border-green-100">収納先別の持ち物</span>
-      <p class="text-xs text-gray-500">タグをクリックして外すと持ち物プールに戻ります</p>
+      <p class="text-xs text-gray-500">収納先ごとに持ち物の確認・編集・移動ができます</p>
     </div>
     <div id="storage-lists" class="space-y-3"></div>
   </section>
@@ -435,6 +435,7 @@
     const OWNER_KEY = `packing:event:${eventId}:owners`;
     const STORAGE_OWNER_KEY = `packing:event:${eventId}:storageOwners`;
     const SECTION_STATE_KEY = `packing:event:${eventId}:sections`;
+    const STORAGE_SECTION_STATE_KEY = `packing:event:${eventId}:storageSections`;
 
     masterItems.forEach((m)=> { m.priority = normalizePackingPriority(m.priority); });
     items.forEach((it)=> { it.priority = normalizePackingPriority(it.priority); });
@@ -449,6 +450,18 @@
       }
     }
     const sectionStates = loadSectionStates();
+    function loadStorageSectionStates(){
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_SECTION_STATE_KEY) || '{}');
+        return saved && typeof saved === 'object' ? saved : {};
+      } catch (_) {
+        return {};
+      }
+    }
+    const storageSectionStates = loadStorageSectionStates();
+    function saveStorageSectionStates(){
+      try { localStorage.setItem(STORAGE_SECTION_STATE_KEY, JSON.stringify(storageSectionStates)); } catch (_) {}
+    }
     function setSectionOpen(sectionId, isOpen, persist = true){
       const content = document.querySelector(`[data-section-content="${sectionId}"]`);
       const button = document.querySelector(`[data-section-toggle="${sectionId}"]`);
@@ -804,6 +817,7 @@
       filtered.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
         const list = items.filter((it)=> !it.wish && !it.hidden && it.storageId === s.id);
+        const isOpen = storageSectionStates[s.id] !== false;
         const totalWeight = list.reduce((sum, it)=> {
           const qty = Number(it.quantity || 0) || 1;
           const w = Number(it.weight || 0) || 0;
@@ -812,12 +826,29 @@
         const max = Number(s.maxWeight || 0);
         const remain = max ? (max - totalWeight) : null;
         const remainClass = remain !== null && remain < 0 ? 'text-red-600 font-semibold' : 'text-gray-600';
-        const remainLabel = remain === null ? '' : ` / 残り: ${remain} g`;
+        const remainLabel = remain === null ? '制限なし' : `${remain} g`;
         const sec = document.createElement('section');
         sec.className = 'border rounded-lg px-3 py-2';
-        sec.innerHTML = `<div class="flex items-center justify-between mb-2"><span class="font-semibold text-sm">${s.name}</span><span class="text-xs ${remainClass}">重量合計: ${totalWeight} g${max ? remainLabel : ''}</span></div>`;
+        const header = document.createElement('div');
+        header.className = `flex items-center justify-between gap-3 flex-wrap ${isOpen ? 'mb-2' : ''}`;
+        header.innerHTML = `
+          <span class="font-semibold text-sm">${s.name}</span>
+          <div class="flex items-center gap-3 flex-wrap ml-auto">
+            <span class="text-xs text-gray-600">持ち物: ${list.length}件</span>
+            <span class="text-xs text-gray-600">重量合計: ${totalWeight} g</span>
+            <span class="text-xs ${remainClass}">残り重量: ${remainLabel}</span>
+            <button type="button" data-storage-section-toggle="${s.id}" class="inline-flex items-center gap-1 rounded border border-green-200 bg-white px-2 py-1 text-[11px] font-semibold text-green-800 hover:bg-green-50" aria-expanded="${isOpen ? 'true' : 'false'}">
+              <i data-lucide="chevron-${isOpen ? 'up' : 'down'}" class="w-3.5 h-3.5"></i>
+              <span>${isOpen ? '閉じる' : '開く'}</span>
+            </button>
+          </div>`;
+        header.querySelector('[data-storage-section-toggle]')?.addEventListener('click', ()=> {
+          storageSectionStates[s.id] = !isOpen;
+          saveStorageSectionStates();
+          renderStorageLists();
+        });
         const wrap = document.createElement('div');
-        wrap.className = 'flex flex-wrap gap-2';
+        wrap.className = `flex flex-wrap gap-2 ${isOpen ? '' : 'hidden'}`;
         list.forEach((it)=>{
           const tag = document.createElement('div');
           tag.className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full border bg-green-50 text-green-800 text-sm hover:border-green-300';
@@ -856,6 +887,7 @@
           empty.textContent='まだ持ち物がありません。';
           wrap.appendChild(empty);
         }
+        sec.appendChild(header);
         sec.appendChild(wrap);
         storageLists.appendChild(sec);
       });
