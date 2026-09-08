@@ -459,8 +459,14 @@ router.patch('/api/events/:id', async (req, res) => {
     const memberInfo = await getMemberOptions(groupId);
     if (Array.isArray(req.body?.participants)) {
       const participantIds = req.body.participants.map(String);
-      const participants = participantIds.filter((pid)=> memberInfo.idSet.has(pid));
+      const participants = Array.from(new Set(participantIds.filter((pid)=> memberInfo.idSet.has(pid))));
       event.participants = participants;
+      const existingEntries = event.planStatus instanceof Map
+        ? Array.from(event.planStatus.entries())
+        : Object.entries(event.planStatus || {});
+      event.planStatus = new Map(
+        existingEntries.filter(([pid])=> participants.includes(String(pid)))
+      );
     }
     if (req.body?.startAt){
       const startAt = req.body.startAt ? new Date(req.body.startAt) : null;
@@ -766,9 +772,11 @@ router.get('/api/events/:id', async (req, res) => {
       }));
       items = items.concat(appended);
     }
+    const participantIdSet = new Set((ev.participants || []).map(String));
+    const participantMembers = memberInfo.list.filter((member) => participantIdSet.has(member.id));
     const memberNameById = new Map(memberInfo.list.map((m) => [m.id, m.name]));
     const planStatusMap = new Map(Object.entries(ev.planStatus || {}).map(([k, v]) => [k, !!v]));
-    memberInfo.list.forEach((m) => { if (!planStatusMap.has(m.id)) planStatusMap.set(m.id, false); });
+    participantMembers.forEach((m) => { if (!planStatusMap.has(m.id)) planStatusMap.set(m.id, false); });
     await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
     res.json({
       event: {
@@ -780,7 +788,8 @@ router.get('/api/events/:id', async (req, res) => {
         completed: !!ev.completed,
         completedAt: ev.completedAt || null
       },
-      members: memberInfo.list,
+      members: participantMembers,
+      allGroupMembers: memberInfo.list,
       memberNameById: Object.fromEntries(memberNameById),
       planStatus: Object.fromEntries(planStatusMap),
       storages,
@@ -1048,9 +1057,11 @@ router.get('/:eventId', async (req, res, next) => {
     }));
       items = items.concat(appended);
     }
+    const participantIdSet = new Set((ev.participants || []).map(String));
+    const participantMembers = memberInfo.list.filter((member)=> participantIdSet.has(member.id));
     const memberNameById = new Map(memberInfo.list.map((m)=> [m.id, m.name]));
     const planStatusMap = new Map(Object.entries(ev.planStatus || {}).map(([k,v])=> [k, !!v]));
-    memberInfo.list.forEach((m)=> { if (!planStatusMap.has(m.id)) planStatusMap.set(m.id, false); });
+    participantMembers.forEach((m)=> { if (!planStatusMap.has(m.id)) planStatusMap.set(m.id, false); });
     await PackingEvent.updateOne({ _id: ev._id }, { $set: { lastOpenedAt: new Date() } });
     res.render('users/packingEvent', {
       event: {
@@ -1062,7 +1073,8 @@ router.get('/:eventId', async (req, res, next) => {
         completed: !!ev.completed,
         completedAt: ev.completedAt || null
       },
-      members: memberInfo.list,
+      members: participantMembers,
+      allGroupMembers: memberInfo.list,
       memberNameById,
       planStatus: Object.fromEntries(planStatusMap),
       storages,
@@ -1161,9 +1173,10 @@ router.patch('/api/items/:id', async (req, res) => {
     const id = req.params.id;
     const item = await PackingItem.findOne({ _id: id, group: groupId }).lean();
     if (!item) return res.status(404).json({ error: 'not found' });
+    const hasStorageId = Object.prototype.hasOwnProperty.call(req.body || {}, 'storageId');
     const [event, storage, thing, memberInfo] = await Promise.all([
       PackingEvent.findOne({ _id: item.event, group: groupId }).lean(),
-      req.body?.storageId ? PackingStorage.findOne({ _id: req.body.storageId, group: groupId }).lean() : null,
+      hasStorageId && req.body?.storageId ? PackingStorage.findOne({ _id: req.body.storageId, group: groupId }).lean() : null,
       req.body?.thingId ? PackingMasterItem.findOne({ _id: req.body.thingId, group: groupId }).lean() : null,
       getMemberOptions(groupId)
     ]);
@@ -1181,8 +1194,9 @@ router.patch('/api/items/:id', async (req, res) => {
     const masterWish = typeof thing?.wish === 'boolean' ? thing.wish : item.wish;
     const wish = typeof req.body?.wish !== 'undefined' ? parseBool(req.body.wish) : !!masterWish;
     if (wish && req.body?.storageId) return res.status(400).json({ error: 'wish item cannot have storage' });
-    const ownerId = memberInfo.idSet.has(String(req.body?.owner || '')) ? String(req.body.owner) : 'all';
-    const storageAllowed = !wish && storage;
+    const ownerId = typeof req.body?.owner !== 'undefined'
+      ? (memberInfo.idSet.has(String(req.body.owner || '')) ? String(req.body.owner) : 'all')
+      : String(item.owner || 'all');
     const hasWeight = req.body?.weight !== undefined && req.body?.weight !== null && req.body?.weight !== '';
     const requestedWeight = Number(req.body?.weight);
     const weight = hasWeight && Number.isFinite(requestedWeight)
@@ -1191,14 +1205,20 @@ router.patch('/api/items/:id', async (req, res) => {
     const update = {
       name: String(req.body?.name || item.name || '').trim(),
       owner: ownerId,
-      quantity: Math.max(0, Number(req.body?.quantity) || 0),
+      quantity: typeof req.body?.quantity !== 'undefined'
+        ? Math.max(0, Number(req.body.quantity) || 0)
+        : Math.max(0, Number(item.quantity) || 0),
       weight,
       priority: typeof req.body?.priority !== 'undefined' ? normalizePackingPriority(req.body.priority) : normalizePackingPriority(item.priority || thing?.priority),
       category: typeof req.body?.category === 'string' ? String(req.body.category || '').trim() : item.category || '',
-      comment: String(req.body?.comment || '').trim(),
+      comment: typeof req.body?.comment === 'string' ? String(req.body.comment).trim() : String(item.comment || ''),
       thingId: thing?._id || item.thingId || null,
-      storageId: storageAllowed ? storage._id : null,
-      storageName: storageAllowed ? storage.name : '',
+      storageId: wish
+        ? null
+        : (hasStorageId ? (storage?._id || null) : (item.storageId || null)),
+      storageName: wish
+        ? ''
+        : (hasStorageId ? (storage?.name || '') : (item.storageName || '')),
       wish
     };
     if (req.body?.hidden !== undefined){
