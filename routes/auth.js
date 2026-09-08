@@ -21,7 +21,7 @@ import Notice from '../models/notice.js';
 import PackingEvent from '../models/packingEvent.js';
 import ShoppingListState from '../models/shoppingListState.js';
 import { monthToSeason, normalizeSeasonList } from '../utils/season.js';
-import { servicesForGroupMember } from '../utils/groupServices.js';
+import { GROUP_SERVICE_IDS, servicesForGroupMember } from '../utils/groupServices.js';
 import { isLoggedIn } from '../middleware.js';
 import ExcelJS from 'exceljs';
 import passport from 'passport';
@@ -2454,16 +2454,35 @@ router.post('/user/register', async (req, res, next) => {
       if (inviteGroupId) {
         const group = await Group.findById(inviteGroupId);
         if (group) {
+          const registeredEmail = (registeredUser.email || '').toLowerCase();
+          const invitedPermission = (group.invitedUserServicePermissions || []).find(
+            (permission) => String(permission.email || '').toLowerCase() === registeredEmail
+          );
+          const invitedServices = Object.fromEntries(
+            GROUP_SERVICE_IDS.map((serviceId) => [serviceId, invitedPermission?.services?.[serviceId] !== false])
+          );
           // メンバー追加（未参加なら）
           const isMember = (group.members || []).some((m) => String(m) === String(registeredUser._id));
           if (!isMember) {
             group.members = group.members || [];
             group.members.push(registeredUser._id);
           }
+          const existingPermission = (group.memberServicePermissions || []).find(
+            (permission) => String(permission.member) === String(registeredUser._id)
+          );
+          if (existingPermission) {
+            existingPermission.services = invitedServices;
+          } else {
+            group.memberServicePermissions = group.memberServicePermissions || [];
+            group.memberServicePermissions.push({ member: registeredUser._id, services: invitedServices });
+          }
           // 招待メールリストから除外（一致メールを抜く）
-          const _email = (registeredUser.email || '').toLowerCase();
+          const _email = registeredEmail;
           if (_email) {
             group.invitedUsers = (group.invitedUsers || []).filter((addr) => String(addr).toLowerCase() !== _email);
+            group.invitedUserServicePermissions = (group.invitedUserServicePermissions || []).filter(
+              (permission) => String(permission.email || '').toLowerCase() !== _email
+            );
           }
           await group.save();
 

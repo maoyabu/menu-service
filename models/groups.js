@@ -22,6 +22,18 @@ const groupSchema = new Schema({
     type: [String],
     default: []
   },
+  // Permissions selected before an invited user joins the group.
+  // The entry is transferred to memberServicePermissions on acceptance.
+  invitedUserServicePermissions: [{
+    _id: false,
+    email: { type: String, required: true, trim: true, lowercase: true },
+    services: {
+      plan: { type: Boolean, default: true },
+      stock: { type: Boolean, default: true },
+      packing: { type: Boolean, default: true },
+      board: { type: Boolean, default: true }
+    }
+  }],
   // Service availability can be configured independently for each member.
   // Members without an entry retain access to every service for compatibility.
   memberServicePermissions: [{

@@ -82,14 +82,27 @@ router.get('/invite/accept', async (req, res, next) => {
     const existing = await User.findOne({ email }).exec();
 
     if (existing) {
-      // 1) 既存ユーザー：メンバーに追加、サービスを Menu のみに制限
+      // 1) 既存ユーザー：メンバーに追加し、招待中に設定した権限を引き継ぐ
+      const invitedServices = invitedServicesForEmail(group, email);
       const alreadyMember = (group.members || []).some((m) => m.toString() === existing._id.toString());
       if (!alreadyMember) {
         group.members = group.members || [];
         group.members.push(existing._id);
       }
+      const existingPermission = (group.memberServicePermissions || []).find(
+        (permission) => String(permission.member) === String(existing._id)
+      );
+      if (existingPermission) {
+        existingPermission.services = invitedServices;
+      } else {
+        group.memberServicePermissions = group.memberServicePermissions || [];
+        group.memberServicePermissions.push({ member: existing._id, services: invitedServices });
+      }
       // 招待リストから除外
       group.invitedUsers = (group.invitedUsers || []).filter((addr) => addr !== email);
+      group.invitedUserServicePermissions = (group.invitedUserServicePermissions || []).filter(
+        (permission) => String(permission.email || '').toLowerCase() !== email
+      );
       await group.save();
 
       // ユーザー側にもグループ追加
@@ -133,6 +146,19 @@ const toBoolean = (value) => {
     return normalized === 'true' || normalized === 'on' || normalized === '1';
   }
   return false;
+};
+
+const submittedGroupServices = (submitted = {}) => Object.fromEntries(
+  GROUP_SERVICE_IDS.map((serviceId) => [serviceId, toBoolean(submitted[serviceId])])
+);
+
+const invitedServicesForEmail = (group, email) => {
+  const permission = (group.invitedUserServicePermissions || []).find(
+    (entry) => String(entry.email || '').toLowerCase() === email
+  );
+  return permission?.services
+    ? Object.fromEntries(GROUP_SERVICE_IDS.map((serviceId) => [serviceId, permission.services[serviceId] !== false]))
+    : Object.fromEntries(GROUP_SERVICE_IDS.map((serviceId) => [serviceId, true]));
 };
 
 const fetchSettingsContext = async (userId) => {
@@ -477,10 +503,7 @@ router.post('/groups/:groupId/services', async (req, res, next) => {
       return res.redirect(`/settings?group=${groupId}&view=group-detail`);
     }
 
-    const submitted = req.body?.services || {};
-    const services = Object.fromEntries(
-      GROUP_SERVICE_IDS.map((serviceId) => [serviceId, toBoolean(submitted[serviceId])])
-    );
+    const services = submittedGroupServices(req.body?.services);
     const existing = (group.memberServicePermissions || []).find(
       (permission) => String(permission.member) === memberId
     );
@@ -493,6 +516,48 @@ router.post('/groups/:groupId/services', async (req, res, next) => {
 
     await group.save();
     req.flash('success', 'メンバーの利用可能なサービスを更新しました');
+    return res.redirect(`/settings?group=${groupId}&view=group-detail`);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// 招待中メンバーが利用できるサービスの更新（オーナーのみ）
+router.post('/groups/:groupId/invite-services', async (req, res, next) => {
+  const { groupId } = req.params;
+  const email = String(req.body?.email || '').trim().toLowerCase();
+
+  try {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      req.flash('error', 'グループが見つかりませんでした');
+      return res.redirect('/settings');
+    }
+    if (!group.createdBy.equals(req.user._id)) {
+      req.flash('error', '利用可能なサービスを変更できるのはオーナーのみです');
+      return res.redirect(`/settings?group=${groupId}&view=group-detail`);
+    }
+    const isInvited = email && (group.invitedUsers || []).some(
+      (inviteEmail) => String(inviteEmail).toLowerCase() === email
+    );
+    if (!isInvited) {
+      req.flash('error', '対象の招待中メンバーが見つかりませんでした');
+      return res.redirect(`/settings?group=${groupId}&view=group-detail`);
+    }
+
+    const services = submittedGroupServices(req.body?.services);
+    const existing = (group.invitedUserServicePermissions || []).find(
+      (permission) => String(permission.email || '').toLowerCase() === email
+    );
+    if (existing) {
+      existing.services = services;
+    } else {
+      group.invitedUserServicePermissions = group.invitedUserServicePermissions || [];
+      group.invitedUserServicePermissions.push({ email, services });
+    }
+
+    await group.save();
+    req.flash('success', '招待中メンバーの利用可能なサービスを更新しました');
     return res.redirect(`/settings?group=${groupId}&view=group-detail`);
   } catch (err) {
     return next(err);
@@ -585,6 +650,11 @@ router.post('/groups/:groupId/invite', async (req, res, next) => {
 
     group.invitedUsers = group.invitedUsers || [];
     group.invitedUsers.push(normalizedEmail);
+    group.invitedUserServicePermissions = group.invitedUserServicePermissions || [];
+    group.invitedUserServicePermissions.push({
+      email: normalizedEmail,
+      services: Object.fromEntries(GROUP_SERVICE_IDS.map((serviceId) => [serviceId, true]))
+    });
 
     await group.save();
 
@@ -742,6 +812,9 @@ router.post('/groups/:groupId/cancel-invite', async (req, res, next) => {
 
     group.invitedUsers = (group.invitedUsers || []).filter(
       (inviteEmail) => inviteEmail !== normalizedEmail
+    );
+    group.invitedUserServicePermissions = (group.invitedUserServicePermissions || []).filter(
+      (permission) => String(permission.email || '').toLowerCase() !== normalizedEmail
     );
 
     await group.save();
