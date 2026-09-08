@@ -140,6 +140,10 @@
     <label class="block text-sm">制限重量(g)
       <input type="number" min="0" id="storage-edit-weight" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
     </label>
+    <label class="block text-sm">表示順
+      <input type="number" id="storage-edit-order" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 1" />
+      <span class="mt-1 block text-xs text-gray-500">数字が小さい収納先から表示されます。</span>
+    </label>
     <label class="block text-sm">誰のもの
       <select id="storage-edit-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
         <option value="all">共有</option>
@@ -280,6 +284,7 @@ const masterItemForm = document.getElementById('master-modal-form');
   const storageEditModal = document.getElementById('storage-edit-modal');
   const storageEditName = document.getElementById('storage-edit-name');
   const storageEditWeight = document.getElementById('storage-edit-weight');
+  const storageEditOrder = document.getElementById('storage-edit-order');
   const storageEditOwner = document.getElementById('storage-edit-owner');
   const storageEditSave = document.getElementById('storage-edit-save');
   let storageEditId = '';
@@ -383,8 +388,12 @@ const masterItemForm = document.getElementById('master-modal-form');
         const aHash = String(a?.name || '').startsWith('#');
         const bHash = String(b?.name || '').startsWith('#');
         if (aHash !== bHash) return aHash ? 1 : -1;
+        const aOrder = a?.displayOrder == null ? Number.MAX_SAFE_INTEGER : Number(a.displayOrder);
+        const bOrder = b?.displayOrder == null ? Number.MAX_SAFE_INTEGER : Number(b.displayOrder);
+        if (aOrder !== bOrder) return aOrder - bOrder;
         return String(a?.name || '').localeCompare(String(b?.name || ''), 'ja');
       };
+      filtered.sort(compareStorageNames);
       const filtered = (ownerSelection ? storages.filter((s)=> ownerSelection.includes(s.owner || 'all')) : storages)
         .slice()
         .sort(compareStorageNames);
@@ -400,7 +409,7 @@ const masterItemForm = document.getElementById('master-modal-form');
         row.innerHTML = `
           <div class="flex-1 min-w-0">
             <p class="font-semibold text-sm text-gray-900">${s.name}</p>
-            <p class="text-xs text-gray-500">制限重量: ${s.maxWeight || 0} g</p>
+            <p class="text-xs text-gray-500">表示順: ${s.displayOrder ?? '未設定'} ／ 制限重量: ${s.maxWeight || 0} g</p>
           </div>
           <div class="flex items-center gap-2">
             <button type="button" class="text-gray-600 hover:text-gray-800" data-storage-edit="${s.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
@@ -728,6 +737,7 @@ function renderMasterItemList(){
       storageEditId = '';
       storageEditName.value = '';
       storageEditWeight.value = 0;
+      if (storageEditOrder) storageEditOrder.value = '';
       if (storageEditOwner) storageEditOwner.value = 'all';
       if (storageEditSave) storageEditSave.textContent = '追加';
       storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
@@ -743,6 +753,7 @@ function renderMasterItemList(){
         storageEditId = id;
         storageEditName.value = target.name || '';
         storageEditWeight.value = target.maxWeight || 0;
+        if (storageEditOrder) storageEditOrder.value = target.displayOrder ?? '';
         if (storageEditOwner) storageEditOwner.value = target.owner || 'all';
         if (storageEditSave) storageEditSave.textContent = '更新';
         storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
@@ -765,19 +776,19 @@ function renderMasterItemList(){
     storageEditModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); }));
     storageEditSave?.addEventListener('click', async ()=>{
       try{
-        const payload = { name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0, owner: storageEditOwner?.value || 'all' };
+        const payload = { name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0, displayOrder: storageEditOrder?.value ?? '', owner: storageEditOwner?.value || 'all' };
         if (storageEditId){
           const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error('更新に失敗しました');
           const json = await res.json();
           const target = storages.find((s)=> s.id === storageEditId);
-          if (target){ target.name = json.name; target.maxWeight = json.maxWeight || 0; target.owner = json.owner || 'all'; }
+          if (target){ target.name = json.name; target.maxWeight = json.maxWeight || 0; target.displayOrder = json.displayOrder ?? null; target.owner = json.owner || 'all'; }
           toast('更新しました');
         } else {
           const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error('追加に失敗しました');
           const json = await res.json();
-          storages.unshift({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, owner: json.owner || 'all' });
+          storages.unshift({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, displayOrder: json.displayOrder ?? null, owner: json.owner || 'all' });
           toast('収納を追加しました');
         }
         renderStorageList();

@@ -252,6 +252,10 @@
     <label class="block text-sm">制限重量(g)
       <input type="number" min="0" id="storage-modal-max" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" value="0" />
     </label>
+    <label class="block text-sm">表示順
+      <input type="number" id="storage-modal-order" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 1" />
+      <span class="mt-1 block text-xs text-gray-500">数字が小さい収納先から表示されます。</span>
+    </label>
     <label class="block text-sm">誰のもの
       <select id="storage-modal-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
         <option value="all">共有</option>
@@ -430,6 +434,7 @@
   const storageModalTitle = document.getElementById('storage-modal-title');
   const storageModalName = document.getElementById('storage-modal-name');
   const storageModalMax = document.getElementById('storage-modal-max');
+  const storageModalOrder = document.getElementById('storage-modal-order');
   const storageModalOwner = document.getElementById('storage-modal-owner');
   const storageModalSave = document.getElementById('storage-modal-save');
     const itemModal = document.getElementById('item-modal');
@@ -549,6 +554,9 @@
       const aHash = String(a?.name || '').startsWith('#');
       const bHash = String(b?.name || '').startsWith('#');
       if (aHash !== bHash) return aHash ? 1 : -1;
+      const aOrder = a?.displayOrder == null ? Number.MAX_SAFE_INTEGER : Number(a.displayOrder);
+      const bOrder = b?.displayOrder == null ? Number.MAX_SAFE_INTEGER : Number(b.displayOrder);
+      if (aOrder !== bOrder) return aOrder - bOrder;
       return String(a?.name || '').localeCompare(String(b?.name || ''), 'ja');
     }
 
@@ -738,6 +746,7 @@
       if (storageModalSave) storageModalSave.textContent = isEdit ? '更新' : '追加';
       if (storageModalName) storageModalName.value = isEdit ? (target?.name || '') : '';
       if (storageModalMax) storageModalMax.value = isEdit ? (target?.maxWeight || 0) : 0;
+      if (storageModalOrder) storageModalOrder.value = isEdit ? (target?.displayOrder ?? '') : '';
       if (storageModalOwner) storageModalOwner.value = isEdit ? (target?.owner || 'all') : (currentUserId || 'all');
       storageModal?.classList.remove('hidden'); storageModal?.classList.add('flex');
       storageModalName?.focus();
@@ -1104,23 +1113,24 @@
       const name = (storageModalName?.value || '').trim();
       if (!name) return;
       const owner = storageModalOwner?.value || 'all';
+      const displayOrder = storageModalOrder?.value ?? '';
       try{
         if (storageEditId){
-          const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0, owner }) });
+          const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0, displayOrder, owner }) });
           if (!res.ok) throw new Error('更新に失敗しました');
           const json = await res.json();
           const target = storages.find((s)=> s.id === storageEditId);
-          if (target) Object.assign(target, { name: json.name, maxWeight: json.maxWeight || 0, owner: json.owner || 'all' });
+          if (target) Object.assign(target, { name: json.name, maxWeight: json.maxWeight || 0, displayOrder: json.displayOrder ?? null, owner: json.owner || 'all' });
           storageEditId='';
           closeModal(storageModal);
           renderStorages();
           renderStorageLists();
           toast('収納を更新しました');
         } else {
-          const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0, owner }) });
+          const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, maxWeight: storageModalMax?.value || 0, displayOrder, owner }) });
           if (!res.ok) throw new Error('追加に失敗しました');
           const json = await res.json();
-          storages.push({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, owner: json.owner || 'all' });
+          storages.push({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, displayOrder: json.displayOrder ?? null, owner: json.owner || 'all' });
           storageModalName.value = ''; if (storageModalMax) storageModalMax.value = '0'; if (storageModalOwner) storageModalOwner.value = currentUserId || 'all';
           closeModal(storageModal);
           if (!selectedStorageIds.includes(json.id.toString())) selectedStorageIds.push(json.id.toString());
