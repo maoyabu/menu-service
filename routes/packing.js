@@ -80,6 +80,21 @@ const autoFitWorksheetColumns = (sheet, { fromRow = 1, padding = 2 } = {}) => {
   });
 };
 
+const applyChecklistPrintSettings = (sheet) => {
+  sheet.pageSetup.printTitlesRow = '1:2';
+  sheet.pageSetup.fitToPage = true;
+  sheet.pageSetup.fitToWidth = 1;
+  // Zero means no vertical page-count limit in Excel's fit-to-page settings.
+  sheet.pageSetup.fitToHeight = 0;
+  sheet.pageSetup.margins = {
+    ...sheet.pageSetup.margins,
+    left: 0.2,
+    right: 0.2,
+    top: 0.25,
+    bottom: 0.25
+  };
+};
+
 async function sendPackingMail(toIds, subject, { title, note, dueAt }){
   try{
     if (!Array.isArray(toIds) || !toIds.length) return;
@@ -918,6 +933,7 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storageOrderById = new Map(storages.map((s, index)=> [s.id, index]));
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('チェックリスト');
+    applyChecklistPrintSettings(sheet);
     sheet.properties.defaultRowHeight = 22;
     const today = new Date();
     const y = today.getFullYear();
@@ -1397,6 +1413,7 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storageOrderById = new Map(storages.map((s, index)=> [s.id, index]));
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('チェックリスト');
+    applyChecklistPrintSettings(sheet);
     sheet.properties.defaultRowHeight = 22;
     const title = `${ev.name || 'パッキング'} チェックリスト`;
     sheet.mergeCells('A1:E1');
