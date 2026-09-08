@@ -505,6 +505,7 @@
     let showUnusedStorages = false;
     let showHiddenItems = false;
     let storageChoiceItemId = '';
+    let draggedStorageId = '';
     let categoryOptions = Array.from(new Set([...(masterItems||[]).map(m=> (m.category||'').trim()).filter(Boolean), ...(items||[]).map(i=> (i.category||'').trim()).filter(Boolean)])).filter(Boolean);
 
     const OWNER_KEY = `packing:event:${eventId}:owners`;
@@ -618,6 +619,39 @@
       const bOrder = b?.displayOrder == null ? Number.MAX_SAFE_INTEGER : Number(b.displayOrder);
       if (aOrder !== bOrder) return aOrder - bOrder;
       return String(a?.name || '').localeCompare(String(b?.name || ''), 'ja');
+    }
+
+    async function persistStorageOrder(sourceId, targetId){
+      if (!sourceId || !targetId || sourceId === targetId) return;
+      const source = storages.find((storage)=> storage.id === sourceId);
+      const target = storages.find((storage)=> storage.id === targetId);
+      if (!source || !target) return;
+      const sourceIsHash = String(source.name || '').startsWith('#');
+      const targetIsHash = String(target.name || '').startsWith('#');
+      if (sourceIsHash !== targetIsHash) {
+        toast('「#」付き収納先は同じグループ内で並べ替えてください');
+        return;
+      }
+      const orderedGroup = storages.filter((storage)=> String(storage.name || '').startsWith('#') === sourceIsHash).sort(compareStorageNames);
+      const fromIndex = orderedGroup.findIndex((storage)=> storage.id === sourceId);
+      const toIndex = orderedGroup.findIndex((storage)=> storage.id === targetId);
+      if (fromIndex < 0 || toIndex < 0) return;
+      const [moved] = orderedGroup.splice(fromIndex, 1);
+      orderedGroup.splice(toIndex, 0, moved);
+      orderedGroup.forEach((storage, index)=> { storage.displayOrder = (index + 1) * 10; });
+      renderStorages();
+      renderStorageLists();
+      try {
+        const responses = await Promise.all(orderedGroup.map((storage)=> fetch(`/users/packing/api/storages/${encodeURIComponent(storage.id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: storage.name, maxWeight: storage.maxWeight || 0, displayOrder: storage.displayOrder, imageUrl: storage.imageUrl || '', owner: storage.owner || 'all' })
+        })));
+        if (responses.some((response)=> !response.ok)) throw new Error('並び順の保存に失敗しました');
+        toast('収納先の順番を更新しました');
+      } catch (error) {
+        toast(error.message || '並び順の保存に失敗しました');
+      }
     }
 
     function openItemStorageModal(item){
@@ -977,11 +1011,12 @@
         const remainClass = remain !== null && remain < 0 ? 'text-red-600 font-semibold' : 'text-gray-600';
         const remainLabel = remain === null ? '制限なし' : `${remain} g`;
         const sec = document.createElement('section');
-        sec.className = 'border rounded-lg px-3 py-2';
+        sec.className = 'border rounded-lg px-3 py-2 transition-colors';
+        sec.dataset.storageSectionId = s.id;
         const header = document.createElement('div');
         header.className = `flex items-center justify-between gap-3 flex-wrap ${isOpen ? 'mb-2' : ''}`;
         header.innerHTML = `
-          <span class="inline-flex items-center gap-2">${thumbnailHtml(s, 'w-9 h-9')}<span class="font-semibold text-sm">${s.name}</span></span>
+          <span class="inline-flex items-center gap-2"><span data-storage-drag-handle class="inline-flex cursor-grab active:cursor-grabbing text-gray-400" title="ドラッグして順番を変更"><i data-lucide="grip-vertical" class="w-5 h-5"></i></span>${thumbnailHtml(s, 'w-9 h-9')}<span class="font-semibold text-sm">${s.name}</span></span>
           <div class="flex items-center gap-3 flex-wrap ml-auto">
             <span class="text-xs text-gray-600">持ち物: ${list.length}件</span>
             <span class="text-xs text-gray-600">重量合計: ${totalWeight} g</span>
@@ -997,7 +1032,33 @@
           renderStorageLists();
         });
         header.addEventListener('click', (event)=> {
-          if (!event.target.closest('button')) openPreview(s, 'storage');
+          if (!event.target.closest('button') && !event.target.closest('[data-storage-drag-handle]')) openPreview(s, 'storage');
+        });
+        const dragHandle = header.querySelector('[data-storage-drag-handle]');
+        if (dragHandle) dragHandle.draggable = true;
+        dragHandle?.addEventListener('dragstart', (event)=> {
+          draggedStorageId = s.id;
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', s.id);
+          requestAnimationFrame(()=> sec.classList.add('opacity-50'));
+        });
+        dragHandle?.addEventListener('dragend', ()=> {
+          draggedStorageId = '';
+          document.querySelectorAll('[data-storage-section-id]').forEach((element)=> element.classList.remove('opacity-50', 'border-blue-500', 'bg-blue-50'));
+        });
+        sec.addEventListener('dragover', (event)=> {
+          if (!draggedStorageId || draggedStorageId === s.id) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+          sec.classList.add('border-blue-500', 'bg-blue-50');
+        });
+        sec.addEventListener('dragleave', ()=> sec.classList.remove('border-blue-500', 'bg-blue-50'));
+        sec.addEventListener('drop', (event)=> {
+          event.preventDefault();
+          sec.classList.remove('border-blue-500', 'bg-blue-50');
+          const sourceId = draggedStorageId || event.dataTransfer.getData('text/plain');
+          draggedStorageId = '';
+          persistStorageOrder(sourceId, s.id);
         });
         const wrap = document.createElement('div');
         wrap.className = `flex flex-wrap gap-2 ${isOpen ? '' : 'hidden'}`;
