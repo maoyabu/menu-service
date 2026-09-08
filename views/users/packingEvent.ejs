@@ -31,6 +31,46 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+  #storage-modal,
+  #item-modal,
+  #event-name-modal,
+  #event-participants-modal,
+  #item-storage-modal,
+  #event-complete-modal {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  #storage-modal > div,
+  #item-modal > div,
+  #event-name-modal > div,
+  #event-participants-modal > div,
+  #item-storage-modal > div,
+  #event-complete-modal > div {
+    margin-top: 0;
+    margin-bottom: 0;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+  #item-storage-modal > div,
+  #event-participants-modal > div {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #item-storage-options,
+  #event-participants-options {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.25rem;
+  }
+  #item-storage-modal > div > :first-child,
+  #item-storage-modal > div > :last-child,
+  #event-participants-modal > div > :first-child,
+  #event-participants-modal > div > :last-child {
+    flex-shrink: 0;
+  }
 </style>
 
 <section class="max-w-6xl mx-auto py-8 space-y-6">
