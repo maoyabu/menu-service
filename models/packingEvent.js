@@ -11,6 +11,7 @@ const packingEventSchema = new Schema({
   }],
   storageIds: [{ type: Schema.Types.ObjectId, ref: 'PackingStorage', default: [] }],
   participants: [{ type: Schema.Types.ObjectId, ref: 'User', default: [] }],
+  excludedThingIds: [{ type: Schema.Types.ObjectId, ref: 'PackingMasterItem', default: [] }],
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },

@@ -727,6 +727,12 @@
       saveEventStorages([...selectedStorageIds]);
     }
     function removeStorageFromEvent(id){
+      const storage = storages.find((entry)=> entry.id === id);
+      const stored = items.filter((item)=> String(item.storageId || '') === String(id) && !item.hidden);
+      const detail = stored.length
+        ? `\n\nこの収納先には持ち物が${stored.length}件入っています。\n${stored.slice(0, 8).map((item)=> `・${item.name}`).join('\n')}\n\n未使用にすると、これらは「持ち物」に戻ります。`
+        : '\n\nこの収納先に入っている持ち物はありません。';
+      if (!confirm(`「${storage?.name || '収納先'}」をこのプランで未使用にしますか？${detail}`)) return;
       const idx = selectedStorageIds.indexOf(id);
       if (idx >= 0) selectedStorageIds.splice(idx,1);
       saveEventStorages([...selectedStorageIds]);
@@ -761,6 +767,7 @@
           ${thumbnailHtml(s, 'w-7 h-7')}
           <span class="font-semibold">${s.name}</span>
           <button type="button" class="text-blue-700 hover:text-blue-900" data-storage-edit="${s.id}" title="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <button type="button" class="text-red-600 hover:text-red-800" data-storage-delete="${s.id}" title="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
           <button type="button" data-remove="${s.id}" class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 ml-1">
             <span class="lucide w-3 h-3" data-lucide="arrow-right"></span>
             未使用
@@ -769,6 +776,10 @@
           if (e.target?.closest?.('button[data-storage-edit]')){
             const target = storages.find((st)=> st.id === s.id);
             openStorageModal(target || null);
+            return;
+          }
+          if (e.target?.closest?.('button[data-storage-delete]')){
+            deleteStorage(s.id);
             return;
           }
           if (e.target?.closest?.('button[data-remove]')){
@@ -790,11 +801,16 @@
           b.type='button';
           b.dataset.id = s.id;
           b.className='px-3 py-1 rounded-full border bg-gray-50 text-gray-700 text-xs hover:border-blue-300 flex items-center gap-1';
-          b.innerHTML = `${thumbnailHtml(s, 'w-7 h-7')} ＋ ${s.name} <span class="text-[10px] px-1 rounded bg-gray-100 text-gray-600">未使用</span> <button type="button" data-storage-edit="${s.id}" class="text-gray-500 hover:text-gray-700" title="編集"><i data-lucide="pencil" class="w-3 h-3"></i></button>`;
+          b.innerHTML = `${thumbnailHtml(s, 'w-7 h-7')} ＋ ${s.name} <span class="text-[10px] px-1 rounded bg-gray-100 text-gray-600">未使用</span> <button type="button" data-storage-edit="${s.id}" class="text-gray-500 hover:text-gray-700" title="編集"><i data-lucide="pencil" class="w-3 h-3"></i></button><button type="button" data-storage-delete="${s.id}" class="text-red-600 hover:text-red-800" title="削除"><i data-lucide="trash-2" class="w-3 h-3"></i></button>`;
           b.addEventListener('click', (ev)=>{
             if (ev.target?.closest?.('button[data-storage-edit]')){
               const target = storages.find((st)=> st.id === s.id);
               openStorageModal(target || null);
+              ev.stopPropagation();
+              return;
+            }
+            if (ev.target?.closest?.('button[data-storage-delete]')){
+              deleteStorage(s.id);
               ev.stopPropagation();
               return;
             }
@@ -923,6 +939,7 @@
             ${it.hidden
               ? `<button type="button" class="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" data-item-unhide="${it.id}" aria-label="表示に戻す" title="表示に戻す"><i data-lucide="eye"></i><span>表示に戻す</span></button>`
               : `<button type="button" class="text-red-600 hover:text-red-800 ml-2" data-item-hide="${it.id}" aria-label="非表示" title="非表示"><i data-lucide="eye-off" class="w-4 h-4"></i></button>
+                 <button type="button" class="text-red-700 hover:text-red-900 ml-2" data-item-del="${it.id}" aria-label="削除" title="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                  <button type="button" class="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" data-item-assign="${it.id}" aria-label="収納先を選ぶ" title="収納先を選ぶ"><i data-lucide="luggage" class="w-4 h-4"></i><span class="text-[11px] font-semibold">収納先を選ぶ</span></button>`}
           `;
           wrap.appendChild(tag);
@@ -994,11 +1011,15 @@
             <button type="button" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 ml-1" data-item-edit="${it.id}" title="持ち物を編集"><i data-lucide="pencil" class="w-3.5 h-3.5"></i><span class="text-[11px] font-semibold">編集</span></button>
             <button type="button" class="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 ml-1" data-item-move="${it.id}" title="収納先を変更"><i data-lucide="luggage" class="w-3.5 h-3.5"></i><span class="text-[11px] font-semibold">収納先変更</span></button>
             <button type="button" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900 ml-1" data-item-remove="${it.id}" title="持ち物に戻す"><i data-lucide="undo-2" class="w-3.5 h-3.5"></i><span class="text-[11px] font-semibold">持ち物に戻す</span></button>
+            <button type="button" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900 ml-1" data-item-unused="${it.id}" title="未使用"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i><span class="text-[11px] font-semibold">未使用</span></button>
+            <button type="button" class="inline-flex items-center gap-1 text-red-700 hover:text-red-900 ml-1" data-item-del="${it.id}" title="削除"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span class="text-[11px] font-semibold">削除</span></button>
           `;
           tag.addEventListener('click', (ev)=>{
             const editBtn = ev.target.closest('button[data-item-edit]');
             const moveBtn = ev.target.closest('button[data-item-move]');
             const removeBtn = ev.target.closest('button[data-item-remove]');
+            const deleteBtn = ev.target.closest('button[data-item-del]');
+            const unusedBtn = ev.target.closest('button[data-item-unused]');
             if (editBtn){
               const target = items.find((i)=> i.id === it.id);
               if (target) openItemModal(target);
@@ -1010,7 +1031,15 @@
               return;
             }
             if (removeBtn){
-              assignItemToStorage(it.id, '');
+              if (confirm(`「${it.name}」を収納先「${s.name}」から持ち物に戻しますか？`)) assignItemToStorage(it.id, '');
+              return;
+            }
+            if (deleteBtn){
+              deleteItem(it);
+              return;
+            }
+            if (unusedBtn){
+              markItemUnused(it);
               return;
             }
             openPreview(it, 'item');
@@ -1061,6 +1090,53 @@
         toast(e.message || '更新に失敗しました');
         return false;
       }
+    }
+
+    async function deleteItem(item){
+      if (!item) return;
+      const location = item.storageId ? `\n現在の収納先: ${item.storageName || '収納先'}` : '\n現在は収納先に格納されていません。';
+      if (!confirm(`「${item.name}」をこのプランから完全に削除しますか？${location}\n\nこの操作は元に戻せません。`)) return;
+      try {
+        const res = await fetch(`/users/packing/api/items/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('削除に失敗しました');
+        const index = items.findIndex((entry)=> entry.id === item.id);
+        if (index >= 0) items.splice(index, 1);
+        renderItemPool(); renderStorageLists();
+        toast('持ち物を削除しました');
+      } catch (error) { toast(error.message || '削除に失敗しました'); }
+    }
+
+    async function markItemUnused(item){
+      if (!item) return;
+      const location = item.storageId ? `現在の収納先は「${item.storageName || '収納先'}」です。未使用にすると収納から外れます。` : '現在は収納先に格納されていません。';
+      if (!confirm(`「${item.name}」を未使用にしますか？\n\n${location}`)) return;
+      try {
+        const res = await fetch(`/users/packing/api/items/${encodeURIComponent(item.id)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ hidden: true }) });
+        if (!res.ok) throw new Error('未使用への変更に失敗しました');
+        const json = await res.json();
+        Object.assign(item, json, { id: item.id, storageId: '', storageName: '', hidden: true });
+        renderItemPool(); renderStorageLists();
+        toast('未使用にしました');
+      } catch (error) { toast(error.message || '未使用への変更に失敗しました'); }
+    }
+
+    async function deleteStorage(id){
+      const storage = storages.find((entry)=> entry.id === id); if (!storage) return;
+      try {
+        const impactRes = await fetch(`/users/packing/api/storages/${encodeURIComponent(id)}/impact`);
+        if (!impactRes.ok) throw new Error('利用状況を確認できませんでした');
+        const impact = await impactRes.json();
+        const itemDetail = impact.itemCount ? `\n格納中の持ち物: ${impact.itemCount}件\n${impact.itemNames.map((name)=> `・${name}`).join('\n')}` : '\n格納中の持ち物はありません。';
+        const eventDetail = impact.eventCount ? `\n使用中のプラン: ${impact.eventCount}件\n${impact.eventNames.map((name)=> `・${name}`).join('\n')}` : '\n他のプランでは使用されていません。';
+        if (!confirm(`「${storage.name}」を完全に削除しますか？${itemDetail}${eventDetail}\n\n削除すると、格納中の持ち物は各プランの「持ち物」に戻ります。この操作は元に戻せません。`)) return;
+        const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('削除に失敗しました');
+        const index = storages.findIndex((entry)=> entry.id === id); if (index >= 0) storages.splice(index, 1);
+        const selectedIndex = selectedStorageIds.indexOf(id); if (selectedIndex >= 0) selectedStorageIds.splice(selectedIndex, 1);
+        items.forEach((item)=> { if (String(item.storageId || '') === id) { item.storageId = ''; item.storageName = ''; } });
+        renderStorages(); renderItemPool(); renderStorageLists();
+        toast('収納先を削除しました');
+      } catch (error) { toast(error.message || '削除に失敗しました'); }
     }
 
     async function addItemFromMaster(master){
@@ -1297,6 +1373,7 @@
       const hideBtn = ev.target.closest('button[data-item-hide]');
       const unhideBtn = ev.target.closest('button[data-item-unhide]');
       const assignBtn = ev.target.closest('button[data-item-assign]');
+      const deleteBtn = ev.target.closest('button[data-item-del]');
       const nameClick = ev.target.closest('span[data-item-edit]');
       if (editBtn || nameClick){
         const id = (editBtn || nameClick).dataset.itemEdit;
@@ -1306,6 +1383,8 @@
         const id = hideBtn.dataset.itemHide;
         const target = items.find((i)=> i.id === id);
         if (!target) return;
+        const location = target.storageId ? `現在の収納先は「${target.storageName || '収納先'}」です。未使用にすると収納から外れます。` : '現在は収納先に格納されていません。';
+        if (!confirm(`「${target.name}」を未使用にしますか？\n\n${location}`)) return;
         fetch(`/users/packing/api/items/${encodeURIComponent(id)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ hidden: true }) })
           .then(res=> { if(!res.ok) throw new Error(); return res.json(); })
           .then((json)=> {
@@ -1324,6 +1403,9 @@
             renderItemPool(); renderStorageLists(); toast('表示に戻しました');
           })
           .catch(()=> toast('解除に失敗しました'));
+      } else if (deleteBtn) {
+        const target = items.find((item)=> item.id === deleteBtn.dataset.itemDel);
+        if (target) deleteItem(target);
       } else if (assignBtn){
         const id = assignBtn.dataset.itemAssign;
         const target = items.find((item)=> item.id === id);

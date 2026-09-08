@@ -352,8 +352,27 @@ router.delete('/api/storages/:id', async (req, res) => {
     const deleted = await PackingStorage.findOneAndDelete({ _id: req.params.id, group: groupId });
     if (!deleted) return res.status(404).json({ error: 'not found' });
     await PackingItem.updateMany({ group: groupId, storageId: deleted._id }, { $set: { storageId: null, storageName: '' } });
+    await PackingEvent.updateMany({ group: groupId, storageIds: deleted._id }, { $pull: { storageIds: deleted._id } });
     res.json({ ok: true });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
+});
+
+router.get('/api/storages/:id/impact', async (req, res) => {
+  try {
+    const groupId = getGroupId(res); if (!groupId) return res.status(400).json({ error: 'no group' });
+    const [storage, storedItems, events] = await Promise.all([
+      PackingStorage.findOne({ _id: req.params.id, group: groupId }).lean(),
+      PackingItem.find({ group: groupId, storageId: req.params.id, hidden: { $ne: true } }).select('name event').lean(),
+      PackingEvent.find({ group: groupId, storageIds: req.params.id }).select('name').lean()
+    ]);
+    if (!storage) return res.status(404).json({ error: 'not found' });
+    res.json({
+      itemCount: storedItems.length,
+      itemNames: storedItems.slice(0, 10).map((item)=> item.name),
+      eventCount: events.length,
+      eventNames: events.slice(0, 10).map((event)=> event.name)
+    });
+  } catch (_) { res.status(500).json({ error: 'failed' }); }
 });
 
 // Master items
@@ -775,7 +794,8 @@ router.get('/api/events/:id', async (req, res) => {
       thingId: it.thingId ? String(it.thingId) : null
     }));
     const existingThingIds = new Set(items.map((it) => it.thingId).filter(Boolean));
-    const toCreate = masterItems.filter((m) => !existingThingIds.has(m.id));
+    const excludedThingIds = new Set((ev.excludedThingIds || []).map(String));
+    const toCreate = masterItems.filter((m) => !existingThingIds.has(m.id) && !excludedThingIds.has(m.id));
     if (toCreate.length) {
       const docs = await PackingItem.insertMany(toCreate.map((m) => ({
         name: m.name,
@@ -1068,7 +1088,8 @@ router.get('/:eventId', async (req, res, next) => {
     }));
     // auto-reflect master items: create missing items (unassigned) per master
     const existingThingIds = new Set(items.map((it)=> it.thingId).filter(Boolean));
-    const toCreate = masterItems.filter((m)=> !existingThingIds.has(m.id));
+    const excludedThingIds = new Set((ev.excludedThingIds || []).map(String));
+    const toCreate = masterItems.filter((m)=> !existingThingIds.has(m.id) && !excludedThingIds.has(m.id));
     if (toCreate.length){
       const docs = await PackingItem.insertMany(toCreate.map((m)=> ({
         name: m.name,
@@ -1328,11 +1349,10 @@ router.delete('/api/items/:id', async (req, res) => {
     if (!groupId) return res.status(400).json({ error: 'no group' });
     const id = req.params.id;
     const before = await PackingItem.findOne({ _id: id, group: groupId }).lean();
-    const deleted = await PackingItem.findOneAndUpdate(
-      { _id: id, group: groupId },
-      { $set: { hidden: true, hiddenAt: new Date(), categoryBeforeHide: before?.category || '', storageId: null, storageName: '' } },
-      { new: true }
-    );
+    if (before?.thingId && before?.event) {
+      await PackingEvent.updateOne({ _id: before.event, group: groupId }, { $addToSet: { excludedThingIds: before.thingId } });
+    }
+    const deleted = await PackingItem.findOneAndDelete({ _id: id, group: groupId });
     if (!deleted) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
