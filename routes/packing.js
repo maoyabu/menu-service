@@ -41,6 +41,15 @@ const packingPriorityOrder = (val) => {
   const idx = PACKING_PRIORITY_OPTIONS.indexOf(normalizePackingPriority(val));
   return idx >= 0 ? idx : PACKING_PRIORITY_OPTIONS.indexOf(DEFAULT_PACKING_PRIORITY);
 };
+const isHashPrefixedStorage = (storageOrName) => {
+  const name = typeof storageOrName === 'string' ? storageOrName : storageOrName?.name;
+  return String(name || '').startsWith('#');
+};
+const compareStorageNames = (a, b) => {
+  const hashOrder = Number(isHashPrefixedStorage(a)) - Number(isHashPrefixedStorage(b));
+  if (hashOrder !== 0) return hashOrder;
+  return String(a?.name || a || '').localeCompare(String(b?.name || b || ''), 'ja');
+};
 const estimateExcelTextWidth = (value) => {
   const text = (() => {
     if (value == null) return '';
@@ -227,7 +236,7 @@ router.get('/', async (req, res, next) => {
     }));
     const storages = (storagesRaw || [])
       .slice()
-      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
+      .sort(compareStorageNames)
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
@@ -282,8 +291,8 @@ router.get('/completed', async (req, res, next) => {
 router.get('/api/storages', async (req, res) => {
   try {
     const groupId = getGroupId(res); if (!groupId) return res.json([]);
-    const list = await PackingStorage.find({ group: groupId }).sort({ createdAt: -1 }).lean();
-    res.json(list);
+    const list = await PackingStorage.find({ group: groupId }).lean();
+    res.json(list.sort(compareStorageNames));
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
@@ -682,7 +691,7 @@ router.get('/api/events/:id', async (req, res) => {
       PackingItem.find({ group: groupId, event: eventId }).lean()
     ]);
     if (!ev) return res.status(404).json({ error: 'not found' });
-    const storages = (storagesRaw || []).map((s) => ({
+    const storages = (storagesRaw || []).slice().sort(compareStorageNames).map((s) => ({
       id: String(s._id),
       name: s.name,
       maxWeight: s.maxWeight || 0,
@@ -861,8 +870,9 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
+      .filter((s)=> !isHashPrefixedStorage(s.name))
       .filter((s)=> storageIds.includes(s.id) && isActiveStorageOwner(s.owner, memberInfo))
-      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
+      .sort(compareStorageNames);
     const activeStorageIds = new Set(storages.map((s)=> s.id));
     const items = (itemsRaw || [])
       .filter((it)=> !it.hidden)
@@ -976,7 +986,7 @@ router.get('/:eventId', async (req, res, next) => {
       PackingItem.find({ group: groupId, event: eventId }).lean()
     ]);
     if (!ev) return res.redirect('/users/packing');
-    const storages = (storagesRaw || []).map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
+    const storages = (storagesRaw || []).slice().sort(compareStorageNames).map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
     const eventStorageIds = (ev.storageIds || []).map((id)=> id.toString());
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
@@ -1327,8 +1337,9 @@ router.get('/check/:eventId.xlsx', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .map((s)=> ({ id: String(s._id), name: s.name || '収納', owner: s.owner || 'all' }))
+      .filter((s)=> !isHashPrefixedStorage(s.name))
       .filter((s)=> storageIds.includes(s.id) && isActiveStorageOwner(s.owner, memberInfo))
-      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'));
+      .sort(compareStorageNames);
     const activeStorageIds = new Set(storages.map((s)=> s.id));
     const items = (itemsRaw || [])
       .filter((it)=> !it.hidden)
@@ -1440,7 +1451,7 @@ router.get('/check/:eventId', async (req, res, next) => {
     const storageIds = (ev.storageIds || []).map((x)=> x.toString());
     const storages = (storagesRaw || [])
       .slice()
-      .sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'ja'))
+      .sort(compareStorageNames)
       .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, owner: s.owner || 'all' }));
     const filteredStorages = storages.filter((s)=> (
       storageIds.includes(s.id) && isActiveStorageOwner(s.owner, memberInfo)

@@ -542,7 +542,14 @@
         if (!selectedStorageIds.includes(storage.id)) return false;
         const owner = String(storage.owner || 'all');
         return owner === 'all' || memberMap.has(owner);
-      });
+      }).sort(compareStorageNames);
+    }
+
+    function compareStorageNames(a, b){
+      const aHash = String(a?.name || '').startsWith('#');
+      const bHash = String(b?.name || '').startsWith('#');
+      if (aHash !== bHash) return aHash ? 1 : -1;
+      return String(a?.name || '').localeCompare(String(b?.name || ''), 'ja');
     }
 
     function openItemStorageModal(item){
@@ -666,7 +673,7 @@
         if (selection.list.includes('all') && ownerVal === 'all') return true;
         return selection.list.includes(ownerVal);
       };
-      const filtered = (storages||[]).filter(matchesOwner);
+      const filtered = (storages||[]).filter(matchesOwner).sort(compareStorageNames);
       filtered.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
         const tag = document.createElement('div');
@@ -853,7 +860,7 @@
         const ownerVal = s.owner || 'all';
         if (selection.list.includes('all') && ownerVal === 'all') return true;
         return selection.list.includes(ownerVal);
-      });
+      }).sort(compareStorageNames);
       filtered.forEach((s)=>{
         if (!selectedStorageIds.includes(s.id)) return;
         const list = items.filter((it)=> !it.wish && !it.hidden && it.storageId === s.id);

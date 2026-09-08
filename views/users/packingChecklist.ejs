@@ -379,7 +379,15 @@ const masterItemForm = document.getElementById('master-modal-form');
       }
       storageEmpty.classList.add('hidden');
       const ownerSelection = getStorageOwnerSelection();
-      const filtered = ownerSelection ? storages.filter((s)=> ownerSelection.includes(s.owner || 'all')) : storages;
+      const compareStorageNames = (a, b)=> {
+        const aHash = String(a?.name || '').startsWith('#');
+        const bHash = String(b?.name || '').startsWith('#');
+        if (aHash !== bHash) return aHash ? 1 : -1;
+        return String(a?.name || '').localeCompare(String(b?.name || ''), 'ja');
+      };
+      const filtered = (ownerSelection ? storages.filter((s)=> ownerSelection.includes(s.owner || 'all')) : storages)
+        .slice()
+        .sort(compareStorageNames);
       if (!filtered.length){
         storageEmpty.textContent = '選択されたメンバーの収納がありません。';
         storageEmpty.classList.remove('hidden');
