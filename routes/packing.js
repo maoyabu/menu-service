@@ -507,9 +507,9 @@ router.patch('/api/events/:id', async (req, res) => {
         existingEntries.filter(([pid])=> participants.includes(String(pid)))
       );
     }
-    if (req.body?.startAt){
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'startAt')){
       const startAt = req.body.startAt ? new Date(req.body.startAt) : null;
-      event.startAt = startAt;
+      if (startAt === null || !Number.isNaN(startAt.getTime())) event.startAt = startAt;
     }
     if (req.body?.planStatus && typeof req.body.planStatus === 'object'){
       const currentUserId = req.user?._id?.toString?.() || '';

@@ -84,8 +84,10 @@
       <div>
         <div class="flex items-center gap-2">
           <h1 id="event-name-title" class="text-2xl font-bold"><%= event.name || '' %> のパッキングプラン</h1>
-          <button type="button" id="event-name-edit-open" class="px-2 py-1 rounded border text-[11px] bg-white text-gray-700 hover:bg-gray-50">プラン名を編集</button>
+          <button type="button" id="event-name-edit-open" class="px-2 py-1 rounded border text-[11px] bg-white text-gray-700 hover:bg-gray-50">イベント情報を編集</button>
         </div>
+        <% const eventStartDate = event.startAt ? new Date(event.startAt).toISOString().slice(0, 10) : ''; %>
+        <p id="event-start-date-display" class="text-sm font-medium text-gray-700">開始予定日: <%= eventStartDate ? eventStartDate.replace(/-/g, '/') : '未設定' %></p>
         <p class="text-sm text-gray-600">このイベントで使用する収納に持ち物を入れてチェックできます</p>
         <div id="event-participant-summary" class="flex flex-wrap items-center gap-2 text-xs text-gray-500">
           <span>参加メンバー:</span>
@@ -334,11 +336,14 @@
 <div id="event-name-modal" class="hidden fixed inset-0 z-50 bg-black/30 items-start justify-center p-4">
   <div class="mt-16 w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3">
     <div class="flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-gray-900">プラン名を編集</h3>
+      <h3 class="text-lg font-semibold text-gray-900">イベント情報を編集</h3>
       <button type="button" data-name-close class="text-gray-500 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
     </div>
     <label class="block text-sm">プラン名
       <input type="text" id="event-name-input" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+    </label>
+    <label class="block text-sm">イベント開始予定日
+      <input type="date" id="event-start-date-input" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" />
     </label>
     <div class="flex justify-end gap-2">
       <button type="button" data-name-close class="px-3 py-1.5 rounded border text-sm">キャンセル</button>
@@ -424,6 +429,7 @@
       const currentUserId = <%- JSON.stringify((user && user._id) ? String(user._id) : '') %>;
       let eventCompleted = !!<%- JSON.stringify(event.completed || false) %>;
       let eventName = <%- JSON.stringify(event.name || '') %>;
+      let eventStartAt = <%- JSON.stringify(event.startAt || null) %>;
       const storages = <%- JSON.stringify(storages || []) %>;
       const selectedStorageIds = <%- JSON.stringify(event.storageIds || []) %>;
       const masterItems = <%- JSON.stringify(masterItems || []) %>;
@@ -473,6 +479,8 @@
     const planStatus = new Map(Object.entries(<%- JSON.stringify(planStatus || {}) %>));
     const eventNameModal = document.getElementById('event-name-modal');
     const eventNameInput = document.getElementById('event-name-input');
+    const eventStartDateInput = document.getElementById('event-start-date-input');
+    const eventStartDateDisplay = document.getElementById('event-start-date-display');
     const eventNameSave = document.getElementById('event-name-save');
     const eventNameOpen = document.getElementById('event-name-edit-open');
     const eventNameTitle = document.getElementById('event-name-title');
@@ -1101,26 +1109,30 @@
     completeModal?.querySelectorAll('[data-complete-close]')?.forEach((b)=> b.addEventListener('click', closeCompleteModal));
     eventNameOpen?.addEventListener('click', ()=>{
       if (eventNameInput) eventNameInput.value = eventName || '';
+      if (eventStartDateInput) eventStartDateInput.value = eventStartAt ? String(eventStartAt).slice(0, 10) : '';
       openModal(eventNameModal);
     });
     eventNameModal?.addEventListener('click', (ev)=> { if (ev.target === eventNameModal) closeModal(eventNameModal); });
     eventNameModal?.querySelectorAll('[data-name-close]')?.forEach((b)=> b.addEventListener('click', ()=> closeModal(eventNameModal)));
     eventNameSave?.addEventListener('click', async ()=>{
       const name = (eventNameInput?.value || '').trim();
+      const startAt = eventStartDateInput?.value || null;
       if (!name) return toast('プラン名を入力してください');
       try{
         const res = await fetch(`/users/packing/api/events/${encodeURIComponent(eventId)}`, {
           method:'PATCH',
           headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ name })
+          body: JSON.stringify({ name, startAt })
         });
         if (!res.ok) throw new Error('更新に失敗しました');
         const json = await res.json();
         eventName = json.name || name;
+        eventStartAt = json.startAt || null;
         const title = `${eventName} のパッキングプラン`;
         if (eventNameTitle) eventNameTitle.textContent = title;
         if (eventNameBreadcrumb) eventNameBreadcrumb.textContent = title;
         if (eventNameComplete) eventNameComplete.textContent = eventName;
+        if (eventStartDateDisplay) eventStartDateDisplay.textContent = `開始予定日: ${eventStartAt ? String(eventStartAt).slice(0, 10).replaceAll('-', '/') : '未設定'}`;
         closeModal(eventNameModal);
         toast('プラン名を更新しました');
       }catch(e){ toast(e.message || '更新に失敗しました'); }
