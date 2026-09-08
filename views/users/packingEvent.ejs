@@ -575,6 +575,24 @@
       const label = normalizePackingPriority(priority);
       return `<span class="text-[10px] font-semibold px-1 rounded border ${priorityBadgeClass(label)}">${label}</span>`;
     }
+    function escapeHtml(value){
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+    function thumbnailHtml(target, classes = 'w-8 h-8'){
+      const imageUrl = String(target?.imageUrl || '').trim();
+      if (!imageUrl) return '';
+      return `<img src="${escapeHtml(imageUrl)}" alt="" class="${classes} shrink-0 rounded-md border border-gray-200 bg-white object-cover" loading="lazy" onerror="this.remove()" />`;
+    }
+    function itemLeadHtml(item){
+      return String(item?.imageUrl || '').trim()
+        ? thumbnailHtml(item, 'w-9 h-9')
+        : priorityBadgeHtml(item?.priority);
+    }
 
     function selectableStorages(){
       return (storages || []).filter((storage)=> {
@@ -612,7 +630,17 @@
           const name = document.createElement('span');
           name.className = 'font-semibold text-gray-800';
           name.textContent = storage.name;
-          label.append(radio, name);
+          label.appendChild(radio);
+          if (storage.imageUrl) {
+            const preview = document.createElement('img');
+            preview.src = storage.imageUrl;
+            preview.alt = '';
+            preview.loading = 'lazy';
+            preview.className = 'w-10 h-10 shrink-0 rounded-md border border-gray-200 bg-white object-cover';
+            preview.addEventListener('error', ()=> preview.remove());
+            label.appendChild(preview);
+          }
+          label.appendChild(name);
           itemStorageOptions.appendChild(label);
         });
       }
@@ -722,6 +750,7 @@
         tag.dataset.id = s.id;
         tag.className = 'px-3 py-1.5 rounded-full border text-sm flex items-center gap-1 bg-sky-50 text-sky-800 border-sky-200';
         tag.innerHTML = `
+          ${thumbnailHtml(s, 'w-7 h-7')}
           <span class="font-semibold">${s.name}</span>
           <button type="button" class="text-blue-700 hover:text-blue-900" data-storage-edit="${s.id}" title="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
           <button type="button" data-remove="${s.id}" class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 ml-1">
@@ -753,7 +782,7 @@
           b.type='button';
           b.dataset.id = s.id;
           b.className='px-3 py-1 rounded-full border bg-gray-50 text-gray-700 text-xs hover:border-blue-300 flex items-center gap-1';
-          b.innerHTML = `＋ ${s.name} <span class="text-[10px] px-1 rounded bg-gray-100 text-gray-600">未使用</span> <button type="button" data-storage-edit="${s.id}" class="text-gray-500 hover:text-gray-700" title="編集"><i data-lucide="pencil" class="w-3 h-3"></i></button>`;
+          b.innerHTML = `${thumbnailHtml(s, 'w-7 h-7')} ＋ ${s.name} <span class="text-[10px] px-1 rounded bg-gray-100 text-gray-600">未使用</span> <button type="button" data-storage-edit="${s.id}" class="text-gray-500 hover:text-gray-700" title="編集"><i data-lucide="pencil" class="w-3 h-3"></i></button>`;
           b.addEventListener('click', (ev)=>{
             if (ev.target?.closest?.('button[data-storage-edit]')){
               const target = storages.find((st)=> st.id === s.id);
@@ -828,7 +857,7 @@
           tag.className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full border bg-gray-100 text-gray-800 text-sm border-gray-300';
           tag.innerHTML = `
             <span class="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1 rounded">買い物</span>
-            ${priorityBadgeHtml(it.priority)}
+            ${itemLeadHtml(it)}
             <span class="font-semibold cursor-pointer" title="プレビューを表示">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800" data-item-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-red-600 hover:text-red-800" data-item-del="${it.id}" aria-label="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -880,7 +909,7 @@
           const baseClass = it.hidden ? 'border-dashed border-amber-300 bg-amber-50 text-amber-800' : 'border bg-white text-gray-900';
           tag.className=`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm hover:border-blue-300 ${baseClass}`;
           tag.innerHTML = `
-            ${priorityBadgeHtml(it.priority)}
+            ${itemLeadHtml(it)}
             <span class="font-semibold text-gray-900 cursor-pointer" title="プレビューを表示">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800 ml-2" data-item-edit="${it.id}" aria-label="編集" title="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             ${it.hidden
@@ -927,7 +956,7 @@
         const header = document.createElement('div');
         header.className = `flex items-center justify-between gap-3 flex-wrap ${isOpen ? 'mb-2' : ''}`;
         header.innerHTML = `
-          <span class="font-semibold text-sm">${s.name}</span>
+          <span class="inline-flex items-center gap-2">${thumbnailHtml(s, 'w-9 h-9')}<span class="font-semibold text-sm">${s.name}</span></span>
           <div class="flex items-center gap-3 flex-wrap ml-auto">
             <span class="text-xs text-gray-600">持ち物: ${list.length}件</span>
             <span class="text-xs text-gray-600">重量合計: ${totalWeight} g</span>
@@ -951,7 +980,7 @@
           const tag = document.createElement('div');
           tag.className='inline-flex items-center gap-1 px-3 py-1.5 rounded-full border bg-green-50 text-green-800 text-sm hover:border-green-300';
           tag.innerHTML = `
-            ${priorityBadgeHtml(it.priority)}
+            ${itemLeadHtml(it)}
             <span>${it.name}</span>
             <span class="text-[11px] text-gray-600">${it.weight || 0}g</span>
             <button type="button" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 ml-1" data-item-edit="${it.id}" title="持ち物を編集"><i data-lucide="pencil" class="w-3.5 h-3.5"></i><span class="text-[11px] font-semibold">編集</span></button>
