@@ -14,6 +14,7 @@ const packingItemSchema = new Schema({
   priority: { type: String, enum: PACKING_PRIORITIES, default: '普通' },
   category: { type: String, default: '', trim: true },
   comment: { type: String, default: '' },
+  imageUrl: { type: String, default: '', trim: true },
   wish: { type: Boolean, default: false },
   hidden: { type: Boolean, default: false },
   hiddenAt: { type: Date, default: null },

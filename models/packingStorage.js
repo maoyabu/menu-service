@@ -7,6 +7,7 @@ const packingStorageSchema = new Schema({
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   maxWeight: { type: Number, default: 0 }, // grams
   displayOrder: { type: Number, default: null }, // smaller numbers are displayed first
+  imageUrl: { type: String, default: '', trim: true },
   owner: { type: String, default: 'all' }, // 'all' or userId
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });

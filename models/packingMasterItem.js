@@ -11,6 +11,7 @@ const packingMasterItemSchema = new Schema({
   priority: { type: String, enum: PACKING_PRIORITIES, default: '普通' },
   category: { type: String, default: '', trim: true },
   comment: { type: String, default: '' },
+  imageUrl: { type: String, default: '', trim: true },
   wish: { type: Boolean, default: false },
   group: { type: Schema.Types.ObjectId, ref: 'Group', index: true, required: true },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }

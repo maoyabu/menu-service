@@ -144,6 +144,9 @@
       <input type="number" id="storage-edit-order" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="例: 1" />
       <span class="mt-1 block text-xs text-gray-500">数字が小さい収納先から表示されます。</span>
     </label>
+    <label class="block text-sm">画像URL
+      <input type="url" id="storage-edit-image-url" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="https://example.com/image.jpg" />
+    </label>
     <label class="block text-sm">誰のもの
       <select id="storage-edit-owner" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200">
         <option value="all">共有</option>
@@ -202,6 +205,9 @@
       <label class="block text-sm">コメント
         <input type="text" name="comment" class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="メモ" />
       </label>
+      <label class="block text-sm">画像URL
+        <input type="url" name="imageUrl" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="https://example.com/image.jpg" />
+      </label>
       <label class="inline-flex items-center gap-2 text-sm">
         <input type="checkbox" name="wish" id="master-wish" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
         <span>買い物リストに入れる（収納には入れません）</span>
@@ -234,6 +240,10 @@
     </div>
     <p class="text-xs text-gray-500">カテゴリーを削除すると、そのカテゴリーが設定されている持ち物のカテゴリーは未登録になります。</p>
   </div>
+</div>
+
+<div id="packing-master-preview-modal" class="hidden fixed inset-0 z-50 bg-black/40 items-start justify-center p-4 overflow-y-auto">
+  <div class="my-4 w-full max-w-lg bg-white rounded-2xl shadow-2xl p-4 space-y-3"><div class="flex justify-between"><h3 id="packing-master-preview-title" class="text-lg font-semibold"></h3><button type="button" data-master-preview-close><i data-lucide="x" class="w-5 h-5"></i></button></div><img id="packing-master-preview-image" class="hidden w-full max-h-[60vh] object-contain rounded-xl border" alt="" /><p id="packing-master-preview-empty" class="hidden bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">画像は登録されていません。</p><div id="packing-master-preview-details" class="text-sm text-gray-600 whitespace-pre-wrap"></div></div>
 </div>
 
 <script>
@@ -284,10 +294,26 @@ const masterItemForm = document.getElementById('master-modal-form');
   const storageEditModal = document.getElementById('storage-edit-modal');
   const storageEditName = document.getElementById('storage-edit-name');
   const storageEditWeight = document.getElementById('storage-edit-weight');
-  const storageEditOrder = document.getElementById('storage-edit-order');
+    const storageEditOrder = document.getElementById('storage-edit-order');
+    const storageEditImageUrl = document.getElementById('storage-edit-image-url');
   const storageEditOwner = document.getElementById('storage-edit-owner');
   const storageEditSave = document.getElementById('storage-edit-save');
   let storageEditId = '';
+  const packingPreviewModal = document.getElementById('packing-master-preview-modal');
+  function openPackingPreview(target, type){
+    if (!target) return;
+    document.getElementById('packing-master-preview-title').textContent = target.name || '';
+    const image = document.getElementById('packing-master-preview-image');
+    const empty = document.getElementById('packing-master-preview-empty');
+    const url = String(target.imageUrl || '').trim();
+    image.classList.toggle('hidden', !url); empty.classList.toggle('hidden', !!url);
+    image.onerror = ()=> { image.classList.add('hidden'); empty.classList.remove('hidden'); };
+    if (url) { image.src = url; image.alt = target.name || ''; } else image.removeAttribute('src');
+    document.getElementById('packing-master-preview-details').textContent = type === 'storage' ? `制限重量: ${target.maxWeight || 0} g` : `数量: ${target.defaultQuantity || 0}\n重量: ${target.defaultWeight || 0} g${target.comment ? `\n${target.comment}` : ''}`;
+    packingPreviewModal.classList.remove('hidden'); packingPreviewModal.classList.add('flex');
+  }
+  packingPreviewModal?.addEventListener('click', (e)=> { if (e.target === packingPreviewModal) { packingPreviewModal.classList.add('hidden'); packingPreviewModal.classList.remove('flex'); } });
+  packingPreviewModal?.querySelectorAll('[data-master-preview-close]')?.forEach((b)=> b.addEventListener('click', ()=> { packingPreviewModal.classList.add('hidden'); packingPreviewModal.classList.remove('flex'); }));
 
   const masterModal = document.getElementById('master-modal');
   const masterModalTitle = document.getElementById('master-modal-title');
@@ -405,7 +431,8 @@ const masterItemForm = document.getElementById('master-modal-form');
       }
       filtered.forEach((s)=>{
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-3 border-2 border-gray-300 rounded-xl px-4 py-3 bg-slate-50 shadow-md';
+        row.dataset.storagePreview = s.id;
+        row.className = 'flex items-center gap-3 border-2 border-gray-300 rounded-xl px-4 py-3 bg-slate-50 shadow-md cursor-pointer';
         row.innerHTML = `
           <div class="flex-1 min-w-0">
             <p class="font-semibold text-sm text-gray-900">${s.name}</p>
@@ -561,13 +588,14 @@ function renderMasterItemList(){
         wrap.className = 'flex flex-wrap gap-2';
         grouped[cat].forEach((it)=>{
           const tag = document.createElement('div');
+          tag.dataset.masterPreview = it.id;
           const priority = normalizePackingPriority(it.priority);
           const wishClass = it.wish ? 'bg-gray-100 border-gray-300' : 'bg-white';
           tag.className = `inline-flex items-center gap-1 px-2 py-1 rounded-full border text-sm shadow-sm ${wishClass}`;
           tag.innerHTML = `
             ${it.wish ? '<span class="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1 rounded">買い物</span>' : ''}
             <span class="text-[10px] font-semibold px-1 rounded bg-blue-50 text-blue-700 border border-blue-100">${priority}</span>
-            <span class="font-semibold text-gray-900 cursor-pointer" title="クリックで編集" data-master-edit="${it.id}">${it.name}</span>
+            <span class="font-semibold text-gray-900 cursor-pointer" title="プレビューを表示" data-master-preview="${it.id}">${it.name}</span>
             <button type="button" class="text-blue-600 hover:text-blue-800" data-master-edit="${it.id}" aria-label="編集"><i data-lucide="pencil" class="w-4 h-4"></i></button>
             <button type="button" class="text-green-700 hover:text-green-900" data-master-clone="${it.id}" aria-label="複製"><i data-lucide="copy" class="w-4 h-4"></i></button>
             <button type="button" class="text-red-600 hover:text-red-800" data-master-del="${it.id}" aria-label="削除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -738,6 +766,7 @@ function renderMasterItemList(){
       storageEditName.value = '';
       storageEditWeight.value = 0;
       if (storageEditOrder) storageEditOrder.value = '';
+      if (storageEditImageUrl) storageEditImageUrl.value = '';
       if (storageEditOwner) storageEditOwner.value = 'all';
       if (storageEditSave) storageEditSave.textContent = '追加';
       storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
@@ -754,6 +783,7 @@ function renderMasterItemList(){
         storageEditName.value = target.name || '';
         storageEditWeight.value = target.maxWeight || 0;
         if (storageEditOrder) storageEditOrder.value = target.displayOrder ?? '';
+        if (storageEditImageUrl) storageEditImageUrl.value = target.imageUrl || '';
         if (storageEditOwner) storageEditOwner.value = target.owner || 'all';
         if (storageEditSave) storageEditSave.textContent = '更新';
         storageEditModal?.classList.remove('hidden'); storageEditModal?.classList.add('flex');
@@ -770,25 +800,30 @@ function renderMasterItemList(){
           toast('削除しました');
       }catch(e){ toast(e.message || '削除に失敗しました'); }
       }
+      else {
+        const row = ev.target.closest('[data-storage-preview]');
+        const target = row ? storages.find((s)=> s.id === row.dataset.storagePreview) : null;
+        if (target) openPackingPreview(target, 'storage');
+      }
     });
     storageOwnerFilter?.addEventListener('change', ()=> { saveStorageOwnerSelections(); renderStorageList(); });
     storageEditModal?.addEventListener('click', (ev)=> { if (ev.target === storageEditModal) { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); } });
     storageEditModal?.querySelectorAll('[data-storage-close]')?.forEach((b)=> b.addEventListener('click', ()=> { storageEditModal.classList.add('hidden'); storageEditModal.classList.remove('flex'); }));
     storageEditSave?.addEventListener('click', async ()=>{
       try{
-        const payload = { name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0, displayOrder: storageEditOrder?.value ?? '', owner: storageEditOwner?.value || 'all' };
+        const payload = { name: storageEditName.value || '', maxWeight: storageEditWeight.value || 0, displayOrder: storageEditOrder?.value ?? '', imageUrl: storageEditImageUrl?.value || '', owner: storageEditOwner?.value || 'all' };
         if (storageEditId){
           const res = await fetch(`/users/packing/api/storages/${encodeURIComponent(storageEditId)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error('更新に失敗しました');
           const json = await res.json();
           const target = storages.find((s)=> s.id === storageEditId);
-          if (target){ target.name = json.name; target.maxWeight = json.maxWeight || 0; target.displayOrder = json.displayOrder ?? null; target.owner = json.owner || 'all'; }
+          if (target){ target.name = json.name; target.maxWeight = json.maxWeight || 0; target.displayOrder = json.displayOrder ?? null; target.imageUrl = json.imageUrl || ''; target.owner = json.owner || 'all'; }
           toast('更新しました');
         } else {
           const res = await fetch('/users/packing/api/storages', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
           if (!res.ok) throw new Error('追加に失敗しました');
           const json = await res.json();
-          storages.unshift({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, displayOrder: json.displayOrder ?? null, owner: json.owner || 'all' });
+          storages.unshift({ id: json.id.toString(), name: json.name, maxWeight: json.maxWeight || 0, displayOrder: json.displayOrder ?? null, imageUrl: json.imageUrl || '', owner: json.owner || 'all' });
           toast('収納を追加しました');
         }
         renderStorageList();
@@ -815,6 +850,7 @@ function renderMasterItemList(){
       if (form.priority) form.priority.value = normalizePackingPriority(target?.priority);
       if (form.category) form.category.value = target?.category || '';
       form.comment.value = target?.comment || '';
+      if (form.imageUrl) form.imageUrl.value = target?.imageUrl || '';
       if (masterWish) masterWish.checked = !!target?.wish;
       form.name.focus();
       if (window.refreshLucideIcons) window.refreshLucideIcons();
@@ -855,7 +891,7 @@ function renderMasterItemList(){
       const delBtn = ev.target.closest('button[data-master-del]');
       const editBtn = ev.target.closest('button[data-master-edit]');
       const cloneBtn = ev.target.closest('button[data-master-clone]');
-      const nameClick = ev.target.closest('span[data-master-edit]');
+      const previewClick = ev.target.closest('[data-master-preview]');
       if (delBtn){
         const id = delBtn.dataset.masterDel;
         if (!confirm('削除してよろしいですか？')) return;
@@ -870,16 +906,15 @@ function renderMasterItemList(){
         const id = editBtn.dataset.masterEdit;
         const target = masterItems.find((m)=> m.id === id); if (!target) return;
         openMasterModal(target);
-      } else if (cloneBtn || nameClick){
-        const id = (cloneBtn || nameClick).dataset.masterClone || (cloneBtn || nameClick).dataset.masterEdit;
+      } else if (cloneBtn){
+        const id = cloneBtn.dataset.masterClone;
         const target = masterItems.find((m)=> m.id === id);
         if (!target) return;
-        if (cloneBtn){
-          if (!confirm('この持ち物を複製しますか？')) return;
-          openMasterModal(target, { mode: 'clone' });
-        } else {
-          openMasterModal(target);
-        }
+        if (!confirm('この持ち物を複製しますか？')) return;
+        openMasterModal(target, { mode: 'clone' });
+      } else if (previewClick) {
+        const target = masterItems.find((m)=> m.id === previewClick.dataset.masterPreview);
+        if (target) openPackingPreview(target, 'item');
       }
     });
 

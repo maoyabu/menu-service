@@ -240,7 +240,7 @@ router.get('/', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .sort(compareStorageNames)
-      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, displayOrder: s.displayOrder ?? null, owner: s.owner || 'all' }));
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, displayOrder: s.displayOrder ?? null, imageUrl: s.imageUrl || '', owner: s.owner || 'all' }));
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
       name: it.name,
@@ -250,6 +250,7 @@ router.get('/', async (req, res, next) => {
       priority: normalizePackingPriority(it.priority),
       category: it.category || '',
       comment: it.comment || '',
+      imageUrl: it.imageUrl || '',
       wish: !!it.wish
     }));
     const masterCategories = Array.from(new Set((masterItemsRaw || []).map((m)=> (m.category || '').trim()).filter(Boolean)));
@@ -306,9 +307,10 @@ router.post('/api/storages', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'name required' });
     const maxWeight = Math.max(0, Number(req.body?.maxWeight) || 0);
     const displayOrder = req.body?.displayOrder === '' || req.body?.displayOrder == null ? null : Number(req.body.displayOrder);
+    const imageUrl = String(req.body?.imageUrl || '').trim();
     const owner = String(req.body?.owner || 'all') || 'all';
-    const created = await PackingStorage.create({ name, maxWeight, displayOrder: Number.isFinite(displayOrder) ? displayOrder : null, owner, group: groupId, createdBy: req.user._id });
-    res.json({ id: created._id, name: created.name, maxWeight: created.maxWeight || 0, displayOrder: created.displayOrder ?? null, owner: created.owner || 'all' });
+    const created = await PackingStorage.create({ name, maxWeight, displayOrder: Number.isFinite(displayOrder) ? displayOrder : null, imageUrl, owner, group: groupId, createdBy: req.user._id });
+    res.json({ id: created._id, name: created.name, maxWeight: created.maxWeight || 0, displayOrder: created.displayOrder ?? null, imageUrl: created.imageUrl || '', owner: created.owner || 'all' });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
@@ -319,12 +321,13 @@ router.patch('/api/storages/:id', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'name required' });
     const maxWeight = Math.max(0, Number(req.body?.maxWeight) || 0);
     const displayOrder = req.body?.displayOrder === '' || req.body?.displayOrder == null ? null : Number(req.body.displayOrder);
+    const imageUrl = String(req.body?.imageUrl || '').trim();
     const owner = String(req.body?.owner || 'all') || 'all';
-    const updated = await PackingStorage.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: { name, maxWeight, displayOrder: Number.isFinite(displayOrder) ? displayOrder : null, owner } }, { new: true }).lean();
+    const updated = await PackingStorage.findOneAndUpdate({ _id: req.params.id, group: groupId }, { $set: { name, maxWeight, displayOrder: Number.isFinite(displayOrder) ? displayOrder : null, imageUrl, owner } }, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: 'not found' });
     // update items storage name snapshots
     await PackingItem.updateMany({ group: groupId, storageId: updated._id }, { $set: { storageName: updated.name } });
-    res.json({ id: String(updated._id), name: updated.name, maxWeight: updated.maxWeight || 0, displayOrder: updated.displayOrder ?? null, owner: updated.owner || 'all' });
+    res.json({ id: String(updated._id), name: updated.name, maxWeight: updated.maxWeight || 0, displayOrder: updated.displayOrder ?? null, imageUrl: updated.imageUrl || '', owner: updated.owner || 'all' });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
 });
 
@@ -361,8 +364,9 @@ router.post('/api/master-items', async (req, res) => {
     const priority = normalizePackingPriority(req.body?.priority);
     const category = String(req.body?.category || '').trim();
     const comment = String(req.body?.comment || '').trim();
+    const imageUrl = String(req.body?.imageUrl || '').trim();
     const wish = parseBool(req.body?.wish);
-    const created = await PackingMasterItem.create({ name, defaultQuantity, defaultWeight, owner, priority, category, comment, wish, group: groupId, createdBy: req.user._id });
+    const created = await PackingMasterItem.create({ name, defaultQuantity, defaultWeight, owner, priority, category, comment, imageUrl, wish, group: groupId, createdBy: req.user._id });
     res.json({
       id: created._id,
       name: created.name,
@@ -372,6 +376,7 @@ router.post('/api/master-items', async (req, res) => {
       priority: normalizePackingPriority(created.priority),
       category: created.category || '',
       comment: created.comment,
+      imageUrl: created.imageUrl || '',
       wish: !!created.wish
     });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
@@ -384,6 +389,7 @@ router.patch('/api/master-items/:id', async (req, res) => {
     if (typeof req.body?.name === 'string') update.name = String(req.body.name || '').trim();
     if (typeof req.body?.owner === 'string') update.owner = String(req.body.owner || 'all');
     if (typeof req.body?.comment === 'string') update.comment = String(req.body.comment || '').trim();
+    if (typeof req.body?.imageUrl === 'string') update.imageUrl = String(req.body.imageUrl || '').trim();
     if (typeof req.body?.category === 'string') update.category = String(req.body.category || '').trim();
     if (typeof req.body?.defaultQuantity !== 'undefined') update.defaultQuantity = Math.max(0, Number(req.body.defaultQuantity) || 0);
     if (typeof req.body?.defaultWeight !== 'undefined') update.defaultWeight = Math.max(0, Number(req.body.defaultWeight) || 0);
@@ -402,6 +408,9 @@ router.patch('/api/master-items/:id', async (req, res) => {
     if (typeof update.priority === 'string') {
       await PackingItem.updateMany({ group: groupId, thingId: updated._id }, { $set: { priority: normalizePackingPriority(update.priority) } });
     }
+    if (typeof update.imageUrl === 'string') {
+      await PackingItem.updateMany({ group: groupId, thingId: updated._id }, { $set: { imageUrl: update.imageUrl } });
+    }
     res.json({
       id: String(updated._id),
       name: updated.name,
@@ -411,6 +420,7 @@ router.patch('/api/master-items/:id', async (req, res) => {
       priority: normalizePackingPriority(updated.priority),
       category: updated.category || '',
       comment: updated.comment,
+      imageUrl: updated.imageUrl || '',
       wish: !!updated.wish
     });
   } catch(_) { res.status(500).json({ error: 'failed' }); }
@@ -701,6 +711,7 @@ router.get('/api/events/:id', async (req, res) => {
       name: s.name,
       maxWeight: s.maxWeight || 0,
       displayOrder: s.displayOrder ?? null,
+      imageUrl: s.imageUrl || '',
       owner: s.owner || 'all'
     }));
     const eventStorageIds = (ev.storageIds || []).map((id) => id.toString());
@@ -713,6 +724,7 @@ router.get('/api/events/:id', async (req, res) => {
       priority: normalizePackingPriority(it.priority),
       category: it.category || '',
       comment: it.comment || '',
+      imageUrl: it.imageUrl || '',
       wish: !!it.wish
     }));
     const masterCategories = Array.from(
@@ -738,6 +750,7 @@ router.get('/api/events/:id', async (req, res) => {
         : (it.category || ''),
       hidden: !!it.hidden,
       comment: it.comment || '',
+      imageUrl: it.imageUrl || '',
       storageId: it.storageId ? String(it.storageId) : '',
       storageName: it.storageName || '',
       wish: !!it.wish,
@@ -760,6 +773,7 @@ router.get('/api/events/:id', async (req, res) => {
         priority: normalizePackingPriority(m.priority),
         category: m.category || '',
         comment: m.comment || '',
+        imageUrl: m.imageUrl || '',
         wish: !!m.wish,
         hidden: true,
         hiddenAt: new Date(),
@@ -776,6 +790,7 @@ router.get('/api/events/:id', async (req, res) => {
         priority: normalizePackingPriority(d.priority),
         category: d.category || '',
         comment: d.comment || '',
+        imageUrl: d.imageUrl || '',
         storageId: '',
         storageName: '',
         wish: !!d.wish,
@@ -994,7 +1009,7 @@ router.get('/:eventId', async (req, res, next) => {
       PackingItem.find({ group: groupId, event: eventId }).lean()
     ]);
     if (!ev) return res.redirect('/users/packing');
-    const storages = (storagesRaw || []).slice().sort(compareStorageNames).map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, displayOrder: s.displayOrder ?? null, owner: s.owner || 'all' }));
+    const storages = (storagesRaw || []).slice().sort(compareStorageNames).map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, displayOrder: s.displayOrder ?? null, imageUrl: s.imageUrl || '', owner: s.owner || 'all' }));
     const eventStorageIds = (ev.storageIds || []).map((id)=> id.toString());
     const masterItems = (masterItemsRaw || []).map((it)=> ({
       id: String(it._id),
@@ -1005,6 +1020,7 @@ router.get('/:eventId', async (req, res, next) => {
       priority: normalizePackingPriority(it.priority),
       category: it.category || '',
       comment: it.comment || '',
+      imageUrl: it.imageUrl || '',
       wish: !!it.wish
     }));
     const masterMap = new Map(masterItemsRaw.map((m)=> [m._id.toString(), {
@@ -1025,6 +1041,7 @@ router.get('/:eventId', async (req, res, next) => {
       category: it.category || '',
       hidden: !!it.hidden,
       comment: it.comment || '',
+      imageUrl: it.imageUrl || '',
       storageId: it.storageId ? String(it.storageId) : '',
       storageName: it.storageName || '',
       wish: !!it.wish,
@@ -1048,6 +1065,7 @@ router.get('/:eventId', async (req, res, next) => {
         priority: normalizePackingPriority(m.priority),
         category: m.category || '',
         comment: m.comment || '',
+        imageUrl: m.imageUrl || '',
         wish: !!m.wish,
         hidden: true,
         hiddenAt: new Date(),
@@ -1064,6 +1082,7 @@ router.get('/:eventId', async (req, res, next) => {
       priority: normalizePackingPriority(d.priority),
       category: d.category || '',
       comment: d.comment || '',
+      imageUrl: d.imageUrl || '',
       storageId: '',
       storageName: '',
       wish: !!d.wish,
@@ -1118,6 +1137,7 @@ router.post('/api/items', async (req, res) => {
       getMemberOptions(groupId)
     ]);
     if (!event) return res.status(404).json({ error: 'event not found' });
+    const imageUrl = String(req.body?.imageUrl || thing?.imageUrl || '').trim();
     const wish = typeof req.body?.wish !== 'undefined' ? parseBool(req.body.wish) : !!thing?.wish;
     const storageName = !wish && storage ? storage.name : '';
     const ownerId = memberInfo.idSet.has(String(owner || '')) ? String(owner) : 'all';
@@ -1135,6 +1155,7 @@ router.post('/api/items', async (req, res) => {
         priority,
         category: String(req.body?.category || '').trim(),
         comment: String(comment || '').trim(),
+        imageUrl,
         wish,
         group: groupId,
         createdBy: req.user._id
@@ -1154,6 +1175,7 @@ router.post('/api/items', async (req, res) => {
       priority,
       category,
       comment: String(comment || '').trim(),
+      imageUrl,
       wish,
       group: groupId,
       event: event._id,
@@ -1173,6 +1195,7 @@ router.post('/api/items', async (req, res) => {
       priority: normalizePackingPriority(created.priority),
       category: created.category || '',
       comment: created.comment,
+      imageUrl: created.imageUrl || '',
       wish: !!created.wish,
       checked: created.checked,
       checkedAt: created.checkedAt,
@@ -1230,6 +1253,7 @@ router.patch('/api/items/:id', async (req, res) => {
       priority: typeof req.body?.priority !== 'undefined' ? normalizePackingPriority(req.body.priority) : normalizePackingPriority(item.priority || thing?.priority),
       category: typeof req.body?.category === 'string' ? String(req.body.category || '').trim() : item.category || '',
       comment: typeof req.body?.comment === 'string' ? String(req.body.comment).trim() : String(item.comment || ''),
+      imageUrl: typeof req.body?.imageUrl === 'string' ? String(req.body.imageUrl).trim() : String(item.imageUrl || thing?.imageUrl || ''),
       thingId: thing?._id || item.thingId || null,
       storageId: wish
         ? null
@@ -1269,6 +1293,7 @@ router.patch('/api/items/:id', async (req, res) => {
       weight: updated.weight,
       priority: normalizePackingPriority(updated.priority),
       comment: updated.comment,
+      imageUrl: updated.imageUrl || '',
       storageId: updated.storageId ? String(updated.storageId) : '',
       storageName: updated.storageName || '',
       checked: updated.checked,
@@ -1462,7 +1487,7 @@ router.get('/check/:eventId', async (req, res, next) => {
     const storages = (storagesRaw || [])
       .slice()
       .sort(compareStorageNames)
-      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, displayOrder: s.displayOrder ?? null, owner: s.owner || 'all' }));
+      .map((s)=> ({ id: String(s._id), name: s.name, maxWeight: s.maxWeight || 0, displayOrder: s.displayOrder ?? null, imageUrl: s.imageUrl || '', owner: s.owner || 'all' }));
     const filteredStorages = storages.filter((s)=> (
       storageIds.includes(s.id) && isActiveStorageOwner(s.owner, memberInfo)
     ));
