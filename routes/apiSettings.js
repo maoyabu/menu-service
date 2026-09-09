@@ -3,6 +3,7 @@ import multer from 'multer';
 import User from '../models/users.js';
 import Group from '../models/groups.js';
 import cloudinary from '../utils/cloudinary.js';
+import { normalizeProfileSex } from '../utils/profileSex.js';
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ router.get('/profile', requireLoginApi, async (req, res) => {
         avatar: user.avatar || null,
         blood: user.blood || '',
         rh: user.rh || '',
-        sex: user.sex || '',
+        sex: normalizeProfileSex(user.sex),
         isAdmin: Boolean(user.isAdmin),
         unsubscribe_date: user.unsubscribe_date || null
       },
@@ -91,7 +92,7 @@ router.put('/profile', requireLoginApi, async (req, res) => {
     if (typeof email === 'string') user.email = email;
     if (typeof blood === 'string') user.blood = blood;
     if (typeof rh === 'string') user.rh = rh;
-    if (typeof sex === 'string') user.sex = sex;
+    if (typeof sex === 'string') user.sex = normalizeProfileSex(sex);
 
     if (birth_date === null || birth_date === '') {
       user.birth_date = null;

@@ -10,6 +10,7 @@ import fs from 'fs';
 import multer from 'multer';
 import cloudinary from '../utils/cloudinary.js';
 import { GROUP_SERVICE_IDS } from '../utils/groupServices.js';
+import { normalizeProfileSex } from '../utils/profileSex.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -176,6 +177,7 @@ const fetchSettingsContext = async (userId) => {
       .lean({ virtuals: true })
   ]);
 
+  if (user) user.sex = normalizeProfileSex(user.sex);
   return { user, groups: groups || [] };
 };
 
@@ -254,7 +256,7 @@ router.post('/profile', async (req, res, next) => {
     user.displayname = displayname?.trim() || '';
     user.email = trimmedEmail;
     user.birth_date = birth_date ? new Date(birth_date) : undefined;
-    user.sex = sex || undefined;
+    user.sex = normalizeProfileSex(sex) || undefined;
     user.blood = blood || undefined;
     user.rh = rh || undefined;
     const newAvatar = (avatar || '').trim();
