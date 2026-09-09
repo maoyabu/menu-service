@@ -15,9 +15,6 @@ export const normalizeGroupServices = (services) => Object.fromEntries(
 
 export const servicesForGroupMember = (group, memberId) => {
   if (!group || !memberId) return normalizeGroupServices();
-  if (String(group.createdBy?._id || group.createdBy || '') === String(memberId)) {
-    return normalizeGroupServices();
-  }
   const permission = (group.memberServicePermissions || []).find(
     (entry) => String(entry?.member?._id || entry?.member || '') === String(memberId)
   );

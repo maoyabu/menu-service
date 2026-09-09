@@ -1,6 +1,7 @@
 import ejs from 'ejs';
 import nodemailer from 'nodemailer';
 import path from 'path';
+import mongoose from 'mongoose';
 
 export const buildTransporter = () => {
   const host = process.env.SMTP_HOST;
@@ -17,14 +18,37 @@ export const buildTransporter = () => {
 
 export const renderTemplate = async (templateName, data) => {
   const tplPath = path.resolve(process.cwd(), `utils/templates/${templateName}.ejs`);
-  return ejs.renderFile(tplPath, data);
+  return `<!-- common-email-template:${templateName} -->${await ejs.renderFile(tplPath, data)}`;
+};
+
+const templateService = {
+  myMenuAdded: ['plan', 'myMenuAdded'], planMenuAdded: ['plan', 'planMenuAdded'], notEating: ['plan', 'notEating'], eatingAgain: ['plan', 'eatingAgain'], dailyMenu: ['plan', 'dailyMenu'], weeklyPlanReady: ['plan', 'weeklyPlanReady'], adminMyMenuAdded: ['plan', 'adminMyMenuAdded'],
+  monthlyStockReminder: ['stock', 'monthlyStockReminder'], monthlyStockReminderFollowup: ['stock', 'monthlyStockReminderFollowup'], purchaseReminder: ['stock', 'purchaseReminder'],
+  equipmentInventoryReminder: ['stock', 'equipmentInventoryReminder'], taskNotification: ['board', 'taskNotification']
+};
+
+const isEnabled = async (address, html, subject = '') => {
+  const match = String(html || '').match(/common-email-template:([^\s-]+)\s*-->/);
+  let target = match && templateService[match[1]];
+  if (match?.[1] === 'taskNotification') target = String(subject).includes('パッキング') ? ['packing', 'taskNotification'] : ['board', 'taskNotification'];
+  if (!target || !mongoose.connection?.readyState || !address) return true;
+  const user = await mongoose.connection.collection('users').findOne({ email: String(address).trim().toLowerCase() }, { projection: { isMail: 1, serviceMailPreferences: 1 } });
+  if (!user) return true;
+  if (user.isMail === false) return false;
+  const preference = user.serviceMailPreferences?.[target[0]];
+  if (preference === false) return false;
+  if (preference && typeof preference === 'object') return preference.enabled !== false && preference.emails?.[target[1]] !== false;
+  return true;
 };
 
 export const sendMail = async ({ to, subject, html }) => {
   const transporter = buildTransporter();
   const from = process.env.MAIL_FROM || 'no-reply@example.com';
   const toList = Array.isArray(to) ? to.filter(Boolean) : String(to || '').split(',').map(s => s.trim()).filter(Boolean);
-  const mailTo = Array.isArray(to) ? toList : toList.join(', ');
+  const allowed = [];
+  for (const address of toList) if (await isEnabled(address, html, subject)) allowed.push(address);
+  if (!allowed.length) return { skipped: true, reason: 'service-mail-disabled' };
+  const mailTo = Array.isArray(to) ? allowed : allowed.join(', ');
   const maskedTo = toList.map((address) => {
     const [local, domain] = String(address).split('@');
     return domain ? `${local.slice(0, 1)}***@${domain}` : '***';

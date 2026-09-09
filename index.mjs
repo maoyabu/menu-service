@@ -91,6 +91,17 @@ app.use(flash());
 app.use(passport.initialize());
 app.use(passport.session());
 
+// 共通管理画面で利用する最終アクセス日時を記録する
+app.use((req, res, next) => {
+  if (req.user?._id) {
+    User.collection.updateOne(
+      { _id: req.user._id },
+      { $set: { lastAccessAt: new Date() } }
+    ).catch((error) => console.warn('最終アクセス日時の更新に失敗:', error.message));
+  }
+  next();
+});
+
 app.use(express.static('public'));
 
 // passport.use(new LocalStrategy(User.authenticate()));
