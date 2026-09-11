@@ -45,6 +45,23 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: {
     type: Date
   },
+  emailVerified: {
+    type: Boolean,
+    default: true,
+    index: true
+  },
+  emailVerificationToken: {
+    type: String,
+    index: true
+  },
+  emailVerificationExpires: {
+    type: Date
+  },
+  pendingInviteGroup: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    default: null
+  },
   groups: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group',

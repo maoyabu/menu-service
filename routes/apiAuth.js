@@ -51,6 +51,10 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'unsubscribed', message: '退会済みのためログインできません' });
     }
 
+    if (user.emailVerified === false) {
+      return res.status(403).json({ error: 'email_not_verified', message: 'メールアドレスの確認が完了していません' });
+    }
+
     const isValid = await new Promise((resolve) => {
       user.authenticate(password, (_err, thisUser, passwordError) => {
         resolve(!passwordError && !!thisUser);

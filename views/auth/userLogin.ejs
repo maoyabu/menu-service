@@ -105,6 +105,14 @@
           ログイン
         </button>
       </form>
+
+      <details class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+        <summary class="cursor-pointer font-medium text-gray-700">確認メールを再送する</summary>
+        <form action="/user/resend-verification" method="POST" class="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input type="email" name="email" required autocomplete="email" placeholder="登録したメールアドレス" class="min-w-0 flex-1 border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <button type="submit" class="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white hover:bg-gray-800">再送する</button>
+        </form>
+      </details>
     </div>
 
     <div class="hidden p-8 space-y-6" data-tab-panel="register">
@@ -115,7 +123,7 @@
             <%= registrationAlert %>
           </div>
         <% } %>
-        <p class="mt-2 text-sm text-gray-500">アカウント情報を入力して、サービスのご利用を開始しましょう。</p>
+        <p class="mt-2 text-sm text-gray-500">登録後に確認メールを送信します。メール内のボタンを押すと会員登録が完了します。</p>
       </div>
 
       <form action="/user/register" method="POST" class="space-y-5">
@@ -201,7 +209,7 @@
           type="submit"
           class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-lg transition"
         >
-          会員登録する
+          確認メールを送信する
         </button>
       </form>
     </div>

@@ -1,0 +1,15 @@
+<%- include('_mailHeader') %>
+
+<p><%= displayName %> 様</p>
+
+<p>REPALACEへの会員登録ありがとうございます。</p>
+<p>下のボタンを押して、会員登録を完了してください。このリンクの有効期限は24時間です。</p>
+
+<p style="margin: 28px 0; text-align: center;">
+  <a href="<%= verificationUrl %>" style="display:inline-block;padding:14px 28px;background:#10b981;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">会員登録を完了する</a>
+</p>
+
+<p style="font-size:12px;color:#6b7280;word-break:break-all;">ボタンを押せない場合は、次のURLをブラウザに貼り付けてください。<br><%= verificationUrl %></p>
+<p style="font-size:12px;color:#6b7280;">この登録に心当たりがない場合は、このメールを破棄してください。</p>
+
+<%- include('_mailFooter') %>

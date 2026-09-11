@@ -40,6 +40,76 @@ const __dirname = path.resolve();
 
 const router = express.Router();
 
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const hashVerificationToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const createEmailVerification = () => {
+  const token = crypto.randomBytes(32).toString('hex');
+  return {
+    token,
+    tokenHash: hashVerificationToken(token),
+    expires: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS)
+  };
+};
+
+const sendVerificationEmail = async (req, user, token) => {
+  const baseUrl = String(process.env.APP_BASE_URL || process.env.BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+  const verificationUrl = `${baseUrl}/user/verify-email?token=${encodeURIComponent(token)}`;
+  const html = await renderTemplate('emailVerification', {
+    displayName: user.displayname || user.username || user.email,
+    verificationUrl
+  });
+  return sendMail({
+    to: user.email,
+    subject: '【REPALACE】会員登録を完了してください',
+    html
+  });
+};
+
+const attachPendingInvitation = async (user) => {
+  let inviteGroupId = user.pendingInviteGroup ? String(user.pendingInviteGroup) : '';
+  if (!inviteGroupId) {
+    const invitedGroup = await Group.findOne({ invitedUsers: user.email }).select('_id').lean();
+    inviteGroupId = invitedGroup?._id ? String(invitedGroup._id) : '';
+  }
+  if (!inviteGroupId) return;
+  const group = await Group.findById(inviteGroupId);
+  if (!group) return;
+  const invitedPermission = (group.invitedUserServicePermissions || []).find(
+    (permission) => String(permission.email || '').toLowerCase() === user.email
+  );
+  const invitedServices = Object.fromEntries(
+    GROUP_SERVICE_IDS.map((serviceId) => [serviceId, invitedPermission?.services?.[serviceId] !== false])
+  );
+  if (!(group.members || []).some((member) => String(member) === String(user._id))) {
+    group.members = group.members || [];
+    group.members.push(user._id);
+  }
+  const existingPermission = (group.memberServicePermissions || []).find(
+    (permission) => String(permission.member) === String(user._id)
+  );
+  if (existingPermission) existingPermission.services = invitedServices;
+  else {
+    group.memberServicePermissions = group.memberServicePermissions || [];
+    group.memberServicePermissions.push({ member: user._id, services: invitedServices });
+  }
+  group.invitedUsers = (group.invitedUsers || []).filter((address) => String(address).toLowerCase() !== user.email);
+  group.invitedUserServicePermissions = (group.invitedUserServicePermissions || []).filter(
+    (permission) => String(permission.email || '').toLowerCase() !== user.email
+  );
+  await group.save();
+  await User.updateOne(
+    { _id: user._id },
+    {
+      $addToSet: { groups: group._id },
+      $set: {
+        services: { allaboutme: false, finance: false, assets: false, menu: true },
+        defaultGroup: group._id,
+        pendingInviteGroup: null
+      }
+    }
+  );
+};
+
 const DEFAULT_GUIDELINE_TOTALS = {
   '乳類': 200,
   'チーズ': 10,
@@ -388,6 +458,9 @@ passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, passwor
     if (user.unsubscribe_date) {
       return done(null, false, { message: 'このアカウントは退会済みです。' });
     }
+    if (user.emailVerified === false) {
+      return done(null, false, { message: 'メールアドレスの確認が完了していません。' });
+    }
 
     const isValid = await new Promise((resolve) => {
       user.authenticate(password, (_err, thisUser, passwordError) => {
@@ -466,6 +539,10 @@ const authenticateWithIdentifier = async (req, res, next, options = {}) => {
       req.flash('error', 'このアカウントは退会済みです。');
       return res.redirect(failureRedirect);
     }
+    if (user.emailVerified === false) {
+      req.flash('error', 'メールアドレスの確認が完了していません。確認メールをご確認ください。');
+      return res.redirect(failureRedirect);
+    }
 
     const authenticatedUser = await new Promise((resolve, reject) => {
       user.authenticate(password, (err, thisUser, passwordError) => {
@@ -535,6 +612,9 @@ router.post('/api/auth/login', async (req, res, next) => {
     if (user.unsubscribe_date) {
       return res.status(403).json({ error: 'このアカウントは退会済みです。' });
     }
+    if (user.emailVerified === false) {
+      return res.status(403).json({ error: 'メールアドレスの確認が完了していません。' });
+    }
     const authenticatedUser = await new Promise((resolve, reject) => {
       user.authenticate(password, (err, thisUser, passwordError) => {
         if (err) return reject(err);
@@ -591,20 +671,25 @@ router.post('/api/auth/signup', async (req, res, next) => {
     const newUser = new User({
       username,
       email,
-      services: { allaboutme: true, finance: true, assets: true, menu: true }
+      services: { allaboutme: true, finance: true, assets: true, menu: true },
+      emailVerified: false
     });
 
+    const verification = createEmailVerification();
+    newUser.emailVerificationToken = verification.tokenHash;
+    newUser.emailVerificationExpires = verification.expires;
     const registeredUser = await User.register(newUser, password);
-    await new Promise((resolve, reject) => {
-      req.logIn(registeredUser, (err) => {
-        if (err) return reject(err);
-        resolve();
-      });
-    });
+    try {
+      await sendVerificationEmail(req, registeredUser, verification.token);
+    } catch (mailError) {
+      await User.deleteOne({ _id: registeredUser._id, emailVerified: false });
+      throw mailError;
+    }
 
-    return res.json({
-      token: req.sessionID || '',
-      user: serializeApiUser(registeredUser)
+    return res.status(202).json({
+      pendingVerification: true,
+      message: '確認メールを送信しました。メール内のリンクから会員登録を完了してください。',
+      email: registeredUser.email
     });
   } catch (err) {
     return next(err);
@@ -2421,95 +2506,25 @@ router.post('/user/register', async (req, res, next) => {
       sex: sex || undefined,
       blood: blood || undefined,
       rh: rh || undefined,
-      services
+      services,
+      emailVerified: false,
+      pendingInviteGroup: pendingInvite?.groupId || null
     });
 
+    const verification = createEmailVerification();
+    newUser.emailVerificationToken = verification.tokenHash;
+    newUser.emailVerificationExpires = verification.expires;
     const registeredUser = await User.register(newUser, password);
-
-    await new Promise((resolve, reject) => {
-      req.logIn(registeredUser, (err) => {
-        if (err) {
-          return reject(err);
-        }
-        resolve();
-      });
-    });
-
-    // (B) 招待グループへの参加 + サービス制限（Menu のみ）
     try {
-      // 1) セッションの pendingInvite を優先
-      let inviteGroupId = (req.session && req.session.pendingInvite && req.session.pendingInvite.groupId) ? String(req.session.pendingInvite.groupId) : '';
-
-      // 2) セッションが無ければ、メールアドレスが招待リストに含まれるグループを検索して補完
-      if (!inviteGroupId) {
-        const emailLower = (registeredUser.email || '').toLowerCase();
-        if (emailLower) {
-          const invitedGroup = await Group.findOne({ invitedUsers: emailLower }).lean();
-          if (invitedGroup) {
-            inviteGroupId = String(invitedGroup._id);
-          }
-        }
-      }
-
-      if (inviteGroupId) {
-        const group = await Group.findById(inviteGroupId);
-        if (group) {
-          const registeredEmail = (registeredUser.email || '').toLowerCase();
-          const invitedPermission = (group.invitedUserServicePermissions || []).find(
-            (permission) => String(permission.email || '').toLowerCase() === registeredEmail
-          );
-          const invitedServices = Object.fromEntries(
-            GROUP_SERVICE_IDS.map((serviceId) => [serviceId, invitedPermission?.services?.[serviceId] !== false])
-          );
-          // メンバー追加（未参加なら）
-          const isMember = (group.members || []).some((m) => String(m) === String(registeredUser._id));
-          if (!isMember) {
-            group.members = group.members || [];
-            group.members.push(registeredUser._id);
-          }
-          const existingPermission = (group.memberServicePermissions || []).find(
-            (permission) => String(permission.member) === String(registeredUser._id)
-          );
-          if (existingPermission) {
-            existingPermission.services = invitedServices;
-          } else {
-            group.memberServicePermissions = group.memberServicePermissions || [];
-            group.memberServicePermissions.push({ member: registeredUser._id, services: invitedServices });
-          }
-          // 招待メールリストから除外（一致メールを抜く）
-          const _email = registeredEmail;
-          if (_email) {
-            group.invitedUsers = (group.invitedUsers || []).filter((addr) => String(addr).toLowerCase() !== _email);
-            group.invitedUserServicePermissions = (group.invitedUserServicePermissions || []).filter(
-              (permission) => String(permission.email || '').toLowerCase() !== _email
-            );
-          }
-          await group.save();
-
-          // ユーザー側にも反映（Menu のみ有効 + defaultGroup 設定）
-          await User.findByIdAndUpdate(
-            registeredUser._id,
-            {
-              $addToSet: { groups: group._id },
-              $set: {
-                services: { allaboutme: false, finance: false, assets: false, menu: true },
-                defaultGroup: group._id,
-              }
-            }
-          );
-
-          // セッションのアクティブグループも更新
-          req.session.activeGroupId = group._id.toString();
-        }
-      }
-    } catch (e) {
-      console.error('invite attach error:', e);
-    } finally {
-      if (req.session) delete req.session.pendingInvite;
+      await sendVerificationEmail(req, registeredUser, verification.token);
+    } catch (mailError) {
+      await User.deleteOne({ _id: registeredUser._id, emailVerified: false });
+      throw mailError;
     }
 
-    req.flash('success', '会員登録が完了しました。ログインしました。');
-    return res.redirect('/users/my-top');
+    if (req.session) delete req.session.pendingInvite;
+    req.flash('success', '確認メールを送信しました。メール内の「会員登録を完了する」ボタンを押してください。');
+    return res.redirect('/user/login');
   } catch (err) {
     console.error('会員登録処理失敗:', err);
 
@@ -2518,6 +2533,61 @@ router.post('/user/register', async (req, res, next) => {
       return redirectToForm();
     }
 
+    return next(err);
+  }
+});
+
+router.get('/user/verify-email', async (req, res, next) => {
+  const token = String(req.query?.token || '');
+  if (!token) {
+    req.flash('error', '確認用URLが正しくありません。');
+    return res.redirect('/user/login');
+  }
+  try {
+    const user = await User.findOne({
+      emailVerificationToken: hashVerificationToken(token),
+      emailVerificationExpires: { $gt: new Date() },
+      emailVerified: false
+    });
+    if (!user) {
+      req.flash('error', '確認用URLが無効か、有効期限が切れています。');
+      return res.redirect('/user/login');
+    }
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+    try {
+      await attachPendingInvitation(user);
+    } catch (inviteError) {
+      console.error('メール確認後の招待参加処理に失敗:', inviteError);
+    }
+    req.flash('success', '会員登録が完了しました。ログインしてください。');
+    return res.redirect('/user/login');
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/user/resend-verification', async (req, res, next) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const completedMessage = '未完了の登録がある場合は、確認メールを再送しました。';
+  if (!email) {
+    req.flash('error', 'メールアドレスを入力してください。');
+    return res.redirect('/user/login');
+  }
+  try {
+    const user = await User.findOne({ email, emailVerified: false });
+    if (user) {
+      const verification = createEmailVerification();
+      user.emailVerificationToken = verification.tokenHash;
+      user.emailVerificationExpires = verification.expires;
+      await user.save();
+      await sendVerificationEmail(req, user, verification.token);
+    }
+    req.flash('success', completedMessage);
+    return res.redirect('/user/login');
+  } catch (err) {
     return next(err);
   }
 });
