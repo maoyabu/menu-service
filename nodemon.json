@@ -4,7 +4,22 @@
     "temp/",
     "public/uploads/",
     ".env",
-    ".git/"
+    ".git/",
+    "backup/",
+    "tmp-restore/",
+    "uploads/"
   ],
-  "ext": "js,mjs,json,ejs"
+  "ext": "js,mjs,json,ejs",
+  "watch": [
+    "index.mjs",
+    "middleware.js",
+    "routes/",
+    "models/",
+    "utils/",
+    "views/",
+    "admin/",
+    "cloudinary/",
+    "components/",
+    "public/js/"
+  ]
 }
