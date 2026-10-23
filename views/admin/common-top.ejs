@@ -1,0 +1,68 @@
+<div class="container mx-auto px-6 py-10">
+  <h1 class="text-2xl font-semibold text-gray-900 mb-1">共通システム管理</h1>
+  <p class="text-sm text-gray-500 mb-8">共通システムの各種機能にアクセスできます</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+    <% const commonMenus = [
+      { href: '/admin/common/users', icon: 'users', title: 'ユーザー管理', description: 'ユーザーの登録情報と権限を管理' },
+      { href: '/admin/common/groups', icon: 'users-round', title: 'グループ管理', description: 'グループとサービス設定を管理' },
+      { href: '/admin/common/data', icon: 'database', title: 'データ管理', description: '全DBのバックアップ・ダウンロード・復元' }
+    ]; %>
+    <% commonMenus.forEach(item => { %>
+      <a href="<%= item.href %>" class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
+        <div class="flex items-center space-x-3 mb-2">
+          <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
+            <i data-lucide="<%= item.icon %>" class="w-6 h-6 text-gray-700"></i>
+          </div>
+          <h2 class="text-lg font-medium text-gray-900"><%= item.title %></h2>
+        </div>
+        <p class="text-sm text-gray-500"><%= item.description %></p>
+      </a>
+    <% }); %>
+  </div>
+
+  <div>
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">システム概要</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="user" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p id="common-user-count" class="font-semibold text-gray-900 text-xl">-</p>
+        <p class="text-sm text-gray-500 mt-1">登録ユーザー数</p>
+      </div>
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="users" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p id="common-group-count" class="font-semibold text-gray-900 text-xl">-</p>
+        <p class="text-sm text-gray-500 mt-1">登録グループ数</p>
+      </div>
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="grid-2x2" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p class="font-semibold text-gray-900 text-xl"><%= serviceCount %></p>
+        <p class="text-sm text-gray-500 mt-1">利用可能サービス</p>
+      </div>
+      <div class="bg-white text-center border border-gray-200 rounded-xl py-6 shadow-sm">
+        <i data-lucide="activity" class="w-6 h-6 text-gray-700 mb-2 mx-auto"></i>
+        <p id="common-system-status" class="font-semibold text-gray-900 text-xl">確認中</p>
+        <p class="text-sm text-gray-500 mt-1">システム状態</p>
+      </div>
+    </div>
+  </div>
+  <a href="/admin/admin-top" class="inline-flex items-center gap-2 mt-8 text-sm text-blue-600 hover:underline">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+    管理者ダッシュボードへ戻る
+  </a>
+</div>
+<script>
+  fetch('/admin/common/api/users')
+    .then(response => {
+      if (!response.ok) throw new Error('概要を取得できませんでした');
+      return response.json();
+    })
+    .then(data => {
+      document.querySelector('#common-user-count').textContent = data.users.length;
+      document.querySelector('#common-group-count').textContent = data.groups.length;
+      document.querySelector('#common-system-status').textContent = '稼働中';
+    })
+    .catch(() => {
+      document.querySelector('#common-system-status').textContent = '取得失敗';
+    });
+</script>

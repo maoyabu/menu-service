@@ -1,17 +1,21 @@
 <div class="container mx-auto px-6 py-10">
   <h1 class="text-2xl font-semibold text-gray-900 mb-1">管理者ダッシュボード</h1>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-8">
+    <a href="/admin/common/" class="bg-blue-50 border border-blue-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-blue-100 flex items-center justify-center rounded-md">
+          <i data-lucide="shield-check" class="w-6 h-6 text-blue-700"></i>
+        </div>
+        <h2 class="text-lg font-medium text-blue-900">共通システム管理</h2>
+      </div>
+      <p class="text-sm text-blue-700">ユーザー・グループ・サービス・メール設定と全DBバックアップ</p>
+    </a>
+  </div>
+
+  <h2 class="text-2xl font-semibold text-gray-900 mb-1">Preplace管理者ダッシュボード</h2>
   <p class="text-sm text-gray-500 mb-8">レシピ管理システムの各種機能にアクセスできます</p>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-    <div class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300">
-      <div class="flex items-center space-x-3 mb-2">
-        <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">
-          <i data-lucide="chart-column" class="w-6 h-6 text-gray-700"></i>
-        </div>
-        <h2 class="text-lg font-medium text-gray-900">ダッシュボード</h2>
-      </div>
-      <p class="text-sm text-gray-500">概要とクイックアクセス</p>
-    </div>
     <a href="/admin/menu-list" class="bg-white border border-gray-200 shadow-sm rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 block">
       <div class="flex items-center space-x-3 mb-2">
         <div class="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md">

@@ -15,6 +15,7 @@ import expressLayouts from 'express-ejs-layouts';
 
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
+import commonAdminRoutes, { startCommonAdminBackupScheduler } from './routes/commonAdmin.js';
 import settingsRoutes from './routes/settings.js';
 import mymenuRoutes from './routes/mymenu.js';
 import mystockRoutes from './routes/mystock.js';
@@ -177,6 +178,8 @@ app.use((req, res, next) => {
   return res.redirect(redirectTo);
 });
 
+// Common admin has its own 1 MiB JSON and 500 MiB multipart limits.
+app.use('/admin/common', commonAdminRoutes);
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(authRoutes);
@@ -203,6 +206,7 @@ app.set('view engine', 'ejs');
 
 //管理画面用のルート
 app.use('/admin', adminRoutes);
+startCommonAdminBackupScheduler();
 
 app.get('/menus', async (req, res) => {
   const menus = await Menu.find({});

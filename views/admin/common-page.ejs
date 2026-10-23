@@ -1,0 +1,90 @@
+<style>
+  @scope (.common-admin) {
+    <%- styles %>
+  }
+  .common-admin {
+    --ink: #111827 !important;
+    --muted: #6b7280 !important;
+    --line: #e5e7eb !important;
+    --paper: #f9fafb !important;
+    --panel: #fff !important;
+    --accent: #2563eb !important;
+    --teal: #2563eb !important;
+    --danger: #dc2626 !important;
+    font-family: inherit !important;
+    font-size: 14px !important;
+    color: #111827 !important;
+    background: transparent !important;
+  }
+  .common-admin .shell { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  .common-admin .panel, .common-admin .modal-box {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px !important;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05);
+  }
+  .common-admin .panel:not(.detail) { overflow: hidden; }
+  .common-admin .panel > h2 { font-size: 18px; font-weight: 500; line-height: 28px; margin: 0 0 8px; }
+  .common-admin .panel:has(> h2) { padding: 24px; margin-top: 24px; }
+  .common-admin .toolbar { padding: 24px !important; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .common-admin .toolbar strong { font-size: 18px; font-weight: 500; }
+  .common-admin .summary { padding: 16px 24px !important; font-size: 14px !important; }
+  .common-admin :is(.table, .user-table) { width: 100%; border-collapse: collapse; }
+  .common-admin :is(.table, .user-table) th { font-size: 12px !important; font-weight: 500; padding: 12px 24px !important; background: #f9fafb; color: #6b7280; letter-spacing: normal; }
+  .common-admin :is(.table, .user-table) td { font-size: 14px !important; padding: 16px 24px !important; border-color: #e5e7eb; }
+  .common-admin :is(.name, .group-name, .member-name) { font-size: 14px !important; font-weight: 500; }
+  .common-admin :is(.sub, .meta, .notice, .member-email, .fact label) { font-size: 14px !important; line-height: 20px; color: #6b7280; }
+  .common-admin :is(.search, .select, .confirm, #groupName) {
+    font: inherit !important; font-size: 14px !important; line-height: 20px;
+    padding: 10px 12px !important; border: 1px solid #d1d5db !important;
+    border-radius: 6px !important; background: #fff;
+  }
+  .common-admin :is(.search, .select, .confirm, #groupName):focus-visible {
+    outline: 2px solid #2563eb; outline-offset: 2px;
+  }
+  .common-admin :is(.button, .save, .delete-user) {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: inherit; font-size: 14px !important; font-weight: 500; line-height: 20px;
+    border-radius: 6px !important; padding: 10px 16px !important;
+    background: #2563eb; color: #fff;
+  }
+  .common-admin :is(.button, .save, .delete-user):hover { filter: brightness(.95); }
+  .common-admin .button.light { background: #f3f4f6; color: #374151; }
+  .common-admin :is(.button.danger, .delete-user) { background: #dc2626; }
+  .common-admin :is(.detail, .modal) { z-index: 80; }
+  .common-admin :is(.detail, .modal-box) { padding: 24px !important; }
+  .common-admin .detail { box-shadow: 0 0 0 100vmax rgb(17 24 39 / .4), 0 20px 25px -5px rgb(0 0 0 / .1); }
+  .common-admin :is(.detail h2, .modal-box h2) { font-family: inherit !important; font-size: 20px !important; font-weight: 600; line-height: 28px; }
+  .common-admin :is(.section-title, .modal-section h3) { font-size: 14px !important; font-weight: 600; letter-spacing: normal; color: #374151; }
+  .common-admin :is(.toggle-row, .fact div, .service, .mail-item, .mail-service-name, .modal-row) { font-family: inherit !important; font-size: 14px !important; }
+  .common-admin :is(.member, .group-block, .mail-service, .service-chip-group, .restore-box, .delete-user-area) { border-radius: 12px !important; padding: 16px; border-color: #e5e7eb; }
+  .common-admin .mail-service { padding: 0; }
+  .common-admin .service-chip-group .toggle-row { border-radius: 6px; padding: 8px 12px; }
+  .common-admin .badge { font-size: 12px !important; border-radius: 6px; background: #eff6ff; color: #1d4ed8; }
+  .common-admin .backup-row { padding: 16px 0; }
+  .common-admin .empty { padding: 40px 24px; font-size: 14px; }
+  .common-admin .toast { z-index: 90; font-size: 14px; border-radius: 6px; }
+  @media (max-width: 640px) {
+    .common-admin .toolbar { padding: 16px !important; }
+    .common-admin .search { min-width: 0; width: 100%; flex-basis: 100%; }
+    .common-admin .select { min-width: 0; flex: 1; }
+    .common-admin .members, .common-admin .facts { grid-template-columns: 1fr; }
+    .common-admin :is(.detail, .modal-box) { padding: 16px !important; }
+  }
+</style>
+<div class="container mx-auto px-6 py-10">
+  <h1 class="text-2xl font-semibold text-gray-900 mb-1"><%= title %></h1>
+  <p class="text-sm text-gray-500 mb-8"><%= description %></p>
+  <nav class="flex flex-wrap gap-2 mb-6 text-sm" aria-label="共通システム管理">
+    <% [
+      { href: '/admin/common/', path: '/', label: '共通システム管理' },
+      { href: '/admin/common/users', path: '/users', label: 'ユーザー管理' },
+      { href: '/admin/common/groups', path: '/groups', label: 'グループ管理' },
+      { href: '/admin/common/data', path: '/data', label: 'データ管理' }
+    ].forEach(item => { %>
+      <a href="<%= item.href %>" class="px-3 py-2 rounded-md <%= activePage === item.path ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100' %>" <% if (activePage === item.path) { %>aria-current="page"<% } %>><%= item.label %></a>
+    <% }); %>
+  </nav>
+  <div class="common-admin"><%- content %></div>
+  <a href="/admin/admin-top" class="inline-flex items-center gap-2 mt-8 text-sm text-blue-600 hover:underline">
+    <i data-lucide="arrow-left" class="w-4 h-4"></i>管理者ダッシュボードへ戻る
+  </a>
+</div>
