@@ -44,3 +44,52 @@ test('backup failure and unknown jobs return actionable JSON', async () => {
   const missing = response(); routes.get({ params: { id: 'missing' } }, missing);
   assert.equal(missing.statusCode, 404);
 });
+
+const createBackupSource = source.slice(source.indexOf('const createBackup ='), source.indexOf('const sessionCollectionNames ='));
+const retentionFixture = ({ fail = false } = {}) => {
+  const removed = [];
+  const events = [];
+  let finish;
+  const context = {
+    fs: {
+      mkdir: async () => {},
+      readdir: async () => ['backup-old.zip', 'backup-older.zip', 'backup-new.zip', 'backup-log.json'],
+      unlink: async filename => { removed.push(filename); }
+    },
+    path: { join: (...parts) => parts.join('/') },
+    backupDir: '/backups', backupName: () => 'backup-new.zip',
+    withDataOperation: operation => operation(),
+    mongoose: { connection: { name: 'test', db: { listCollections: () => ({ toArray: async () => [] }) } } },
+    archiver: () => ({
+      on() {}, pipe() {}, append() {},
+      finalize: async () => { if (fail) throw new Error('archive failed'); }
+    }),
+    EJSON: { stringify: JSON.stringify },
+    writeBackupLog: async () => { events.push('success-log'); },
+  };
+  // Replace only stream construction so the actual completion/deletion ordering runs.
+  const executable = createBackupSource.replace("(await import('node:fs')).createWriteStream(target)", 'makeOutput()');
+  context.makeOutput = () => ({ on(event, callback) { if (event === 'close') finish = callback; } });
+  vm.runInNewContext(`${executable}\nthis.runBackup = createBackup;`, context);
+  return { run: () => context.runBackup('automatic'), removed, events, finish: () => finish() };
+};
+
+test('automatic backup deletes old ZIPs only after the new ZIP closes and success is recorded', async () => {
+  const fixture = retentionFixture();
+  const running = fixture.run();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(fixture.removed, []);
+  assert.deepEqual(fixture.events, []);
+  fixture.finish();
+  const result = await running;
+  assert.equal(result.filename, 'backup-new.zip');
+  assert.deepEqual(fixture.events, ['success-log']);
+  assert.deepEqual(fixture.removed.sort(), ['/backups/backup-old.zip', '/backups/backup-older.zip']);
+});
+
+test('failed automatic backup preserves previous ZIPs', async () => {
+  const fixture = retentionFixture({ fail: true });
+  await assert.rejects(fixture.run(), /archive failed/);
+  assert.deepEqual(fixture.removed, []);
+  assert.deepEqual(fixture.events, []);
+});

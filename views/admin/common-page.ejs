@@ -62,6 +62,26 @@
   .common-admin .backup-row { padding: 16px 0; }
   .common-admin .empty { padding: 40px 24px; font-size: 14px; }
   .common-admin .toast { z-index: 90; font-size: 14px; border-radius: 6px; }
+  .common-admin .user-table { table-layout: fixed; min-width: 760px; }
+  .common-admin .user-table th:first-child { width: 44%; }
+  .common-admin .user-table th:nth-child(2),
+  .common-admin .user-table th:nth-child(3) { width: 15%; }
+  .common-admin .user-table th:nth-child(4) { width: 9%; }
+  .common-admin .user-table th:last-child { width: 17%; }
+  .common-admin .user-table .sub { overflow-wrap: anywhere; }
+  .common-admin .role-tabs { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-top: 10px; }
+  .common-admin .role-tabs:empty { display: none; }
+  .common-admin .user-id-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 6px; }
+  .common-admin .user-id-line .user-id { margin-top: 0; }
+  .common-admin .user-id-line .role-tabs { width: auto; margin-top: 0; }
+  .common-admin .role-tab { display: inline-flex; align-items: center; padding: 5px 12px; border: 1px solid; border-radius: 6px; font-size: 12px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
+  .common-admin .role-admin { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .common-admin .role-planner { background: #f5f3ff; border-color: #ddd6fe; color: #6d28d9; }
+  .common-admin .role-neighborhood { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+  .common-admin .list-details summary { cursor: pointer; color: #2563eb; font-size: 12px; padding: 5px 0; }
+  .common-admin .list-details summary:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+  .common-admin .list-details-content { padding-top: 8px; font-size: 12px; overflow-wrap: anywhere; }
+  .common-admin .list-details-content .service-name { display: flex; white-space: normal; margin: 5px 0; }
   @media (max-width: 640px) {
     .common-admin .toolbar { padding: 16px !important; }
     .common-admin .search { min-width: 0; width: 100%; flex-basis: 100%; }
